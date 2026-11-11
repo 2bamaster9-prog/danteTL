@@ -8,6 +8,7 @@ its last committed position, rather than following every detector fluctuation.
 import unicodedata
 from dataclasses import dataclass, replace
 from difflib import SequenceMatcher
+from math import isfinite
 
 from jp_overlay.domain import CapturedFrame, Rect
 from jp_overlay.recognition import OcrResult, TextRegion
@@ -29,11 +30,12 @@ class TrackingPolicy:
     stale_seconds: float = 0.8
     static_settle_seconds: float = 0.35
     confirmation_frames: int = 2
+    weaker_reading_seconds: float = 1.25
 
     def __post_init__(self) -> None:
         if min(self.max_tracks, self.missing_frames, self.confirmation_frames) < 1:
             raise ValueError("Tracking counts must be positive.")
-        if min(self.stale_seconds, self.static_settle_seconds) <= 0:
+        if min(self.stale_seconds, self.static_settle_seconds, self.weaker_reading_seconds) <= 0:
             raise ValueError("Tracking expiry must be positive.")
 
 
@@ -49,6 +51,10 @@ class _Track:
     pending_bounds: Rect | None = None
     position_hits: int = 0
     confirmed: bool = False
+    best_confidence: float | None = None
+    pending_confidence: float | None = None
+    pending_since: float = 0
+    pending_protected: bool = False
 
 
 def _normalized(text: str) -> str:
@@ -74,6 +80,55 @@ def _edge_distance(a: Rect, b: Rect) -> int:
 def _deadband(bounds: Rect) -> int:
     # Glyph-scale tolerance, in physical pixels; independent of desktop DPI.
     return max(3, min(12, round(min(bounds.size) * 0.2)))
+
+
+def _confidence(region: TextRegion) -> float | None:
+    score = region.confidence
+    return score if score is not None and isfinite(score) and 0 <= score <= 1 else None
+
+
+def _best_score(old: float | None, new: float | None) -> float | None:
+    return new if old is None else old if new is None else max(old, new)
+
+
+def _minor_variant(old: str, new: str) -> bool:
+    """Conservative OCR ambiguity, not general semantic equivalence."""
+    if min(len(old), len(new)) < 4:
+        return False  # Short choices/names can change meaning with just one character.
+    if tuple(c for c in old if c.isnumeric()) != tuple(c for c in new if c.isnumeric()):
+        return False
+    shorter, longer = sorted((old, new), key=len)
+    if longer.startswith(shorter) and any(
+        unicodedata.category(c)[0] not in "PS" for c in longer[len(shorter) :]
+    ):
+        return False  # Typewriter growth/contraction needs the normal confirmation path.
+    matcher = SequenceMatcher(None, old, new, autojunk=False)
+    edits = sum(max(b - a, d - c) for tag, a, b, c, d in matcher.get_opcodes() if tag != "equal")
+    return matcher.ratio() >= 0.75 and edits <= min(2, max(1, len(shorter) // 5))
+
+
+def _same_location(old: Rect, new: Rect) -> bool:
+    return _overlap(old, new) >= 0.7 and _edge_distance(old, new) <= max(
+        12, min(*old.size, *new.size)
+    )
+
+
+def _clear_text_candidate(track: _Track) -> None:
+    track.pending_text, track.text_hits = "", 0
+    track.pending_confidence, track.pending_since, track.pending_protected = None, 0, False
+
+
+def _commit_text(track: _Track) -> None:
+    track.value = replace(
+        track.value,
+        text=track.pending_text,
+        bounds=track.observed,
+        text_revision=track.value.text_revision + 1,
+    )
+    # A genuinely new reading starts a new confidence baseline, even if it scores lower.
+    track.best_confidence = track.pending_confidence
+    track.confirmed = True
+    _clear_text_candidate(track)
 
 
 def _match_score(track: _Track, region: TextRegion) -> float | None:
@@ -151,8 +206,8 @@ class TextTracker:
             track = self._tracks[key]
             if key not in used:
                 track.misses += 1
-                track.text_hits = track.position_hits = 0
-                track.pending_text, track.pending_bounds = "", None
+                _clear_text_candidate(track)
+                track.position_hits, track.pending_bounds = 0, None
                 if (
                     track.misses >= self._policy.missing_frames
                     or frame.captured_at - track.last_seen > self._policy.stale_seconds
@@ -171,7 +226,13 @@ class TextTracker:
             key = self._next_id
             self._next_id += 1
             value = TextTrack(key, region.text, region.bounds, region.vertical)
-            self._tracks[key] = _Track(value, region.bounds, frame.captured_at, frame.sequence)
+            self._tracks[key] = _Track(
+                value,
+                region.bounds,
+                frame.captured_at,
+                frame.sequence,
+                best_confidence=_confidence(region),
+            )
             used.add(key)
             assignments[index] = key
         self._assignments = tuple(assignments)
@@ -181,26 +242,15 @@ class TextTracker:
         # An unchanged source can legitimately stop delivering frames. Keep its ID,
         # but never combine pending edits across a long gap as consecutive evidence.
         if frame.captured_at - track.last_seen > self._policy.stale_seconds:
-            track.pending_text, track.pending_bounds = "", None
-            track.text_hits = track.position_hits = 0
+            _clear_text_candidate(track)
+            track.pending_bounds, track.position_hits = None, 0
         track.observed = region.bounds
         track.last_seen, track.last_sequence, track.misses = frame.captured_at, frame.sequence, 0
-        text_changed = False
-        if _normalized(region.text) == _normalized(track.value.text):
-            track.pending_text, track.text_hits = "", 0
-            track.confirmed = True
-        else:
-            if _normalized(region.text) == _normalized(track.pending_text):
-                track.text_hits += 1
-            else:
-                track.pending_text, track.text_hits = region.text, 1
-            if track.text_hits >= self._policy.confirmation_frames:
-                track.value = replace(
-                    track.value, text=region.text, text_revision=track.value.text_revision + 1
-                )
-                track.pending_text, track.text_hits = "", 0
-                text_changed = True
-                track.confirmed = True
+        text_changed = self._observe_text(track, region, frame.captured_at)
+        if track.pending_protected:
+            # An icon/crop variant must not move the winning box while its text is rejected.
+            track.pending_bounds, track.position_hits = None, 0
+            return
         distance = _edge_distance(track.value.bounds, region.bounds)
         tolerance = _deadband(track.value.bounds)
         if distance <= tolerance and not text_changed:
@@ -227,6 +277,45 @@ class TextTracker:
             track.value = replace(track.value, bounds=region.bounds)
             track.pending_bounds, track.position_hits = None, 0
 
+    def _observe_text(self, track: _Track, region: TextRegion, captured_at: float) -> bool:
+        old, new = _normalized(track.value.text), _normalized(region.text)
+        score = _confidence(region)
+        if old == new:
+            _clear_text_candidate(track)
+            track.best_confidence = _best_score(track.best_confidence, score)
+            track.confirmed = True
+            return False
+        if new == _normalized(track.pending_text):
+            track.text_hits += 1
+            track.pending_confidence = _best_score(track.pending_confidence, score)
+        else:
+            track.pending_text, track.text_hits = region.text, 1
+            track.pending_confidence, track.pending_since = score, captured_at
+            track.pending_protected = _same_location(track.value.bounds, region.bounds) and (
+                _minor_variant(old, new)
+            )
+        track.pending_protected = (
+            track.pending_protected
+            and track.best_confidence is not None
+            and track.pending_confidence is not None
+            # Mean scores can differ by floating-point rounding when an icon adds a character.
+            and track.pending_confidence <= track.best_confidence + 1e-6
+            and _same_location(track.value.bounds, region.bounds)
+        )
+        if track.text_hits >= self._policy.confirmation_frames and self._text_ready(
+            track, captured_at
+        ):
+            _commit_text(track)
+            return True
+        return False
+
+    def _text_ready(self, track: _Track, now: float) -> bool:
+        # Never let an old high score permanently suppress a genuine, similar-looking edit.
+        return (
+            not track.pending_protected
+            or now - track.pending_since >= self._policy.weaker_reading_seconds
+        )
+
     def visible(self, latest: CapturedFrame, now: float) -> tuple[TextTrack, ...]:
         """Expire missed/stalled observations, but keep a truly unchanged source visible."""
         if self._size != latest.geometry.client.size:
@@ -239,14 +328,8 @@ class TextTracker:
                 track.confirmed = True
                 # WGC need not emit the same pixels twice. Time on an unchanged latest
                 # frame can settle its final edit; repeated polls never count as frames.
-                if track.pending_text:
-                    track.value = replace(
-                        track.value,
-                        text=track.pending_text,
-                        bounds=track.observed,
-                        text_revision=track.value.text_revision + 1,
-                    )
-                    track.pending_text, track.text_hits = "", 0
+                if track.pending_text and self._text_ready(track, now):
+                    _commit_text(track)
                 if track.pending_bounds is not None:
                     track.value = replace(track.value, bounds=track.observed)
                     track.pending_bounds, track.position_hits = None, 0

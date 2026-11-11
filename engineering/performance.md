@@ -92,3 +92,12 @@ sources, 512 in-memory cache entries, and 20,000 SQLite rows. Layout caches 256 
 Source text is capped at 512 characters and 512 model tokens; generated output is capped at 256
 tokens and checked for termination. These bounds prevent a growing queue/history; they do not
 guarantee every workload stays below the product's memory/latency targets.
+
+## Confidence stability slice
+
+Confidence preference adds a few scores/flags and one candidate timestamp per existing track.
+It stores no images or spelling history and keeps the 128-track limit. Similarity work runs only on
+new OCR observations; unchanged polling never creates votes. Rejected variants keep the same public
+track values, so they do not invalidate translation or request overlay repaints. The integration
+replay verifies one translation call across repeated noisy readings. No new sustained-memory or
+real-game performance measurement is implied.

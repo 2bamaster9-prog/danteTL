@@ -2,6 +2,9 @@
 
 Status: accepted.
 
+The [confidence policy](005-confidence-stability.md) refines acceptance of similar OCR edits.
+The table below records the initial policy; weaker variants now need longer consistent evidence.
+
 The user confirmed good OCR accuracy but observed jitter as the app replaced boxes every pass.
 Treat OCR as observations of persistent regions, not as a fresh overlay layout. Implement this
 slice before translation so future translation can key off committed text revisions.

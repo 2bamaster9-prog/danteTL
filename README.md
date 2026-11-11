@@ -38,6 +38,10 @@ text with a translucent background. Regions awaiting translation leave the origi
 - Translations are reused from a bounded memory cache and local SQLite database. Moving a box
   does not retranslate its text. Brief OCR jitter keeps the last committed English until a real
   change is confirmed; changed/removed text rejects late results.
+- For small OCR variations in nearly the same position, the tracker remembers the highest-confidence
+  reading. Weaker/equal alternatives keep its text and box unchanged; a confirmed stronger reading
+  becomes the new preference. Numbers, short labels, and typewriter growth use normal confirmation.
+  A consistently changed alternative can still replace the old reading after about 1.25 seconds.
 - Turn **English overlay** off to unload the translation model and inspect numbered OCR game boxes.
   **Stabilize game boxes** can then be toggled for comparison. English always uses stable tracks.
 
@@ -83,7 +87,7 @@ loading/inference. Only its synthetic output is saved. The two Windows checks op
 windows on an unlocked desktop. See [verification](engineering/verification.md).
 
 Read the [agreed plan](engineering/plan.md), [engineering guide](engineering/README.md), and
-[milestone status](engineering/plans/004-local-translation.md). The application runs locally;
+[milestone status](engineering/plans/005-confidence-stability.md). The application runs locally;
 only explicit setup downloads require a network connection.
 
 Models are kept in ignored `models/meiki` and `models/sugoi-v4`; set `JP_OVERLAY_MODEL_DIR` or

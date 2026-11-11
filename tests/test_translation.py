@@ -2,8 +2,9 @@ import threading
 import time
 from dataclasses import replace
 
-from jp_overlay.domain import Rect
-from jp_overlay.tracking import TextTrack
+from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
+from jp_overlay.recognition import OcrResult, TextCharacter, TextRegion
+from jp_overlay.tracking import TextTrack, TextTracker
 from jp_overlay.translation import TranslationRequest, TranslationSession, TranslationState
 
 
@@ -57,6 +58,40 @@ def test_unchanged_text_movement_and_duplicate_regions_translate_once(tmp_path) 
     finally:
         stop(session)
     assert backend.closed
+
+
+def test_noisy_readings_do_not_clear_english_or_trigger_more_translation(tmp_path) -> None:
+    backend = Backend()
+    session = TranslationSession(lambda: backend, tmp_path / "cache.sqlite3")
+    tracker = TextTracker()
+    sequence = 0
+
+    def observe(text: str, confidence: float, bounds: Rect) -> None:
+        nonlocal sequence
+        sequence += 1
+        now = sequence * 0.25
+        viewport = Rect(0, 0, 1280, 720)
+        frame = CapturedFrame(sequence, now, WindowGeometry(viewport, viewport, viewport, 96), b"")
+        characters = tuple(TextCharacter(char, bounds, confidence) for char in text)
+        region = TextRegion(text, bounds, characters)
+        tracker.observe(OcrResult(frame, (region,), 20, now + 0.02))
+        session.update(tracker.translation_tracks(frame, now + 0.02))
+
+    session.start()
+    try:
+        observe("ポーションを使う", 0.95, Rect(100, 100, 200, 40))
+        observe("ポーションを使う", 0.9, Rect(100, 100, 200, 40))
+        until(lambda: len(session.snapshot().results) == 1)
+        translated = session.snapshot().results
+        for _ in range(10):
+            for _ in range(3):
+                observe("ボーションを使う", 0.7, Rect(80, 100, 220, 40))
+                assert session.snapshot().results == translated
+                assert session.snapshot().pending == 0
+            observe("ポーションを使う", 0.8, Rect(100, 100, 200, 40))
+    finally:
+        stop(session)
+    assert backend.calls == [("ポーションを使う",)]
 
 
 def test_revision_change_and_removed_tracks_reject_inflight_translation(tmp_path) -> None:

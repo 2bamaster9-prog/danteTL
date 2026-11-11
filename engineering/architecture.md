@@ -110,11 +110,22 @@ on text alone. The raw inspector receives the assigned IDs in original detector 
 Each track separates the latest observed geometry from committed display geometry and content.
 Small edge changes inside a glyph-scaled deadband retain exactly the same `TextTrack` object.
 Persistent modest shifts/crop changes require two observations; a large coherent translation of a
-similarly-sized box moves immediately. A matching normalized text edit requires two consecutive
-observations before incrementing `text_revision`. Approximate text is used for association only;
-even a one-character change can eventually commit. Missing detections break pending confirmations.
-If no newer frame arrives, pending changes settle after 350 ms on that latest captured frame; WGC
-does not need to repeat identical pixels. A long static pause preserves IDs without counting
+similarly-sized box moves immediately. Ordinary text edits require two consecutive observations
+before incrementing `text_revision`. A near-identical reading at nearly the same position also
+competes with the best character-mean confidence recorded for the committed text. Weaker/equal
+variants retain the exact committed text and geometry; confidence fluctuations stay private and
+cannot invalidate English or request a repaint. A confirmed higher-confidence variant becomes the
+new preference. Similarity is conservative; numeric edits, short labels, and typewriter growth
+keep the ordinary confirmation path.
+
+A weaker similar candidate can still replace the preference after 1.25 seconds of consistent
+evidence, resetting its confidence baseline. This prevents genuine one-character dialogue edits
+from being hidden indefinitely. Returning to the winner, another candidate, a miss, or a long OCR
+gap breaks that evidence. New content and expired/reset tracks do not inherit an old score.
+Missing/invalid confidence falls back to ordinary confirmation. Raw inspector text/scores are unchanged.
+If no newer frame arrives, ordinary pending changes settle after 350 ms on that latest captured
+frame; protected weaker variants use the longer 1.25-second interval. WGC does not need to repeat
+identical pixels. A long static pause preserves IDs without counting
 pending edits on either side of the gap as consecutive evidence.
 
 New recognized regions display immediately in diagnostic mode. Translation waits for a second
@@ -124,6 +135,8 @@ A committed new revision invalidates its old English. Empty recognition remains 
 inspector but cannot refresh a track. Text tracking does not yet implement visual scene-cut detection,
 optical flow, or split/merge reconciliation.
 See [the policy decision](decisions/003-stable-display.md) for thresholds and tradeoffs.
+The [confidence decision](decisions/005-confidence-stability.md) refines text acceptance without
+changing public track values, translation/cache identities, or model ownership.
 
 ## Translation and layout
 

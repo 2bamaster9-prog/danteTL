@@ -14,8 +14,15 @@ def region(
     width: int = 400,
     height: int = 40,
     vertical: bool = False,
+    confidence: float | None = None,
 ) -> TextRegion:
-    return TextRegion(text, Rect(x, y, width, height), vertical=vertical)
+    bounds = Rect(x, y, width, height)
+    characters = (
+        tuple(TextCharacter(char, bounds, confidence) for char in text)
+        if confidence is not None
+        else ()
+    )
+    return TextRegion(text, bounds, characters=characters, vertical=vertical)
 
 
 class Replay:
@@ -263,3 +270,157 @@ def test_translation_waits_for_confirmation_and_preserves_committed_content_thro
     replay.step()
     assert replay.result is not None
     assert replay.tracker.translation_tracks(replay.result.frame, replay.now) == ()
+
+
+@pytest.mark.parametrize(
+    "winner,variant",
+    [
+        ("新しい冒険が、ここから始まる。", "新しい冒険が、ここから始まろ。"),
+        ("ポーションを使う", "ボーションを使う"),
+        ("アイテムを使う", "◆アイテムを使う"),
+        ("冒険に出発", "胃険に出発"),
+    ],
+)
+@pytest.mark.parametrize("weaker_score", [0.65, 0.95])
+def test_alternating_weaker_or_equal_variants_keep_the_winning_text_and_box(
+    winner, variant, weaker_score
+) -> None:
+    replay = Replay()
+    original = replay.step(region(winner, confidence=0.95))[0]
+    replay.step(region(winner, confidence=0.9))
+    for _ in range(12):
+        for _ in range(3):
+            current = replay.step(region(variant, x=80, width=420, confidence=weaker_score))[0]
+            assert current is original
+            assert replay.result is not None
+            assert replay.result.regions[0].text == variant  # Raw inspection is untouched.
+            assert replay.tracker.translation_tracks(replay.result.frame, replay.now) == (original,)
+        # A weaker observation of the winning spelling must not lower its remembered score.
+        assert replay.step(region(winner, confidence=0.5))[0] is original
+
+
+def test_higher_confidence_variant_wins_once_and_remembers_its_peak_score() -> None:
+    replay = Replay()
+    typo, correct = "ボーションを使う", "ポーションを使う"
+    original = replay.step(region(typo, confidence=0.7))[0]
+    assert replay.step(region(correct, confidence=0.96))[0] is original
+    winner = replay.step(region(correct, confidence=0.9))[0]
+    assert winner.text == correct and winner.text_revision == 2
+    assert winner.track_id == original.track_id
+    for _ in range(5):
+        assert replay.step(region(typo, confidence=0.95))[0] is winner
+        assert replay.step(region(typo, confidence=0.95))[0] is winner
+        assert replay.step(region(correct, confidence=0.5))[0] is winner
+
+
+@pytest.mark.parametrize(
+    "old,new",
+    [
+        ("体力が１００残っている", "体力が１０１残っている"),
+        ("残りの回数は一回です", "残りの回数は二回です"),
+        ("解除", "解放"),
+        ("冒険に出発する", "冒険に出発するよ"),
+        ("冒険に出発するよ", "冒険に出発する"),
+        ("新しい冒険が始まる", "準備ができたら出かけよう"),
+    ],
+)
+def test_real_changes_do_not_need_to_beat_the_old_confidence(old, new) -> None:
+    replay = Replay()
+    original = replay.step(region(old, confidence=0.99))[0]
+    assert replay.step(region(new, confidence=0.6))[0] is original
+    current = replay.step(region(new, confidence=0.6))[0]
+    assert current.text == new and current.text_revision == 2
+
+
+def test_sustained_similar_new_content_eventually_replaces_a_stronger_old_reading() -> None:
+    replay = Replay()
+    original = replay.step(region("東の門へ向かってください", confidence=0.99))[0]
+    for _ in range(5):
+        assert replay.step(region("西の門へ向かってください", confidence=0.6))[0] is original
+    current = replay.step(region("西の門へ向かってください", confidence=0.6))[0]
+    assert current.text == "西の門へ向かってください" and current.text_revision == 2
+    assert current.track_id == original.track_id
+    # Confidence belongs to this new reading, not an all-time high at this screen position.
+    replay.step(region("南の門へ向かってください", confidence=0.8))
+    assert replay.step(region("南の門へ向かってください", confidence=0.8))[0].text == (
+        "南の門へ向かってください"
+    )
+
+
+def test_a_static_weaker_candidate_uses_the_longer_settle_time_without_repeated_ocr() -> None:
+    replay = Replay()
+    original = replay.step(region("東の門へ向かってください", confidence=0.99))[0]
+    replay.step(region("西の門へ向かってください", confidence=0.6))
+    assert replay.result is not None
+    frame = replay.result.frame
+    for elapsed in (0.35, 0.5, 1, 1.24):
+        replay.tracker.observe(replay.result)  # Duplicate polls cannot add confirmation evidence.
+        assert replay.tracker.visible(frame, replay.now + elapsed)[0] is original
+    assert replay.tracker.visible(frame, replay.now + 1.26)[0].text == "西の門へ向かってください"
+
+
+def test_changed_dialogue_resets_confidence_even_when_it_keeps_the_same_track_id() -> None:
+    replay = Replay()
+    original = replay.step(region("新しい冒険が始まる", confidence=0.99))[0]
+    replay.step(region("ポーションを使う", confidence=0.6))
+    current = replay.step(region("ポーションを使う", confidence=0.6))[0]
+    assert current.track_id == original.track_id
+    replay.step(region("ボーションを使う", confidence=0.8))
+    assert replay.step(region("ボーションを使う", confidence=0.8))[0].text == "ボーションを使う"
+
+
+def test_confidence_memory_is_independent_for_identical_labels_in_different_places() -> None:
+    replay = Replay()
+    high = region("ポーションを使う", y=200, confidence=0.99)
+    low = region("ポーションを使う", y=500, confidence=0.6)
+    original = replay.step(high, low)
+    variants = (
+        region("ボーションを使う", y=500, confidence=0.8),
+        region("ボーションを使う", y=200, confidence=0.8),
+    )
+    replay.step(*variants)
+    current = replay.step(*variants)
+    assert replay.ids == (2, 1)
+    assert current[0] is original[0]
+    assert current[1].text == "ボーションを使う"
+
+
+@pytest.mark.parametrize("reset", [True, False])
+def test_removed_or_reset_tracks_do_not_inherit_confidence_at_the_same_position(reset) -> None:
+    replay = Replay()
+    original = replay.step(region("ポーションを使う", confidence=0.99))[0]
+    if reset:
+        replay.tracker.reset()
+    else:
+        replay.step()
+        replay.step()
+    recreated = replay.step(region("ポーションを使う", confidence=0.6))[0]
+    assert recreated.track_id != original.track_id
+    replay.step(region("ボーションを使う", confidence=0.8))
+    assert replay.step(region("ボーションを使う", confidence=0.8))[0].text == "ボーションを使う"
+
+
+@pytest.mark.parametrize("score", [None, float("nan"), float("inf"), -0.5, 1.5])
+def test_unavailable_or_invalid_scores_fall_back_to_normal_confirmation(score) -> None:
+    replay = Replay()
+    original = replay.step(region("ポーションを使う", confidence=0.99))[0]
+    assert replay.step(region("ボーションを使う", confidence=score))[0] is original
+    assert replay.step(region("ボーションを使う", confidence=score))[0].text == "ボーションを使う"
+
+
+def test_substantially_changed_location_uses_normal_confirmation() -> None:
+    replay = Replay()
+    original = replay.step(region("ポーションを使う", confidence=0.99))[0]
+    replay.step(region("ボーションを使う", x=200, confidence=0.7))
+    current = replay.step(region("ボーションを使う", x=200, confidence=0.7))[0]
+    assert current.track_id == original.track_id and current.text_revision == 2
+    assert current.bounds.x == 200
+
+
+def test_missed_observations_break_a_weaker_candidates_sustained_confirmation() -> None:
+    replay = Replay()
+    original = replay.step(region("東の門へ向かってください", confidence=0.99))[0]
+    for _ in range(4):
+        for _ in range(3):
+            assert replay.step(region("西の門へ向かってください", confidence=0.6))[0] is original
+        assert replay.step()[0] is original

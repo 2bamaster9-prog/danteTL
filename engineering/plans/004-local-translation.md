@@ -40,3 +40,6 @@ Check that the English stays put, follows real movement, clears on transitions, 
 The current model translates independent OCR regions; grouping, context, glossaries, collision-aware
 layout, and comparative model evaluation remain future slices. No broader game compatibility or
 ordinary-PC performance claim follows from the demo checks.
+
+Follow-up: the user reported good real-game translation results and requested confidence-aware
+suppression of alternating OCR readings. This is delivered in [slice five](005-confidence-stability.md).

@@ -74,6 +74,10 @@ compatibility. Fast checks remain sandbox-compatible.
 6. Stop/start capture and close the target. Controls should recover and the overlay must disappear.
 7. Repeat with a game in windowed or borderless mode. Record resolution, DPI, capture mode, and
    observed behavior. Do not infer publisher approval or broad anti-cheat compatibility.
+8. Revisit a scene where OCR alternates between close spellings or includes a nearby icon. Weaker
+   variants should retain English and box geometry even though the raw inspector changes. Verify
+   new dialogue, numbers, and typewriter growth still update; a sustained similar edit may take
+   about 1.25 seconds to override an older, stronger reading.
 
 ## Recorded evidence on 2026-11-13
 
@@ -141,4 +145,20 @@ See [tracking slice](plans/003-stable-tracks.md).
 - Real-game English quality, collision handling in dense UI, sustained memory, mixed-DPI movement,
   and frame-time impact remain unverified. No new interactive mouse click-through claim is made.
 
-See [current slice](plans/004-local-translation.md) and [performance observations](performance.md).
+See [translation slice](plans/004-local-translation.md) and [performance observations](performance.md).
+
+## Confidence stability slice evidence
+
+- The user reported good real-game translation results but repeated flicker from small OCR edits.
+- 101 fast tests passed with Ruff and Pyright. Replays verify preferred-reading memory, stable
+  geometry/revisions through weaker/equal alternatives, stronger promotion, and genuine-change
+  escape paths. Missing/invalid confidence, distinct tracks, lifecycle resets, and misses are covered.
+- A tracker-to-translation integration replay kept the existing English available through ten
+  cycles of noisy readings and invoked the backend only once.
+- Offline Meiki verification passed with connections blocked and all three expected phrases matched.
+- Full live integration passed at DPI 168 in about 7.8 seconds, including English after backend
+  switching, font controls, stable IDs/bounds, pause, resize, minimize/restore, restart, and shutdown.
+- The original game's flickering scene still needs user confirmation with this policy. No new
+  compatibility or game frame-time claims follow from the synthetic checks.
+
+See [current slice](plans/005-confidence-stability.md).
