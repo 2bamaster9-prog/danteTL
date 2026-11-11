@@ -3,7 +3,8 @@
 A local Windows game translation overlay, being built in small milestones.
 
 **Current milestone:** capture a game window, recognize Japanese locally with MeikiOCR, and inspect
-the text with aligned bounding boxes. Translation and persistent text tracking come later.
+the text with aligned bounding boxes. Game boxes now use persistent text tracks to suppress jitter.
+Translation comes later.
 
 ## Run
 
@@ -33,6 +34,11 @@ inspector displays its exact analyzed frame, numbered line boxes, and raw recogn
 - Confidence is the mean recognized-character score, not a probability of sentence correctness.
 - Switch to the game to see the optional click-through numbered boxes. These may briefly lag;
   use the frame-matched preview when checking accuracy. Pause hides the game boxes.
+- **Stabilize game boxes** is enabled by default. Small shifts retain the existing box; repeated
+  text/size changes are confirmed before updating. A missed detection gets a short grace period.
+  Disable this checkbox to compare raw boxes. The inspector always keeps raw OCR coordinates/text.
+- IDs persist through OCR reordering and match between the inspector and game. They reset to new
+  identities after pause/resume, resize, minimize, or capture restart. Unrecognized text has no ID.
 
 **Open demo window** provides Japanese text and an animated target without needing a game. Models
 run on CPU with two inference threads; a GPU toolkit is not needed. OCR timing and source-frame age
@@ -57,7 +63,7 @@ loading/inference. Only its synthetic output is saved. The two Windows checks op
 windows on an unlocked desktop. See [verification](engineering/verification.md).
 
 Read the [agreed plan](engineering/plan.md), [engineering guide](engineering/README.md), and
-[milestone status](engineering/plans/002-ocr-inspection.md). The application runs locally;
+[milestone status](engineering/plans/003-stable-tracks.md). The application runs locally;
 only explicit setup downloads require a network connection.
 
 Models are kept in ignored `models/meiki`; set `JP_OVERLAY_MODEL_DIR` to use another directory.
@@ -73,3 +79,8 @@ protected windows, HDR color fidelity, and untested game/anti-cheat combinations
 Mixed-DPI monitor behavior has automated coordinate coverage but requires real hardware verification.
 Windows 10 is not the initial validation target. The launcher is a development launcher; a portable
 executable package is a later milestone.
+
+Tracking uses position/text heuristics, not semantic understanding or optical flow. Crossing labels,
+major layout changes, and multiline splits/merges can create new identities. A disappeared region
+may linger briefly; real-game stabilization thresholds still need feedback. OCR continues sampling
+to discover changes even when the displayed overlay remains unchanged.

@@ -26,6 +26,7 @@ from jp_overlay.domain import CapturedFrame, CaptureState, WindowTarget, overlay
 from jp_overlay.inspection import OcrInspector
 from jp_overlay.overlay import OverlayWindow
 from jp_overlay.recognition import OcrSession, OcrState, Recognizer, overlay_result_ready
+from jp_overlay.tracking import TextTrack, TextTracker
 from jp_overlay.windows import Windows, WindowUnavailable
 
 logger = logging.getLogger(__name__)
@@ -41,8 +42,10 @@ class MainWindow(QMainWindow):
         self._ocr: OcrSession | None = None
         self._recognizer_factory = recognizer_factory
         self._valid_size: tuple[int, int] | None = None
+        self._tracker = TextTracker()
+        self._track_ids: tuple[int | None, ...] = ()
         self._overlay = OverlayWindow(windows)
-        self._overlay.set_regions(())
+        self._overlay.set_tracks(())
         self._last_sequence = 0
         self._closing = False
         self._started_at = 0.0
@@ -99,6 +102,14 @@ class MainWindow(QMainWindow):
         self.overlay_check.setChecked(True)
         self.overlay_check.toggled.connect(self._tick)
         options.addWidget(self.overlay_check)
+        self.stabilize_check = QCheckBox("Stabilize game boxes")
+        self.stabilize_check.setChecked(True)
+        self.stabilize_check.setToolTip(
+            "Hold small OCR shifts, confirm text changes, and bridge one missed detection. "
+            "Disable to compare raw boxes. The inspector always shows raw OCR."
+        )
+        self.stabilize_check.toggled.connect(self._tick)
+        options.addWidget(self.stabilize_check)
         options.addStretch()
         options.addWidget(QLabel("Opacity"))
         slider = QSlider(Qt.Orientation.Horizontal)
@@ -110,7 +121,7 @@ class MainWindow(QMainWindow):
         options.addWidget(slider)
         layout.addLayout(options)
 
-        label = QLabel("ANALYZED FRAME + DETECTED TEXT")
+        label = QLabel("RAW OCR FRAME + DETECTED TEXT · PERSISTENT IDS")
         label.setObjectName("eyebrow")
         layout.addWidget(label)
         self.inspector = OcrInspector()
@@ -127,7 +138,7 @@ class MainWindow(QMainWindow):
         self.metrics.setWordWrap(True)
         layout.addWidget(self.metrics)
         note = QLabel(
-            "Preview boxes match the analyzed frame. Game boxes may lag briefly. "
+            "Preview shows raw OCR; game boxes hold stable positions. IDs persist between frames. "
             "Use windowed or borderless fullscreen. Translation comes later."
         )
         note.setWordWrap(True)
@@ -194,6 +205,7 @@ class MainWindow(QMainWindow):
         self._last_sequence = 0
         self._started_at = time.monotonic()
         self._valid_size = None
+        self._clear_tracking()
         self.inspector.clear()
         self.inspector.pause.setChecked(False)
         self.windows_combo.setEnabled(False)
@@ -206,6 +218,7 @@ class MainWindow(QMainWindow):
     def _stop(self, message: str) -> None:
         self._stopping_message = message
         self._overlay.hide()
+        self._clear_tracking()
         self.inspector.clear()
         if self._ocr:
             self._ocr.request_stop()
@@ -218,6 +231,7 @@ class MainWindow(QMainWindow):
         if self._ocr:
             self._ocr.invalidate()
         self._overlay.hide()
+        self._clear_tracking()
         if paused:
             self.ocr_status.setText("Inspection paused · frame and text frozen · game boxes hidden")
         else:
@@ -230,7 +244,12 @@ class MainWindow(QMainWindow):
         self._valid_size = None
         self._last_sequence = 0
         self.inspector.clear()
-        self._overlay.set_regions(())
+        self._clear_tracking()
+
+    def _clear_tracking(self) -> None:
+        self._tracker.reset()
+        self._track_ids = ()
+        self._overlay.set_tracks(())
 
     def _update_ocr(self, frame: CapturedFrame) -> None:
         ocr = self._ocr
@@ -241,6 +260,7 @@ class MainWindow(QMainWindow):
             ocr.submit(frame)
         snapshot = ocr.snapshot()
         if snapshot.state == OcrState.FAILED:
+            self._clear_tracking()
             self.ocr_status.setText(
                 f"OCR unavailable: {snapshot.message} Stop and restart to retry."
             )
@@ -253,7 +273,8 @@ class MainWindow(QMainWindow):
             self.ocr_status.setText("Loading local MeikiOCR models on CPU…")
         elif snapshot.result is not None:
             result = snapshot.result
-            self.inspector.set_result(result)
+            self._track_ids = self._tracker.observe(result)
+            self.inspector.set_result(result, self._track_ids)
             self.ocr_status.setText(
                 f"{len(result.regions)} text regions · {result.duration_ms:.0f} ms OCR · "
                 f"frame #{result.frame.sequence} · "
@@ -274,6 +295,7 @@ class MainWindow(QMainWindow):
         snapshot = session.snapshot()
         if session.finished:
             self._overlay.hide()
+            self._clear_tracking()
             self.inspector.clear()
             if self._ocr and not self._ocr.finished:
                 self._ocr.request_stop()
@@ -296,6 +318,7 @@ class MainWindow(QMainWindow):
             return
         if snapshot.state in (CaptureState.STOPPING, CaptureState.FAILED):
             self._overlay.hide()
+            self._clear_tracking()
             if self._ocr:
                 self._ocr.request_stop()
             self.inspector.clear()
@@ -328,15 +351,27 @@ class MainWindow(QMainWindow):
                 self._invalidate_ocr()
                 self.status.setText("Waiting for a frame matching the window size…")
             result = self.inspector.result
+            tracks = self._tracker.visible(frame, time.monotonic()) if frame is not None else ()
+            if not self.stabilize_check.isChecked() and not self.inspector.pause.isChecked():
+                tracks = (
+                    tuple(
+                        TextTrack(key, region.text, region.bounds, region.vertical)
+                        for key, region in zip(self._track_ids, result.regions, strict=True)
+                        if key is not None
+                    )
+                    if result is not None
+                    and frame is not None
+                    and overlay_result_ready(result, frame, time.monotonic())
+                    else ()
+                )
             if (
                 self.overlay_check.isChecked()
                 and not self.inspector.pause.isChecked()
-                and result is not None
+                and tracks
                 and frame is not None
                 and overlay_ready(snapshot, geometry, foreground)
-                and overlay_result_ready(result, frame, time.monotonic())
             ):
-                self._overlay.set_regions(result.regions)
+                self._overlay.set_tracks(tracks)
                 self._overlay.align(geometry.client)
             else:
                 self._overlay.hide()

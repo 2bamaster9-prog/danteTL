@@ -46,14 +46,21 @@ class CapturePreview(QWidget):
         super().__init__()
         self._image = QImage()
         self._regions: tuple[TextRegion, ...] = ()
+        self._labels: tuple[str, ...] = ()
         self._zoom = 0.0
         self.selected = -1
         self.characters = False
         self._resize_canvas()
 
-    def set_frame(self, frame: CapturedFrame | None, regions: tuple[TextRegion, ...] = ()) -> None:
+    def set_frame(
+        self,
+        frame: CapturedFrame | None,
+        regions: tuple[TextRegion, ...] = (),
+        labels: tuple[str, ...] = (),
+    ) -> None:
         self._image = frame_image(frame) if frame else QImage()
         self._regions = regions
+        self._labels = labels
         self._resize_canvas()
         self.update()
 
@@ -109,10 +116,12 @@ class CapturePreview(QWidget):
                 for char in region.characters:
                     painter.drawRect(mapped(char.bounds))
             # Put IDs beside the text so tightly spaced dialogue lines remain readable.
-            badge = QRectF(max(target.x(), area.x() - 28), area.y(), 26, 18)
+            label = self._labels[index] if self._labels else str(index + 1)
+            badge_width = max(26, painter.fontMetrics().horizontalAdvance(label) + 8)
+            badge = QRectF(max(target.x(), area.x() - badge_width - 2), area.y(), badge_width, 18)
             painter.fillRect(badge, color)
             painter.setPen(QColor("#111923"))
-            painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, str(index + 1))
+            painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, label)
 
 
 class OcrInspector(QWidget):
@@ -148,7 +157,7 @@ class OcrInspector(QWidget):
         scroll.setWidget(self.preview)
         splitter.addWidget(scroll)
         self.table = QTableWidget(0, 3)
-        self.table.setHorizontalHeaderLabels(["#", "Recognized text", "Confidence"])
+        self.table.setHorizontalHeaderLabels(["ID", "Recognized text", "Confidence"])
         self.table.setAccessibleName("Detected Japanese text")
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -168,18 +177,25 @@ class OcrInspector(QWidget):
         layout.addWidget(self.details)
         self.clear()
 
-    def set_result(self, result: OcrResult) -> None:
+    def set_result(
+        self, result: OcrResult, track_ids: tuple[int | None, ...] | None = None
+    ) -> None:
         if self.result is result:
             return
         self.result = result
         self.preview.selected = -1
-        self.preview.set_frame(result.frame, result.regions)
+        labels = (
+            tuple(str(key) if key is not None else "—" for key in track_ids)
+            if track_ids is not None
+            else tuple(str(i + 1) for i in range(len(result.regions)))
+        )
+        self.preview.set_frame(result.frame, result.regions, labels)
         self.table.clearSelection()
         self.table.setRowCount(len(result.regions))
         for row, region in enumerate(result.regions):
             confidence = region.confidence
             values = (
-                str(row + 1),
+                labels[row],
                 region.text or "(detected, no characters recognized)",
                 f"{confidence:.0%}" if confidence is not None else "—",
             )
@@ -211,7 +227,7 @@ class OcrInspector(QWidget):
         region = self.result.regions[row]
         box = region.bounds
         self.details.setText(
-            f"Box {row + 1}: x={box.x}, y={box.y}, {box.width} × {box.height} physical px · "
+            f"Raw row {row + 1}: x={box.x}, y={box.y}, {box.width} × {box.height} physical px · "
             f"{'vertical' if region.vertical else 'horizontal'} · "
             f"{len(region.characters)} recognized characters"
         )

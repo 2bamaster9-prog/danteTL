@@ -41,11 +41,13 @@ def main() -> int:
     stage_started = started
     frozen = None
     initial_size = (0, 0)
+    phrase_id = 0
+    phrase_bounds = None
     evidence: dict[str, object] = {}
     failure = ""
 
     def tick() -> None:
-        nonlocal stage, stage_started, frozen, initial_size, failure
+        nonlocal stage, stage_started, frozen, initial_size, failure, phrase_id, phrase_bounds
         now = time.monotonic()
         try:
             if now - started > 30:
@@ -69,6 +71,22 @@ def main() -> int:
                 evidence["dpi"] = result.frame.geometry.dpi
                 initial_size = result.frame.geometry.client.size
                 frozen = result
+                tracks = window._tracker.visible(result.frame, now)
+                phrase = next(t for t in tracks if t.text == "新しい冒険が、ここから始まる。")
+                phrase_id, phrase_bounds = phrase.track_id, phrase.bounds
+                stage = 8
+            elif (
+                stage == 8
+                and result
+                and frozen
+                and result.frame.sequence >= frozen.frame.sequence + 3
+            ):
+                tracks = window._tracker.visible(result.frame, now)
+                phrase = next(t for t in tracks if t.track_id == phrase_id)
+                assert phrase.bounds == phrase_bounds, "Stationary dialogue box changed bounds"
+                evidence["repeated_ocr_keeps_dialogue_id_and_bounds"] = True
+                window.stabilize_check.setChecked(False)
+                frozen = result
                 window.inspector.pause.setChecked(True)
                 if args.output:
                     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -82,6 +100,8 @@ def main() -> int:
                 assert captured and frozen and captured.sequence > frozen.frame.sequence
                 evidence["pause_freezes_result_while_capture_continues"] = True
                 window.inspector.pause.setChecked(False)
+                window.stabilize_check.setChecked(True)
+                evidence["raw_comparison_and_pause_toggle"] = True
                 demo.resize(760, 500)
                 stage = 2
             elif stage == 2 and result and result.frame.geometry.client.size != initial_size:

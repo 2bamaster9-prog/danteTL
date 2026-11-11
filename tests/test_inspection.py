@@ -1,4 +1,6 @@
 import os
+from dataclasses import replace
+from unittest.mock import Mock
 
 import pytest
 
@@ -10,7 +12,9 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry  # noqa: E402
 from jp_overlay.inspection import OcrInspector, image_target  # noqa: E402
+from jp_overlay.overlay import OverlayWindow  # noqa: E402
 from jp_overlay.recognition import OcrResult, TextRegion  # noqa: E402
+from jp_overlay.tracking import TextTrack  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -47,5 +51,36 @@ def test_text_selection_and_empty_result_replace_previous_frame_and_boxes(app) -
     assert not panel.copy_button.isEnabled()
     panel.clear()
     assert panel.result is None
+    panel.close()
+    panel.deleteLater()
+
+
+def test_overlay_does_not_request_repaint_for_equivalent_track_values(app, monkeypatch) -> None:
+    overlay = OverlayWindow(Mock())
+    repaint = Mock()
+    monkeypatch.setattr(overlay, "update", repaint)
+    track = TextTrack(17, "日本語", Rect(100, 200, 120, 30))
+    overlay.set_tracks((track,))
+    assert repaint.call_count == 1
+    for _ in range(20):
+        overlay.set_tracks((replace(track),))
+    assert repaint.call_count == 1
+    overlay.set_tracks((replace(track, bounds=Rect(120, 200, 120, 30)),))
+    assert repaint.call_count == 2
+    overlay.set_tracks(())
+    assert repaint.call_count == 3
+    overlay.close()
+    overlay.deleteLater()
+
+
+def test_inspector_displays_track_ids_without_replacing_raw_ocr_geometry(app) -> None:
+    bounds = Rect(0, 0, 4, 4)
+    source = CapturedFrame(1, 0, WindowGeometry(bounds, bounds, bounds, 96), b"\xff" * 64)
+    panel = OcrInspector()
+    result = OcrResult(source, (TextRegion("日本語", Rect(1, 1, 2, 2)),), 5, 1)
+    panel.set_result(result, (47,))
+    item = panel.table.item(0, 0)
+    assert item is not None and item.text() == "47"
+    assert panel.preview._regions == result.regions
     panel.close()
     panel.deleteLater()

@@ -1,6 +1,7 @@
 # Milestone two — Local OCR inspection
 
-Implementation complete; representative game accuracy evaluation remains an interactive activity.
+Implementation complete. The user subsequently tested it and reported excellent OCR; no quantitative
+accuracy score or broad game-compatibility claim follows from that feedback.
 
 ## Delivered
 
@@ -31,3 +32,6 @@ No game screenshots are saved automatically. Deliberate replay capture/export ca
 
 Translation, caching, stable text tracking, automatic translated-font sizing, and model comparison
 are not part of this implementation request. The wider [agreed plan](../plan.md) remains in effect.
+
+Follow-up: the user reported box jitter and requested the [stable-tracking slice](003-stable-tracks.md)
+before translation. The raw OCR inspector from this milestone remains available.

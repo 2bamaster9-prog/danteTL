@@ -47,6 +47,8 @@ compatibility. Fast checks remain sandbox-compatible.
 2. Start capture. The preview should contain Japanese text, numbered boxes, and matching text rows.
    Pause, select a row, enable character boxes, zoom, and copy text. Verify image/boxes stay together.
 3. Resume and switch to the demo. Check numbered boxes and mouse pass-through while interacting.
+   Compare **Stabilize game boxes** on/off. IDs should survive OCR ordering changes; raw preview
+   positions still follow each analyzed image. In game, inspect genuine movement and disappearing text.
 4. Move, resize, minimize, and restore. Switch focus to another app; the overlay must hide.
 5. Stop/start capture and close the target. Controls should recover and the overlay must disappear.
 6. Repeat with a game in windowed or borderless mode. Record resolution, DPI, capture mode, and
@@ -85,3 +87,16 @@ Read the [milestone record](plans/001-capture-overlay.md) for the completed scop
   and alignment applied to milestone one. Follow the interactive review above for game OCR.
 
 See [OCR milestone status](plans/002-ocr-inspection.md) and [measurements](performance.md).
+
+## Tracking slice evidence
+
+- User reported excellent OCR in their own test, and requested correction of repeated box jitter.
+- 56 fast tests passed with Ruff/Pyright. `tests/test_tracking.py` replays deterministic observations
+  with explicit times; no model or game is needed. `tests/test_inspection.py` verifies repaint suppression.
+- Live OCR at DPI 96: repeated observations kept the Japanese dialogue ID and exact bounds; raw/stable
+  toggles, pause, resize, minimize/restore, restart, and worker teardown passed in about four seconds.
+- Final live integration also passed at DPI 168 after adding static-frame settling.
+- Native capture/overlay regression passed at DPI 96, including exclusion and input-transparent styles.
+- The jitter heuristics have not yet been confirmed by the user in the original problem scene.
+
+See [current slice](plans/003-stable-tracks.md). Existing test commands remain unchanged.

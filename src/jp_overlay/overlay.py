@@ -5,7 +5,7 @@ from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
 from jp_overlay.domain import Rect, sample_box
-from jp_overlay.recognition import TextRegion
+from jp_overlay.tracking import TextTrack
 from jp_overlay.windows import Windows
 
 
@@ -27,11 +27,13 @@ class OverlayWindow(QWidget):
         self._bounds = Rect(0, 0, 1, 1)
         self._opacity = 0.85
         self._configured = False
-        self._regions: tuple[TextRegion, ...] | None = None
+        self._tracks: tuple[TextTrack, ...] | None = None
 
-    def set_regions(self, regions: tuple[TextRegion, ...]) -> None:
-        if regions is not self._regions:
-            self._regions = regions
+    def set_tracks(self, tracks: tuple[TextTrack, ...]) -> None:
+        # Fresh OCR objects do not imply changed display state. Ignore confidence,
+        # timestamps and character-box noise when deciding whether to repaint.
+        if tracks != self._tracks:
+            self._tracks = tracks
             self.update()
 
     def set_opacity(self, value: int) -> None:
@@ -62,19 +64,25 @@ class OverlayWindow(QWidget):
         ratio = self.devicePixelRatioF()
         painter.scale(1 / ratio, 1 / ratio)
         width, height = self._bounds.size
-        if self._regions is not None:
+        if self._tracks is not None:
             painter.setOpacity(self._opacity)
             font = QFont("Segoe UI")
             font.setPixelSize(round(13 * ratio))
             painter.setFont(font)
-            for index, region in enumerate(self._regions):
-                box = region.bounds
+            for track in self._tracks:
+                box = track.bounds
                 painter.setPen(QPen(QColor("#5eead4"), max(2, ratio)))
                 painter.setBrush(Qt.BrushStyle.NoBrush)
                 painter.drawRect(QRectF(box.x, box.y, box.width, box.height))
-                badge = QRectF(max(0, box.x - 30 * ratio), box.y, 28 * ratio, 20 * ratio)
+                label = str(track.track_id)
+                badge_width = max(
+                    28 * ratio, painter.fontMetrics().horizontalAdvance(label) + 8 * ratio
+                )
+                badge = QRectF(
+                    max(0, box.x - badge_width - 2 * ratio), box.y, badge_width, 20 * ratio
+                )
                 painter.fillRect(badge, QColor("#123a35"))
-                painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, str(index + 1))
+                painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, label)
             return
         painter.setPen(QPen(QColor("#5eead4"), max(2, ratio)))
         painter.setBrush(Qt.BrushStyle.NoBrush)

@@ -12,7 +12,8 @@ overlay styles. `domain` contains immutable shared values and pure geometry/visi
 The domain imports no Qt or Windows code. Capture does not depend on Qt and consumes a small
 geometry-source protocol. `recognition` owns the OCR worker, immutable observations, and lifecycle;
 it imports no Qt, Win32, or model runtime. `meiki` isolates pinned MeikiOCR/ONNX details. `models`
-defines and validates pinned local assets. Later tracking belongs in its own module. The current
+defines and validates pinned local assets. `tracking` owns bounded text identities, matching,
+confirmation, and expiration; it stores no frame images and has no native/model dependencies. The current
 single-session coordinator can move out of the UI when the pipeline requires it.
 
 ## Coordinates
@@ -53,10 +54,16 @@ style supports mouse pass-through across processes. WDA_EXCLUDEFROMCAPTURE is re
 stops the session with a visible explanation. The overlay is visible only for the selected foreground
 window with matching capture dimensions. It hides on focus loss, minimize, stop, or source failure.
 
-The application now draws numbered OCR line boxes, preserving the original game text underneath.
-An unchanged captured frame can retain its boxes. For a changing source, boxes older than 750 ms
-from capture are hidden, and dimension mismatches always hide them. This bounds diagnostic lag;
-it is not text tracking. The original sample mode remains available to the native regression harness.
+The application draws numbered text-track boxes, preserving the original game text underneath.
+The default stabilized mode retains committed positions through small OCR changes and brief misses.
+An unchanged source frame can retain its boxes indefinitely. Advancing capture without fresh matching
+OCR expires tracks after 800 ms; two consecutive missed OCR observations also remove a track.
+Dimension mismatches always hide/clear them. The comparison checkbox displays raw boxes with the
+original 750 ms freshness policy. The original sample mode remains for the native regression harness.
+
+`OverlayWindow.set_tracks` compares immutable display values rather than fresh OCR object identity.
+Only changes to those values request an application repaint. Qt/Windows can still repaint for expose,
+resize, DPI, and other native reasons. Holding a box is not a promise to suppress all paint events.
 
 ## OCR ownership and inspection
 
@@ -82,7 +89,32 @@ exposed by the pinned upstream implementation.
 
 Pause freezes the current image/table and invalidates queued work while capture continues. Resume
 resubmits the latest frame. Resize/minimize/stop clear even a frozen inspection to prevent a stale
-source from appearing active. No persistent text identities or translation are added in this milestone.
+source from appearing active. Tracking resets on these events and on failure; IDs are never reused
+during the tracker object's lifetime. The raw inspector remains independent of smoothed display data.
+
+## Text tracking
+
+The GUI coordinator observes each completed OCR sequence once; repeated polling cannot count as
+confirmation. All timestamps are explicit monotonic capture times. No background timer, history
+queue, extra model, or image copy is introduced. Matching runs only on new OCR, bounded to 128 tracks
+and 128 candidate regions. One-to-one greedy assignment uses overlap, spatial proximity, orientation,
+and exact/approximate normalized text; ties are deterministic. Identical distant labels cannot match
+on text alone. The raw inspector receives the assigned IDs in original detector row order.
+
+Each track separates the latest observed geometry from committed display geometry and content.
+Small edge changes inside a glyph-scaled deadband retain exactly the same `TextTrack` object.
+Persistent modest shifts/crop changes require two observations; a large coherent translation of a
+similarly-sized box moves immediately. A matching normalized text edit requires two consecutive
+observations before incrementing `text_revision`. Approximate text is used for association only;
+even a one-character change can eventually commit. Missing detections break pending confirmations.
+If no newer frame arrives, pending changes settle after 350 ms on that latest captured frame; WGC
+does not need to repeat identical pixels. A long static pause preserves IDs without counting
+pending edits on either side of the gap as consecutive evidence.
+
+New recognized regions display immediately, keeping truly static one-frame sources usable. Empty
+recognition is visible in the inspector but cannot refresh an old track. Text tracking does not yet
+implement visual scene-cut detection, optical flow, split/merge reconciliation, or translation work.
+See [the policy decision](decisions/003-stable-display.md) for thresholds and tradeoffs.
 
 ## Runtime data
 

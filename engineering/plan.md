@@ -105,9 +105,10 @@ budgets. Measure game frame times as well as isolated inference. See [performanc
 6. Add automatic text sizing, profiles, glossary, hotkeys, model setup, and packaging.
 7. Expand compatibility and consider a native hook only if justified.
 
-Milestone one is complete. Milestone two now provides local MeikiOCR and an accuracy inspector;
-representative game review remains to be done. See [current scope](plans/002-ocr-inspection.md).
-Translation and stable text tracking remain separate upcoming milestones.
+Window capture and local MeikiOCR inspection are complete. Following the user's successful OCR test,
+the user requested stabilization next: the deterministic tracking portion of milestone four was
+pulled forward ahead of translation evaluation. See [current scope](plans/003-stable-tracks.md).
+Translation evaluation/integration and more sophisticated tracking remain upcoming work.
 
 ## Technical references
 

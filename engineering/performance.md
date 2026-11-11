@@ -57,3 +57,12 @@ may share immutable frame objects but must be budgeted as distinct at worst, plu
 and native/model buffers. Pausing stops submissions after the in-flight inference and retains only
 the reviewed pair plus current capture. No history grows with session length. Revisit limits with
 4K dense-menu and prolonged-session measurements before calling the product budget validated.
+
+## Tracking slice
+
+Tracking stores at most 128 entries (strings, rectangles, counters, timestamps) and no images.
+One-to-one matching considers at most 128 × 128 candidate pairs per new OCR result; ordinary UI
+polls only read/expire the small tracked set. Capture and OCR frequency remain unchanged so new
+text can still be discovered. Equivalent committed display values no longer request an application
+overlay repaint; native expose/resize events may still paint. No game frame-time benchmark or
+midrange-PC timing claim is inferred from the deterministic/live correctness checks.
