@@ -9,6 +9,10 @@ description = "Local game translation overlay for Windows"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [
+  "meikiocr==0.3.5",
+  "numpy>=2,<3",
+  "onnxruntime>=1.20,<2",
+  "opencv-python>=4.10,<6",
   "PySide6-Essentials>=6.8,<7",
   "windows-capture>=2.0.0,<3; sys_platform == 'win32'",
 ]
@@ -18,6 +22,11 @@ jp-overlay = "jp_overlay.app:main"
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "pyright>=1.1.400", "ruff>=0.12"]
+
+[tool.uv]
+# windows-capture already needs opencv-python, which provides the same cv2 API.
+# Installing both OpenCV distributions would overwrite shared package files.
+exclude-dependencies = ["opencv-python-headless"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/jp_overlay"]

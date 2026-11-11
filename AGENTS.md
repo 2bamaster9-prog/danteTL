@@ -2,7 +2,7 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/001-capture-overlay.md`.
+`engineering/plans/002-ocr-inspection.md`.
 
 - Use Python with deep modules: small public interfaces that own meaningful complexity.
 - Keep Windows, Qt, capture-library, and model details at their respective boundaries.
@@ -14,7 +14,11 @@ Read `engineering/README.md` first. The agreed product plan is in
 - Add behavior tests for meaningful failure modes; avoid tests that only repeat implementation details.
 - Run `uv run python tools/check.py` for code changes. Real capture verification is separate:
   `uv run python tools/verify_windows.py`. Read `engineering/verification.md` before running it.
+- For OCR changes, run `uv run python tools/verify_ocr.py` with local models installed. Live OCR
+  integration is `uv run python tools/verify_ocr_windows.py`. Keep frame/result pairs together;
+  never draw old observations onto a newer preview frame. Preserve raw OCR output for inspection.
 - Update relevant engineering documents when architecture or behavior changes; record major choices
   in `engineering/decisions/`. Keep documentation concise and avoid duplicated instructions.
 - Do not claim game, mixed-DPI, HDR, or anti-cheat compatibility based solely on a demo window.
-- Do not implement later milestones without a user request. OCR and translation are future work.
+- Do not implement later milestones without a user request. Translation and text tracking remain
+  future work; local OCR inspection is implemented.

@@ -5,6 +5,7 @@ from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
 from jp_overlay.domain import Rect, sample_box
+from jp_overlay.recognition import TextRegion
 from jp_overlay.windows import Windows
 
 
@@ -26,6 +27,12 @@ class OverlayWindow(QWidget):
         self._bounds = Rect(0, 0, 1, 1)
         self._opacity = 0.85
         self._configured = False
+        self._regions: tuple[TextRegion, ...] | None = None
+
+    def set_regions(self, regions: tuple[TextRegion, ...]) -> None:
+        if regions is not self._regions:
+            self._regions = regions
+            self.update()
 
     def set_opacity(self, value: int) -> None:
         self._opacity = max(0.2, min(value / 100, 1.0))
@@ -55,6 +62,20 @@ class OverlayWindow(QWidget):
         ratio = self.devicePixelRatioF()
         painter.scale(1 / ratio, 1 / ratio)
         width, height = self._bounds.size
+        if self._regions is not None:
+            painter.setOpacity(self._opacity)
+            font = QFont("Segoe UI")
+            font.setPixelSize(round(13 * ratio))
+            painter.setFont(font)
+            for index, region in enumerate(self._regions):
+                box = region.bounds
+                painter.setPen(QPen(QColor("#5eead4"), max(2, ratio)))
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawRect(QRectF(box.x, box.y, box.width, box.height))
+                badge = QRectF(max(0, box.x - 30 * ratio), box.y, 28 * ratio, 20 * ratio)
+                painter.fillRect(badge, QColor("#123a35"))
+                painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, str(index + 1))
+            return
         painter.setPen(QPen(QColor("#5eead4"), max(2, ratio)))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawRect(QRectF(2, 2, max(0, width - 4), max(0, height - 4)))

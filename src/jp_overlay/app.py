@@ -7,6 +7,16 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from types import TracebackType
 
+from jp_overlay.models import model_directory
+from jp_overlay.recognition import Recognizer
+
+
+def create_recognizer() -> Recognizer:
+    # Import native inference dependencies on the OCR worker, keeping GUI startup light.
+    from jp_overlay.meiki import MeikiRecognizer
+
+    return MeikiRecognizer(model_directory())
+
 
 def configure_logging() -> None:
     directory = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "JPOverlay" / "logs"
@@ -25,6 +35,7 @@ def main() -> None:
     if sys.platform != "win32":
         raise SystemExit("JP Overlay currently requires Windows.")
     configure_logging()
+    import shiboken6
     from PySide6.QtWidgets import QApplication, QMessageBox
 
     from jp_overlay.ui import MainWindow
@@ -50,6 +61,9 @@ def main() -> None:
         )
 
     sys.excepthook = report_exception
-    window = MainWindow(windows)
+    window = MainWindow(windows, create_recognizer)
     window.show()
-    sys.exit(app.exec())
+    exit_code = app.exec()
+    # Tear down Qt while its native dependencies are still loaded, before Python finalization.
+    shiboken6.delete(app)
+    sys.exit(exit_code)

@@ -105,7 +105,9 @@ budgets. Measure game frame times as well as isolated inference. See [performanc
 6. Add automatic text sizing, profiles, glossary, hotkeys, model setup, and packaging.
 7. Expand compatibility and consider a native hook only if justified.
 
-Milestone one uses clearly identified sample overlay text. It does not perform OCR or translation.
+Milestone one is complete. Milestone two now provides local MeikiOCR and an accuracy inspector;
+representative game review remains to be done. See [current scope](plans/002-ocr-inspection.md).
+Translation and stable text tracking remain separate upcoming milestones.
 
 ## Technical references
 

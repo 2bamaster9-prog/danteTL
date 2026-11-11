@@ -37,3 +37,23 @@ A single process sample during the running capture/preview session reported 286.
 and 711.8 MiB private memory. These are different Windows process metrics, not interchangeable RAM
 budgets, and this snapshot does not measure sustained usage or GPU memory. OCR and translation
 models were not loaded.
+
+## OCR inspection measurements (2026-11-13)
+
+MeikiOCR 0.3.5 / ONNX Runtime 1.32.0, CPU provider, two intra-op threads, batch size four.
+The three pinned ONNX files total 45,970,040 bytes. No CUDA model/runtime is loaded.
+
+On the development machine, an original 1920 × 1080 synthetic fixture with three Japanese regions
+gave about 360 ms model initialization, 62 ms first inference, 47 ms median across five warm
+inferences, and 63 ms warm maximum. This tiny sample is a smoke measurement, not a p95 estimate.
+The live demo at 1575 × 1015, DPI 168, showed 78 ms for the sampled first displayed result.
+There was no simultaneous game-impact benchmark, midrange-PC run, or sustained OCR memory test.
+A final replay while the other validation processes ran reported a 62 ms warm median and 63 ms
+maximum; this illustrates ordinary scheduling variation rather than a throughput guarantee.
+
+OCR retains one active frame, one replaceable pending frame, and one result/source pair. Capture
+retains its latest frame; the inspector retains its displayed result and a Qt image copy. These
+may share immutable frame objects but must be budgeted as distinct at worst, plus temporary BGR
+and native/model buffers. Pausing stops submissions after the in-flight inference and retains only
+the reviewed pair plus current capture. No history grows with session length. Revisit limits with
+4K dense-menu and prolonged-session measurements before calling the product budget validated.
