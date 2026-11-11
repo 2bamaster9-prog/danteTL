@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from jp_overlay.domain import CapturedFrame, Rect
 from jp_overlay.recognition import OcrResult, TextRegion
+from jp_overlay.translation import TranslatedText
 
 
 def frame_image(frame: CapturedFrame) -> QImage:
@@ -128,6 +129,7 @@ class OcrInspector(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self.result: OcrResult | None = None
+        self._translations: tuple[TranslatedText, ...] = ()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         toolbar = QHBoxLayout()
@@ -144,10 +146,13 @@ class OcrInspector(QWidget):
             zoom.addItem(label, scale)
         zoom.currentIndexChanged.connect(lambda: self.preview.set_zoom(zoom.currentData()))
         toolbar.addWidget(zoom)
-        self.copy_button = QPushButton("Copy text")
+        self.copy_button = QPushButton("Copy Japanese")
         self.copy_button.setToolTip("Copy the selected row, or all text when no row is selected.")
         self.copy_button.clicked.connect(self._copy_text)
         toolbar.addWidget(self.copy_button)
+        copy_english = QPushButton("Copy English")
+        copy_english.clicked.connect(self._copy_english)
+        toolbar.addWidget(copy_english)
         layout.addLayout(toolbar)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -156,8 +161,8 @@ class OcrInspector(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setWidget(self.preview)
         splitter.addWidget(scroll)
-        self.table = QTableWidget(0, 3)
-        self.table.setHorizontalHeaderLabels(["ID", "Recognized text", "Confidence"])
+        self.table = QTableWidget(0, 4)
+        self.table.setHorizontalHeaderLabels(["ID", "Japanese", "Confidence", "English"])
         self.table.setAccessibleName("Detected Japanese text")
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -165,10 +170,11 @@ class OcrInspector(QWidget):
         self.table.verticalHeader().hide()
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.table.setMinimumWidth(310)
+        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.table.setMinimumWidth(460)
         self.table.itemSelectionChanged.connect(self._selection_changed)
         splitter.addWidget(self.table)
-        splitter.setSizes([620, 360])
+        splitter.setSizes([620, 520])
         splitter.setChildrenCollapsible(False)
         layout.addWidget(splitter, 1)
         self.details = QLabel("Select a row to highlight its box. Pause to review a stable result.")
@@ -204,10 +210,31 @@ class OcrInspector(QWidget):
                 item.setToolTip(value)
                 self.table.setItem(row, column, item)
         self.copy_button.setEnabled(bool(result.regions))
+        self._refresh_english()
         self._selection_changed()
+
+    def set_translations(self, results: tuple[TranslatedText, ...]) -> None:
+        if results != self._translations:
+            self._translations = results
+            self._refresh_english()
+
+    def _refresh_english(self) -> None:
+        if self.result is None:
+            return
+        english = {
+            (str(value.request.track_id), value.request.source): value.english
+            for value in self._translations
+        }
+        for row, region in enumerate(self.result.regions):
+            item = self.table.item(row, 0)
+            text = english.get((item.text(), region.text), "") if item else ""
+            cell = QTableWidgetItem(text or "—")
+            cell.setToolTip(text)
+            self.table.setItem(row, 3, cell)
 
     def clear(self) -> None:
         self.result = None
+        self._translations = ()
         self.preview.set_frame(None)
         self.table.setRowCount(0)
         self.copy_button.setEnabled(False)
@@ -243,3 +270,13 @@ class OcrInspector(QWidget):
         rows = self.table.selectionModel().selectedRows()
         text = regions[rows[0].row()].text if rows else "\n".join(r.text for r in regions)
         QGuiApplication.clipboard().setText(text)
+
+    def _copy_english(self) -> None:
+        rows = self.table.selectionModel().selectedRows()
+        indices = [row.row() for row in rows] if rows else range(self.table.rowCount())
+        text = [
+            item.text()
+            for row in indices
+            if (item := self.table.item(row, 3)) and item.text() != "—"
+        ]
+        QGuiApplication.clipboard().setText("\n".join(text))

@@ -105,10 +105,13 @@ budgets. Measure game frame times as well as isolated inference. See [performanc
 6. Add automatic text sizing, profiles, glossary, hotkeys, model setup, and packaging.
 7. Expand compatibility and consider a native hook only if justified.
 
-Window capture and local MeikiOCR inspection are complete. Following the user's successful OCR test,
-the user requested stabilization next: the deterministic tracking portion of milestone four was
-pulled forward ahead of translation evaluation. See [current scope](plans/003-stable-tracks.md).
-Translation evaluation/integration and more sophisticated tracking remain upcoming work.
+Window capture, MeikiOCR inspection, and deterministic tracking are implemented. At the user's
+request, Sugoi V4 integration now connects the live pipeline, including memory/SQLite caching,
+swappable backend factories, and automatic/manual English sizing. See
+[current scope](plans/004-local-translation.md). This pulls parts of milestones three, five, and six
+forward; it does not establish Sugoi as the best model. Representative model comparisons, dialogue
+grouping/context, collision-aware placement, per-game profiles, glossaries, hotkeys, and packaging
+remain upcoming work.
 
 ## Technical references
 

@@ -49,13 +49,13 @@ def model_directory() -> Path:
     return Path(override) if override else Path(__file__).resolve().parents[2] / "models" / "meiki"
 
 
-def validate_asset(path: Path, asset: ModelAsset) -> None:
+def validate_asset(path: Path, asset: ModelAsset, setup: str = "Setup OCR.cmd") -> None:
     if not path.is_file() or path.stat().st_size != asset.size:
-        raise RuntimeError(f"Missing or incomplete OCR model: {asset.filename}. Run Setup OCR.cmd.")
+        raise RuntimeError(f"Missing or incomplete model asset: {asset.filename}. Run {setup}.")
     with path.open("rb") as source:
         digest = hashlib.file_digest(source, "sha256").hexdigest()
     if digest != asset.sha256:
-        raise RuntimeError(f"OCR model checksum mismatch: {asset.filename}. Run Setup OCR.cmd.")
+        raise RuntimeError(f"Model checksum mismatch: {asset.filename}. Run {setup}.")
 
 
 def local_model_paths(directory: Path) -> tuple[Path, ...]:

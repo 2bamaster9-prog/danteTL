@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QPushButton,
     QSlider,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -27,6 +28,7 @@ from jp_overlay.inspection import OcrInspector
 from jp_overlay.overlay import OverlayWindow
 from jp_overlay.recognition import OcrSession, OcrState, Recognizer, overlay_result_ready
 from jp_overlay.tracking import TextTrack, TextTracker
+from jp_overlay.translation import BackendChoice, TranslationSession, TranslationState
 from jp_overlay.windows import Windows, WindowUnavailable
 
 logger = logging.getLogger(__name__)
@@ -35,11 +37,23 @@ logger = logging.getLogger(__name__)
 class MainWindow(QMainWindow):
     """Coordinate one capture session. Slow operations remain owned by the service."""
 
-    def __init__(self, windows: Windows, recognizer_factory: Callable[[], Recognizer]) -> None:
+    def __init__(
+        self,
+        windows: Windows,
+        recognizer_factory: Callable[[], Recognizer],
+        backends: tuple[BackendChoice, ...] = (),
+        *,
+        cache_path: Path | None = None,
+    ) -> None:
         super().__init__()
         self._windows = windows
         self._session: CaptureSession | None = None
         self._ocr: OcrSession | None = None
+        self._translation: TranslationSession | None = None
+        self._backends = backends
+        self._cache_path = (
+            cache_path or Path(__file__).resolve().parents[2] / "data/translations.sqlite3"
+        )
         self._recognizer_factory = recognizer_factory
         self._valid_size: tuple[int, int] | None = None
         self._tracker = TextTracker()
@@ -52,7 +66,7 @@ class MainWindow(QMainWindow):
         self._stopping_message = "Capture stopped."
         self._demo_processes: list[subprocess.Popen[bytes]] = []
         self.setWindowTitle("JP Overlay")
-        self.resize(1120, 760)
+        self.resize(1280, 840)
         self._build_ui()
         self._timer = QTimer(self)
         self._timer.setInterval(33)
@@ -69,7 +83,7 @@ class MainWindow(QMainWindow):
         heading = QLabel("JP Overlay")
         heading.setObjectName("heading")
         layout.addWidget(heading)
-        subtitle = QLabel("Local Japanese OCR · MeikiOCR · accuracy inspection")
+        subtitle = QLabel("Local Japanese → English · MeikiOCR + Sugoi V4")
         subtitle.setObjectName("muted")
         layout.addWidget(subtitle)
 
@@ -98,7 +112,7 @@ class MainWindow(QMainWindow):
         layout.addLayout(actions)
 
         options = QHBoxLayout()
-        self.overlay_check = QCheckBox("Show OCR boxes over game")
+        self.overlay_check = QCheckBox("Show game overlay")
         self.overlay_check.setChecked(True)
         self.overlay_check.toggled.connect(self._tick)
         options.addWidget(self.overlay_check)
@@ -121,6 +135,43 @@ class MainWindow(QMainWindow):
         options.addWidget(slider)
         layout.addLayout(options)
 
+        translation = QHBoxLayout()
+        self.translate_check = QCheckBox("English overlay")
+        self.translate_check.setChecked(bool(self._backends))
+        self.translate_check.setEnabled(bool(self._backends))
+        self.translate_check.toggled.connect(self._tick)
+        self.translate_check.toggled.connect(self.stabilize_check.setDisabled)
+        self.stabilize_check.setDisabled(bool(self._backends))
+        self.stabilize_check.setToolTip(
+            "English always uses stable tracks. Turn English off to compare raw game boxes."
+        )
+        translation.addWidget(self.translate_check)
+        self.backend_combo = QComboBox()
+        self.backend_combo.setAccessibleName("Translation backend")
+        self.backend_combo.setToolTip(
+            "Wider search considers more candidates and may take longer; "
+            "translation quality can vary."
+        )
+        for backend in self._backends:
+            self.backend_combo.addItem(backend.name, backend)
+        self.backend_combo.setEnabled(len(self._backends) > 1)
+        self.backend_combo.currentIndexChanged.connect(self._backend_changed)
+        translation.addWidget(self.backend_combo)
+        translation.addStretch()
+        self.automatic_font = QCheckBox("Automatic text size")
+        self.automatic_font.setChecked(True)
+        translation.addWidget(self.automatic_font)
+        self.font_size = QSpinBox()
+        self.font_size.setRange(10, 60)
+        self.font_size.setValue(20)
+        self.font_size.setSuffix(" px")
+        self.font_size.setAccessibleName("English font size in physical pixels")
+        self.font_size.setEnabled(False)
+        self.automatic_font.toggled.connect(self._font_style_changed)
+        self.font_size.valueChanged.connect(self._font_style_changed)
+        translation.addWidget(self.font_size)
+        layout.addLayout(translation)
+
         label = QLabel("RAW OCR FRAME + DETECTED TEXT · PERSISTENT IDS")
         label.setObjectName("eyebrow")
         layout.addWidget(label)
@@ -130,6 +181,9 @@ class MainWindow(QMainWindow):
         self.ocr_status = QLabel("OCR starts with capture. Models stay on this PC.")
         self.ocr_status.setWordWrap(True)
         layout.addWidget(self.ocr_status)
+        self.translation_status = QLabel("English translation starts with capture.")
+        self.translation_status.setWordWrap(True)
+        layout.addWidget(self.translation_status)
         self.status = QLabel("Select a window, then start capture.")
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
@@ -139,7 +193,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.metrics)
         note = QLabel(
             "Preview shows raw OCR; game boxes hold stable positions. IDs persist between frames. "
-            "Use windowed or borderless fullscreen. Translation comes later."
+            "English wraps to fit; an ellipsis means the full text is available in the table."
         )
         note.setWordWrap(True)
         note.setObjectName("muted")
@@ -222,10 +276,12 @@ class MainWindow(QMainWindow):
         self.inspector.clear()
         if self._ocr:
             self._ocr.request_stop()
+        if self._translation:
+            self._translation.request_stop()
         if self._session:
             self._session.request_stop()
             self.start_button.setEnabled(False)
-            self.status.setText("Stopping capture and OCR…")
+            self.status.setText("Stopping capture, OCR, and translation…")
 
     def _pause_inspection(self, paused: bool) -> None:
         if self._ocr:
@@ -250,6 +306,72 @@ class MainWindow(QMainWindow):
         self._tracker.reset()
         self._track_ids = ()
         self._overlay.set_tracks(())
+        self._overlay.set_translations(())
+        if self._translation:
+            self._translation.invalidate()
+
+    def _font_style_changed(self) -> None:
+        automatic = self.automatic_font.isChecked()
+        self.font_size.setEnabled(not automatic)
+        self._overlay.set_text_style(automatic, self.font_size.value())
+
+    def _backend_changed(self) -> None:
+        choice = self.backend_combo.currentData()
+        if self._translation and isinstance(choice, BackendChoice):
+            if self._translation.finished:
+                self._translation = None
+            else:
+                self._translation.switch_backend(choice.create)
+        self._overlay.set_translations((), enabled=self.translate_check.isChecked())
+        if not self.inspector.pause.isChecked():
+            self.inspector.set_translations(())
+
+    def _poll_translation(self, running: bool, tracks: tuple[TextTrack, ...] = ()) -> None:
+        session = self._translation
+        enabled = running and self.translate_check.isChecked()
+        if not enabled:
+            if session:
+                session.request_stop()
+                if session.finished:
+                    self._translation = None
+            self._overlay.set_translations(())
+            if not self.inspector.pause.isChecked():
+                self.inspector.set_translations(())
+            self.translation_status.setText(
+                "Unloading translation model…"
+                if session and not session.finished
+                else "English translation is off."
+                if running
+                else "Translation stopped."
+            )
+            return
+        if session and session.finished and session.snapshot().state == TranslationState.STOPPED:
+            self._translation = session = None
+        if session is None:
+            choice = self.backend_combo.currentData()
+            if not isinstance(choice, BackendChoice):
+                return
+            session = TranslationSession(choice.create, self._cache_path)
+            self._translation = session
+            session.start()
+        session.update(tracks)
+        snapshot = session.snapshot()
+        self._overlay.set_translations(snapshot.results, enabled=True)
+        if not self.inspector.pause.isChecked():
+            self.inspector.set_translations(snapshot.results)
+        if snapshot.state == TranslationState.FAILED:
+            self.translation_status.setText(
+                f"Translation unavailable: {snapshot.message} Toggle English off/on to retry."
+            )
+        elif snapshot.state == TranslationState.LOADING:
+            self.translation_status.setText("Loading the local translation model…")
+        elif snapshot.state == TranslationState.STOPPING:
+            self.translation_status.setText("Waiting for translation to finish unloading…")
+        else:
+            self.translation_status.setText(
+                f"{len(snapshot.results)} English regions · {snapshot.pending} pending · "
+                f"{snapshot.last_batch_ms:.0f} ms last batch · local CPU. {snapshot.message}"
+            )
 
     def _update_ocr(self, frame: CapturedFrame) -> None:
         ocr = self._ocr
@@ -291,12 +413,19 @@ class MainWindow(QMainWindow):
         session = self._session
         if session is None:
             self._overlay.hide()
+            self._poll_translation(False)
             return
         snapshot = session.snapshot()
         if session.finished:
             self._overlay.hide()
             self._clear_tracking()
             self.inspector.clear()
+            self._poll_translation(False)
+            if self._ocr and not self._ocr.finished:
+                self._ocr.request_stop()
+            if self._translation is not None:
+                self.status.setText("Waiting for the current translation operation to finish…")
+                return
             if self._ocr and not self._ocr.finished:
                 self._ocr.request_stop()
                 self.status.setText("Waiting for the current OCR operation to finish…")
@@ -322,6 +451,7 @@ class MainWindow(QMainWindow):
             if self._ocr:
                 self._ocr.request_stop()
             self.inspector.clear()
+            self._poll_translation(False)
             return
         try:
             geometry = self._windows.geometry(session.target)
@@ -341,9 +471,9 @@ class MainWindow(QMainWindow):
                     f"average · DPI {geometry.dpi} · local"
                 )
                 self.status.setText(
-                    "Capturing. OCR boxes appear on the selected window when ready."
+                    "Capturing. The overlay appears on the selected window when ready."
                     if foreground and self.overlay_check.isChecked()
-                    else "Capturing. Switch to the selected window to see OCR boxes."
+                    else "Capturing. Switch to the selected window to see the overlay."
                     if self.overlay_check.isChecked()
                     else "Capturing. Game overlay is hidden."
                 )
@@ -352,7 +482,17 @@ class MainWindow(QMainWindow):
                 self.status.setText("Waiting for a frame matching the window size…")
             result = self.inspector.result
             tracks = self._tracker.visible(frame, time.monotonic()) if frame is not None else ()
-            if not self.stabilize_check.isChecked() and not self.inspector.pause.isChecked():
+            ready = (
+                self._tracker.translation_tracks(frame, time.monotonic())
+                if frame is not None and not self.inspector.pause.isChecked()
+                else ()
+            )
+            self._poll_translation(True, ready)
+            if (
+                not self.stabilize_check.isChecked()
+                and not self.inspector.pause.isChecked()
+                and not self.translate_check.isChecked()
+            ):
                 tracks = (
                     tuple(
                         TextTrack(key, region.text, region.bounds, region.vertical)

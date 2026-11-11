@@ -242,3 +242,24 @@ def test_long_gap_cannot_confirm_an_old_pending_candidate() -> None:
     replay.step(region("犬"))
     assert replay.step(region("犬"), dt=10)[0] is original
     assert replay.step(region("犬"))[0].text == "犬"
+
+
+def test_translation_waits_for_confirmation_and_preserves_committed_content_through_noise() -> None:
+    replay = Replay()
+    replay.step(region("新しい冒険"))
+    assert replay.result is not None
+    assert replay.tracker.translation_tracks(replay.result.frame, replay.now + 0.1) == ()
+    stable = replay.step(region("新しい冒険"))
+    assert replay.result is not None
+    assert replay.tracker.translation_tracks(replay.result.frame, replay.now) == stable
+    replay.step(region("新しい冒険が始まる"))
+    assert replay.result is not None
+    assert replay.tracker.translation_tracks(replay.result.frame, replay.now) == stable
+    settled = replay.tracker.translation_tracks(replay.result.frame, replay.now + 0.4)
+    assert settled[0].text == "新しい冒険が始まる"
+    replay.step()
+    assert replay.result is not None
+    assert replay.tracker.translation_tracks(replay.result.frame, replay.now) == settled
+    replay.step()
+    assert replay.result is not None
+    assert replay.tracker.translation_tracks(replay.result.frame, replay.now) == ()

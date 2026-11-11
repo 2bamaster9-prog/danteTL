@@ -48,6 +48,7 @@ class _Track:
     text_hits: int = 0
     pending_bounds: Rect | None = None
     position_hits: int = 0
+    confirmed: bool = False
 
 
 def _normalized(text: str) -> str:
@@ -187,6 +188,7 @@ class TextTracker:
         text_changed = False
         if _normalized(region.text) == _normalized(track.value.text):
             track.pending_text, track.text_hits = "", 0
+            track.confirmed = True
         else:
             if _normalized(region.text) == _normalized(track.pending_text):
                 track.text_hits += 1
@@ -198,6 +200,7 @@ class TextTracker:
                 )
                 track.pending_text, track.text_hits = "", 0
                 text_changed = True
+                track.confirmed = True
         distance = _edge_distance(track.value.bounds, region.bounds)
         tolerance = _deadband(track.value.bounds)
         if distance <= tolerance and not text_changed:
@@ -233,6 +236,7 @@ class TextTracker:
             track = self._tracks[key]
             static = track.last_sequence == latest.sequence and track.misses == 0
             if static and now - track.last_seen >= self._policy.static_settle_seconds:
+                track.confirmed = True
                 # WGC need not emit the same pixels twice. Time on an unchanged latest
                 # frame can settle its final edit; repeated polls never count as frames.
                 if track.pending_text:
@@ -249,3 +253,12 @@ class TextTracker:
             if not static and now - track.last_seen > self._policy.stale_seconds:
                 del self._tracks[key]
         return tuple(track.value for track in self._tracks.values())
+
+    def translation_tracks(self, latest: CapturedFrame, now: float) -> tuple[TextTrack, ...]:
+        """Translate confirmed display content; preserve it through jitter/miss grace.
+
+        Initial/typewriter candidates wait for confirmation. Once content is committed,
+        keep its English until a new revision commits or its track actually expires.
+        """
+        visible = self.visible(latest, now)
+        return tuple(value for value in visible if self._tracks[value.track_id].confirmed)

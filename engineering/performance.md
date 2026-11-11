@@ -5,7 +5,7 @@
 Design the compact configuration for a recent midrange PC with 16 GB RAM, initially at 1080p.
 Aim for about 2 GB application RAM after warm-up and about 2 GB additional VRAM for optional
 compact acceleration. Larger quality presets have explicit separate budgets. These are targets,
-not measured results for an implemented OCR/translation pipeline.
+not a validated hardware requirement or sustained pipeline measurement.
 
 Start at four capture samples per second, with translation only on stable changes. Measure latency
 from first appearance and from stabilization separately. Initial short-dialogue targets are roughly
@@ -31,7 +31,7 @@ available. Compare the same scene or replay and distinguish app throughput from 
 The development RTX 5080 system does not establish the ordinary-PC target.
 
 The user-selected 4K session showed about 3.5–3.8 captured samples/s during UI verification. No
-claim about game frame-time impact or full translation memory consumption has been measured yet.
+claim about game frame-time impact has been measured yet. Full-pipeline smoke samples are below.
 
 A single process sample during the running capture/preview session reported 286.1 MiB working set
 and 711.8 MiB private memory. These are different Windows process metrics, not interchangeable RAM
@@ -66,3 +66,29 @@ polls only read/expire the small tracked set. Capture and OCR frequency remain u
 text can still be discovered. Equivalent committed display values no longer request an application
 overlay repaint; native expose/resize events may still paint. No game frame-time benchmark or
 midrange-PC timing claim is inferred from the deterministic/live correctness checks.
+
+## Translation slice measurements (2026-11-13)
+
+Sugoi V4 revision `71d67eb8e73ec2f5aaefc0689e03a4eb843d3a2b`, CTranslate2 4.9.0,
+SentencePiece 0.2.3, CPU int8, two threads, beam two. The supplied model.bin is 1,102,425,134 bytes;
+runtime quantizes it for CPU computation. Loading validates all pinned files before inference.
+
+On the user's Ryzen 9800X3D / 64 GB / RTX 5080 development PC, the final offline check measured
+1,453 ms load/validation and 94 ms for a batch of three short Japanese phrases. The process snapshot
+while loaded was 327.5 MiB working set, 333.5 MiB private memory, and 1,095.3 MiB peak working set.
+The earlier smoke run measured 1,594 ms load and 109 ms for the same batch. These single runs do
+not establish median, p95, long-dialogue latency, or midrange-PC throughput.
+
+The live capture + OCR + translation + inspector fixture at 1575 × 1015 and DPI 168 passed after
+switching from beam two to beam five. Its sampled process values were 862.4 MiB working set,
+1,412.2 MiB private memory, and 1,623.3 MiB peak working set. Peak includes startup and model
+switching. The GUI and its demo are in the same verification process. These Windows metrics are
+not interchangeable, and this short run is not a sustained-memory or VRAM measurement. Inference
+uses CPU; the game and compositor GPU overhead was not measured. Game frame-time impact, 4K dense
+menus, and long sessions remain unbenchmarked.
+
+Translation retains at most 128 desired requests/results, one in-flight batch of four distinct
+sources, 512 in-memory cache entries, and 20,000 SQLite rows. Layout caches 256 combinations.
+Source text is capped at 512 characters and 512 model tokens; generated output is capped at 256
+tokens and checked for termination. These bounds prevent a growing queue/history; they do not
+guarantee every workload stays below the product's memory/latency targets.

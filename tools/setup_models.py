@@ -1,5 +1,6 @@
 """Explicit, resumable-by-file setup. This is the only model download entry point."""
 
+import argparse
 import os
 import tempfile
 from pathlib import Path
@@ -9,12 +10,23 @@ from jp_overlay.models import ASSETS, model_directory, validate_asset
 
 
 def main() -> None:
-    directory = model_directory()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--translation", action="store_true", help="Install Sugoi V4 instead of OCR"
+    )
+    args = parser.parse_args()
+    assets, directory, setup = ASSETS, model_directory(), "Setup OCR.cmd"
+    if args.translation:
+        from jp_overlay.sugoi import ASSETS as sugoi_assets
+        from jp_overlay.sugoi import model_directory as sugoi_directory
+
+        assets, directory, setup = sugoi_assets, sugoi_directory(), "Setup Translation.cmd"
     directory.mkdir(parents=True, exist_ok=True)
-    for asset in ASSETS:
+    for asset in assets:
         destination = directory / asset.filename
+        destination.parent.mkdir(parents=True, exist_ok=True)
         try:
-            validate_asset(destination, asset)
+            validate_asset(destination, asset, setup)
         except RuntimeError:
             pass
         else:
@@ -33,12 +45,12 @@ def main() -> None:
                         if received > asset.size:
                             raise RuntimeError("Download exceeded the pinned model size.")
                         output.write(chunk)
-            validate_asset(temporary, asset)
+            validate_asset(temporary, asset, setup)
             os.replace(temporary, destination)
         finally:
             if temporary is not None:
                 temporary.unlink(missing_ok=True)
-    print(f"OCR models verified in {directory}. Inference works offline.", flush=True)
+    print(f"Models verified in {directory}. Inference works offline.", flush=True)
 
 
 if __name__ == "__main__":

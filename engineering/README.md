@@ -1,8 +1,8 @@
 # Engineering guide
 
-JP Overlay is a local Windows application that will translate Japanese game text into English
-at the original text locations. Window capture and overlay alignment are established; the current
-slice adds stable text identities and suppresses game-overlay jitter while retaining raw OCR inspection.
+JP Overlay is a local Windows application that translates Japanese game text into English at the
+original text locations. The current slice connects stabilized MeikiOCR text to Sugoi V4 through
+CTranslate2, bounded caching, and English rendering while retaining raw OCR inspection.
 
 Read these documents as relevant to the task:
 
@@ -16,7 +16,8 @@ Read these documents as relevant to the task:
 | [Decisions](decisions/001-desktop-foundation.md) | Why the initial architecture was selected |
 | [OCR decision](decisions/002-local-ocr.md) | Offline models, CPU inference, and inspection policy |
 | [Tracking decision](decisions/003-stable-display.md) | Matching, confirmation, and repaint policy |
-| [Current slice](plans/003-stable-tracks.md) | Deliverables, progress, and remaining gaps |
+| [Translation decision](decisions/004-local-translation.md) | Backend boundary, caching, and English layout |
+| [Current slice](plans/004-local-translation.md) | Deliverables, progress, and remaining gaps |
 
 The harness consists of these documents, executable checks, deterministic tests, and live capture
 verification. Add guidance when it resolves a concrete ambiguity; replace stale guidance instead

@@ -1,11 +1,13 @@
 """Qt overlay rendering; receives geometry and never owns capture state."""
 
-from PySide6.QtCore import QRectF, Qt
+from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
 from jp_overlay.domain import Rect, sample_box
+from jp_overlay.text_layout import layout_english
 from jp_overlay.tracking import TextTrack
+from jp_overlay.translation import TranslatedText, TranslationRequest
 from jp_overlay.windows import Windows
 
 
@@ -28,6 +30,23 @@ class OverlayWindow(QWidget):
         self._opacity = 0.85
         self._configured = False
         self._tracks: tuple[TextTrack, ...] | None = None
+        self._translations: tuple[TranslatedText, ...] = ()
+        self._english_mode = False
+        self._automatic_size = True
+        self._manual_size = 20
+
+    def set_translations(
+        self, results: tuple[TranslatedText, ...], *, enabled: bool = False
+    ) -> None:
+        if results != self._translations or enabled != self._english_mode:
+            self._translations = results
+            self._english_mode = enabled
+            self.update()
+
+    def set_text_style(self, automatic: bool, pixels: int) -> None:
+        if (automatic, pixels) != (self._automatic_size, self._manual_size):
+            self._automatic_size, self._manual_size = automatic, pixels
+            self.update()
 
     def set_tracks(self, tracks: tuple[TextTrack, ...]) -> None:
         # Fresh OCR objects do not imply changed display state. Ignore confidence,
@@ -65,12 +84,47 @@ class OverlayWindow(QWidget):
         painter.scale(1 / ratio, 1 / ratio)
         width, height = self._bounds.size
         if self._tracks is not None:
-            painter.setOpacity(self._opacity)
+            english = {value.request: value.english for value in self._translations}
             font = QFont("Segoe UI")
             font.setPixelSize(round(13 * ratio))
             painter.setFont(font)
             for track in self._tracks:
                 box = track.bounds
+                text = english.get(TranslationRequest.from_track(track))
+                if self._english_mode and not text:
+                    continue  # Leave original text unobscured while a translation is pending.
+                if self._english_mode and text:
+                    layout = layout_english(
+                        text,
+                        box,
+                        self._bounds.size,
+                        automatic=self._automatic_size,
+                        manual_pixels=self._manual_size,
+                        vertical=track.vertical,
+                    )
+                    area = QRectF(
+                        layout.bounds.x, layout.bounds.y, layout.bounds.width, layout.bounds.height
+                    )
+                    painter.save()
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.setBrush(QColor(12, 20, 31, round(255 * self._opacity)))
+                    painter.drawRoundedRect(area, 4, 4)
+                    english_font = QFont("Segoe UI")
+                    english_font.setPixelSize(layout.pixel_size)
+                    painter.setFont(english_font)
+                    painter.setPen(QColor("#f1f5f9"))
+                    painter.setClipRect(area)
+                    for index, line in enumerate(layout.lines):
+                        painter.drawText(
+                            QPointF(
+                                area.x() + 4,
+                                area.y() + 4 + layout.ascent + index * layout.line_height,
+                            ),
+                            line,
+                        )
+                    painter.restore()
+                    continue
+                painter.setOpacity(self._opacity)
                 painter.setPen(QPen(QColor("#5eead4"), max(2, ratio)))
                 painter.setBrush(Qt.BrushStyle.NoBrush)
                 painter.drawRect(QRectF(box.x, box.y, box.width, box.height))
@@ -83,6 +137,7 @@ class OverlayWindow(QWidget):
                 )
                 painter.fillRect(badge, QColor("#123a35"))
                 painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, label)
+                painter.setOpacity(1.0)
             return
         painter.setPen(QPen(QColor("#5eead4"), max(2, ratio)))
         painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -100,5 +155,5 @@ class OverlayWindow(QWidget):
         painter.drawText(
             area.adjusted(12 * ratio, 4 * ratio, -12 * ratio, -4 * ratio),
             Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
-            "Sample overlay · clicks pass through\nTranslation arrives in a later milestone",
+            "Sample overlay · clicks pass through\nNative capture and alignment check",
         )

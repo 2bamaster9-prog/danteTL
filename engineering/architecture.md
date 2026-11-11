@@ -2,9 +2,9 @@
 
 ## Current implementation
 
-`app` assembles the Windows boundary, QApplication, main window, and lazy recognizer factory.
-`ui` owns controls and coordination for one capture/OCR session. `inspection` owns the image/text
-inspector. `capture` owns asynchronous native capture and shutdown.
+`app` assembles the Windows boundary, QApplication, main window, and lazy OCR/translation factories.
+`ui` owns controls and coordination for one capture/OCR/translation session. `inspection` owns the
+image/text inspector. `capture` owns asynchronous native capture and shutdown.
 `overlay` owns rendering and display placement. `windows` owns Win32 identity, geometry, and
 overlay styles. `domain` contains immutable shared values and pure geometry/visibility policy.
 `demo` is an optional animated test target.
@@ -13,8 +13,11 @@ The domain imports no Qt or Windows code. Capture does not depend on Qt and cons
 geometry-source protocol. `recognition` owns the OCR worker, immutable observations, and lifecycle;
 it imports no Qt, Win32, or model runtime. `meiki` isolates pinned MeikiOCR/ONNX details. `models`
 defines and validates pinned local assets. `tracking` owns bounded text identities, matching,
-confirmation, and expiration; it stores no frame images and has no native/model dependencies. The current
-single-session coordinator can move out of the UI when the pipeline requires it.
+confirmation, and expiration; it stores no frame images and has no native/model dependencies.
+`translation` owns scheduling, backend swaps, and result validity through a small backend protocol.
+`sugoi` owns SentencePiece/CTranslate2 and pinned translation assets; `translation_cache` owns bounded
+memory/SQLite storage. `text_layout` owns measured English wrapping and viewport limits. The current
+single-session coordinator can move out of the UI when a second consumer requires it.
 
 ## Coordinates
 
@@ -54,16 +57,19 @@ style supports mouse pass-through across processes. WDA_EXCLUDEFROMCAPTURE is re
 stops the session with a visible explanation. The overlay is visible only for the selected foreground
 window with matching capture dimensions. It hides on focus loss, minimize, stop, or source failure.
 
-The application draws numbered text-track boxes, preserving the original game text underneath.
+English mode draws translated text over a translucent background at committed track positions.
+Untranslated/pending regions leave the original game text visible. English always uses stabilization.
+Turning English off reveals numbered OCR boxes for diagnosis; only this mode allows raw box comparison.
 The default stabilized mode retains committed positions through small OCR changes and brief misses.
 An unchanged source frame can retain its boxes indefinitely. Advancing capture without fresh matching
 OCR expires tracks after 800 ms; two consecutive missed OCR observations also remove a track.
 Dimension mismatches always hide/clear them. The comparison checkbox displays raw boxes with the
 original 750 ms freshness policy. The original sample mode remains for the native regression harness.
 
-`OverlayWindow.set_tracks` compares immutable display values rather than fresh OCR object identity.
-Only changes to those values request an application repaint. Qt/Windows can still repaint for expose,
-resize, DPI, and other native reasons. Holding a box is not a promise to suppress all paint events.
+`OverlayWindow.set_tracks` and `set_translations` compare immutable display values rather than fresh
+OCR object identity. Changed display values/style request an application repaint. Qt/Windows can
+still repaint for expose, resize, DPI, and other native reasons. Holding a box is not a promise to
+suppress all paint events.
 
 ## OCR ownership and inspection
 
@@ -75,7 +81,7 @@ idle spinning, OpenCV one thread, and recognition batches of four. Models execut
 
 Resize, minimize, and pause increment a generation and clear pending/published work. Already-running
 native inference finishes, but cannot publish into an invalid generation. Each new capture has a
-separate worker. Stop clears the inspector and overlay immediately; the GUI polls both workers'
+separate worker. Stop clears the inspector and overlay immediately; the GUI polls all workers'
 completion before restarting or closing. A model failure preserves its diagnostic while capture
 continues; stop/start retries loading. There is no forced interruption of an ONNX call.
 
@@ -111,16 +117,61 @@ If no newer frame arrives, pending changes settle after 350 ms on that latest ca
 does not need to repeat identical pixels. A long static pause preserves IDs without counting
 pending edits on either side of the gap as consecutive evidence.
 
-New recognized regions display immediately, keeping truly static one-frame sources usable. Empty
-recognition is visible in the inspector but cannot refresh an old track. Text tracking does not yet
-implement visual scene-cut detection, optical flow, split/merge reconciliation, or translation work.
+New recognized regions display immediately in diagnostic mode. Translation waits for a second
+consistent observation, or 350 ms on an unchanged latest frame. Previously confirmed content remains
+eligible through pending edits and the one-miss grace period, keeping its existing English visible.
+A committed new revision invalidates its old English. Empty recognition remains visible in the raw
+inspector but cannot refresh a track. Text tracking does not yet implement visual scene-cut detection,
+optical flow, or split/merge reconciliation.
 See [the policy decision](decisions/003-stable-display.md) for thresholds and tradeoffs.
+
+## Translation and layout
+
+The UI replaces the desired set of up to 128 confirmed Japanese tracks. Requests contain only track
+ID, text revision, and exact source text, so movement cannot cause retranslation. One worker owns
+one backend and one cache. It coalesces identical text into batches of at most four distinct sources;
+there is no historical job queue. Non-Japanese regions remain available in the raw inspector but are
+not submitted to the Japanese-to-English backend.
+
+The worker checks the memory/SQLite cache, translates missing entries, and publishes only requests
+still desired in the same generation. In-flight work can populate the cache after invalidation, but
+cannot repopulate obsolete display results. Reset, pause, minimize, resize, and model switches
+invalidate generations. The renderer independently matches track ID, text revision, and source.
+
+`TranslationBackend` exposes `cache_identity`, batched `translate`, and `close`. Factories are passed
+from `app`; adding another engine needs an adapter and registration, not pipeline changes. The two
+initial choices are Sugoi decoding profiles, not different model weights. Switching drains the active
+call, unloads the old backend, then loads the latest selected backend on the same worker. No two
+loaded models are deliberately retained. Stop is nonblocking; native calls finish before teardown.
+Failure leaves OCR/capture running and presents a diagnostic; toggle English off/on to retry.
+
+Sugoi uses pinned local weights, Japanese/English SentencePiece files, CPU int8, two threads, and
+beam size two (Fast CPU) or five (Wider search). The adapter rejects overlong input or missing output
+termination instead of silently truncating. There is no network fallback or automatic model setup.
+
+Automatic text size estimates glyph height from stable bounds (width for vertical text), measures
+Segoe UI in physical pixels, then allows limited shrinking/wrapping. Manual size fixes the pixel
+size. Overflow can widen the box by up to 50%, add lines, and shift it inside the client viewport;
+remaining overflow uses an ellipsis. Full English is retained in the inspector and clipboard.
+Layout is cached for 256 combinations. Adjacent-box collision resolution and paragraph grouping
+are not implemented. English is horizontal even when its source is vertical.
+
+The inspector continues to pair raw OCR with its exact frame. Its English column also requires
+matching track ID and exact raw source text, so a pending OCR edit may show no English in the table
+while the game still holds the prior committed translation. Pause freezes both table languages.
 
 ## Runtime data
 
 Images stay in memory. No screenshots are automatically saved. Bounded diagnostic logs live under
 `%LOCALAPPDATA%/JPOverlay/logs`, with no normal logging of captured pixels or recognized text.
 Dependencies and the launcher environment are project-local when using the bundled setup script.
-Models live in ignored `models/meiki` (or `JP_OVERLAY_MODEL_DIR`) and are installed only by explicit
-`Setup OCR.cmd` / `tools/setup_models.py`. Repository revisions, lengths, and SHA-256 digests are pinned;
-runtime rejects missing/corrupt files without a network fallback. Persistent caches are still future work.
+Models live in ignored `models/meiki` (or `JP_OVERLAY_MODEL_DIR`) and `models/sugoi-v4`
+(or `JP_OVERLAY_SUGOI_DIR`). Explicit setup scripts install them. Repository revisions, lengths, and
+SHA-256 digests are pinned; runtime rejects missing/corrupt files without a network fallback.
+
+Translation cache storage is ignored `data/translations.sqlite3`: at most 512 memory entries and
+20,000 SQLite rows. Keys hash exact source plus language pair, weights/tokenizer revision, runtime
+versions, decoding settings, and adapter version. English translations persist locally; screenshots
+and raw Japanese are not written into this database. SQLite uses WAL on its owning worker. Disk
+errors fall back to bounded memory with a visible warning and preserve the original file. There is
+no Redis service. Future glossary/context features must extend cache identity before reuse.

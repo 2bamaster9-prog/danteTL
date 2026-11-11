@@ -9,11 +9,13 @@ from pathlib import Path
 import shiboken6
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QApplication
+from verify_translation import process_memory
 
-from jp_overlay.app import create_recognizer
+from jp_overlay.app import create_recognizer, translation_backends
 from jp_overlay.demo import DemoWindow
 from jp_overlay.domain import WindowTarget
 from jp_overlay.recognition import OcrState
+from jp_overlay.translation import TranslationState
 from jp_overlay.ui import MainWindow
 from jp_overlay.windows import Windows
 
@@ -21,6 +23,9 @@ from jp_overlay.windows import Windows
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, help="Save a screenshot of only our test app")
+    parser.add_argument(
+        "--translation", action="store_true", help="Include real Sugoi and profile swapping"
+    )
     args = parser.parse_args()
     windows = Windows()
     windows.enable_dpi_awareness()
@@ -29,7 +34,13 @@ def main() -> int:
     demo = DemoWindow()
     demo.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
     demo.show()
-    window = MainWindow(windows, create_recognizer)
+    window = MainWindow(
+        windows,
+        create_recognizer,
+        translation_backends() if args.translation else (),
+        cache_path=Path(__file__).resolve().parents[1]
+        / "artifacts/verification-translation.sqlite3",
+    )
     window.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
     window.show()
     target = WindowTarget(int(demo.winId()), os.getpid(), demo.windowTitle())
@@ -43,11 +54,13 @@ def main() -> int:
     initial_size = (0, 0)
     phrase_id = 0
     phrase_bounds = None
+    swapped = False
     evidence: dict[str, object] = {}
     failure = ""
 
     def tick() -> None:
         nonlocal stage, stage_started, frozen, initial_size, failure, phrase_id, phrase_bounds
+        nonlocal swapped
         now = time.monotonic()
         try:
             if now - started > 30:
@@ -61,6 +74,11 @@ def main() -> int:
                 return
             if window._ocr and window._ocr.snapshot().state == OcrState.FAILED:
                 raise RuntimeError(window._ocr.snapshot().message)
+            if (
+                window._translation
+                and window._translation.snapshot().state == TranslationState.FAILED
+            ):
+                raise RuntimeError(window._translation.snapshot().message)
             result = window.inspector.result
             if stage == 0 and result is not None:
                 text = [r.text for r in result.regions]
@@ -84,6 +102,38 @@ def main() -> int:
                 tracks = window._tracker.visible(result.frame, now)
                 phrase = next(t for t in tracks if t.track_id == phrase_id)
                 assert phrase.bounds == phrase_bounds, "Stationary dialogue box changed bounds"
+                if args.translation:
+                    if window._translation is None:
+                        return
+                    translated = window._translation.snapshot()
+                    if not translated.results or translated.pending:
+                        return
+                    if not swapped:
+                        window.backend_combo.setCurrentIndex(1)
+                        swapped = True
+                        return
+                    english = next(
+                        t
+                        for t in translated.results
+                        if t.request.source == "新しい冒険が、ここから始まる。"
+                    )
+                    assert "adventure" in english.english.lower()
+                    evidence["english_after_backend_swap"] = english.english
+                    evidence["process_memory"] = process_memory()
+                    window._overlay.set_tracks(tracks)
+                    window._overlay.set_translations(translated.results, enabled=True)
+                    window._overlay.align(windows.geometry(target).client)
+                    app.processEvents()  # Deliver the native resize before grabbing the widget.
+                    if args.output:
+                        args.output.parent.mkdir(parents=True, exist_ok=True)
+                        window._overlay.grab().save(
+                            str(args.output.with_name("english-overlay.png"))
+                        )
+                    window.automatic_font.setChecked(False)
+                    window.font_size.setValue(24)
+                    assert window._overlay._manual_size == 24
+                    window.automatic_font.setChecked(True)
+                    evidence["automatic_and_manual_font_controls"] = True
                 evidence["repeated_ocr_keeps_dialogue_id_and_bounds"] = True
                 window.stabilize_check.setChecked(False)
                 frozen = result
@@ -121,6 +171,7 @@ def main() -> int:
                 stage = 5
             elif stage == 5 and window._session is None:
                 assert window._ocr is None
+                assert window._translation is None
                 assert window.inspector.result is None
                 window.start_button.click()
                 stage = 6
@@ -130,8 +181,9 @@ def main() -> int:
                 stage = 7
             elif stage == 7 and window._session is None:
                 assert window._ocr is None
+                assert window._translation is None
                 assert not window.isVisible()
-                evidence["close_finishes_both_workers"] = True
+                evidence["close_finishes_all_workers"] = True
                 evidence["elapsed_seconds"] = round(now - started, 2)
                 stage = 99
         except Exception as error:

@@ -35,3 +35,6 @@ Restart the app and compare both toggle states in the game that exhibited jitter
 typewriter dialogue, scrolling choices, disappearing text, and transitions. Thresholds are starting
 heuristics and may need adjustment for real scenes. Translation, caches, fonts, split/merge handling,
 and optical flow remain outside this slice. No new dependency or model download is required.
+
+Follow-up: [slice four](004-local-translation.md) now connects local translation, caching, and English
+layout. The tracker also exposes confirmed content for translation while retaining raw inspection.

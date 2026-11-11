@@ -13,6 +13,11 @@ stop during loading/inference, model integrity, offline missing-model failure, f
 preview letterboxing, and empty results replacing prior detections. They do not establish native
 Windows compatibility.
 
+Translation tests use fake backends and real temporary SQLite databases. They cover deduplication,
+movement without inference, stale revisions/generations, removed tracks, bounded work, cache identity,
+disk fallback, model swaps/unloading, and nonblocking shutdown. Qt checks cover English layout,
+overflow, revision-safe rendering, and repaint suppression. No model files are needed for fast tests.
+
 ## Local OCR checks
 
 Install models explicitly with `uv run python tools/setup_models.py` or `Setup OCR.cmd`.
@@ -25,6 +30,19 @@ Run `uv run python tools/verify_ocr_windows.py` for capture-to-inspector integra
 our demo, checks Japanese recognition, freezes inspection while capture continues, resizes,
 minimizes/restores, restarts, and closes both workers. Optional `--output artifacts/ocr/live.png`
 saves the test app's own widget rendering. This runs on an unlocked desktop like the native check.
+
+## Local translation checks
+
+Install Sugoi explicitly with `uv run python tools/setup_models.py --translation` or
+`Setup Translation.cmd`. Run `uv run python tools/verify_translation.py` to load/translate original
+sample phrases with Python socket connections blocked. It prints the backend/cache identity,
+load/batch timings, and a Windows process memory snapshot. It is a smoke check, not a quality benchmark.
+
+Run `uv run python tools/verify_ocr_windows.py --translation --output artifacts/translation/live.png`
+to test the full pipeline with both model sets installed. It waits for English, switches Sugoi
+decoding profiles, verifies font controls, and runs pause, resize, minimize/restore, restart, and
+shutdown checks. The optional output saves only the fixture app and its English overlay rendering.
+The native regression remains `uv run python tools/verify_windows.py`.
 
 ## Live Windows check
 
@@ -46,12 +64,15 @@ compatibility. Fast checks remain sandbox-compatible.
 1. Launch the app and open its demo window. Select the demo in the window list.
 2. Start capture. The preview should contain Japanese text, numbered boxes, and matching text rows.
    Pause, select a row, enable character boxes, zoom, and copy text. Verify image/boxes stay together.
-3. Resume and switch to the demo. Check numbered boxes and mouse pass-through while interacting.
-   Compare **Stabilize game boxes** on/off. IDs should survive OCR ordering changes; raw preview
-   positions still follow each analyzed image. In game, inspect genuine movement and disappearing text.
-4. Move, resize, minimize, and restore. Switch focus to another app; the overlay must hide.
-5. Stop/start capture and close the target. Controls should recover and the overlay must disappear.
-6. Repeat with a game in windowed or borderless mode. Record resolution, DPI, capture mode, and
+3. Resume and switch to the demo. Check English placement and mouse pass-through while interacting.
+   Toggle **Automatic text size**, adjust manual size/opacity, and switch decoding profiles. English
+   should remain readable; hovering/copying a table cell should expose full overflow text.
+4. Turn **English overlay** off, then compare **Stabilize game boxes** on/off. IDs should survive OCR
+   ordering changes; raw preview positions still follow each analyzed image. Turn English back on
+   and confirm the model reloads. In game, inspect genuine movement and disappearing text.
+5. Move, resize, minimize, and restore. Switch focus to another app; the overlay must hide.
+6. Stop/start capture and close the target. Controls should recover and the overlay must disappear.
+7. Repeat with a game in windowed or borderless mode. Record resolution, DPI, capture mode, and
    observed behavior. Do not infer publisher approval or broad anti-cheat compatibility.
 
 ## Recorded evidence on 2026-11-13
@@ -99,4 +120,25 @@ See [OCR milestone status](plans/002-ocr-inspection.md) and [measurements](perfo
 - Native capture/overlay regression passed at DPI 96, including exclusion and input-transparent styles.
 - The jitter heuristics have not yet been confirmed by the user in the original problem scene.
 
-See [current slice](plans/003-stable-tracks.md). Existing test commands remain unchanged.
+See [tracking slice](plans/003-stable-tracks.md).
+
+## Translation slice evidence (2026-11-13)
+
+- 72 fast tests passed with Ruff and Pyright; no model downloads or live desktop required.
+- Offline Sugoi load and three-phrase inference passed with socket connections blocked. Fast CPU
+  translated `新しい冒険が、ここから始まる。` as `A new adventure begins here.`; the live Wider search
+  profile returned `It was time for a new adventure.`. Different decoding is not guaranteed better.
+- Full Windows integration passed at DPI 168: Japanese recognition, unchanged track ID/bounds,
+  English after backend swap, automatic/manual sizing, pause while capture continued, resize,
+  minimize/restore, restart, and cleanup. The observed run completed in about 7.4 seconds.
+- The final integration also passed at DPI 96 in about 6.6 seconds, including assertions that
+  capture, OCR, and translation all finish on stop/close. These are separate scale-factor runs,
+  not a cross-monitor mixed-DPI transition test. The offline real-Meiki regression also passed.
+- The native fixture passed alignment, source exclusion, input-transparent/nonactivating styles,
+  minimize/focus policy, restart, source closure, and teardown in about two seconds at DPI 168.
+- English overlay and raw/English inspector widget artifacts were visually reviewed. Only the
+  translated Japanese region was covered in English mode; English fixture labels stayed untouched.
+- Real-game English quality, collision handling in dense UI, sustained memory, mixed-DPI movement,
+  and frame-time impact remain unverified. No new interactive mouse click-through claim is made.
+
+See [current slice](plans/004-local-translation.md) and [performance observations](performance.md).

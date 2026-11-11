@@ -3,12 +3,14 @@
 import logging
 import os
 import sys
+from functools import partial
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from types import TracebackType
 
 from jp_overlay.models import model_directory
 from jp_overlay.recognition import Recognizer
+from jp_overlay.translation import BackendChoice, TranslationBackend
 
 
 def create_recognizer() -> Recognizer:
@@ -16,6 +18,19 @@ def create_recognizer() -> Recognizer:
     from jp_overlay.meiki import MeikiRecognizer
 
     return MeikiRecognizer(model_directory())
+
+
+def create_translator(*, beam_size: int = 2) -> TranslationBackend:
+    from jp_overlay.sugoi import SugoiBackend, model_directory
+
+    return SugoiBackend(model_directory(), beam_size=beam_size)
+
+
+def translation_backends() -> tuple[BackendChoice, ...]:
+    return (
+        BackendChoice("Sugoi V4 · Fast CPU", create_translator),
+        BackendChoice("Sugoi V4 · Wider search", partial(create_translator, beam_size=5)),
+    )
 
 
 def configure_logging() -> None:
@@ -61,7 +76,7 @@ def main() -> None:
         )
 
     sys.excepthook = report_exception
-    window = MainWindow(windows, create_recognizer)
+    window = MainWindow(windows, create_recognizer, translation_backends())
     window.show()
     exit_code = app.exec()
     # Tear down Qt while its native dependencies are still loaded, before Python finalization.
