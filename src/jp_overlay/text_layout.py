@@ -48,12 +48,13 @@ def layout_english(
     automatic: bool = True,
     manual_pixels: int = 20,
     vertical: bool = False,
+    source_line_height: int | None = None,
 ) -> EnglishLayout:
     view_width, view_height = viewport
     if min(viewport) <= 0:
         raise ValueError("English layout needs a nonempty viewport.")
     padding = 4
-    glyph_height = source.width if vertical else source.height
+    glyph_height = source_line_height or (source.width if vertical else source.height)
     preferred = max(12, min(48, round(glyph_height * 0.72))) if automatic else manual_pixels
     preferred = max(10, min(60, preferred))
     floor = max(12, round(preferred * 0.75)) if automatic else preferred

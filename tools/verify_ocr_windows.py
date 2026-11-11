@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import time
+import traceback
 from pathlib import Path
 
 import shiboken6
@@ -12,7 +13,7 @@ from PySide6.QtWidgets import QApplication
 from verify_translation import process_memory
 
 from jp_overlay.app import create_recognizer, translation_backends
-from jp_overlay.demo import DemoWindow
+from jp_overlay.demo import DIALOGUE_LINES, DemoWindow
 from jp_overlay.domain import WindowTarget
 from jp_overlay.recognition import OcrState
 from jp_overlay.translation import TranslationState
@@ -26,12 +27,17 @@ def main() -> int:
     parser.add_argument(
         "--translation", action="store_true", help="Include real Sugoi and profile swapping"
     )
+    parser.add_argument("--dialogue", action="store_true", help="Verify two-line dialogue grouping")
     args = parser.parse_args()
+    if args.dialogue and not args.translation:
+        parser.error("--dialogue requires --translation")
     windows = Windows()
     windows.enable_dpi_awareness()
     app = QApplication([])
     app.setQuitOnLastWindowClosed(False)
-    demo = DemoWindow()
+    demo = DemoWindow(dialogue=args.dialogue)
+    expected = DIALOGUE_LINES[0] if args.dialogue else "新しい冒険が、ここから始まる。"
+    translation_source = "".join(DIALOGUE_LINES) if args.dialogue else expected
     demo.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
     demo.show()
     window = MainWindow(
@@ -55,12 +61,13 @@ def main() -> int:
     phrase_id = 0
     phrase_bounds = None
     swapped = False
+    grouping_stage = 0
     evidence: dict[str, object] = {}
     failure = ""
 
     def tick() -> None:
         nonlocal stage, stage_started, frozen, initial_size, failure, phrase_id, phrase_bounds
-        nonlocal swapped
+        nonlocal swapped, grouping_stage
         now = time.monotonic()
         try:
             if now - started > 30:
@@ -82,7 +89,9 @@ def main() -> int:
             result = window.inspector.result
             if stage == 0 and result is not None:
                 text = [r.text for r in result.regions]
-                assert "新しい冒険が、ここから始まる。" in text, text
+                assert expected in text, text
+                if args.dialogue:
+                    assert DIALOGUE_LINES[1] in text and "旅人" in text, text
                 assert window.inspector.table.rowCount() == len(result.regions)
                 evidence["live_japanese_recognized"] = True
                 evidence["ocr_ms"] = round(result.duration_ms, 1)
@@ -90,7 +99,7 @@ def main() -> int:
                 initial_size = result.frame.geometry.client.size
                 frozen = result
                 tracks = window._tracker.visible(result.frame, now)
-                phrase = next(t for t in tracks if t.text == "新しい冒険が、ここから始まる。")
+                phrase = next(t for t in tracks if t.text == expected)
                 phrase_id, phrase_bounds = phrase.track_id, phrase.bounds
                 stage = 8
             elif (
@@ -112,13 +121,32 @@ def main() -> int:
                         window.backend_combo.setCurrentIndex(1)
                         swapped = True
                         return
+                    if args.dialogue and grouping_stage == 1:
+                        sources = {t.request.source for t in translated.results}
+                        assert all(line in sources for line in DIALOGUE_LINES), sources
+                        assert not any(t.request.members for t in translated.results), translated
+                        window.group_dialogue.setChecked(True)
+                        grouping_stage = 2
+                        return
                     english = next(
-                        t
-                        for t in translated.results
-                        if t.request.source == "新しい冒険が、ここから始まる。"
+                        (t for t in translated.results if t.request.source == translation_source),
+                        None,
                     )
+                    if english is None:
+                        return  # Other blocks can finish while a newly regrouped passage settles.
                     assert "adventure" in english.english.lower()
                     evidence["english_after_backend_swap"] = english.english
+                    if args.dialogue:
+                        assert len(english.request.members) == 2
+                        if grouping_stage == 0:
+                            window.group_dialogue.setChecked(False)
+                            grouping_stage = 1
+                            return
+                        assert any(t.request.source == "旅人" for t in translated.results)
+                        blocks = window._overlay._blocks
+                        assert blocks and sum(len(b.lines) == 2 for b in blocks) == 1
+                        evidence["dialogue_translated_as_one_block_with_separate_speaker"] = True
+                        evidence["grouping_off_on_rebuilds_current_requests"] = True
                     evidence["process_memory"] = process_memory()
                     window._overlay.set_tracks(tracks)
                     window._overlay.set_translations(translated.results, enabled=True)
@@ -136,8 +164,9 @@ def main() -> int:
                     evidence["automatic_and_manual_font_controls"] = True
                 evidence["repeated_ocr_keeps_dialogue_id_and_bounds"] = True
                 window.stabilize_check.setChecked(False)
-                frozen = result
                 window.inspector.pause.setChecked(True)
+                # Events drained for the grab may have advanced OCR.
+                frozen = window.inspector.result
                 if args.output:
                     args.output.parent.mkdir(parents=True, exist_ok=True)
                     window.grab().save(str(args.output))
@@ -187,7 +216,8 @@ def main() -> int:
                 evidence["elapsed_seconds"] = round(now - started, 2)
                 stage = 99
         except Exception as error:
-            failure = str(error)
+            failure = f"{type(error).__name__}: {error}"
+            traceback.print_exc()
             print(f"FAIL: {failure}", flush=True)
             window.close()
             stage = 99

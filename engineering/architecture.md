@@ -100,6 +100,13 @@ during the tracker object's lifetime. The raw inspector remains independent of s
 
 ## Text tracking
 
+`text_content.content_region` derives tracking observations without changing the raw `OcrResult`.
+When character metadata covers the whole recognized string, its union supplies text bounds instead
+of the detector's potentially icon-inclusive rectangle. For horizontal text, one or two isolated,
+weak edge glyphs beside a strong Japanese run may be excluded from that derived observation.
+Structural punctuation, numbers, interior characters, incomplete metadata, and uncertain cases
+remain intact. The inspector still displays original detector/character boxes, text, and scores.
+
 The GUI coordinator observes each completed OCR sequence once; repeated polling cannot count as
 confirmation. All timestamps are explicit monotonic capture times. No background timer, history
 queue, extra model, or image copy is introduced. Matching runs only on new OCR, bounded to 128 tracks
@@ -140,8 +147,33 @@ changing public track values, translation/cache identities, or model ownership.
 
 ## Translation and layout
 
-The UI replaces the desired set of up to 128 confirmed Japanese tracks. Requests contain only track
-ID, text revision, and exact source text, so movement cannot cause retranslation. One worker owns
+`grouping.DialogueGrouper` forms `TextBlock` values from stable lines. It requires nearby horizontal
+lines of comparable height and left alignment, continuation/punctuation evidence, and an unambiguous
+successor. Short/narrow speaker labels, marked choices, completed sentences, separate columns, and
+vertical lines stay separate. Limits are six lines and 512 source characters per group. Every member
+must be confirmed, and a group must keep its membership/source for 350 ms before translation. Single
+lines retain their existing readiness policy. The checkbox disables grouping without resetting OCR.
+
+```mermaid
+flowchart LR
+    A[Raw OCR and exact frame] --> B[Inspector]
+    A --> C[Character bounds and conservative icon cleanup]
+    C --> D[Stable text tracks]
+    D --> E[Confirmed dialogue blocks]
+    E --> F[Memory/SQLite and local Sugoi]
+    F --> G[Validate all member revisions]
+    G --> H[One English box per block]
+    G --> B
+```
+
+Japanese wrapped lines join without invented punctuation or spaces; Latin word boundaries retain a
+space. Requests contain the exact combined source plus every member's ID, revision, and individual
+source, so moving a block cannot cause retranslation. The first member is its display anchor, not
+its sole validity check. Splits, merges, member edits/removal, and toggle changes reject old replies.
+The memory/SQLite key uses the exact combined source and existing backend identity; member geometry
+does not enter that key. Resetting tracking also resets the bounded group-settling state.
+
+The UI replaces the desired set of up to 128 confirmed Japanese blocks. One worker owns
 one backend and one cache. It coalesces identical text into batches of at most four distinct sources;
 there is no historical job queue. Non-Japanese regions remain available in the raw inspector but are
 not submitted to the Japanese-to-English backend.
@@ -149,7 +181,7 @@ not submitted to the Japanese-to-English backend.
 The worker checks the memory/SQLite cache, translates missing entries, and publishes only requests
 still desired in the same generation. In-flight work can populate the cache after invalidation, but
 cannot repopulate obsolete display results. Reset, pause, minimize, resize, and model switches
-invalidate generations. The renderer independently matches track ID, text revision, and source.
+invalidate generations. The renderer independently matches the full request, including all members.
 
 `TranslationBackend` exposes `cache_identity`, batched `translate`, and `close`. Factories are passed
 from `app`; adding another engine needs an adapter and registration, not pipeline changes. The two
@@ -166,12 +198,16 @@ Automatic text size estimates glyph height from stable bounds (width for vertica
 Segoe UI in physical pixels, then allows limited shrinking/wrapping. Manual size fixes the pixel
 size. Overflow can widen the box by up to 50%, add lines, and shift it inside the client viewport;
 remaining overflow uses an ellipsis. Full English is retained in the inspector and clipboard.
-Layout is cached for 256 combinations. Adjacent-box collision resolution and paragraph grouping
-are not implemented. English is horizontal even when its source is vertical.
+Groups use the median individual line height for automatic sizing, not the whole paragraph height.
+Layout is cached for 256 combinations. Adjacent-box collision resolution is not implemented.
+English is horizontal even when its source is vertical.
 
 The inspector continues to pair raw OCR with its exact frame. Its English column also requires
-matching track ID and exact raw source text, so a pending OCR edit may show no English in the table
-while the game still holds the prior committed translation. Pause freezes both table languages.
+matching track ID and derived source text for every member. The anchor row shows the English;
+continuation rows point to that group, and tooltips show its source and full translation. Copying
+English from any member copies the complete group; copying all rows deduplicates by request.
+A pending OCR edit may show no English in the table while the game holds the prior committed
+translation. Pause freezes both table languages. Raw Japanese/boxes always remain inspectable.
 
 ## Runtime data
 

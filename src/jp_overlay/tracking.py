@@ -12,6 +12,7 @@ from math import isfinite
 
 from jp_overlay.domain import CapturedFrame, Rect
 from jp_overlay.recognition import OcrResult, TextRegion
+from jp_overlay.text_content import content_region
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,10 +185,12 @@ class TextTracker:
         self._sequence, self._captured_at = frame.sequence, frame.captured_at
         regions = [
             (index, region)
-            for index, region in enumerate(result.regions)
+            for index, raw in enumerate(result.regions)
+            for region in (content_region(raw),)
             if _normalized(region.text) and min(region.bounds.size) > 0
         ][: self._policy.max_tracks]
         candidates = []
+        observations = dict(regions)
         for key, track in self._tracks.items():
             for index, region in regions:
                 score = _match_score(track, region)
@@ -201,7 +204,7 @@ class TextTracker:
                 continue
             used.add(key)
             assignments[index] = key
-            self._update(self._tracks[key], result.regions[index], frame)
+            self._update(self._tracks[key], observations[index], frame)
         for key in list(self._tracks):
             track = self._tracks[key]
             if key not in used:

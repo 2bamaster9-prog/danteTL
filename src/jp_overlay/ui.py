@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from jp_overlay.capture import CaptureSession
 from jp_overlay.domain import CapturedFrame, CaptureState, WindowTarget, overlay_ready
+from jp_overlay.grouping import DialogueGrouper, TextBlock
 from jp_overlay.inspection import OcrInspector
 from jp_overlay.overlay import OverlayWindow
 from jp_overlay.recognition import OcrSession, OcrState, Recognizer, overlay_result_ready
@@ -57,6 +58,7 @@ class MainWindow(QMainWindow):
         self._recognizer_factory = recognizer_factory
         self._valid_size: tuple[int, int] | None = None
         self._tracker = TextTracker()
+        self._grouper = DialogueGrouper()
         self._track_ids: tuple[int | None, ...] = ()
         self._overlay = OverlayWindow(windows)
         self._overlay.set_tracks(())
@@ -157,6 +159,13 @@ class MainWindow(QMainWindow):
         self.backend_combo.setEnabled(len(self._backends) > 1)
         self.backend_combo.currentIndexChanged.connect(self._backend_changed)
         translation.addWidget(self.backend_combo)
+        self.group_dialogue = QCheckBox("Group dialogue lines")
+        self.group_dialogue.setChecked(True)
+        self.group_dialogue.setToolTip(
+            "Translate likely wrapped dialogue as one passage. Disable if unrelated lines group."
+        )
+        self.group_dialogue.toggled.connect(self._grouping_changed)
+        translation.addWidget(self.group_dialogue)
         translation.addStretch()
         self.automatic_font = QCheckBox("Automatic text size")
         self.automatic_font.setChecked(True)
@@ -192,7 +201,7 @@ class MainWindow(QMainWindow):
         self.metrics.setWordWrap(True)
         layout.addWidget(self.metrics)
         note = QLabel(
-            "Preview shows raw OCR; game boxes hold stable positions. IDs persist between frames. "
+            "Preview shows raw OCR. Hover English cells to review the source used for translation. "
             "English wraps to fit; an ellipsis means the full text is available in the table."
         )
         note.setWordWrap(True)
@@ -304,11 +313,22 @@ class MainWindow(QMainWindow):
 
     def _clear_tracking(self) -> None:
         self._tracker.reset()
+        self._grouper.reset()
         self._track_ids = ()
         self._overlay.set_tracks(())
+        self._overlay.set_blocks(())
         self._overlay.set_translations(())
         if self._translation:
             self._translation.invalidate()
+
+    def _grouping_changed(self) -> None:
+        self._grouper.reset()
+        if self._translation:
+            self._translation.invalidate()
+        self._overlay.set_blocks(())
+        if not self.inspector.pause.isChecked():
+            self.inspector.set_translations(())
+        self._tick()
 
     def _font_style_changed(self) -> None:
         automatic = self.automatic_font.isChecked()
@@ -326,7 +346,7 @@ class MainWindow(QMainWindow):
         if not self.inspector.pause.isChecked():
             self.inspector.set_translations(())
 
-    def _poll_translation(self, running: bool, tracks: tuple[TextTrack, ...] = ()) -> None:
+    def _poll_translation(self, running: bool, tracks: tuple[TextBlock, ...] = ()) -> None:
         session = self._translation
         enabled = running and self.translate_check.isChecked()
         if not enabled:
@@ -369,7 +389,7 @@ class MainWindow(QMainWindow):
             self.translation_status.setText("Waiting for translation to finish unloading…")
         else:
             self.translation_status.setText(
-                f"{len(snapshot.results)} English regions · {snapshot.pending} pending · "
+                f"{len(snapshot.results)} English blocks · {snapshot.pending} pending · "
                 f"{snapshot.last_batch_ms:.0f} ms last batch · local CPU. {snapshot.message}"
             )
 
@@ -487,7 +507,11 @@ class MainWindow(QMainWindow):
                 if frame is not None and not self.inspector.pause.isChecked()
                 else ()
             )
-            self._poll_translation(True, ready)
+            grouped = self._grouper.update(
+                tracks, ready, time.monotonic(), enabled=self.group_dialogue.isChecked()
+            )
+            self._overlay.set_blocks(grouped.blocks)
+            self._poll_translation(True, grouped.ready)
             if (
                 not self.stabilize_check.isChecked()
                 and not self.inspector.pause.isChecked()
@@ -522,7 +546,7 @@ class MainWindow(QMainWindow):
     def _open_demo(self) -> None:
         python = Path(sys.executable).with_name("pythonw.exe")
         try:
-            process = subprocess.Popen([str(python), "-m", "jp_overlay.demo"])
+            process = subprocess.Popen([str(python), "-m", "jp_overlay.demo", "--dialogue"])
             self._demo_processes.append(process)
             self.status.setText("Demo opened. Refresh the window list and select JP Overlay Demo.")
             QTimer.singleShot(1200, self.refresh_windows)

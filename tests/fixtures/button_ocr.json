@@ -1,0 +1,512 @@
+[
+  {
+    "viewport": [
+      1920,
+      1080
+    ],
+    "regions": [
+      {
+        "text": "ストーリーを振り返る",
+        "bounds": {
+          "x": 210,
+          "y": 84,
+          "width": 478,
+          "height": 42
+        },
+        "characters": [
+          {
+            "text": "ス",
+            "bounds": {
+              "x": 214,
+              "y": 84,
+              "width": 50,
+              "height": 42
+            },
+            "confidence": 0.9521975517272949
+          },
+          {
+            "text": "ト",
+            "bounds": {
+              "x": 261,
+              "y": 84,
+              "width": 49,
+              "height": 42
+            },
+            "confidence": 0.9501175880432129
+          },
+          {
+            "text": "ー",
+            "bounds": {
+              "x": 307,
+              "y": 84,
+              "width": 47,
+              "height": 42
+            },
+            "confidence": 0.9410609006881714
+          },
+          {
+            "text": "リ",
+            "bounds": {
+              "x": 356,
+              "y": 84,
+              "width": 49,
+              "height": 42
+            },
+            "confidence": 0.9627593755722046
+          },
+          {
+            "text": "ー",
+            "bounds": {
+              "x": 404,
+              "y": 84,
+              "width": 47,
+              "height": 42
+            },
+            "confidence": 0.9461591839790344
+          },
+          {
+            "text": "を",
+            "bounds": {
+              "x": 455,
+              "y": 84,
+              "width": 46,
+              "height": 42
+            },
+            "confidence": 0.9526855945587158
+          },
+          {
+            "text": "振",
+            "bounds": {
+              "x": 503,
+              "y": 84,
+              "width": 45,
+              "height": 42
+            },
+            "confidence": 0.9735255241394043
+          },
+          {
+            "text": "り",
+            "bounds": {
+              "x": 550,
+              "y": 84,
+              "width": 47,
+              "height": 42
+            },
+            "confidence": 0.935846209526062
+          },
+          {
+            "text": "返",
+            "bounds": {
+              "x": 597,
+              "y": 84,
+              "width": 46,
+              "height": 42
+            },
+            "confidence": 0.97337406873703
+          },
+          {
+            "text": "る",
+            "bounds": {
+              "x": 645,
+              "y": 84,
+              "width": 43,
+              "height": 42
+            },
+            "confidence": 0.9362850785255432
+          }
+        ],
+        "vertical": false
+      }
+    ]
+  },
+  {
+    "viewport": [
+      3840,
+      2160
+    ],
+    "regions": [
+      {
+        "text": "中ストーリーを振り返る",
+        "bounds": {
+          "x": 134,
+          "y": 81,
+          "width": 553,
+          "height": 48
+        },
+        "characters": [
+          {
+            "text": "中",
+            "bounds": {
+              "x": 138,
+              "y": 81,
+              "width": 46,
+              "height": 48
+            },
+            "confidence": 0.28037214279174805
+          },
+          {
+            "text": "ス",
+            "bounds": {
+              "x": 215,
+              "y": 81,
+              "width": 47,
+              "height": 48
+            },
+            "confidence": 0.8789105415344238
+          },
+          {
+            "text": "ト",
+            "bounds": {
+              "x": 263,
+              "y": 81,
+              "width": 47,
+              "height": 48
+            },
+            "confidence": 0.896693229675293
+          },
+          {
+            "text": "ー",
+            "bounds": {
+              "x": 311,
+              "y": 81,
+              "width": 43,
+              "height": 48
+            },
+            "confidence": 0.910754919052124
+          },
+          {
+            "text": "リ",
+            "bounds": {
+              "x": 358,
+              "y": 81,
+              "width": 45,
+              "height": 48
+            },
+            "confidence": 0.9064573049545288
+          },
+          {
+            "text": "ー",
+            "bounds": {
+              "x": 405,
+              "y": 81,
+              "width": 43,
+              "height": 48
+            },
+            "confidence": 0.9114669561386108
+          },
+          {
+            "text": "を",
+            "bounds": {
+              "x": 454,
+              "y": 81,
+              "width": 44,
+              "height": 48
+            },
+            "confidence": 0.9284528493881226
+          },
+          {
+            "text": "振",
+            "bounds": {
+              "x": 503,
+              "y": 81,
+              "width": 44,
+              "height": 48
+            },
+            "confidence": 0.9270600080490112
+          },
+          {
+            "text": "り",
+            "bounds": {
+              "x": 545,
+              "y": 81,
+              "width": 44,
+              "height": 48
+            },
+            "confidence": 0.891566276550293
+          },
+          {
+            "text": "返",
+            "bounds": {
+              "x": 598,
+              "y": 81,
+              "width": 45,
+              "height": 48
+            },
+            "confidence": 0.9441819190979004
+          },
+          {
+            "text": "る",
+            "bounds": {
+              "x": 641,
+              "y": 81,
+              "width": 44,
+              "height": 48
+            },
+            "confidence": 0.926538348197937
+          }
+        ],
+        "vertical": false
+      }
+    ]
+  },
+  {
+    "viewport": [
+      3840,
+      2160
+    ],
+    "regions": [
+      {
+        "text": "@ストーリーを振り返る",
+        "bounds": {
+          "x": 134,
+          "y": 81,
+          "width": 556,
+          "height": 47
+        },
+        "characters": [
+          {
+            "text": "@",
+            "bounds": {
+              "x": 137,
+              "y": 81,
+              "width": 48,
+              "height": 47
+            },
+            "confidence": 0.376700222492218
+          },
+          {
+            "text": "ス",
+            "bounds": {
+              "x": 215,
+              "y": 81,
+              "width": 47,
+              "height": 47
+            },
+            "confidence": 0.8891746997833252
+          },
+          {
+            "text": "ト",
+            "bounds": {
+              "x": 262,
+              "y": 81,
+              "width": 47,
+              "height": 47
+            },
+            "confidence": 0.8940961956977844
+          },
+          {
+            "text": "ー",
+            "bounds": {
+              "x": 310,
+              "y": 81,
+              "width": 44,
+              "height": 47
+            },
+            "confidence": 0.9086767435073853
+          },
+          {
+            "text": "リ",
+            "bounds": {
+              "x": 357,
+              "y": 81,
+              "width": 47,
+              "height": 47
+            },
+            "confidence": 0.9214810132980347
+          },
+          {
+            "text": "ー",
+            "bounds": {
+              "x": 404,
+              "y": 81,
+              "width": 44,
+              "height": 47
+            },
+            "confidence": 0.9174160957336426
+          },
+          {
+            "text": "を",
+            "bounds": {
+              "x": 456,
+              "y": 81,
+              "width": 42,
+              "height": 47
+            },
+            "confidence": 0.9320089817047119
+          },
+          {
+            "text": "振",
+            "bounds": {
+              "x": 504,
+              "y": 81,
+              "width": 44,
+              "height": 47
+            },
+            "confidence": 0.9209662675857544
+          },
+          {
+            "text": "り",
+            "bounds": {
+              "x": 547,
+              "y": 81,
+              "width": 46,
+              "height": 47
+            },
+            "confidence": 0.901913583278656
+          },
+          {
+            "text": "返",
+            "bounds": {
+              "x": 599,
+              "y": 81,
+              "width": 45,
+              "height": 47
+            },
+            "confidence": 0.9089487791061401
+          },
+          {
+            "text": "る",
+            "bounds": {
+              "x": 643,
+              "y": 81,
+              "width": 44,
+              "height": 47
+            },
+            "confidence": 0.9278661012649536
+          }
+        ],
+        "vertical": false
+      }
+    ]
+  },
+  {
+    "viewport": [
+      3840,
+      2160
+    ],
+    "regions": [
+      {
+        "text": "@ストーリーを振り返る",
+        "bounds": {
+          "x": 131,
+          "y": 80,
+          "width": 556,
+          "height": 50
+        },
+        "characters": [
+          {
+            "text": "@",
+            "bounds": {
+              "x": 136,
+              "y": 80,
+              "width": 46,
+              "height": 50
+            },
+            "confidence": 0.458328515291214
+          },
+          {
+            "text": "ス",
+            "bounds": {
+              "x": 215,
+              "y": 80,
+              "width": 48,
+              "height": 50
+            },
+            "confidence": 0.8770929574966431
+          },
+          {
+            "text": "ト",
+            "bounds": {
+              "x": 264,
+              "y": 80,
+              "width": 46,
+              "height": 50
+            },
+            "confidence": 0.8982962369918823
+          },
+          {
+            "text": "ー",
+            "bounds": {
+              "x": 310,
+              "y": 80,
+              "width": 45,
+              "height": 50
+            },
+            "confidence": 0.918249249458313
+          },
+          {
+            "text": "リ",
+            "bounds": {
+              "x": 359,
+              "y": 80,
+              "width": 45,
+              "height": 50
+            },
+            "confidence": 0.9098641276359558
+          },
+          {
+            "text": "ー",
+            "bounds": {
+              "x": 404,
+              "y": 80,
+              "width": 45,
+              "height": 50
+            },
+            "confidence": 0.9129034280776978
+          },
+          {
+            "text": "を",
+            "bounds": {
+              "x": 457,
+              "y": 80,
+              "width": 41,
+              "height": 50
+            },
+            "confidence": 0.9390640258789062
+          },
+          {
+            "text": "振",
+            "bounds": {
+              "x": 503,
+              "y": 80,
+              "width": 45,
+              "height": 50
+            },
+            "confidence": 0.9399542212486267
+          },
+          {
+            "text": "り",
+            "bounds": {
+              "x": 546,
+              "y": 80,
+              "width": 45,
+              "height": 50
+            },
+            "confidence": 0.8942513465881348
+          },
+          {
+            "text": "返",
+            "bounds": {
+              "x": 598,
+              "y": 80,
+              "width": 45,
+              "height": 50
+            },
+            "confidence": 0.9281323552131653
+          },
+          {
+            "text": "る",
+            "bounds": {
+              "x": 642,
+              "y": 80,
+              "width": 43,
+              "height": 50
+            },
+            "confidence": 0.9182249307632446
+          }
+        ],
+        "vertical": false
+      }
+    ]
+  }
+]

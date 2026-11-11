@@ -44,6 +44,12 @@ text with a translucent background. Regions awaiting translation leave the origi
   A consistently changed alternative can still replace the old reading after about 1.25 seconds.
 - Turn **English overlay** off to unload the translation model and inspect numbered OCR game boxes.
   **Stabilize game boxes** can then be toggled for comparison. English always uses stable tracks.
+- **Group dialogue lines**, enabled by default, joins likely wrapped dialogue before translation
+  and draws one English box. Disable it if unrelated lines group together. Short speaker names,
+  marked choices, and separate columns remain separate under the conservative rules.
+- Tracking uses recognized-character bounds so a detector box expanding over an icon does not
+  automatically resize English. Isolated weak edge glyphs beside strong Japanese text can be
+  excluded. Raw OCR remains unchanged in the inspector for comparison.
 
 The inspector displays the exact analyzed frame, numbered line boxes, raw OCR, and matching English:
 
@@ -54,6 +60,9 @@ The inspector displays the exact analyzed frame, numbered line boxes, raw OCR, a
 - **Copy Japanese / Copy English** copies the selected row, or all rows when none is selected.
   Hover a row for full text. English that cannot fit the overlay ends with an ellipsis; the full
   translation stays available in the table.
+- Group continuations display **↳ Group #ID**. Hover an English cell to see the cleaned/grouped
+  Japanese source actually translated. Copy English from any member copies the whole translation;
+  copying all rows includes each group once.
 - Confidence is the mean recognized-character score, not a probability of sentence correctness.
 - The overlay may briefly lag; use the frame-matched preview when checking OCR accuracy.
   Pause freezes both languages in the inspector and hides the game overlay.
@@ -79,7 +88,7 @@ uv run python tools/check.py
 uv run python tools/verify_ocr.py --output artifacts/ocr
 uv run python tools/verify_translation.py
 uv run python tools/verify_windows.py
-uv run python tools/verify_ocr_windows.py --translation
+uv run python tools/verify_ocr_windows.py --translation --dialogue
 ```
 
 The replay check renders an original Japanese fixture and blocks network connections during model
@@ -87,7 +96,7 @@ loading/inference. Only its synthetic output is saved. The two Windows checks op
 windows on an unlocked desktop. See [verification](engineering/verification.md).
 
 Read the [agreed plan](engineering/plan.md), [engineering guide](engineering/README.md), and
-[milestone status](engineering/plans/005-confidence-stability.md). The application runs locally;
+[milestone status](engineering/plans/006-dialogue-grouping.md). The application runs locally;
 only explicit setup downloads require a network connection.
 
 Models are kept in ignored `models/meiki` and `models/sugoi-v4`; set `JP_OVERLAY_MODEL_DIR` or
@@ -115,8 +124,10 @@ major layout changes, and multiline splits/merges can create new identities. A d
 may linger briefly; real-game stabilization thresholds still need feedback. OCR continues sampling
 to discover changes even when the displayed overlay remains unchanged.
 
-Translation currently works per OCR region without paragraph context, speaker history, or a glossary.
-Names, short menu labels, and sentence fragments can translate awkwardly. Sugoi is the first backend,
-not a measured winner against other models. English boxes may expand and overlap neighboring dense
-UI; grouping and collision-aware layout are future work. Vertical source text renders as horizontal
-English. Backend failures remain visible while OCR/capture continue; toggle English off/on to retry.
+Dialogue grouping uses alignment, spacing, size, and punctuation; it does not identify actual game
+panel boundaries. Punctuation-free, centered, or unusual dialogue may stay separate, and similar
+menu layouts can still be ambiguous. Context covers the current group, without speaker history or
+a glossary. Icon filtering is conservative and cannot identify every high-confidence or overlapping
+icon. Names and short labels can translate awkwardly. English boxes may expand over neighboring
+dense UI; collision-aware layout remains future work. Vertical source text stays ungrouped and
+renders as horizontal English. Toggle English off/on to retry a visible backend failure.

@@ -11,9 +11,10 @@ from PySide6.QtCore import QCoreApplication, QEvent  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry  # noqa: E402
+from jp_overlay.grouping import TextBlock  # noqa: E402
 from jp_overlay.inspection import OcrInspector, image_target  # noqa: E402
 from jp_overlay.overlay import OverlayWindow  # noqa: E402
-from jp_overlay.recognition import OcrResult, TextRegion  # noqa: E402
+from jp_overlay.recognition import OcrResult, TextCharacter, TextRegion  # noqa: E402
 from jp_overlay.text_layout import layout_english  # noqa: E402
 from jp_overlay.tracking import TextTrack  # noqa: E402
 from jp_overlay.translation import TranslatedText, TranslationRequest  # noqa: E402
@@ -26,6 +27,12 @@ def app():
     # Destroy widgets while their application and native modules are still alive.
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
     shiboken6.delete(application)
+
+
+def cell(panel: OcrInspector, row: int, column: int):
+    item = panel.table.item(row, column)
+    assert item is not None
+    return item
 
 
 def test_preview_letterboxing_maps_physical_pixels_once() -> None:
@@ -150,3 +157,89 @@ def test_english_overlay_keeps_original_visible_until_current_revision_is_ready(
     assert overlay.grab().toImage().pixelColor(25, 25).alpha() == 0
     overlay.close()
     overlay.deleteLater()
+
+
+def test_grouped_english_uses_one_background_and_validates_every_member(app) -> None:
+    overlay = OverlayWindow(Mock())
+    overlay.resize(400, 200)
+    overlay._bounds = Rect(0, 0, 400, 200)
+    lines = (
+        TextTrack(1, "新しい冒険が始まるので、", Rect(20, 20, 280, 32)),
+        TextTrack(2, "準備をしよう。", Rect(20, 68, 240, 32)),
+    )
+    block = TextBlock(lines)
+    overlay.set_tracks(lines)
+    overlay.set_blocks((block,))
+    overlay.set_translations(
+        (TranslatedText(TranslationRequest.from_block(block), "Get ready for a new adventure."),),
+        enabled=True,
+    )
+    assert overlay.grab().toImage().pixelColor(25, 60).alpha() > 0  # The gap is inside one block.
+    overlay.set_blocks((TextBlock((lines[0], replace(lines[1], text_revision=2))),))
+    assert overlay.grab().toImage().pixelColor(25, 25).alpha() == 0
+    overlay.close()
+    overlay.deleteLater()
+
+
+def test_group_auto_font_uses_line_height_not_paragraph_height(app) -> None:
+    layout = layout_english(
+        "A complete sentence.", Rect(10, 10, 500, 150), (800, 300), source_line_height=32
+    )
+    assert layout.pixel_size == round(32 * 0.72)
+
+
+def test_group_inspection_and_copy_map_to_raw_rows_without_duplicating_english(
+    app, monkeypatch
+) -> None:
+    lines = (
+        TextTrack(1, "新しい冒険が始まるので、", Rect(20, 20, 280, 32)),
+        TextTrack(2, "準備をしよう。", Rect(20, 68, 240, 32)),
+    )
+    bounds = Rect(0, 0, 400, 200)
+    frame = CapturedFrame(
+        1, 0, WindowGeometry(bounds, bounds, bounds, 96), b"\xff" * (400 * 200 * 4)
+    )
+    regions = tuple(TextRegion(t.text, t.bounds) for t in lines)
+    result = OcrResult(frame, regions, 20, 0)
+    panel = OcrInspector()
+    panel.set_result(result, (1, 2))
+    translated = TranslatedText(
+        TranslationRequest.from_block(TextBlock(lines)), "Get ready for a new adventure."
+    )
+    panel.set_translations((translated,))
+    assert cell(panel, 0, 3).text() == translated.english
+    assert cell(panel, 1, 3).text() == "↳ Group #1"
+    assert lines[1].text in cell(panel, 1, 3).toolTip()
+    clipboard = Mock()
+    monkeypatch.setattr("jp_overlay.inspection.QGuiApplication.clipboard", lambda: clipboard)
+    panel._copy_english()
+    clipboard.setText.assert_called_with(translated.english)
+    panel.table.selectRow(1)
+    panel._copy_english()
+    clipboard.setText.assert_called_with(translated.english)
+    panel.set_result(
+        replace(result, regions=(regions[0], replace(regions[1], text="違う文章。"))), (1, 2)
+    )
+    assert cell(panel, 0, 3).text() == cell(panel, 1, 3).text() == "—"
+    panel.close()
+    panel.deleteLater()
+
+
+def test_raw_icon_evidence_is_visible_beside_cleaned_translation(app) -> None:
+    chars = (TextCharacter("@", Rect(20, 10, 25, 30), 0.3),) + tuple(
+        TextCharacter(c, Rect(70 + i * 25, 10, 25, 30), 0.95)
+        for i, c in enumerate("道具を確認する")
+    )
+    raw = TextRegion("@道具を確認する", Rect(15, 10, 235, 30), chars)
+    bounds = Rect(0, 0, 400, 100)
+    frame = CapturedFrame(1, 0, WindowGeometry(bounds, bounds, bounds, 96), b"\xff" * 160000)
+    panel = OcrInspector()
+    panel.set_result(OcrResult(frame, (raw,), 20, 0), (1,))
+    panel.set_translations(
+        (TranslatedText(TranslationRequest(1, 1, "道具を確認する"), "Check items"),)
+    )
+    assert cell(panel, 0, 1).text() == raw.text
+    assert cell(panel, 0, 3).text() == "Check items"
+    assert panel.preview._regions == (raw,)
+    panel.close()
+    panel.deleteLater()

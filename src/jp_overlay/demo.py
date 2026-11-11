@@ -1,21 +1,27 @@
 """An interactive animated target for checking capture, resize, and click-through."""
 
+import argparse
 import sys
 
 from PySide6.QtCore import QRectF, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent
 from PySide6.QtWidgets import QApplication, QLabel, QPushButton, QVBoxLayout, QWidget
 
-from jp_overlay.domain import sample_box
+from jp_overlay.domain import Rect, sample_box
 from jp_overlay.windows import Windows
+
+DIALOGUE_LINES = ("新しい冒険がここから始まりますが、", "その前に旅の準備をしてください。")
 
 
 class DemoWindow(QWidget):
-    def __init__(self) -> None:
+    def __init__(self, *, dialogue: bool = False) -> None:
         super().__init__()
+        self._dialogue = dialogue
         self.setWindowTitle("JP Overlay Demo")
         self.resize(900, 580)
         self.setMinimumSize(440, 330)
+        if dialogue:
+            self.setMinimumSize(620, 400)
         self.clicks = 0
         self.phase = 0
         layout = QVBoxLayout(self)
@@ -60,8 +66,21 @@ class DemoWindow(QWidget):
             35, 180, round((self.width() - 70) * self.phase / 100), 6, QColor("#5eead4")
         )
         box = sample_box(self.width(), self.height())
+        if self._dialogue:
+            box = Rect(box.x, box.y - 60, box.width, box.height + 60)
         painter.fillRect(box.x, box.y, box.width, box.height, QColor("#29465e"))
         painter.setPen(QColor("#ffffff"))
+        if self._dialogue:
+            font = QFont("Yu Gothic UI")
+            font.setPixelSize(14)
+            painter.setFont(font)
+            painter.drawText(box.x + 24, box.y + 24, "旅人")
+            font.setPixelSize(20)
+            painter.setFont(font)
+            for index, line in enumerate(DIALOGUE_LINES):
+                painter.drawText(box.x + 24, box.y + 54 + index * 30, line)
+            self.button.setGeometry(box.x + 20, box.y + 100, box.width - 40, box.height - 108)
+            return
         painter.setFont(QFont("Yu Gothic UI", 16))
         painter.drawText(
             QRectF(box.x, box.y, box.width, box.height / 2),
@@ -74,9 +93,12 @@ class DemoWindow(QWidget):
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dialogue", action="store_true", help="Show wrapped Japanese dialogue")
+    args = parser.parse_args()
     Windows().enable_dpi_awareness()
     app = QApplication(sys.argv)
-    window = DemoWindow()
+    window = DemoWindow(dialogue=args.dialogue)
     window.show()
     sys.exit(app.exec())
 

@@ -3,6 +3,7 @@ import time
 from dataclasses import replace
 
 from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
+from jp_overlay.grouping import DialogueGrouper, TextBlock
 from jp_overlay.recognition import OcrResult, TextCharacter, TextRegion
 from jp_overlay.tracking import TextTrack, TextTracker
 from jp_overlay.translation import TranslationRequest, TranslationSession, TranslationState
@@ -92,6 +93,46 @@ def test_noisy_readings_do_not_clear_english_or_trigger_more_translation(tmp_pat
     finally:
         stop(session)
     assert backend.calls == [("ポーションを使う",)]
+
+
+def test_dialogue_translates_as_one_request_and_rejects_a_late_changed_member(tmp_path) -> None:
+    backend = Backend()
+    backend.release.clear()
+    session = TranslationSession(lambda: backend, tmp_path / "cache.sqlite3")
+    first = TextTrack(1, "新しい冒険が始まりますが、", Rect(100, 100, 400, 32))
+    second = TextTrack(2, "その前に準備をしてください。", Rect(100, 144, 400, 32))
+    grouper = DialogueGrouper()
+    session.start()
+    try:
+        pending = grouper.update((first, second), (first,), 0)
+        session.update(pending.ready)
+        assert session.snapshot().pending == 0
+        ready = grouper.update((first, second), (first, second), 0.4)
+        session.update(ready.ready)
+        assert backend.entered.wait(3)
+        assert backend.calls == [(first.text + second.text,)]
+        changed = replace(second, text="準備ができたら出発しましょう。", text_revision=2)
+        new_block = TextBlock((first, changed))
+        session.update((new_block,))
+        backend.release.set()
+        until(lambda: len(session.snapshot().results) == 1)
+        result = session.snapshot().results[0]
+        assert result.request == TranslationRequest.from_block(new_block)
+        assert backend.calls == [(first.text + second.text,), (first.text + changed.text,)]
+        moved = TextBlock(
+            tuple(replace(t, bounds=replace(t.bounds, x=200)) for t in new_block.lines)
+        )
+        session.update((moved,))
+        assert session.snapshot().results == (result,)
+        assert session.snapshot().pending == 0
+        # Splitting a group also rejects its reply even though its anchor line still exists.
+        session.update((first,))
+        assert session.snapshot().results == ()
+        until(lambda: len(session.snapshot().results) == 1)
+        assert session.snapshot().results[0].request == TranslationRequest.from_track(first)
+    finally:
+        backend.release.set()
+        stop(session)
 
 
 def test_revision_change_and_removed_tracks_reject_inflight_translation(tmp_path) -> None:

@@ -1,7 +1,6 @@
 """Local translation scheduling, backend swapping, and stale-result rejection."""
 
 import logging
-import re
 import threading
 import time
 from collections.abc import Callable
@@ -10,11 +9,12 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Protocol
 
+from jp_overlay.grouping import TextBlock
+from jp_overlay.text_content import has_japanese
 from jp_overlay.tracking import TextTrack
 from jp_overlay.translation_cache import TranslationCache, translation_key
 
 logger = logging.getLogger(__name__)
-_JAPANESE = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uff66-\uff9f]")
 
 
 class TranslationBackend(Protocol):
@@ -35,10 +35,22 @@ class TranslationRequest:
     track_id: int
     text_revision: int
     source: str
+    members: tuple[tuple[int, int, str], ...] = ()
 
     @classmethod
     def from_track(cls, track: TextTrack) -> "TranslationRequest":
         return cls(track.track_id, track.text_revision, track.text)
+
+    @classmethod
+    def from_block(cls, block: TextBlock) -> "TranslationRequest":
+        first = block.lines[0]
+        if len(block.lines) == 1:
+            return cls.from_track(first)
+        return cls(first.track_id, first.text_revision, block.text, block.key)
+
+    @property
+    def line_sources(self) -> tuple[tuple[int, int, str], ...]:
+        return self.members or ((self.track_id, self.text_revision, self.source),)
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,9 +101,13 @@ class TranslationSession:
     def start(self) -> None:
         self._thread.start()
 
-    def update(self, tracks: tuple[TextTrack, ...]) -> None:
+    def update(self, tracks: tuple[TextTrack | TextBlock, ...]) -> None:
         desired = tuple(
-            TranslationRequest.from_track(t) for t in tracks if _JAPANESE.search(t.text)
+            TranslationRequest.from_block(t)
+            if isinstance(t, TextBlock)
+            else TranslationRequest.from_track(t)
+            for t in tracks
+            if has_japanese(t.text)
         )[:128]
         with self._condition:
             if self._stop or self._state == TranslationState.FAILED or desired == self._desired:

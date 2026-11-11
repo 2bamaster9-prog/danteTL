@@ -24,6 +24,14 @@ class Rect:
         )
 
 
+def union_bounds(rectangles: tuple[Rect, ...]) -> Rect:
+    """Smallest physical rectangle containing a nonempty set of rectangles."""
+    x, y = min(r.x for r in rectangles), min(r.y for r in rectangles)
+    right = max(r.x + r.width for r in rectangles)
+    bottom = max(r.y + r.height for r in rectangles)
+    return Rect(x, y, right - x, bottom - y)
+
+
 @dataclass(frozen=True, slots=True)
 class WindowTarget:
     hwnd: int

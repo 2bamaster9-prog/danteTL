@@ -101,3 +101,16 @@ new OCR observations; unchanged polling never creates votes. Rejected variants k
 track values, so they do not invalidate translation or request overlay repaints. The integration
 replay verifies one translation call across repeated noisy readings. No new sustained-memory or
 real-game performance measurement is implied.
+
+## Icon cleanup and dialogue grouping
+
+Content cleanup reuses OCR character values and does not add an inference pass, frame copy, or
+model. Grouping retains only current signatures/timestamps for at most 128 blocks, capped at six
+lines and 512 characters each. It introduces a 350 ms group-settling interval, while singleton
+readiness remains unchanged. Longer combined text can cost more per translation but avoids
+independently translating each constituent line; benchmark representative dialogue before claiming
+a net throughput/latency improvement. Worker batch and cache limits are unchanged.
+
+The grouped live fixture at DPI 168 sampled 855.1 MiB working set, 1,373.3 MiB private memory, and
+1,627.3 MiB peak working set after model and grouping toggles. This is a short development-PC
+snapshot including its own demo, not a sustained-memory or game-frame-time benchmark.

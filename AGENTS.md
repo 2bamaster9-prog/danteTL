@@ -2,7 +2,7 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/005-confidence-stability.md`.
+`engineering/plans/006-dialogue-grouping.md`.
 
 - Use Python with deep modules: small public interfaces that own meaningful complexity.
 - Keep Windows, Qt, capture-library, and model details at their respective boundaries.
@@ -23,6 +23,11 @@ Read `engineering/README.md` first. The agreed product plan is in
 - Confidence belongs to a live track/content family, not a permanent screen-position cache. Keep
   the winning score private to tracking; rejected variants must preserve text revision and geometry.
   Test alternating variants, real edits, static settling, and reset boundaries before changing policy.
+- Preserve raw OCR in the inspector. `text_content` derives character-bounded tracking input and
+  conservatively filters isolated weak edge glyphs; never globally discard low-confidence text.
+- `grouping` builds bounded dialogue blocks from stable lines. Keep speakers, choices, and unrelated
+  columns separate. Requests/rendering must validate every member's ID, source, and revision;
+  group bounds use per-line font height. Run the live check with `--translation --dialogue`.
 - Translation backends implement `TranslationBackend`; composition belongs in `app`. Keep model
   loading, inference, unloading, and SQLite on the translation worker. Bound desired work and batches;
   validate generation, track ID, exact source, and text revision before publishing/rendering English.
@@ -35,5 +40,6 @@ Read `engineering/README.md` first. The agreed product plan is in
   in `engineering/decisions/`. Keep documentation concise and avoid duplicated instructions.
 - Do not claim game, mixed-DPI, HDR, or anti-cheat compatibility based solely on a demo window.
 - Do not implement later milestones without a user request. Capture, OCR, tracking, local Sugoi
-  translation, bounded caching, and English layout are implemented. Other model adapters, grouping,
-  glossaries, hotkeys, profiles, and packaging remain separate work.
+  translation, bounded caching, English layout, icon cleanup, and dialogue grouping are implemented.
+  Other model adapters, richer dialogue context, glossaries, hotkeys, profiles, and packaging
+  remain separate work.

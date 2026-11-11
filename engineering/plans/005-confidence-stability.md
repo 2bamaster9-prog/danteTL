@@ -34,3 +34,6 @@ Restart the app and revisit the original flickering scene. Check icons, tiny gly
 readings, choices, and new dialogue in the same box. Raw inspector rows may still vary as intended;
 the stabilized game overlay is the acceptance target. No new dependencies or model setup are needed.
 Future product slices remain separate from this targeted correction.
+
+Follow-up: [slice six](006-dialogue-grouping.md) addresses detector/icon geometry explicitly and
+adds grouped dialogue translation, based on the user's supplied button example and next request.

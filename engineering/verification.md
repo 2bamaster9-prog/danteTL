@@ -42,7 +42,10 @@ Run `uv run python tools/verify_ocr_windows.py --translation --output artifacts/
 to test the full pipeline with both model sets installed. It waits for English, switches Sugoi
 decoding profiles, verifies font controls, and runs pause, resize, minimize/restore, restart, and
 shutdown checks. The optional output saves only the fixture app and its English overlay rendering.
-The native regression remains `uv run python tools/verify_windows.py`.
+Add `--dialogue` to verify two-line source grouping, a separate speaker label, grouping off/on,
+and one combined English overlay. The app's Open demo window uses this dialogue fixture; the
+standalone demo accepts `--dialogue` too. The native regression remains
+`uv run python tools/verify_windows.py`.
 
 ## Live Windows check
 
@@ -161,4 +164,30 @@ See [translation slice](plans/004-local-translation.md) and [performance observa
 - The original game's flickering scene still needs user confirmation with this policy. No new
   compatibility or game frame-time claims follow from the synthetic checks.
 
-See [current slice](plans/005-confidence-stability.md).
+See [confidence slice](plans/005-confidence-stability.md).
+
+## Icon and dialogue slice evidence
+
+- 136 fast tests passed with Ruff and Pyright. The supplied button was recognized cleanly as a crop
+  and at 1080p, but emitted a low-confidence `中`/`@` and a wider detector box when placed in a 4K
+  canvas. Numeric OCR observations are checked in; game pixels are not. Alternating these observations
+  now preserves the exact public track object and clean source text.
+- Tests cover punctuation/numeric protection, interior/strong glyphs, incomplete metadata, group
+  ordering/limits, menus/choices/speakers/columns, readiness, all-member invalidation, whole-group
+  copying, and font height. A worker test verifies one combined request and rejects a stale reply
+  when only the second line changes.
+- Offline real OCR and Sugoi checks passed. Live `--translation --dialogue` at DPI 168 passed with
+  two source lines translated together and the speaker separate. Model/profile switching, grouping
+  off/on, pause, font controls, resize, minimize/restore, restart, and shutdown passed in about seven
+  seconds. Inspector/overlay artifacts were visually reviewed. Native exclusion, physical geometry,
+  input-transparent styles, focus/minimize policy, restart, and teardown passed separately.
+- The live harness now reports assertion types/tracebacks and exits nonzero even for exceptions with
+  an empty message. It waits for a regrouped passage to settle and freezes the actual displayed frame
+  after event processing, avoiding false failures from other blocks finishing first or newer OCR.
+- The original live-game button and broader dialogue layouts still require user evaluation. The 4K
+  reconstruction is evidence for this case, not general icon detection or game compatibility.
+
+Manual review: revisit the supplied button, compare raw character boxes with the English tooltip's
+source, then inspect wrapped dialogue and toggle grouping. Confirm a speaker/choice stays separate,
+full paragraphs copy once, and new dialogue clears old English. See
+[current slice](plans/006-dialogue-grouping.md).

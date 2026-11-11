@@ -30,18 +30,19 @@ flowchart TD
     A[Selected game window] --> B[Capture latest frame]
     B --> C[OCR observations]
     C --> D[Track stable text and positions]
-    D --> E{Translation cached?}
+    D --> K[Group likely wrapped dialogue]
+    K --> E{Translation cached?}
     E -->|Yes| G[Validate result revision]
     E -->|No| F[Local translation backend]
     F --> G
     F --> H[(Memory and SQLite cache)]
     H --> E
-    D --> I[Overlay layout]
+    K --> I[Overlay layout]
     G --> I
     I --> J[Aligned click-through overlay]
 ```
 
-Maintain separate frame, observation, text-track, and translation-entry structures. Translation
+Maintain separate frame, observation, text-track, dialogue-block, and translation-entry structures. Translation
 results carry session, track, content revision, and engine generation identifiers. Reject stale
 results after a source change, text change, scene transition, or model switch.
 
@@ -109,13 +110,18 @@ Window capture, MeikiOCR inspection, and deterministic tracking are implemented.
 request, Sugoi V4 integration now connects the live pipeline, including memory/SQLite caching,
 swappable backend factories, and automatic/manual English sizing. See
 [translation slice](plans/004-local-translation.md). This pulls parts of milestones three, five, and six
-forward; it does not establish Sugoi as the best model. Representative model comparisons, dialogue
-grouping/context, collision-aware placement, per-game profiles, glossaries, hotkeys, and packaging
+forward; it does not establish Sugoi as the best model. Representative model comparisons,
+richer dialogue context, collision-aware placement, per-game profiles, glossaries, hotkeys, and packaging
 remain upcoming work.
 
 After positive real-game translation feedback, the user requested confidence-aware handling of
 near-identical OCR variants. [Slice five](plans/005-confidence-stability.md) holds the better reading
 and its geometry through weaker alternatives, with bounded confirmation for genuine similar edits.
+
+[Slice six](plans/006-dialogue-grouping.md) now derives text bounds from character observations,
+filters likely isolated icon glyphs, and groups likely wrapped dialogue into one translation and
+overlay block. Raw evidence stays inspectable. Grouping is conservative and can be disabled; it
+does not yet identify game panel boundaries or retain conversation history.
 
 ## Technical references
 

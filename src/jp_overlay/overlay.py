@@ -5,6 +5,7 @@ from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
 from jp_overlay.domain import Rect, sample_box
+from jp_overlay.grouping import TextBlock
 from jp_overlay.text_layout import layout_english
 from jp_overlay.tracking import TextTrack
 from jp_overlay.translation import TranslatedText, TranslationRequest
@@ -32,6 +33,7 @@ class OverlayWindow(QWidget):
         self._tracks: tuple[TextTrack, ...] | None = None
         self._translations: tuple[TranslatedText, ...] = ()
         self._english_mode = False
+        self._blocks: tuple[TextBlock, ...] | None = None
         self._automatic_size = True
         self._manual_size = 20
 
@@ -46,6 +48,11 @@ class OverlayWindow(QWidget):
     def set_text_style(self, automatic: bool, pixels: int) -> None:
         if (automatic, pixels) != (self._automatic_size, self._manual_size):
             self._automatic_size, self._manual_size = automatic, pixels
+            self.update()
+
+    def set_blocks(self, blocks: tuple[TextBlock, ...]) -> None:
+        if blocks != self._blocks:
+            self._blocks = blocks
             self.update()
 
     def set_tracks(self, tracks: tuple[TextTrack, ...]) -> None:
@@ -85,45 +92,20 @@ class OverlayWindow(QWidget):
         width, height = self._bounds.size
         if self._tracks is not None:
             english = {value.request: value.english for value in self._translations}
+            if self._english_mode:
+                blocks = self._blocks
+                if blocks is None:
+                    blocks = tuple(TextBlock((track,)) for track in self._tracks)
+                for block in blocks:
+                    text = english.get(TranslationRequest.from_block(block))
+                    if text:
+                        self._paint_english(painter, block, text)
+                return  # Pending regions leave the original game text visible.
             font = QFont("Segoe UI")
             font.setPixelSize(round(13 * ratio))
             painter.setFont(font)
             for track in self._tracks:
                 box = track.bounds
-                text = english.get(TranslationRequest.from_track(track))
-                if self._english_mode and not text:
-                    continue  # Leave original text unobscured while a translation is pending.
-                if self._english_mode and text:
-                    layout = layout_english(
-                        text,
-                        box,
-                        self._bounds.size,
-                        automatic=self._automatic_size,
-                        manual_pixels=self._manual_size,
-                        vertical=track.vertical,
-                    )
-                    area = QRectF(
-                        layout.bounds.x, layout.bounds.y, layout.bounds.width, layout.bounds.height
-                    )
-                    painter.save()
-                    painter.setPen(Qt.PenStyle.NoPen)
-                    painter.setBrush(QColor(12, 20, 31, round(255 * self._opacity)))
-                    painter.drawRoundedRect(area, 4, 4)
-                    english_font = QFont("Segoe UI")
-                    english_font.setPixelSize(layout.pixel_size)
-                    painter.setFont(english_font)
-                    painter.setPen(QColor("#f1f5f9"))
-                    painter.setClipRect(area)
-                    for index, line in enumerate(layout.lines):
-                        painter.drawText(
-                            QPointF(
-                                area.x() + 4,
-                                area.y() + 4 + layout.ascent + index * layout.line_height,
-                            ),
-                            line,
-                        )
-                    painter.restore()
-                    continue
                 painter.setOpacity(self._opacity)
                 painter.setPen(QPen(QColor("#5eead4"), max(2, ratio)))
                 painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -157,3 +139,30 @@ class OverlayWindow(QWidget):
             Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
             "Sample overlay · clicks pass through\nNative capture and alignment check",
         )
+
+    def _paint_english(self, painter: QPainter, block: TextBlock, text: str) -> None:
+        layout = layout_english(
+            text,
+            block.bounds,
+            self._bounds.size,
+            automatic=self._automatic_size,
+            manual_pixels=self._manual_size,
+            vertical=block.lines[0].vertical,
+            source_line_height=block.line_height if len(block.lines) > 1 else None,
+        )
+        area = QRectF(layout.bounds.x, layout.bounds.y, layout.bounds.width, layout.bounds.height)
+        painter.save()
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(12, 20, 31, round(255 * self._opacity)))
+        painter.drawRoundedRect(area, 4, 4)
+        english_font = QFont("Segoe UI")
+        english_font.setPixelSize(layout.pixel_size)
+        painter.setFont(english_font)
+        painter.setPen(QColor("#f1f5f9"))
+        painter.setClipRect(area)
+        for index, line in enumerate(layout.lines):
+            painter.drawText(
+                QPointF(area.x() + 4, area.y() + 4 + layout.ascent + index * layout.line_height),
+                line,
+            )
+        painter.restore()

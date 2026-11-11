@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from jp_overlay.domain import CapturedFrame, Rect
 from jp_overlay.recognition import OcrResult, TextRegion
+from jp_overlay.text_content import content_region
 from jp_overlay.translation import TranslatedText
 
 
@@ -130,6 +131,7 @@ class OcrInspector(QWidget):
         super().__init__()
         self.result: OcrResult | None = None
         self._translations: tuple[TranslatedText, ...] = ()
+        self._row_translations: dict[int, TranslatedText] = {}
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         toolbar = QHBoxLayout()
@@ -219,22 +221,41 @@ class OcrInspector(QWidget):
             self._refresh_english()
 
     def _refresh_english(self) -> None:
+        self._row_translations.clear()
         if self.result is None:
             return
-        english = {
-            (str(value.request.track_id), value.request.source): value.english
-            for value in self._translations
+        current = {
+            item.text(): content_region(region).text
+            for row, region in enumerate(self.result.regions)
+            if (item := self.table.item(row, 0)) is not None
         }
-        for row, region in enumerate(self.result.regions):
+        english: dict[str, TranslatedText] = {}
+        for value in self._translations:
+            members = value.request.line_sources
+            if all(current.get(str(key)) == source for key, _, source in members):
+                english.update((str(key), value) for key, _, _ in members)
+        for row in range(len(self.result.regions)):
             item = self.table.item(row, 0)
-            text = english.get((item.text(), region.text), "") if item else ""
+            translated = english.get(item.text()) if item else None
+            text, tooltip = "", ""
+            if translated is not None:
+                self._row_translations[row] = translated
+                anchor = translated.request.track_id
+                text = (
+                    translated.english
+                    if item and item.text() == str(anchor)
+                    else f"↳ Group #{anchor}"
+                )
+                source = "\n".join(line[2] for line in translated.request.line_sources)
+                tooltip = f"Translation source:\n{source}\n\nEnglish:\n{translated.english}"
             cell = QTableWidgetItem(text or "—")
-            cell.setToolTip(text)
+            cell.setToolTip(tooltip)
             self.table.setItem(row, 3, cell)
 
     def clear(self) -> None:
         self.result = None
         self._translations = ()
+        self._row_translations.clear()
         self.preview.set_frame(None)
         self.table.setRowCount(0)
         self.copy_button.setEnabled(False)
@@ -274,9 +295,8 @@ class OcrInspector(QWidget):
     def _copy_english(self) -> None:
         rows = self.table.selectionModel().selectedRows()
         indices = [row.row() for row in rows] if rows else range(self.table.rowCount())
-        text = [
-            item.text()
-            for row in indices
-            if (item := self.table.item(row, 3)) and item.text() != "—"
-        ]
+        translations = dict.fromkeys(
+            self._row_translations[row] for row in indices if row in self._row_translations
+        )
+        text = [value.english for value in translations]
         QGuiApplication.clipboard().setText("\n".join(text))

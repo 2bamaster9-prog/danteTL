@@ -1,0 +1,149 @@
+"""Bounded dialogue grouping over stable lines, independent of Qt and model runtimes."""
+
+import re
+from dataclasses import dataclass
+from statistics import median
+
+from jp_overlay.domain import Rect, union_bounds
+from jp_overlay.text_content import has_japanese
+from jp_overlay.tracking import TextTrack
+
+_END = tuple("。！？!?」』")
+_CHOICE = re.compile(r"^(?:[・•●○◆◇▶▷→\-]|[0-9０-９①-⑳]+[.．、:：)）]|[A-Za-z][.．)）])")
+
+
+def join_lines(lines: tuple[TextTrack, ...]) -> str:
+    text = ""
+    for line in lines:
+        part = line.text.strip()
+        if (
+            text
+            and part
+            and text[-1].isascii()
+            and text[-1].isalnum()
+            and part[0].isascii()
+            and part[0].isalnum()
+        ):
+            text += " "  # Keep Latin names/words separated across a Japanese line wrap.
+        text += part
+    return text
+
+
+@dataclass(frozen=True, slots=True)
+class TextBlock:
+    lines: tuple[TextTrack, ...]
+
+    def __post_init__(self) -> None:
+        if not self.lines:
+            raise ValueError("A text block needs at least one line.")
+
+    @property
+    def text(self) -> str:
+        return join_lines(self.lines)
+
+    @property
+    def bounds(self) -> Rect:
+        return union_bounds(tuple(line.bounds for line in self.lines))
+
+    @property
+    def line_height(self) -> int:
+        return round(median(line.bounds.height for line in self.lines))
+
+    @property
+    def key(self) -> tuple[tuple[int, int, str], ...]:
+        return tuple((line.track_id, line.text_revision, line.text) for line in self.lines)
+
+
+@dataclass(frozen=True, slots=True)
+class GroupedText:
+    blocks: tuple[TextBlock, ...]
+    ready: tuple[TextBlock, ...]
+
+
+def _can_follow(upper: TextTrack, lower: TextTrack) -> bool:
+    a, b = upper.bounds, lower.bounds
+    first, second = upper.text.strip(), lower.text.strip()
+    if upper.vertical or lower.vertical or not has_japanese(first) or not has_japanese(second):
+        return False
+    if len(first) < 10 or len(second) < 2 or first.endswith((*_END, ":", "：")):
+        return False
+    if _CHOICE.match(first) or _CHOICE.match(second) or second.startswith(("「", "『")):
+        return False
+    height = max(1, min(a.height, b.height))
+    gap = b.y - a.y - a.height
+    return (
+        max(a.height, b.height) <= height * 1.3
+        and b.width <= a.width * 1.25  # A short heading/name above wide dialogue is separate.
+        and -height * 0.1 <= gap <= height * 0.95
+        and abs(a.x - b.x) <= max(6, height * 0.75)
+        and min(a.x + a.width, b.x + b.width) - max(a.x, b.x) >= min(a.width, b.width) * 0.8
+    )
+
+
+def _dialogue_evidence(lines: tuple[TextTrack, ...]) -> bool:
+    return (
+        lines[-1].text.rstrip().endswith(_END)
+        or lines[0].text.lstrip().startswith(("「", "『"))
+        or any(line.text.rstrip().endswith(("、", "，", ",")) for line in lines[:-1])
+    )
+
+
+def _blocks(tracks: tuple[TextTrack, ...], enabled: bool) -> tuple[TextBlock, ...]:
+    ordered = sorted(tracks[:128], key=lambda t: (t.bounds.y, t.bounds.x, t.track_id))
+    used: set[int] = set()
+    blocks: list[TextBlock] = []
+    for first in ordered:
+        if first.track_id in used:
+            continue
+        lines = (first,)
+        if enabled:
+            while len(lines) < 6:
+                candidates = [
+                    line
+                    for line in ordered
+                    if line.track_id not in used
+                    and line not in lines
+                    and _can_follow(lines[-1], line)
+                ]
+                if len(candidates) != 1:
+                    break  # Ambiguous columns/layouts stay separate.
+                proposed = (*lines, candidates[0])
+                if len(join_lines(proposed)) > 512:
+                    break
+                lines = proposed
+        if len(lines) > 1 and not _dialogue_evidence(lines):
+            lines = (first,)  # Nearby menu labels alone are not evidence of a dialogue box.
+        used.update(line.track_id for line in lines)
+        blocks.append(TextBlock(lines))
+    return tuple(blocks)
+
+
+class DialogueGrouper:
+    """Wait briefly for a whole group to settle; never queue partial old paragraphs."""
+
+    def __init__(self, settle_seconds: float = 0.35) -> None:
+        self._settle_seconds = settle_seconds
+        self._since: dict[tuple[tuple[int, int, str], ...], float] = {}
+
+    def reset(self) -> None:
+        self._since.clear()
+
+    def update(
+        self,
+        visible: tuple[TextTrack, ...],
+        confirmed: tuple[TextTrack, ...],
+        now: float,
+        *,
+        enabled: bool = True,
+    ) -> GroupedText:
+        blocks = _blocks(visible, enabled)
+        ready_keys = {(line.track_id, line.text_revision, line.text) for line in confirmed}
+        since = {block.key: self._since.get(block.key, now) for block in blocks}
+        ready = tuple(
+            block
+            for block in blocks
+            if all(key in ready_keys for key in block.key)
+            and (len(block.lines) == 1 or now - since[block.key] >= self._settle_seconds)
+        )
+        self._since = since
+        return GroupedText(blocks, ready)
