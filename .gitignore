@@ -1,6 +1,7 @@
 .bootstrap/
 .venv/
 .venv-gpu/
+.venv-amd/
 .python/
 .uv-cache/
 __pycache__/

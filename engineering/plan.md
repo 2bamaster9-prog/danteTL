@@ -150,7 +150,14 @@ verification measures newly appearing labels through English publication.
 embedded llama.cpp because CTranslate2 does not support this variant. Sugoi remains the compact CPU
 choice. GPU translation, bounded non-reasoning prompts, and model-specific caches are implemented.
 The debug checkbox shows visual changes, actual OCR coverage, and worker/cache/queue timings without
-changing scheduling. Cross-dialogue memory and game-specific terminology remain later work.
+changing scheduling. Its initial implementation did not retain previous dialogue.
+
+[Slice twelve](plans/012-model-management-and-context.md) adds model downloads/repair in the GUI,
+an installed-model dropdown with capture-only operation, explicit Gemma preparation consent and
+progress, and two turns of bounded recent-dialogue context with independent menu labels. An isolated
+AMD-compatible Vulkan setup and source sharing package are available. CPU OCR remains the AMD
+default; DirectML OCR failed numerical checks locally and is experimental with visible CPU fallback.
+Discrete Radeon testing, permanent terminology/glossaries, and a frozen installer remain future work.
 
 ## Technical references
 

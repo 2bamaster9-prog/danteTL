@@ -2,7 +2,7 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/011-gemma-and-diagnostics.md`.
+`engineering/plans/012-model-management-and-context.md`.
 
 - Use Python with deep modules: small public interfaces that own meaningful complexity.
 - Keep Windows, Qt, capture-library, and model details at their respective boundaries.
@@ -68,6 +68,18 @@ Read `engineering/README.md` first. The agreed product plan is in
   inference and swapping with `verify_ocr_windows.py --translation --dialogue --gemma --debug`.
   Diagnostics only observe worker snapshots; distinguish visual changes, proposed scans and actual
   OCR coverage. Do not change scheduling, retention or translation sources when toggling debug.
+- Model downloads require an explicit UI/CLI action. Keep hashing/downloads on a bounded worker,
+  verify pinned sizes/hashes, atomically publish files, and preserve valid files on cancel/failure.
+  Gemma first-use consent must retain the committed selection until accepted; declined/failed
+  preparation restores the previous choice. Reuse the prepared translation worker. Capture must
+  work without models. Run `tools/verify_setup_windows.py` for native setup lifecycle changes.
+- AMD packaging isolates Vulkan/DirectML in `.venv-amd`; never mix ONNX or llama runtime wheels.
+  CPU OCR is the AMD default. Strict `--device directml` must fail on provider/probe failure;
+  `auto-directml` reports CPU fallback. DirectML initialized but miscomputed our pinned models:
+  preserve the numerical compatibility probe, and do not call it validated Radeon acceleration.
+- Dialogue history is two turns/512 characters, scoped to one unambiguous panel. Freeze context
+  per request, include it in cache identity, reject outdated context, and never seed history from
+  stale replies. Menus stay independent; layout/session/scene/age resets clear conversational state.
 - For translation changes, run `uv run python tools/verify_translation.py` with local models installed
   and `uv run python tools/verify_ocr_windows.py --translation` for live integration. Fast tests must
   remain model-free. Preserve raw OCR inspection and full English text when overlay layout overflows.
@@ -76,5 +88,5 @@ Read `engineering/README.md` first. The agreed product plan is in
 - Do not claim game, mixed-DPI, HDR, or anti-cheat compatibility based solely on a demo window.
 - Do not implement later milestones without a user request. Capture, OCR, tracking, local Sugoi
   translation, bounded caching, English layout, icon cleanup, and dialogue grouping are implemented.
-  Gemma is an optional quality backend. Richer dialogue context, glossaries, hotkeys, profiles, and packaging
-  remain separate work.
+  Gemma is an optional quality backend with bounded recent-dialogue context. Glossaries, hotkeys,
+  profiles, and a frozen executable installer remain separate work; a source sharing kit is available.

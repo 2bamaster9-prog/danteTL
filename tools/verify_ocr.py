@@ -57,7 +57,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--dense", action="store_true", help="Benchmark 80 labels at 4K")
-    parser.add_argument("--device", choices=("cpu", "auto", "cuda"), default="cpu")
+    parser.add_argument(
+        "--device", choices=("cpu", "auto", "cuda", "directml", "auto-directml"), default="cpu"
+    )
     args = parser.parse_args()
     app = QApplication.instance() or QApplication([])
     frame = fixture(args.dense)

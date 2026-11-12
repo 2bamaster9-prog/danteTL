@@ -3,10 +3,11 @@
 import hashlib
 import importlib
 import os
-from importlib.metadata import distribution
+from importlib.metadata import PackageNotFoundError, distribution
 from pathlib import Path
 from typing import Any
 
+from jp_overlay.dialogue_context import DialogueTurn
 from jp_overlay.models import ModelAsset, validate_asset
 
 REVISION = "675cff42a74c774d6cb76f76d8eacb49b48c9b93"
@@ -37,6 +38,17 @@ INSTRUCTION = (
 )
 
 
+def installed_device() -> str | None:
+    """Inspect the installed wheel without loading a native runtime on the GUI thread."""
+    try:
+        names = {Path(str(p)).name for p in distribution("llama-cpp-python").files or ()}
+    except PackageNotFoundError:
+        return None
+    if "ggml-vulkan.dll" in names:
+        return "vulkan"
+    return "cuda" if "ggml-cuda.dll" in names else None
+
+
 def model_directory() -> Path:
     override = os.environ.get("JP_OVERLAY_GEMMA_DIR")
     return (
@@ -44,11 +56,25 @@ def model_directory() -> Path:
     )
 
 
-def translation_prompt(text: str) -> str:
+def translation_prompt(text: str, context: tuple[DialogueTurn, ...] = ()) -> str:
     # Gemma 4's native turn markers differ from older Gemma templates. Escape literal
     # marker syntax in OCR data, so it cannot close the user turn. No thinking switch.
     source = text.replace("<", "＜").replace(">", "＞")
-    return f"<bos><|turn>system\n{INSTRUCTION}<turn|>\n<|turn>user\n{source}<turn|>\n<|turn>model\n"
+    history = ""
+    if context:
+        import json
+
+        history = (
+            "Recent dialogue (reference only; keep names consistent; translate only CURRENT):\n"
+            + json.dumps([(t.source, t.english) for t in context], ensure_ascii=False)
+            .replace("<", "＜")
+            .replace(">", "＞")
+            + "\nCURRENT:\n"
+        )
+    return (
+        f"<bos><|turn>system\n{INSTRUCTION}<turn|>\n"
+        f"<|turn>user\n{history}{source}<turn|>\n<|turn>model\n"
+    )
 
 
 def completed_translation(response: Any) -> str:
@@ -73,10 +99,11 @@ class GemmaBackend:
     batch_size = 1
 
     def __init__(self, directory: Path, *, device: str = "cuda") -> None:
-        if device not in ("cuda", "cpu"):
-            raise ValueError("Gemma device must be cuda or cpu.")
+        if device not in ("cuda", "vulkan", "cpu"):
+            raise ValueError("Unknown Gemma device.")
+        setup = "Setup AMD.cmd" if device == "vulkan" else "Setup Gemma.cmd"
         for asset in ASSETS:
-            validate_asset(directory / asset.filename, asset, "Setup Gemma.cmd")
+            validate_asset(directory / asset.filename, asset, None)
         try:
             cache = Path(__file__).resolve().parents[2] / "data/cuda-cache"
             cache = Path(os.environ.get("CUDA_CACHE_PATH", str(cache)))
@@ -85,7 +112,10 @@ class GemmaBackend:
             os.environ.setdefault("CUDA_CACHE_MAXSIZE", "536870912")
             if os.name == "nt" and not _dll_handles:
                 paths = set()
-                for name in ("nvidia-cuda-runtime", "nvidia-cublas", "llama-cpp-python"):
+                packages = ("llama-cpp-python",)
+                if device == "cuda":
+                    packages += ("nvidia-cuda-runtime", "nvidia-cublas")
+                for name in packages:
                     package = distribution(name)
                     paths.update(
                         str(package.locate_file(path).parent)
@@ -98,11 +128,9 @@ class GemmaBackend:
                 os.environ["PATH"] = os.pathsep.join((*sorted(paths), os.environ.get("PATH", "")))
             runtime = importlib.import_module("llama_cpp")
         except (ImportError, OSError, RuntimeError) as error:
-            raise RuntimeError("Gemma runtime is unavailable. Run Setup Gemma.cmd.") from error
-        if device == "cuda" and not runtime.llama_supports_gpu_offload():
-            raise RuntimeError(
-                "Gemma GPU runtime unavailable. Run Setup Gemma.cmd or select Sugoi."
-            )
+            raise RuntimeError(f"Gemma runtime is unavailable. Run {setup} and restart.") from error
+        if device != "cpu" and not runtime.llama_supports_gpu_offload():
+            raise RuntimeError(f"Gemma GPU runtime unavailable. Run {setup} or select Sugoi.")
         self._model: Any = None
         self._model = runtime.Llama(
             model_path=str(directory / ASSETS[0].filename),
@@ -114,15 +142,20 @@ class GemmaBackend:
             n_ubatch=1,
             n_threads=2,
             n_threads_batch=2,
-            n_gpu_layers=-1 if device == "cuda" else 0,
+            n_gpu_layers=0 if device == "cpu" else -1,
+            # Keep one model on one adapter, including PCs with a discrete GPU + iGPU.
+            split_mode=0,  # LLAMA_SPLIT_MODE_NONE
+            main_gpu=0,
             flash_attn=device == "cuda",
             verbose=False,
         )
-        prompt_hash = hashlib.sha256(translation_prompt("").encode()).hexdigest()
+        prompt_hash = hashlib.sha256(
+            translation_prompt("", (DialogueTurn("source", "translation"),)).encode()
+        ).hexdigest()
         self.cache_identity = (
             f"gemma-4-e2b:{ASSETS[0].sha256}:llama-cpp-python-{runtime.__version__}:"
             f"{device}:ja-en:ctx{CONTEXT}:prefill1:max{OUTPUT_LIMIT}:greedy:repeat1:"
-            f"prompt-{prompt_hash}:no-think:v1"
+            f"prompt-{prompt_hash}:no-think:history2-512chars-v1"
         )
         try:
             # Report first-use CUDA preparation as loading, not as a stalled game
@@ -133,29 +166,37 @@ class GemmaBackend:
             raise
 
     def translate(self, texts: tuple[str, ...]) -> tuple[str, ...]:
-        if self._model is None:
-            raise RuntimeError("Gemma is closed.")
         if len(texts) > 4:
             raise ValueError("Gemma accepts at most four sources per call.")
-        output = []
-        for text in texts:
-            if not text.strip() or len(text) > 512:
-                raise ValueError("Gemma source must contain 1–512 characters.")
+        return tuple(self.translate_with_context(text, ()) for text in texts)
+
+    def translate_with_context(self, text: str, context: tuple[DialogueTurn, ...]) -> str:
+        if self._model is None:
+            raise RuntimeError("Gemma is closed.")
+        if not text.strip() or len(text) > 512:
+            raise ValueError("Gemma source must contain 1–512 characters.")
+        context = context[-2:]
+        while sum(len(t.source) + len(t.english) for t in context) > 512:
+            context = context[1:]
+        while True:
             tokens = self._model.tokenize(
-                translation_prompt(text).encode(), add_bos=False, special=True
+                translation_prompt(text, context).encode(), add_bos=False, special=True
             )
-            if len(tokens) + OUTPUT_LIMIT > CONTEXT:
-                raise ValueError("Gemma source exceeds its allocated context; refusing truncation.")
-            response = self._model.create_completion(
-                prompt=tokens,
-                max_tokens=OUTPUT_LIMIT,
-                temperature=0,
-                repeat_penalty=1.0,
-                stop=["<turn|>", "<|turn>", "<eos>"],
-                stream=False,
-            )
-            output.append(completed_translation(response))
-        return tuple(output)
+            if len(tokens) + OUTPUT_LIMIT <= CONTEXT:
+                break
+            if context:
+                context = context[1:]
+                continue
+            raise ValueError("Gemma source exceeds its allocated context; refusing truncation.")
+        response = self._model.create_completion(
+            prompt=tokens,
+            max_tokens=OUTPUT_LIMIT,
+            temperature=0,
+            repeat_penalty=1.0,
+            stop=["<turn|>", "<|turn>", "<eos>"],
+            stream=False,
+        )
+        return completed_translation(response)
 
     def close(self) -> None:
         if self._model is not None:

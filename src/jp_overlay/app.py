@@ -22,6 +22,15 @@ def create_recognizer(*, device: str = "cpu") -> Recognizer:
 
 
 def ocr_backends() -> tuple[OcrChoice, ...]:
+    if gpu_runtime_installed("onnxruntime-directml"):
+        return (
+            OcrChoice("CPU · recommended with the AMD package", create_recognizer, 8),
+            OcrChoice(
+                "DirectML · experimental, checked CPU fallback",
+                partial(create_recognizer, device="auto-directml"),
+                8,
+            ),
+        )
     if gpu_runtime_installed():
         return (
             OcrChoice(
@@ -39,17 +48,38 @@ def create_translator(*, beam_size: int = 2) -> TranslationBackend:
 
 
 def translation_backends() -> tuple[BackendChoice, ...]:
-    return (
-        BackendChoice("Sugoi V4 · Fast CPU", create_translator),
-        BackendChoice("Sugoi V4 · Wider search", partial(create_translator, beam_size=5)),
-        BackendChoice("Gemma 4 E2B · NVIDIA GPU (optional)", create_gemma_translator),
-    )
+    from jp_overlay.gemma import installed_device
+    from jp_overlay.model_store import model_catalog, preparation_id
+
+    bundles = {bundle.key: bundle for bundle in model_catalog()}
+    choices = []
+    if bundles["sugoi"].present():
+        choices.extend(
+            (
+                BackendChoice("Sugoi V4 · Fast CPU", create_translator, "sugoi-fast"),
+                BackendChoice(
+                    "Sugoi V4 · Wider search", partial(create_translator, beam_size=5), "sugoi-wide"
+                ),
+            )
+        )
+    device = installed_device()
+    if bundles["gemma"].present() and device:
+        label = "Vulkan GPU" if device == "vulkan" else "NVIDIA GPU"
+        choices.append(
+            BackendChoice(
+                f"Gemma 4 E2B · {label}",
+                create_gemma_translator,
+                f"gemma-{device}",
+                preparation_id(bundles["gemma"], device),
+            )
+        )
+    return tuple(choices)
 
 
 def create_gemma_translator() -> TranslationBackend:
-    from jp_overlay.gemma import GemmaBackend, model_directory
+    from jp_overlay.gemma import GemmaBackend, installed_device, model_directory
 
-    return GemmaBackend(model_directory())
+    return GemmaBackend(model_directory(), device=installed_device() or "cuda")
 
 
 def configure_logging() -> None:
@@ -72,6 +102,7 @@ def main() -> None:
     import shiboken6
     from PySide6.QtWidgets import QApplication, QMessageBox
 
+    from jp_overlay.model_store import model_catalog
     from jp_overlay.ui import MainWindow
     from jp_overlay.windows import Windows
 
@@ -96,7 +127,12 @@ def main() -> None:
 
     sys.excepthook = report_exception
     window = MainWindow(
-        windows, create_recognizer, translation_backends(), ocr_backends=ocr_backends()
+        windows,
+        create_recognizer,
+        translation_backends(),
+        ocr_backends=ocr_backends(),
+        models=model_catalog(),
+        backend_provider=translation_backends,
     )
     window.show()
     exit_code = app.exec()

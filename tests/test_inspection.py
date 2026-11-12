@@ -1,4 +1,6 @@
 import os
+import threading
+import time
 from dataclasses import replace
 from unittest.mock import Mock
 
@@ -8,7 +10,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import shiboken6  # noqa: E402
 from PySide6.QtCore import QCoreApplication, QEvent  # noqa: E402
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
 
 from jp_overlay.diagnostics import DebugDisplay  # noqa: E402
 from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry  # noqa: E402
@@ -18,7 +20,14 @@ from jp_overlay.overlay import OverlayWindow  # noqa: E402
 from jp_overlay.recognition import OcrResult, TextCharacter, TextRegion  # noqa: E402
 from jp_overlay.text_layout import layout_english  # noqa: E402
 from jp_overlay.tracking import TextTrack  # noqa: E402
-from jp_overlay.translation import TranslatedText, TranslationRequest  # noqa: E402
+from jp_overlay.translation import (  # noqa: E402
+    BackendChoice,
+    TranslatedText,
+    TranslationRequest,
+    TranslationSnapshot,
+    TranslationState,
+)
+from jp_overlay.ui import MainWindow  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -34,6 +43,158 @@ def cell(panel: OcrInspector, row: int, column: int):
     item = panel.table.item(row, column)
     assert item is not None
     return item
+
+
+def drain(window, predicate):
+    deadline = time.monotonic() + 3
+    while not predicate():
+        assert time.monotonic() < deadline
+        window._tick()
+        time.sleep(0.005)
+
+
+def test_no_models_do_not_start_inference_and_refresh_never_prepares_implicitly(
+    app, tmp_path, monkeypatch
+):
+    windows = Mock()
+    windows.list_targets.return_value = []
+    factory = Mock()
+    choice = BackendChoice("Gemma", factory, "gemma", "unprepared")
+    monkeypatch.setattr("jp_overlay.ui.is_prepared", lambda key: not key)
+    window = MainWindow(
+        windows, factory, cache_path=tmp_path / "cache", backend_provider=lambda: (choice,)
+    )
+    assert window.backend_combo.currentData() is None
+    assert not window.translate_check.isEnabled()
+    window._tick()
+    window._refresh_models()
+    assert window.backend_combo.currentData() is None
+    assert window.translate_check.isEnabled()
+    factory.assert_not_called()
+    window.close()
+    window.deleteLater()
+
+
+def test_preparation_decline_preserves_selection_and_accept_loads_once_off_ui(
+    app, tmp_path, monkeypatch
+):
+    windows = Mock()
+    windows.list_targets.return_value = []
+    entered, release = threading.Event(), threading.Event()
+    calls, receipts = [], []
+
+    def load():
+        calls.append(threading.get_ident())
+        entered.set()
+        assert release.wait(2)
+        backend = Mock(cache_identity="fake")
+        backend.batch_size = 1
+        return backend
+
+    base = BackendChoice("Sugoi", Mock(), "sugoi")
+    gemma = BackendChoice("Gemma", load, "gemma", "new")
+    monkeypatch.setattr("jp_overlay.ui.is_prepared", lambda key: not key)
+    monkeypatch.setattr("jp_overlay.ui.mark_prepared", receipts.append)
+    monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.No)
+    window = MainWindow(windows, Mock(), (base, gemma), cache_path=tmp_path / "cache")
+    window.backend_combo.setCurrentIndex(1)
+    assert window.backend_combo.currentData() == base
+    assert not entered.is_set() and not receipts
+    monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.Yes)
+    window.backend_combo.setCurrentIndex(1)
+    window._tick()
+    assert entered.wait(1)
+    assert window._progress_dialog and window._progress_dialog.maximum() == 0
+    assert not receipts and window._preparing == gemma
+    assert window._translation is not None
+    assert calls == [window._translation._thread.ident] and calls[0] != threading.get_ident()
+    release.set()
+    drain(window, lambda: window._preparing is None)
+    assert receipts == ["new"] and len(calls) == 1
+    assert window.backend_combo.currentData() == gemma and window._translation is not None
+    window.close()
+    drain(window, lambda: not window._timer.isActive())
+    window.deleteLater()
+
+
+def test_failed_preparation_restores_previous_selection_without_a_receipt(
+    app, tmp_path, monkeypatch
+):
+    windows = Mock()
+    windows.list_targets.return_value = []
+    base = BackendChoice("Sugoi", Mock(), "sugoi")
+    bad = BackendChoice("Gemma", Mock(side_effect=RuntimeError("GPU unavailable")), "gemma", "new")
+    receipts, errors = [], []
+    monkeypatch.setattr("jp_overlay.ui.is_prepared", lambda key: not key)
+    monkeypatch.setattr("jp_overlay.ui.mark_prepared", receipts.append)
+    monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.Yes)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a: errors.append(a[-1]))
+    window = MainWindow(windows, Mock(), (base, bad), cache_path=tmp_path / "cache")
+    window.backend_combo.setCurrentIndex(1)
+    drain(window, lambda: window._preparing is None)
+    assert window.backend_combo.currentData() == base
+    assert not receipts and errors == ["GPU unavailable"]
+    window.close()
+    window.deleteLater()
+
+
+def test_nested_consent_event_loop_does_not_unload_previous_model(app, tmp_path, monkeypatch):
+    windows = Mock()
+    windows.list_targets.return_value = []
+    base = BackendChoice("Sugoi", Mock(), "sugoi")
+    gemma = BackendChoice("Gemma", Mock(), "gemma", "new")
+    monkeypatch.setattr("jp_overlay.ui.is_prepared", lambda key: not key)
+    window = MainWindow(windows, Mock(), (base, gemma), cache_path=tmp_path / "cache")
+    session = Mock(finished=False)
+    session.snapshot.return_value = TranslationSnapshot(TranslationState.READY)
+    window._translation = session
+
+    def question(*args):
+        window._poll_translation(True)
+        session.request_stop.assert_not_called()
+        return QMessageBox.StandardButton.No
+
+    monkeypatch.setattr(QMessageBox, "question", question)
+    window.backend_combo.setCurrentIndex(1)
+    assert window.backend_combo.currentData() == base and window._translation == session
+    window._translation = None
+    window.close()
+    window.deleteLater()
+
+
+def test_closing_during_download_waits_for_cancellation_before_destroying_gui(
+    app, tmp_path, monkeypatch
+):
+    from jp_overlay.model_store import Cancelled, ModelBundle, ModelProgress
+
+    windows = Mock()
+    windows.list_targets.return_value = []
+    entered = threading.Event()
+
+    def install(bundle, progress, cancel):
+        progress(ModelProgress("Downloading", 1, 10))
+        entered.set()
+        assert cancel.wait(2)
+        raise Cancelled()
+
+    monkeypatch.setattr("jp_overlay.model_manager.install_model", install)
+    bundle = ModelBundle("fake", "Fixture", tmp_path, (), "")
+    window = MainWindow(windows, Mock(), models=(bundle,), cache_path=tmp_path / "cache")
+    window._manage_models()
+    manager = window._model_manager
+    assert manager is not None
+    manager._download()
+    assert entered.wait(1)
+    window.close()
+    assert window._timer.isActive()
+    deadline = time.monotonic() + 2
+    while window._timer.isActive():
+        assert time.monotonic() < deadline
+        manager._poll()
+        window._tick()
+        time.sleep(0.005)
+    assert manager.operation is None
+    window.deleteLater()
 
 
 def test_preview_letterboxing_maps_physical_pixels_once() -> None:

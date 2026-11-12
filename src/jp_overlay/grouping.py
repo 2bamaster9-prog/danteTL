@@ -1,7 +1,7 @@
 """Bounded dialogue grouping over stable lines, independent of Qt and model runtimes."""
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from statistics import median
 
 from jp_overlay.domain import Rect, union_bounds
@@ -32,6 +32,7 @@ def join_lines(lines: tuple[TextTrack, ...]) -> str:
 @dataclass(frozen=True, slots=True)
 class TextBlock:
     lines: tuple[TextTrack, ...]
+    dialogue: bool = field(default=False, compare=False)
 
     def __post_init__(self) -> None:
         if not self.lines:
@@ -127,7 +128,15 @@ def _blocks(
         ):
             lines = (first,)  # Nearby menu labels alone are not evidence of a dialogue box.
         used.update(line.track_id for line in lines)
-        blocks.append(TextBlock(lines))
+        dialogue = enabled and (
+            len(lines) > 1
+            or (
+                len(join_lines(lines)) >= 10
+                and _dialogue_evidence(lines)
+                and (first.track_id in growing or first.text.startswith(("「", "『")))
+            )
+        )
+        blocks.append(TextBlock(lines, dialogue=dialogue))
     return tuple(blocks)
 
 
@@ -157,7 +166,7 @@ class DialogueGrouper:
         )
         displayed = {t.track_id: t for t in visible}
         blocks = tuple(
-            TextBlock(tuple(displayed[t.track_id] for t in b.lines))
+            TextBlock(tuple(displayed[t.track_id] for t in b.lines), dialogue=b.dialogue)
             for b in _blocks(layout, enabled, growing)
         )
         ready_keys = {(line.track_id, line.text_revision, line.text) for line in confirmed}

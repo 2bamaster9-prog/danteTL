@@ -1,5 +1,6 @@
-param([switch]$Gpu, [switch]$Gemma)
+param([switch]$Gpu, [switch]$Gemma, [switch]$Amd)
 $ErrorActionPreference = 'Stop'
+if ($Gpu -and $Amd) { throw 'Choose either NVIDIA or AMD setup.' }
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $projectRoot
 $env:UV_CACHE_DIR = Join-Path $projectRoot '.uv-cache'
@@ -24,7 +25,10 @@ $gemmaArgs = @()
 if ($Gemma -or (Test-Path -LiteralPath (Join-Path $projectRoot 'models\gemma-4-e2b\gemma-4-E2B_q4_0-it.gguf'))) {
     $gemmaArgs = @('--group', 'gemma')
 }
-if ($Gpu) {
+if ($Amd) {
+    $env:UV_PROJECT_ENVIRONMENT = Join-Path $projectRoot '.venv-amd'
+    & $uvCommand sync --locked --no-default-groups --group amd --group gemma-vulkan --group dev
+} elseif ($Gpu) {
     $env:UV_PROJECT_ENVIRONMENT = Join-Path $projectRoot '.venv-gpu'
     & $uvCommand sync --locked --no-default-groups --group gpu --group dev @gemmaArgs
 } else {
@@ -32,4 +36,5 @@ if ($Gpu) {
     & $uvCommand sync --locked @gemmaArgs
 }
 if ($LASTEXITCODE -ne 0) { throw 'Dependency setup failed. Check the network connection and retry.' }
-Write-Host 'JP Overlay is ready. Double-click Run JP Overlay.cmd.'
+if ($Amd) { Write-Host 'Ready. Open Run JP Overlay AMD.cmd, then Models to choose downloads.' }
+else { Write-Host 'Ready. Open Run JP Overlay.cmd, then Models to choose downloads.' }

@@ -88,10 +88,10 @@ def main() -> None:
         started = time.monotonic()
         backend: TranslationBackend
         if args.backend == "gemma":
-            from jp_overlay.gemma import GemmaBackend
+            from jp_overlay.gemma import GemmaBackend, installed_device
             from jp_overlay.gemma import model_directory as gemma_directory
 
-            backend = GemmaBackend(gemma_directory())
+            backend = GemmaBackend(gemma_directory(), device=installed_device() or "cuda")
         else:
             backend = SugoiBackend(model_directory())
         load_ms = (time.monotonic() - started) * 1000
@@ -108,6 +108,27 @@ def main() -> None:
             assert len(english) == len(samples) and all(english)
             assert "adventure" in english[0].lower(), english
             assert any(word in english[2].lower() for word in ("setting", "config")), english
+            dialogue = []
+            if args.backend == "gemma":
+                from jp_overlay.dialogue_context import DialogueTurn
+                from jp_overlay.gemma import GemmaBackend
+
+                assert isinstance(backend, GemmaBackend)
+                context = (
+                    DialogueTurn("私はリナ。これからよろしくね。", "I'm Rina. Nice to meet you."),
+                )
+                source = "リナが待っている。先に行こう。"
+                for history in ((), context):
+                    started = time.monotonic()
+                    answer = backend.translate_with_context(source, history)
+                    dialogue.append(
+                        {
+                            "context_turns": len(history),
+                            "english": answer,
+                            "ms": round((time.monotonic() - started) * 1000, 1),
+                        }
+                    )
+                assert "Rina" in dialogue[-1]["english"], dialogue
             report = json.dumps(
                 {
                     "network_blocked": True,
@@ -120,6 +141,7 @@ def main() -> None:
                     "gpu_total_loaded": gpu_memory(),
                     "process_memory": process_memory(),
                     "samples": list(zip(samples, english, strict=True)),
+                    "dialogue_context": dialogue,
                 },
                 ensure_ascii=True,
                 indent=2,

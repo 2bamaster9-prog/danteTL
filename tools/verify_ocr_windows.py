@@ -5,6 +5,7 @@ import json
 import os
 import time
 import traceback
+from dataclasses import replace
 from functools import partial
 from pathlib import Path
 
@@ -30,7 +31,9 @@ def main() -> int:
     )
     parser.add_argument("--dialogue", action="store_true", help="Verify two-line dialogue grouping")
     parser.add_argument("--ocr-delay-ms", type=int, default=0, help="Simulate a slow OCR worker")
-    parser.add_argument("--device", choices=("cpu", "auto", "cuda"), default="cpu")
+    parser.add_argument(
+        "--device", choices=("cpu", "auto", "cuda", "directml", "auto-directml"), default="cpu"
+    )
     parser.add_argument("--gemma", action="store_true", help="Start Gemma, swap to Sugoi and back")
     parser.add_argument("--debug", action="store_true", help="Verify diagnostic overlay rendering")
     parser.add_argument("--transitions", action="store_true", help="Close/reopen the text panel")
@@ -87,7 +90,11 @@ def main() -> int:
     window = MainWindow(
         windows,
         factory,
-        translation_backends() if args.translation else (),
+        # Pipeline fixture explicitly requests real model loading. Onboarding consent
+        # is tested separately; never write a preparation receipt from this fixture.
+        tuple(replace(b, preparation_id="") for b in translation_backends())
+        if args.translation
+        else (),
         cache_path=cache_path,
         ocr_backends=choices,
     )
@@ -196,15 +203,18 @@ def main() -> int:
                 evidence["live_japanese_recognized"] = True
                 evidence["ocr_ms"] = round(result.duration_ms, 1)
                 evidence["dpi"] = result.frame.geometry.dpi
-                if args.device == "cuda" and not args.ocr_delay_ms:
-                    assert (
-                        window._ocr and window._ocr.snapshot().provider == "CUDAExecutionProvider"
+                if args.device in ("cuda", "directml") and not args.ocr_delay_ms:
+                    provider = (
+                        "CUDAExecutionProvider" if args.device == "cuda" else "DmlExecutionProvider"
                     )
+                    assert window._ocr and window._ocr.snapshot().provider == provider
                     evidence["actual_gpu_provider"] = window._ocr.snapshot().provider
                 initial_size = result.frame.geometry.client.size
                 frozen = result
                 tracks = window._tracker.visible(result.frame, now)
-                phrase = next(t for t in tracks if t.text == expected)
+                phrase = next((t for t in tracks if t.text == expected), None)
+                if phrase is None:
+                    return  # Raw OCR can complete before its source-matched track commits.
                 phrase_id, phrase_bounds = phrase.track_id, phrase.bounds
                 stage = 8
             elif (

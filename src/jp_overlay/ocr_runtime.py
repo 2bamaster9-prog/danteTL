@@ -7,12 +7,13 @@ from typing import Any
 
 CPU = "CPUExecutionProvider"
 CUDA = "CUDAExecutionProvider"
+DML = "DmlExecutionProvider"
 _dll_handles: list[Any] = []
 
 
-def gpu_runtime_installed() -> bool:
+def gpu_runtime_installed(name: str = "onnxruntime-gpu") -> bool:
     try:
-        distribution("onnxruntime-gpu")
+        distribution(name)
         return True
     except PackageNotFoundError:
         return False
@@ -62,12 +63,17 @@ def create_sessions(paths: tuple[Any, ...], threads: int, provider: str) -> list
                 "CUDA runtime is not installed. Run Setup GPU OCR.cmd or choose CPU."
             )
         prepare_cuda(ort)
+    if provider == DML and DML not in ort.get_available_providers():
+        raise RuntimeError("DirectML is unavailable. Run Setup AMD.cmd or choose CPU OCR.")
     options = ort.SessionOptions()
     options.intra_op_num_threads = threads
     options.inter_op_num_threads = 1
     options.add_session_config_entry("session.intra_op.allow_spinning", "0")
     options.add_session_config_entry("session.inter_op.allow_spinning", "0")
     options.log_severity_level = 3
+    if provider == DML:
+        options.enable_mem_pattern = False
+        options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
     providers: list[Any] = [CPU]
     if provider == CUDA:
         providers.insert(
@@ -82,6 +88,8 @@ def create_sessions(paths: tuple[Any, ...], threads: int, provider: str) -> list
                 },
             ),
         )
+    elif provider == DML:
+        providers.insert(0, (DML, {"device_id": 0}))
     sessions = []
     for path in paths:
         session = ort.InferenceSession(str(path), sess_options=options, providers=providers)

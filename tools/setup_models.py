@@ -1,64 +1,30 @@
-"""Explicit, resumable-by-file setup. This is the only model download entry point."""
+"""Explicit CLI model installation, sharing the in-app verified downloader."""
 
 import argparse
-import os
-import tempfile
-from pathlib import Path
-from urllib.request import urlopen
+import threading
 
-from jp_overlay.models import ASSETS, model_directory, validate_asset
+from jp_overlay.model_store import ModelProgress, install_model, model_catalog
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--translation", action="store_true", help="Install Sugoi V4 instead of OCR"
-    )
-    parser.add_argument("--gemma", action="store_true", help="Install optional Gemma 4 E2B QAT")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--translation", action="store_true", help="Install Sugoi instead of OCR")
+    group.add_argument("--gemma", action="store_true", help="Install optional Gemma 4 E2B QAT")
     args = parser.parse_args()
-    assets, directory, setup = ASSETS, model_directory(), "Setup OCR.cmd"
-    if args.gemma and args.translation:
-        parser.error("Choose either --gemma or --translation.")
-    if args.gemma:
-        from jp_overlay.gemma import ASSETS as gemma_assets
-        from jp_overlay.gemma import model_directory as gemma_directory
+    key = "gemma" if args.gemma else "sugoi" if args.translation else "ocr"
+    bundle = next(b for b in model_catalog() if b.key == key)
+    previous = ""
 
-        assets, directory, setup = gemma_assets, gemma_directory(), "Setup Gemma.cmd"
-    if args.translation:
-        from jp_overlay.sugoi import ASSETS as sugoi_assets
-        from jp_overlay.sugoi import model_directory as sugoi_directory
+    def progress(value: ModelProgress) -> None:
+        nonlocal previous
+        message = f"{value.message} · {value.received / max(1, value.total):.0%}"
+        if message != previous:
+            print(message, flush=True)
+            previous = message
 
-        assets, directory, setup = sugoi_assets, sugoi_directory(), "Setup Translation.cmd"
-    directory.mkdir(parents=True, exist_ok=True)
-    for asset in assets:
-        destination = directory / asset.filename
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            validate_asset(destination, asset, setup)
-        except RuntimeError:
-            pass
-        else:
-            print(f"Verified: {asset.filename}", flush=True)
-            continue
-        print(f"Downloading {asset.filename} ({asset.size / 1_000_000:.1f} MB)…", flush=True)
-        # A unique temporary file prevents interrupted/concurrent setup corrupting a model.
-        temporary: Path | None = None
-        try:
-            with tempfile.NamedTemporaryFile(dir=directory, suffix=".part", delete=False) as output:
-                temporary = Path(output.name)
-                with urlopen(asset.url, timeout=60) as response:
-                    received = 0
-                    while chunk := response.read(1024 * 1024):
-                        received += len(chunk)
-                        if received > asset.size:
-                            raise RuntimeError("Download exceeded the pinned model size.")
-                        output.write(chunk)
-            validate_asset(temporary, asset, setup)
-            os.replace(temporary, destination)
-        finally:
-            if temporary is not None:
-                temporary.unlink(missing_ok=True)
-    print(f"Models verified in {directory}. Inference works offline.", flush=True)
+    install_model(bundle, progress, threading.Event())
+    print(f"Models verified in {bundle.directory}. Inference works offline.", flush=True)
 
 
 if __name__ == "__main__":

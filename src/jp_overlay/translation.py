@@ -1,5 +1,6 @@
 """Local translation scheduling, backend swapping, and stale-result rejection."""
 
+import json
 import logging
 import threading
 import time
@@ -9,6 +10,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Protocol
 
+from jp_overlay.dialogue_context import DialogueMemory, DialogueTurn
 from jp_overlay.grouping import TextBlock
 from jp_overlay.text_content import has_japanese
 from jp_overlay.tracking import TextTrack
@@ -28,6 +30,8 @@ class TranslationBackend(Protocol):
 class BackendChoice:
     name: str
     create: Callable[[], TranslationBackend]
+    key: str = ""
+    preparation_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,6 +114,9 @@ class TranslationSession:
         self._translated_sources = 0
         self._load_ms = 0.0
         self._last_inference_ms = 0.0
+        self._dialogue = DialogueMemory()
+        self._blocks: dict[TranslationRequest, TextBlock] = {}
+        self._contexts: dict[TranslationRequest, tuple[DialogueTurn, ...]] = {}
         self._thread = threading.Thread(target=self._run, name="translation-owner", daemon=True)
 
     def start(self) -> None:
@@ -120,6 +127,7 @@ class TranslationSession:
         tracks: tuple[TextTrack | TextBlock, ...],
         *,
         retain: tuple[TextBlock, ...] = (),
+        reset_context: bool = False,
     ) -> None:
         desired = tuple(
             TranslationRequest.from_block(t)
@@ -134,6 +142,24 @@ class TranslationSession:
             if (key := TranslationRequest.from_block(block)) not in desired
         )[: 128 - len(desired)]
         with self._condition:
+            now = time.monotonic()
+            blocks = tuple(t for t in tracks[:128] if isinstance(t, TextBlock))
+            allowed = set(desired) | set(retained)
+            self._blocks = {
+                key: b
+                for b in (*retain[:128], *blocks)
+                if (key := TranslationRequest.from_block(b)) in allowed
+            }
+            if reset_context:
+                self._dialogue.reset()
+                self._contexts = {key: () for key in desired if key not in self._results}
+            self._dialogue.observe(retain[:128] or blocks, now)
+            self._contexts = {
+                key: self._contexts.get(key, self._dialogue.context_for(self._blocks[key]))
+                if key in self._blocks
+                else ()
+                for key in desired
+            }
             if (
                 self._stop
                 or self._state == TranslationState.FAILED
@@ -141,7 +167,6 @@ class TranslationSession:
             ):
                 return
             self._desired, self._retained = desired, retained
-            now = time.monotonic()
             self._queued_at = {key: self._queued_at.get(key, now) for key in desired}
             allowed = set(desired) | set(retained)
             self._results = {key: value for key, value in self._results.items() if key in allowed}
@@ -154,6 +179,9 @@ class TranslationSession:
             self._retained = ()
             self._results.clear()
             self._queued_at.clear()
+            self._dialogue.reset()
+            self._contexts.clear()
+            self._blocks.clear()
             self._condition.notify()
 
     def switch_backend(self, factory: Callable[[], TranslationBackend]) -> None:
@@ -169,6 +197,8 @@ class TranslationSession:
             self._queued_at = {key: time.monotonic() for key in self._desired}
             self._duration = self._queue_ms = self._load_ms = 0
             self._last_inference_ms = 0
+            self._dialogue.reset()
+            self._contexts.clear()
             self._cache_hits = self._translated_sources = 0
             self._condition.notify()
 
@@ -223,6 +253,7 @@ class TranslationSession:
                     factory = self._factory
                     generation = self._generation
                     jobs = tuple(key for key in self._desired if key not in self._results)
+                    contexts = {key: self._contexts.get(key, ()) for key in jobs}
                 if active_backend != backend_generation:
                     if engine is not None:
                         engine.close()
@@ -238,9 +269,20 @@ class TranslationSession:
                     continue
                 assert engine is not None
                 batch_size = max(1, min(4, int(getattr(engine, "batch_size", 4))))
-                sources = tuple(dict.fromkeys(key.source for key in jobs))[:batch_size]
+                contextual = getattr(engine, "translate_with_context", None)
+                inputs = {key: (key.source, contexts[key] if contextual else ()) for key in jobs}
+                sources = tuple(dict.fromkeys(inputs.values()))[:batch_size]
                 keys = {
-                    source: translation_key(engine.cache_identity, source) for source in sources
+                    source: translation_key(
+                        engine.cache_identity + (":dialogue-context-v1" if source[1] else ""),
+                        json.dumps(
+                            [source[0], [(t.source, t.english) for t in source[1]]],
+                            ensure_ascii=False,
+                        )
+                        if source[1]
+                        else source[0],
+                    )
+                    for source in sources
                 }
                 answers = {source: cache.get(keys[source]) for source in sources}
                 missing = tuple(source for source in sources if answers[source] is None)
@@ -252,12 +294,16 @@ class TranslationSession:
                     queue_ms = max(
                         (started - self._queued_at.get(key, started)) * 1000
                         for key in jobs
-                        if key.source in sources
+                        if inputs[key] in sources
                     )
                 if missing:
-                    if any(len(source) > 512 for source in missing):
+                    if any(len(source[0]) > 512 for source in missing):
                         raise ValueError("Source text exceeds the 512-character translation limit.")
-                    translated = engine.translate(missing)
+                    translated = (
+                        tuple(contextual(source, context) for source, context in missing)
+                        if contextual
+                        else engine.translate(tuple(source for source, _ in missing))
+                    )
                     inference_ms = (time.perf_counter() - measured) * 1000
                     for source, english in zip(missing, translated, strict=True):
                         if not english.strip() or len(english) > 4096:
@@ -271,9 +317,17 @@ class TranslationSession:
                     self._processing_since = None
                     if not self._stop and generation == self._generation:
                         for key in jobs:
-                            english = answers.get(key.source)
-                            if key in self._desired and english is not None:
+                            english = answers.get(inputs[key])
+                            if (
+                                key in self._desired
+                                and english is not None
+                                and (not contextual or contexts[key] == self._contexts.get(key, ()))
+                            ):
                                 self._results[key] = TranslatedText(key, english)
+                                if key in self._blocks:
+                                    self._dialogue.published(
+                                        self._blocks[key], english, time.monotonic()
+                                    )
                         self._duration = duration
                         self._queue_ms = queue_ms
                         self._cache_hits = len(sources) - len(missing)

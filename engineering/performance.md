@@ -271,3 +271,22 @@ Discovery targets three seconds independently of local requests. Sixteen unchang
 request two startup scans, versus three in slice nine; later idle scans use the independent deadline.
 Broad regions, excessive crop count and edge-clipped detections still use full scans. Multiple crops
 pay separate detector overhead, so cropping is not automatically faster for every screen.
+## Model management and bounded dialogue context (2026-11-13)
+
+On the development RTX 5080, the current CUDA Gemma run loaded/warmed in 4.09 s using an existing
+driver cache. Nine standalone sources took 47–218 ms. The original phrase `リナが待っている。先に行こう。`
+was rendered as “Lina is waiting. Let's go.” without history (141 ms), and “Rina is waiting. Let's
+go.” with one previous turn identifying her as Rina (312 ms). This illustrates name consistency on
+one sample, not a general translation benchmark. Two turns/512 characters are the history ceiling;
+the existing 2,048-token allocation is unchanged.
+
+Vulkan on the same NVIDIA GPU took 8.86 s to load, 31–234 ms per standalone source, and 344 ms for
+that contextual phrase (140 ms without history). Subsequent native model loads took about 4 s.
+Discrete Radeon latency/VRAM behavior remains unmeasured. Native Vulkan + CPU OCR working set was
+about 2.33 GiB, private memory 3.09 GiB; these snapshots do not establish sustained game budgets.
+
+Both native CUDA and Vulkan fixtures produced grouped English 0.75 s after final typewriter input.
+Setup remained responsive for 62 timer polls while Gemma loaded; capture reused that worker.
+The CPU retention replay preserved six English blocks across 300 polls/14 s and six noisy OCR
+passes. New regional text reached English in 0.516 s without changing existing publications.
+The 900 ms delayed OCR run preserved English across 49 continuity polls.

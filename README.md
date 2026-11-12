@@ -8,12 +8,14 @@ The inspector keeps raw Japanese, bounding boxes, and English together for revie
 
 ## Run
 
-On Windows 11, run **Setup OCR.cmd**, then **Setup Translation.cmd** once. They set up the
-project-local Python environment and download/verify pinned models: about 46 MB for OCR and 1.11 GB
-for Sugoi, its tokenizers, and source/license metadata. Existing verified files are reused.
-Then double-click **Run JP Overlay.cmd**. Normal use works offline; missing/corrupt models produce
-a visible setup instruction rather than downloading automatically. Existing OCR users only need
-the translation setup step.
+On Windows 11, double-click **Run JP Overlay.cmd**, then open **Models…**. Download **MeikiOCR**
+(46 MB) for recognition and a translation model: **Sugoi V4** (1.11 GB, CPU) or **Gemma 4 E2B**
+(3.35 GB, GPU). For Gemma, first install its runtime as described below. The translation dropdown
+lists downloaded models whose runtime is installed. **No translation** is always available.
+Capture works even with no models; English appears only after selecting a translator.
+Downloads show byte progress, support cancellation, and check pinned SHA-256 hashes before files
+become usable. Retry keeps verified files; an interrupted individual file restarts. Processing works
+offline after setup. The older **Setup OCR.cmd** / **Setup Translation.cmd** shortcuts still work.
 Setup requires Python 3.12 or later on PATH to bootstrap uv; uv installs the pinned Python 3.12
 runtime locally if needed. Nothing is installed into your global Python environment.
 
@@ -25,16 +27,37 @@ The first GPU verification can take about a minute to compile kernels. A bounded
 `data/cuda-cache` lets later launches reuse that work; new kernels or driver changes can need another
 warm-up. Setup only enables the GPU launcher after verification succeeds.
 
-For optional **Gemma 4 E2B · NVIDIA GPU**, run **Setup Gemma.cmd** once, then restart the app
-and select it in **Translation backend**. This downloads Google's 3.35 GB QAT Q4_0 model and
-about 0.64 GB of optional embedded llama.cpp/CUDA dependencies. No server or system CUDA toolkit
-is needed. It works with either CPU or GPU OCR. A current NVIDIA driver is required; Sugoi remains
-available for PCs without a suitable GPU. First GPU preparation can take about a minute; subsequent
-launches reuse the same bounded local CUDA cache. The setup verifies a real offline translation.
+For **Gemma · NVIDIA GPU**, run **Setup Gemma.cmd** once. It installs the optional embedded
+llama.cpp/CUDA runtime (about 0.64 GB); weights are downloaded through **Models…** after restarting
+the app. No server or system CUDA toolkit is needed. It works with CPU or GPU OCR.
+A current NVIDIA driver is required; Sugoi remains available for PCs without a suitable GPU.
 
-Gemma uses a small 2,048-token context allocation, grouped dialogue, and no reasoning output. It does
-not yet remember earlier dialogue. Its weights are Apache-2.0; Sugoi retains its separate licensing.
-Measured quality and resource examples are in [the current slice](engineering/plans/011-gemma-and-diagnostics.md).
+For **AMD**, run **Setup AMD.cmd**, then **Run JP Overlay AMD.cmd**. This isolated environment
+uses Vulkan for Gemma; CUDA is not required. CPU OCR is the recommended default. Experimental
+**DirectML** OCR is selectable and checks its numerical output before use; failure visibly falls
+back to CPU. DirectML produced incorrect Meiki output on the development machine, so GPU OCR is
+**not yet validated**. The Vulkan package passed on an RTX 5080; discrete Radeon testing remains
+necessary. A current GPU driver with Vulkan support is required. CPU Sugoi is available in this
+environment too. Runtime packages are mutually exclusive within one Python environment.
+
+Selecting an unprepared Gemma model asks **Prepare now?** Choosing No restores the previous model
+or No translation. Yes shows a responsive progress dialog while checking weights and warming the
+GPU. It uses an indeterminate bar because the runtime cannot report a reliable percentage. The
+prepared worker stays loaded for capture. Preparation receipts are local to the machine/runtime;
+driver changes can still require warm-up, shown as loading. Nothing downloads during preparation.
+
+Gemma keeps at most **two recent dialogue exchanges / 512 characters** within its existing
+2,048-token allocation. Only one likely dialogue panel owns history; short menu labels remain
+independent. History expires after 30 seconds, prolonged panel absence, panel relocation, broad
+scene changes, or session reset. It is a conservative heuristic, not a speaker/name glossary.
+Context is part of cache identity, so unrelated conversations cannot reuse contextual answers.
+Its weights are Apache-2.0; Sugoi retains its separate licensing. See
+[the current slice](engineering/plans/012-model-management-and-context.md) for measurements.
+
+To share, run `python tools/package.py` and send `dist/jp-overlay-windows.zip`. This is a small
+**source/setup package**, not a frozen executable: unzip into a writable folder and use the launchers.
+It excludes weights, environments, caches, screenshots and logs. Python/uv bootstrapping and runtime
+downloads are still needed on the recipient's PC; models are chosen in the app.
 
 Alternatively, with uv installed:
 
@@ -55,7 +78,7 @@ text with a translucent background. Regions awaiting translation leave the origi
 
 - **Automatic text size** estimates the source text size and wraps English with limited shrinking.
   Uncheck it to set a fixed size in physical pixels. Opacity controls the translated box background.
-- **OCR device** selects automatic NVIDIA acceleration with CPU fallback, or CPU only. Stop capture
+- **OCR device** selects available NVIDIA/DirectML acceleration with CPU fallback, or CPU only. Stop capture
   before changing it. The OCR status reports the provider actually running and any fallback reason.
   **Capture rate** ranges from two to twelve samples/second and defaults to eight. These captures
   feed cheap visual checks; they do not each trigger OCR. Increasing capture rate improves visual
@@ -63,7 +86,7 @@ text with a translucent background. Regions awaiting translation leave the origi
 - **Sugoi V4 · Fast CPU** is the default. **Wider search** uses the same weights with more decoding
   candidates; it can take longer and is not guaranteed to improve every sentence. Switching safely
   unloads the previous backend before loading the selected one.
-- **Gemma 4 E2B · NVIDIA GPU (optional)** uses an instruction-tuned LLM. It can produce more natural
+- **Gemma 4 E2B · NVIDIA/Vulkan GPU** uses an instruction-tuned LLM. It can produce more natural
   UI labels and dialogue, but quality still needs review in the actual game. Each completed label
   publishes immediately; the source-specific cache remains separate from Sugoi.
 - **Debug overlay** adds amber cells for significant visual changes and cyan dashed outlines for

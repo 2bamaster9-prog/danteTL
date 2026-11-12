@@ -360,3 +360,31 @@ at DPI 168. The CPU typewriter check passed as well (its earlier run reused the 
 The 900 ms slow-CPU regression preserved English across 49 continuity checks for at least three
 seconds. Screenshots of our fixture/inspector were reviewed. Game-frame-time and other-GPU claims
 remain unverified. See [slice eight](plans/008-responsive-ocr.md).
+## Model management / AMD / context checks (2026-11-13)
+
+Run `tools/verify_setup_windows.py` in a Gemma-capable environment with local models installed.
+It uses only the app/demo, simulates Yes/No clicks, and does not write real preparation receipts.
+It verifies capture without models, installed choices, decline restoring No translation, a responsive
+preparation dialog, one model load reused for capture, No translation unloading, and shutdown.
+
+Current evidence: 248 behavior tests plus Ruff/Pyright passed in CPU, CUDA and isolated AMD
+environments. Download tests cover explicit invocation, hash/size mismatch, atomic publication,
+cancel cleanup, verified-file reuse and failure reporting. A real pinned 29,260-byte model metadata
+download also passed. GUI tests include a nested consent event loop and close during download.
+
+CUDA and Vulkan actual inference ran with Python socket connections blocked. Context changed a
+synthetic name from Lina to the previously established Rina. Full native dialogue/typewriter,
+backend switches, debug, pause/resize/minimize/restart and cleanup passed in both runtime packages.
+The Vulkan native run used checked CPU OCR fallback; it is not evidence of DirectML GPU accuracy.
+DirectML 1.24.4 and 1.23.0 produced wrong Meiki outputs; the compatibility guard reports this and
+automatic mode uses CPU. Strict DirectML intentionally fails on this machine.
+
+Slow CPU OCR (900 ms injected) and unchanged-label regional appearance regressions passed.
+Setup/dialog/overlay fixture screenshots were visually reviewed. No game, discrete Radeon,
+mixed-DPI transition, or general name-consistency guarantee follows from these synthetic checks.
+Artifacts live in ignored `artifacts/setup`, `artifacts/context` and `artifacts/amd`.
+
+For friends: run Setup AMD.cmd, launch Run JP Overlay AMD.cmd, download models in Models, then
+select Gemma and accept preparation. CPU OCR is recommended. If trying DirectML, record the actual
+provider/fallback reason and use `--device directml` for strict verification, never `auto-directml`
+as evidence of GPU execution. Report GPU/driver, model load time and warm inference timings.

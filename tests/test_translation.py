@@ -2,6 +2,7 @@ import threading
 import time
 from dataclasses import replace
 
+from jp_overlay.dialogue_context import DialogueTurn
 from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
 from jp_overlay.grouping import DialogueGrouper, TextBlock
 from jp_overlay.recognition import OcrResult, TextCharacter, TextRegion
@@ -42,6 +43,79 @@ class Backend:
 def stop(session: TranslationSession) -> None:
     session.request_stop()
     until(lambda: session.finished)
+
+
+def test_context_is_frozen_per_request_menu_independent_and_cache_scoped(tmp_path):
+    class Contextual(Backend):
+        batch_size = 1
+
+        def __init__(self):
+            super().__init__()
+            self.contexts = []
+
+        def translate_with_context(self, source, context):
+            self.contexts.append((source, context))
+            return f"English {source} ({len(context)})"
+
+    backend = Contextual()
+    session = TranslationSession(lambda: backend, tmp_path / "cache.sqlite3")
+    first = TextBlock((track("私の名前はリナです。"),), dialogue=True)
+    second = TextBlock((track("明日は一緒に行きましょう。", key=2),), dialogue=True)
+    menu = TextBlock((track("設定", key=3),))
+    session.start()
+    try:
+        session.update((first,))
+        until(lambda: session.snapshot().pending == 0)
+        previous = session.snapshot().results[0].english
+        session.update((second, menu))
+        until(lambda: session.snapshot().pending == 0)
+        assert backend.contexts == [
+            (first.text, ()),
+            (second.text, (DialogueTurn(first.text, previous),)),
+            (menu.text, ()),
+        ]
+        for _ in range(5):
+            session.update((second, menu))
+        assert session.snapshot().pending == 0 and len(backend.contexts) == 3
+        session.invalidate()
+        session.update((second, menu))
+        until(lambda: session.snapshot().pending == 0)
+        # The dialogue's standalone result is distinct; menu remains a cache hit.
+        assert backend.contexts[-1] == (second.text, ())
+        assert len(backend.contexts) == 4
+    finally:
+        stop(session)
+
+
+def test_context_reset_rejects_in_flight_context_and_retries_without_it(tmp_path):
+    class Contextual(Backend):
+        batch_size = 1
+        contexts = []
+
+        def translate_with_context(self, source, context):
+            self.contexts.append(context)
+            return self.translate((source,))[0] + (" context" if context else " standalone")
+
+    backend = Contextual()
+    session = TranslationSession(lambda: backend, tmp_path / "cache.sqlite3")
+    first = TextBlock((track("私の名前はリナです。"),), dialogue=True)
+    second = TextBlock((track("明日は一緒に行きましょう。", key=2),), dialogue=True)
+    session.start()
+    try:
+        session.update((first,))
+        until(lambda: session.snapshot().pending == 0)
+        backend.release.clear()
+        backend.entered.clear()
+        session.update((second,))
+        assert backend.entered.wait(2)
+        session.update((second,), reset_context=True)
+        backend.release.set()
+        until(lambda: session.snapshot().pending == 0)
+        assert backend.contexts[-2] and not backend.contexts[-1]
+        assert session.snapshot().results[0].english.endswith("standalone")
+    finally:
+        backend.release.set()
+        stop(session)
 
 
 def test_serial_llm_publishes_first_label_before_waiting_for_second(tmp_path):

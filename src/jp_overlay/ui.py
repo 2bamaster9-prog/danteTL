@@ -15,6 +15,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMessageBox,
+    QProgressDialog,
     QPushButton,
     QSlider,
     QSpinBox,
@@ -27,6 +29,8 @@ from jp_overlay.diagnostics import debug_display
 from jp_overlay.domain import CapturedFrame, CaptureState, WindowTarget, overlay_ready
 from jp_overlay.grouping import DialogueGrouper, TextBlock
 from jp_overlay.inspection import OcrInspector
+from jp_overlay.model_manager import ModelManager
+from jp_overlay.model_store import ModelBundle, is_prepared, mark_prepared
 from jp_overlay.overlay import OverlayWindow
 from jp_overlay.presentation import EnglishPresentation
 from jp_overlay.recognition import OcrChoice, OcrSession, OcrState, Recognizer, overlay_result_ready
@@ -49,6 +53,8 @@ class MainWindow(QMainWindow):
         *,
         cache_path: Path | None = None,
         ocr_backends: tuple[OcrChoice, ...] = (),
+        models: tuple[ModelBundle, ...] = (),
+        backend_provider: Callable[[], tuple[BackendChoice, ...]] | None = None,
     ) -> None:
         super().__init__()
         self._windows = windows
@@ -58,6 +64,16 @@ class MainWindow(QMainWindow):
         self._visual_state = VisualState()
         self._translation: TranslationSession | None = None
         self._backends = backends
+        self._models, self._backend_provider = models, backend_provider
+        self._model_manager: ModelManager | None = None
+        self._selected_backend: BackendChoice | None = None
+        self._preparing: BackendChoice | None = None
+        self._preparation_started = False
+        self._previous_backend: BackendChoice | None = None
+        self._standby = False
+        self._progress_dialog: QProgressDialog | None = None
+        self._context_reset_sequence = 0
+        self._prepared_this_run: set[str] = set()
         self._cache_path = (
             cache_path or Path(__file__).resolve().parents[2] / "data/translations.sqlite3"
         )
@@ -119,6 +135,10 @@ class MainWindow(QMainWindow):
         self.demo_button.clicked.connect(self._open_demo)
         actions.addWidget(self.start_button, 1)
         actions.addWidget(self.demo_button)
+        self.models_button = QPushButton("Models…")
+        self.models_button.setEnabled(bool(self._models))
+        self.models_button.clicked.connect(self._manage_models)
+        actions.addWidget(self.models_button)
         layout.addLayout(actions)
 
         processing = QHBoxLayout()
@@ -188,12 +208,18 @@ class MainWindow(QMainWindow):
         self.backend_combo = QComboBox()
         self.backend_combo.setAccessibleName("Translation backend")
         self.backend_combo.setToolTip(
-            "Sugoi runs on CPU. Gemma uses local NVIDIA GPU inference after Setup Gemma.cmd. "
+            "Only downloaded models with installed runtimes appear here. "
+            "Sugoi runs on CPU; Gemma uses NVIDIA CUDA or AMD-compatible Vulkan. "
             "Switching unloads the previous model. Quality and latency vary."
         )
         for backend in self._backends:
             self.backend_combo.addItem(backend.name, backend)
-        self.backend_combo.setEnabled(len(self._backends) > 1)
+        self.backend_combo.addItem("No translation", None)
+        # An unprepared model is never loaded implicitly on the first launch.
+        if not self._backends or not is_prepared(self._backends[0].preparation_id):
+            self.backend_combo.setCurrentIndex(self.backend_combo.count() - 1)
+        self._selected_backend = self.backend_combo.currentData()
+        self.backend_combo.setEnabled(bool(self._backends))
         self.backend_combo.currentIndexChanged.connect(self._backend_changed)
         translation.addWidget(self.backend_combo)
         self.group_dialogue = QCheckBox("Group dialogue lines")
@@ -263,6 +289,9 @@ class MainWindow(QMainWindow):
             QSlider::groove:horizontal { height: 4px; background: #35475c; }
             QSlider::handle:horizontal { background: #5eead4; width: 12px; margin: -4px 0;
                 border-radius: 6px; }
+            QProgressBar { border: 1px solid #3c4c60; border-radius: 4px;
+                background: #172230; min-height: 18px; text-align: center; }
+            QProgressBar::chunk { background: #257c73; border-radius: 3px; }
         """)
 
     def refresh_windows(self) -> None:
@@ -301,11 +330,12 @@ class MainWindow(QMainWindow):
             return
         self._session = CaptureSession(target, self._windows, fps=self.capture_rate.value())
         choice = self.ocr_device.currentData()
-        self._ocr = OcrSession(
-            choice.create if isinstance(choice, OcrChoice) else self._recognizer_factory,
-            require_ack=True,
-        )
-        self._visual = VisualSession()
+        if self._ocr_models_ready():
+            self._ocr = OcrSession(
+                choice.create if isinstance(choice, OcrChoice) else self._recognizer_factory,
+                require_ack=True,
+            )
+            self._visual = VisualSession()
         self.ocr_device.setEnabled(False)
         self.capture_rate.setEnabled(False)
         self._stopping_message = "The capture source closed. Select a window to restart."
@@ -320,10 +350,13 @@ class MainWindow(QMainWindow):
         self.start_button.setText("Stop capture")
         self.status.setText("Starting window capture…")
         self._session.start()
-        self._ocr.start()
-        self._visual.start()
+        if self._ocr:
+            self._ocr.start()
+        if self._visual:
+            self._visual.start()
 
     def _stop(self, message: str) -> None:
+        self._standby = bool(self._preparing) and not self._closing
         self._stopping_message = message
         self._overlay.hide()
         self._clear_tracking()
@@ -332,7 +365,7 @@ class MainWindow(QMainWindow):
             self._ocr.request_stop()
         if self._visual:
             self._visual.request_stop()
-        if self._translation:
+        if self._translation and not self._preparing:
             self._translation.request_stop()
         if self._session:
             self._session.request_stop()
@@ -394,29 +427,197 @@ class MainWindow(QMainWindow):
             self.capture_rate.setValue(choice.capture_fps)
 
     def _backend_changed(self) -> None:
-        self._presentation.reset()
         choice = self.backend_combo.currentData()
+        if isinstance(choice, BackendChoice) and not self._model_prepared(choice):
+            answer = QMessageBox.question(
+                self,
+                "Prepare Gemma for this PC?",
+                "Gemma needs first-use GPU preparation before translating. "
+                "This may take about a minute. Capture can continue while it prepares.\n\n"
+                "Prepare now? Choosing No keeps your previous model.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                self._select_backend(self._selected_backend)
+                return
+            self._previous_backend = self._selected_backend
+            self._preparing = choice
+            self._preparation_started = False
+            if self._translation:
+                self._translation.request_stop()
+            self.backend_combo.setEnabled(False)
+            self._show_preparation("Finishing the previous model…")
+        else:
+            self._selected_backend = choice if isinstance(choice, BackendChoice) else None
+        self._presentation.reset()
+        self._standby = isinstance(choice, BackendChoice)
+        if self._preparing:
+            self._overlay.set_translations((), enabled=True)
+            return
         if self._translation and isinstance(choice, BackendChoice):
             if self._translation.finished:
                 self._translation = None
             else:
                 self._translation.switch_backend(choice.create)
+        elif self._translation:
+            self._translation.request_stop()
         self._overlay.set_translations((), enabled=self.translate_check.isChecked())
         if not self.inspector.pause.isChecked():
             self.inspector.set_translations(())
+
+    def _select_backend(self, choice: BackendChoice | None) -> None:
+        self.backend_combo.blockSignals(True)
+        index = self.backend_combo.count() - 1
+        for candidate in range(self.backend_combo.count()):
+            value = self.backend_combo.itemData(candidate)
+            if (
+                isinstance(value, BackendChoice)
+                and choice
+                and (value.key == choice.key if choice.key else value == choice)
+            ):
+                index = candidate
+                break
+        self.backend_combo.setCurrentIndex(index)
+        self.backend_combo.blockSignals(False)
+
+    def _show_preparation(self, message: str) -> None:
+        if self._progress_dialog is None:
+            dialog = QProgressDialog(message, "", 0, 0, self)
+            dialog.setWindowTitle("Preparing local translation")
+            dialog.setCancelButton(None)
+            dialog.setMinimumDuration(0)
+            dialog.setWindowModality(Qt.WindowModality.NonModal)
+            dialog.setMinimumWidth(470)
+            self._progress_dialog = dialog
+        self._progress_dialog.setLabelText(message)
+        self._progress_dialog.show()
+
+    def _model_prepared(self, choice: BackendChoice) -> bool:
+        return choice.preparation_id in self._prepared_this_run or is_prepared(
+            choice.preparation_id
+        )
+
+    def _advance_preparation(self) -> None:
+        choice = self._preparing
+        if choice is None:
+            return
+        session = self._translation
+        if self._closing:
+            if session and not session.finished:
+                session.request_stop()
+                return
+        elif not self._preparation_started:
+            if session and not session.finished:
+                return
+            self._translation = TranslationSession(choice.create, self._cache_path)
+            self._preparation_started = True
+            self._translation.start()
+            self._show_preparation(
+                "Checking model files and preparing the GPU…\n"
+                "First use may take about a minute. The app stays responsive."
+            )
+            return
+        elif session:
+            snapshot = session.snapshot()
+            if snapshot.state not in (TranslationState.READY, TranslationState.FAILED):
+                return
+            if snapshot.state == TranslationState.FAILED and not session.finished:
+                return
+            if snapshot.state == TranslationState.READY:
+                self._prepared_this_run.add(choice.preparation_id)
+                try:
+                    mark_prepared(choice.preparation_id)
+                except OSError as error:
+                    logger.warning("Could not save preparation receipt: %s", error)
+                self._selected_backend = choice
+                self._standby = True
+            else:
+                self._translation = None
+                self._select_backend(self._previous_backend)
+                self._selected_backend = self.backend_combo.currentData()
+                self._standby = False
+                self.translation_status.setText(f"Preparation failed: {snapshot.message}")
+                QMessageBox.warning(self, "Model preparation failed", snapshot.message)
+        self._preparing = None
+        self._preparation_started = False
+        self.backend_combo.setEnabled(bool(self._backends))
+        if self._progress_dialog:
+            self._progress_dialog.close()
+            self._progress_dialog.deleteLater()
+            self._progress_dialog = None
+
+    def _manage_models(self) -> None:
+        if self._model_manager is None:
+            self._model_manager = ModelManager(self._models, self)
+            self._model_manager.models_changed.connect(self._refresh_models)
+        self._model_manager.show()
+        self._model_manager.raise_()
+
+    def _ocr_models_ready(self) -> bool:
+        return all(bundle.present() for bundle in self._models if bundle.key == "ocr")
+
+    def _refresh_models(self) -> None:
+        if self._closing:
+            return
+        if self._backend_provider:
+            choice = self.backend_combo.currentData()
+            previously_available = bool(self._backends)
+            self._backends = self._backend_provider()
+            self.backend_combo.blockSignals(True)
+            self.backend_combo.clear()
+            for backend in self._backends:
+                self.backend_combo.addItem(backend.name, backend)
+            self.backend_combo.addItem("No translation", None)
+            self._select_backend(choice)
+            self.backend_combo.setEnabled(bool(self._backends) and not self._preparing)
+            self.translate_check.setEnabled(bool(self._backends))
+            if self._backends and not previously_available:
+                self.translate_check.setChecked(True)
+        if self._session and self._ocr is None and self._ocr_models_ready():
+            choice = self.ocr_device.currentData()
+            self._ocr = OcrSession(choice.create, require_ack=True)
+            self._visual = VisualSession()
+            self.inspector.clear()
+            self._ocr.start()
+            self._visual.start()
 
     def _poll_translation(
         self, running: bool, tracks: tuple[TextBlock, ...] = (), retain: tuple[TextBlock, ...] = ()
     ) -> None:
         session = self._translation
-        enabled = running and self.translate_check.isChecked()
+        if self._preparing:
+            self.translation_status.setText("Preparing Gemma for this PC…")
+            return
+        # QMessageBox runs a nested event loop. Until consent is resolved, keep
+        # using the committed selection, including the already displayed English.
+        choice = self._selected_backend
+        if (
+            not running
+            and self._standby
+            and self.translate_check.isChecked()
+            and session
+            and not session.finished
+        ):
+            self.translation_status.setText(
+                "Model ready. Start capture to translate."
+                if session.snapshot().state == TranslationState.READY
+                else "Loading the local model…"
+            )
+            return
+        enabled = (
+            running
+            and self.translate_check.isChecked()
+            and isinstance(choice, BackendChoice)
+            and self._model_prepared(choice)
+        )
         if not enabled:
             self._presentation.reset()
             if session:
                 session.request_stop()
                 if session.finished:
                     self._translation = None
-            self._overlay.set_translations(())
+            self._overlay.set_translations((), enabled=self.translate_check.isChecked())
             if not self.inspector.pause.isChecked():
                 self.inspector.set_translations(())
             self.translation_status.setText(
@@ -424,19 +625,29 @@ class MainWindow(QMainWindow):
                 if session and not session.finished
                 else "English translation is off."
                 if running
+                else "No translation model selected. Open Models to download one."
+                if not isinstance(choice, BackendChoice)
                 else "Translation stopped."
             )
             return
         if session and session.finished and session.snapshot().state == TranslationState.STOPPED:
             self._translation = session = None
         if session is None:
-            choice = self.backend_combo.currentData()
             if not isinstance(choice, BackendChoice):
                 return
             session = TranslationSession(choice.create, self._cache_path)
             self._translation = session
             session.start()
-        session.update(tracks, retain=retain)
+        state = self._visual_state
+        broad_change = bool(
+            state.frame
+            and state.frame.sequence != self._context_reset_sequence
+            and sum(b.width * b.height for b in state.changed_areas)
+            > state.frame.width * state.frame.height * 0.65
+        )
+        if broad_change and state.frame:
+            self._context_reset_sequence = state.frame.sequence
+        session.update(tracks, retain=retain, reset_context=broad_change)
         snapshot = session.snapshot()
         published = self._presentation.update(
             retain, snapshot.results, self._tracker.display_predecessors()
@@ -470,6 +681,10 @@ class MainWindow(QMainWindow):
     def _update_ocr(self, frame: CapturedFrame) -> None:
         ocr = self._ocr
         if ocr is None:
+            self.inspector.preview.set_frame(frame)
+            self.ocr_status.setText(
+                "Capture only. Open Models and download MeikiOCR to recognize text."
+            )
             return
         paused = self.inspector.pause.isChecked()
         snapshot = ocr.snapshot()
@@ -525,12 +740,13 @@ class MainWindow(QMainWindow):
                 else ""
             )
             scan = "full scan" if result.scanned is None else f"{len(result.scanned)} area scan"
+            device = {"CUDAExecutionProvider": "NVIDIA GPU", "DmlExecutionProvider": "DirectML GPU"}
             self.ocr_status.setText(
                 f"{len(result.regions)} text regions · {result.duration_ms:.0f} ms OCR · "
                 f"{scan} · "
                 f"{snapshot.queue_ms:.0f} ms capture-to-start · "
                 f"{snapshot.skipped_frames} waiting frames skipped{busy} · "
-                f"{'NVIDIA GPU' if snapshot.provider == 'CUDAExecutionProvider' else 'CPU'}"
+                f"{device.get(snapshot.provider, 'CPU')}"
                 f"{(' · ' + snapshot.message) if snapshot.message else ''}"
                 f" · visual {self._visual_state.duration_ms:.1f} ms · "
                 f"{self._visual_state.avoided} captures skipped for OCR"
@@ -565,10 +781,18 @@ class MainWindow(QMainWindow):
         self._last_sequence = frame.sequence
 
     def _tick(self) -> None:
+        self._advance_preparation()
         session = self._session
         if session is None:
             self._overlay.hide()
             self._poll_translation(False)
+            if (
+                self._closing
+                and not self._preparing
+                and (self._translation is None or self._translation.finished)
+                and not (self._model_manager and self._model_manager.operation)
+            ):
+                self.close()
             return
         snapshot = session.snapshot()
         if session.finished:
@@ -583,7 +807,7 @@ class MainWindow(QMainWindow):
                 self._visual = None
             if self._ocr and not self._ocr.finished:
                 self._ocr.request_stop()
-            if self._translation is not None:
+            if self._translation is not None and not (self._preparing or self._standby):
                 self.status.setText("Waiting for the current translation operation to finish…")
                 return
             if self._ocr and not self._ocr.finished:
@@ -725,6 +949,25 @@ class MainWindow(QMainWindow):
             self.status.setText(f"Could not open the demo: {error}")
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        if self._model_manager and self._model_manager.operation:
+            self._model_manager.close()
+            self._closing = True
+            self._standby = False
+            if self._translation:
+                self._translation.request_stop()
+            if self._session:
+                self._stop("Capture stopped.")
+            event.ignore()
+            return
+        if self._preparing or (self._translation and not self._translation.finished):
+            self._closing = True
+            self._standby = False
+            if self._translation:
+                self._translation.request_stop()
+            if self._session:
+                self._stop("Capture stopped.")
+            event.ignore()
+            return
         if self._session is not None:
             self._closing = True
             self._stop("Capture stopped.")

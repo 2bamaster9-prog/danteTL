@@ -343,7 +343,7 @@ Images stay in memory. No screenshots are automatically saved. Bounded diagnosti
 `%LOCALAPPDATA%/JPOverlay/logs`, with no normal logging of captured pixels or recognized text.
 Dependencies and the launcher environment are project-local when using the bundled setup script.
 Models live in ignored `models/meiki` (or `JP_OVERLAY_MODEL_DIR`) and `models/sugoi-v4`
-(or `JP_OVERLAY_SUGOI_DIR`). Explicit setup scripts install them. Repository revisions, lengths, and
+(or `JP_OVERLAY_SUGOI_DIR`). Explicit setup scripts or the Models dialog install them. Revisions, lengths, and
 SHA-256 digests are pinned; runtime rejects missing/corrupt files without a network fallback.
 
 Translation cache storage is ignored `data/translations.sqlite3`: at most 512 memory entries and
@@ -351,4 +351,24 @@ Translation cache storage is ignored `data/translations.sqlite3`: at most 512 me
 versions, decoding settings, and adapter version. English translations persist locally; screenshots
 and raw Japanese are not written into this database. SQLite uses WAL on its owning worker. Disk
 errors fall back to bounded memory with a visible warning and preserve the original file. There is
-no Redis service. Future glossary/context features must extend cache identity before reuse.
+no Redis service. Gemma context is hashed into its own cache-key namespace. Future glossaries must
+also extend cache identity before reuse.
+
+## Model setup and short conversation memory
+
+`model_store` owns the catalog, verified atomic downloads and preparation receipts; `model_manager`
+owns the Qt download view. Download workers expose immutable progress; the main UI polls them.
+Available backend choices require local files and a usable runtime. Capture can run without models.
+First-use Gemma preparation asks before draining the old worker; the prepared TranslationSession is
+reused for capture. Decline/failure restores the committed selection. Shutdown drains native work
+and cancels any active download before destroying the UI.
+
+`dialogue_context` owns two-turn/512-character memory for one likely dialogue panel. The translation
+owner freezes a bounded context for each ready request, hashes it for caching, and rejects outdated
+context on publication. Only valid published English seeds history. Menu labels and Sugoi receive
+no extra context. Existing context allocation/worker counts stay unchanged. See
+[decision 012](decisions/012-model-management-and-context.md) for expiry and classification rules.
+
+The AMD launcher isolates Vulkan Gemma and DirectML/CPU OCR. CPU OCR is recommended by default;
+DirectML remains experimental and checks numerical compatibility against temporary CPU sessions
+before use. Provider initialization alone was insufficient for the pinned Meiki models.

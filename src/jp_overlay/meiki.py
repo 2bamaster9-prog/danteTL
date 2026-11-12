@@ -16,13 +16,15 @@ from meikiocr import MeikiOCR
 
 from jp_overlay.domain import CapturedFrame, Rect
 from jp_overlay.models import local_model_paths
-from jp_overlay.ocr_runtime import CPU, CUDA, create_sessions
+from jp_overlay.ocr_runtime import CPU, CUDA, DML, create_sessions
 from jp_overlay.recognition import TextCharacter, TextRegion
 
 
 class _LocalMeiki(MeikiOCR):
     def __init__(self, paths: tuple[Path, ...], threads: int, provider: str = CPU) -> None:
         sessions = create_sessions(paths, threads, provider)
+        if provider == DML:
+            _verify_directml(sessions, paths, threads)
         self.det_session, self.rec_session, self.vrec_session = sessions
         self.active_provider = provider
         self.max_batch_size = 4
@@ -47,6 +49,35 @@ class _LocalMeiki(MeikiOCR):
         # Retain the detector's original boxes, in its original ordering.
         self.detected = super().run_detection(image, conf_threshold)
         return self.detected
+
+
+def _verify_directml(sessions: list[Any], paths: tuple[Path, ...], threads: int) -> None:
+    """Fail closed on silent provider miscomputation, before publishing game OCR.
+
+    DirectML 1.24.4 initialized but returned incorrect detector/recognizer values
+    on our Windows fixture. Compare small deterministic inputs with CPU once per
+    load; automatic mode reports fallback. Temporary reference sessions are freed.
+    This is a compatibility probe, not a general OCR accuracy guarantee.
+    """
+    for session, path, (height, width) in zip(
+        sessions, paths, ((544, 960), (32, 960), (480, 32)), strict=True
+    ):
+        reference = create_sessions((path,), threads, CPU)[0]
+        image = np.linspace(0, 1, 3 * height * width, dtype=np.float32).reshape(1, 3, height, width)
+        inputs = {
+            session.get_inputs()[0].name: image,
+            session.get_inputs()[1].name: np.array([[width, height]], dtype=np.int64),
+        }
+        expected = reference.run(None, inputs)
+        actual = session.run(None, inputs)
+        del reference
+        if any(
+            not np.allclose(a, b, rtol=0.02, atol=0.02)
+            for a, b in zip(actual, expected, strict=True)
+        ):
+            raise RuntimeError(
+                "DirectML model accuracy check failed; CPU OCR is required on this setup."
+            )
 
 
 def clipped_box(values: list[int], width: int, height: int) -> Rect:
@@ -78,8 +109,8 @@ def convert_regions(
 
 class MeikiRecognizer:
     def __init__(self, directory: Path, *, threads: int = 2, device: str = "cpu") -> None:
-        if device not in ("cpu", "auto", "cuda"):
-            raise ValueError("OCR device must be cpu, auto, or cuda.")
+        if device not in ("cpu", "auto", "cuda", "directml", "auto-directml"):
+            raise ValueError("Unknown OCR device.")
         self._paths = local_model_paths(directory)  # Validate before GPU fallback.
         if not 1 <= threads <= 8:
             raise ValueError("OCR CPU threads must be between 1 and 8.")
@@ -87,9 +118,10 @@ class MeikiRecognizer:
         self._threads, self._device = threads, device
         self.message = ""
         try:
-            self._engine = _LocalMeiki(self._paths, threads, CPU if device == "cpu" else CUDA)
+            provider = CPU if device == "cpu" else DML if "directml" in device else CUDA
+            self._engine = _LocalMeiki(self._paths, threads, provider)
         except Exception as error:
-            if device != "auto":
+            if not device.startswith("auto"):
                 raise
             self._fallback(error)
 
@@ -112,7 +144,7 @@ class MeikiRecognizer:
         try:
             results = self._engine.run_ocr(bgr, det_threshold=0.5, rec_threshold=0.1)
         except Exception as error:
-            if self._device != "auto" or self.provider != CUDA:
+            if not self._device.startswith("auto") or self.provider == CPU:
                 raise
             self._fallback(error)
             results = self._engine.run_ocr(bgr, det_threshold=0.5, rec_threshold=0.1)

@@ -6,7 +6,7 @@ import pytest
 from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
 from jp_overlay.meiki import MeikiRecognizer, convert_regions
 from jp_overlay.models import ModelAsset, validate_asset
-from jp_overlay.ocr_runtime import CPU, CUDA
+from jp_overlay.ocr_runtime import CPU, CUDA, DML
 
 
 @pytest.mark.parametrize("provider", [CPU, CUDA])
@@ -89,8 +89,9 @@ def test_missing_models_never_invoke_upstream_downloader(tmp_path, monkeypatch) 
 
 
 @pytest.mark.parametrize("fail_on_run", [False, True])
+@pytest.mark.parametrize("provider, device", [(CUDA, "auto"), (DML, "auto-directml")])
 def test_auto_gpu_failure_falls_back_once_and_reports_the_actual_provider(
-    tmp_path, monkeypatch, fail_on_run
+    tmp_path, monkeypatch, fail_on_run, provider, device
 ) -> None:
     monkeypatch.setattr("jp_overlay.meiki.local_model_paths", lambda path: ())
     created = []
@@ -98,22 +99,22 @@ def test_auto_gpu_failure_falls_back_once_and_reports_the_actual_provider(
     class Engine:
         def __init__(self, paths, threads, provider):
             created.append(provider)
-            if provider == CUDA and not fail_on_run:
+            if provider != CPU and not fail_on_run:
                 raise RuntimeError("GPU unavailable")
             self.active_provider, self.detected = provider, []
 
         def run_ocr(self, image, **kwargs):
-            if self.active_provider == CUDA:
+            if self.active_provider != CPU:
                 raise RuntimeError()  # Even an exception with no message must fall back.
             return []
 
     monkeypatch.setattr("jp_overlay.meiki._LocalMeiki", Engine)
-    recognizer = MeikiRecognizer(tmp_path, device="auto")
+    recognizer = MeikiRecognizer(tmp_path, device=device)
     box = Rect(0, 0, 2, 2)
     frame = CapturedFrame(1, 0, WindowGeometry(box, box, box, 96), bytes(16))
     assert recognizer.recognize(frame) == ()
     assert recognizer.recognize(frame) == ()
-    assert created == [CUDA, CPU]
+    assert created == [provider, CPU]
     assert recognizer.provider == CPU and "using CPU" in recognizer.message
 
 
@@ -135,3 +136,24 @@ def test_explicit_cpu_never_initializes_gpu_and_strict_cuda_never_silently_falls
     with pytest.raises(RuntimeError, match="GPU unavailable"):
         MeikiRecognizer(tmp_path, device="cuda")
     assert created == [CPU, CUDA]
+
+
+def test_directml_compatibility_probe_rejects_silent_wrong_results(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    import numpy as np
+
+    from jp_overlay.meiki import _verify_directml
+
+    reference = Mock()
+    reference.run.return_value = [np.array([0.9])]
+    monkeypatch.setattr("jp_overlay.meiki.create_sessions", lambda *a: [reference])
+    session = Mock()
+    session.get_inputs.return_value = [SimpleNamespace(name="images"), SimpleNamespace(name="size")]
+    session.run.return_value = [np.array([0.9001])]
+    paths = (tmp_path / "detect", tmp_path / "horizontal", tmp_path / "vertical")
+    _verify_directml([session] * 3, paths, 2)
+    session.run.return_value = [np.array([0.2])]
+    with pytest.raises(RuntimeError, match="accuracy check failed"):
+        _verify_directml([session] * 3, paths, 2)
