@@ -147,7 +147,9 @@ class MainWindow(QMainWindow):
         for choice in self._ocr_backends:
             self.ocr_device.addItem(choice.name, choice)
         self.ocr_device.setToolTip(
-            "Choose before starting capture. GPU setup is optional and local."
+            "Choices reflect this app's installed runtimes, not Meiki model files. "
+            "For Automatic NVIDIA OCR, close the app and run Setup GPU OCR.cmd, then restart "
+            "with Run JP Overlay.cmd. Choose the OCR device before starting capture."
         )
         self.capture_rate = QSpinBox()
         self.capture_rate.setRange(2, 12)
@@ -208,7 +210,8 @@ class MainWindow(QMainWindow):
         self.backend_combo = QComboBox()
         self.backend_combo.setAccessibleName("Translation backend")
         self.backend_combo.setToolTip(
-            "Only downloaded models with installed runtimes appear here. "
+            "Downloaded models appear here. Entries marked 'runtime setup needed' explain "
+            "which setup to run before use. "
             "Sugoi runs on CPU; Gemma uses NVIDIA CUDA or AMD-compatible Vulkan. "
             "Switching unloads the previous model. Quality and latency vary."
         )
@@ -216,7 +219,11 @@ class MainWindow(QMainWindow):
             self.backend_combo.addItem(backend.name, backend)
         self.backend_combo.addItem("No translation", None)
         # An unprepared model is never loaded implicitly on the first launch.
-        if not self._backends or not is_prepared(self._backends[0].preparation_id):
+        if (
+            not self._backends
+            or self._backends[0].unavailable_reason
+            or not is_prepared(self._backends[0].preparation_id)
+        ):
             self.backend_combo.setCurrentIndex(self.backend_combo.count() - 1)
         self._selected_backend = self.backend_combo.currentData()
         self.backend_combo.setEnabled(bool(self._backends))
@@ -428,6 +435,12 @@ class MainWindow(QMainWindow):
 
     def _backend_changed(self) -> None:
         choice = self.backend_combo.currentData()
+        if isinstance(choice, BackendChoice) and choice.unavailable_reason:
+            self._select_backend(self._selected_backend)
+            QMessageBox.information(
+                self, "Model downloaded — runtime setup needed", choice.unavailable_reason
+            )
+            return
         if isinstance(choice, BackendChoice) and not self._model_prepared(choice):
             answer = QMessageBox.question(
                 self,
@@ -494,8 +507,8 @@ class MainWindow(QMainWindow):
         self._progress_dialog.show()
 
     def _model_prepared(self, choice: BackendChoice) -> bool:
-        return choice.preparation_id in self._prepared_this_run or is_prepared(
-            choice.preparation_id
+        return not choice.unavailable_reason and (
+            choice.preparation_id in self._prepared_this_run or is_prepared(choice.preparation_id)
         )
 
     def _advance_preparation(self) -> None:
@@ -623,6 +636,8 @@ class MainWindow(QMainWindow):
             self.translation_status.setText(
                 "Unloading translation model…"
                 if session and not session.finished
+                else "Gemma needs runtime setup. Select Gemma for instructions."
+                if self._backends and all(b.unavailable_reason for b in self._backends)
                 else "English translation is off."
                 if running
                 else "No translation model selected. Open Models to download one."

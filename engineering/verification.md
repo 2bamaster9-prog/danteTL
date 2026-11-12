@@ -388,3 +388,30 @@ For friends: run Setup AMD.cmd, launch Run JP Overlay AMD.cmd, download models i
 select Gemma and accept preparation. CPU OCR is recommended. If trying DirectML, record the actual
 provider/fallback reason and use `--device directml` for strict verification, never `auto-directml`
 as evidence of GPU execution. Report GPU/driver, model load time and warm inference timings.
+
+### Clean distribution runtime discovery regression
+
+The user's fresh copy contained complete Meiki/Gemma files, CPU ONNX Runtime, no llama runtime,
+and no CUDA OCR runtime. File detection succeeded; composition silently removed Gemma because its
+runtime was absent. The resulting disabled controls and generic “downloaded” status concealed the
+real requirement. This was reproduced from that copy before the user deleted it.
+
+Downloaded Gemma now stays visible with a setup reason. Selecting it explains the missing runtime
+without changing the active backend or invoking a factory. Download completion and the Models
+dialog distinguish verified files from runtime readiness; OCR help explains that Automatic requires
+GPU packages rather than Meiki files alone. Model folders are shown for checking multiple copies.
+
+255 tests passed with Ruff/Pyright, including discovery before/after file arrival, missing/present
+CUDA/Vulkan runtimes, Sugoi independence, unavailable selection, and post-download status. A new ZIP
+was extracted into an isolated project and installed with only the default CPU dependencies. Existing
+verified Meiki/Gemma files were linked as test inputs (not downloaded again). Native
+`verify_setup_windows.py --missing-runtime` passed there. Installing the pinned NVIDIA runtime in
+that same extracted project made Gemma and Automatic OCR discoverable without changing model files.
+The native preparation/capture/translation/unload check then passed; first-use preparation kept the
+event loop responsive for 719 timer polls (roughly 36 seconds). Runtime dialogs were visually reviewed.
+Strict CUDA OCR also passed in the extracted project with socket connections blocked: first-use
+inference/preparation took 51.4 seconds, followed by a 25.3 ms warm median. The GPU-launcher receipt
+was written only after this check succeeded, matching the setup script's gating behavior.
+
+Run the missing-runtime check with a genuinely CPU-only environment and downloaded Gemma. Testing
+only in the development environment, where every optional runtime is installed, misses this failure.

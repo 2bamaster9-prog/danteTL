@@ -358,7 +358,9 @@ also extend cache identity before reuse.
 
 `model_store` owns the catalog, verified atomic downloads and preparation receipts; `model_manager`
 owns the Qt download view. Download workers expose immutable progress; the main UI polls them.
-Available backend choices require local files and a usable runtime. Capture can run without models.
+Backend choices list downloaded files; entries without a usable runtime explain setup when selected
+and never start inference. Download completion reports runtime readiness separately. Capture can
+run without models.
 First-use Gemma preparation asks before draining the old worker; the prepared TranslationSession is
 reused for capture. Decline/failure restores the committed selection. Shutdown drains native work
 and cancels any active download before destroying the UI.

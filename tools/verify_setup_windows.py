@@ -4,6 +4,7 @@ No downloads, game captures, or real preparation receipts. The model is actually
 loaded and warmed on its worker. Saves only this application's widgets.
 """
 
+import argparse
 import json
 import os
 import time
@@ -26,7 +27,15 @@ from jp_overlay.windows import Windows
 
 
 def main() -> int:
-    output = Path("artifacts/setup")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--missing-runtime",
+        action="store_true",
+        help="Verify downloaded Gemma in a fresh CPU-only environment",
+    )
+    parser.add_argument("--output", type=Path, default=Path("artifacts/setup"))
+    args = parser.parse_args()
+    output = args.output
     output.mkdir(parents=True, exist_ok=True)
     windows = Windows()
     windows.enable_dpi_awareness()
@@ -74,6 +83,11 @@ def main() -> int:
                 window._refresh_models()
                 assert window.backend_combo.currentData() is None
                 window._manage_models()
+                if args.missing_runtime:
+                    assert window._model_manager
+                    window._model_manager.choice.setCurrentIndex(
+                        next(i for i, b in enumerate(bundles) if b.key == "gemma")
+                    )
                 stage = 2
             elif stage == 2:
                 assert window._model_manager
@@ -86,6 +100,21 @@ def main() -> int:
                     and b.key.startswith("gemma")
                 )
                 original = window.backend_combo.itemData(index)
+                if args.missing_runtime:
+                    assert original.unavailable_reason
+                    assert "Setup Gemma.cmd" in original.unavailable_reason
+                    assert "not installed" in window._model_manager.status.text()
+                    assert window.translate_check.isEnabled() and window.backend_combo.isEnabled()
+                    with patch.object(QMessageBox, "information") as explanation:
+                        window.backend_combo.setCurrentIndex(index)
+                        explanation.assert_called_once()
+                    assert window.backend_combo.currentData() is None
+                    assert window._translation is None and window._preparing is None
+                    evidence["downloaded_gemma_visible_without_runtime"] = True
+                    evidence["missing_runtime_explained_without_loading"] = True
+                    window.grab().save(str(output / "runtime-needed.png"))
+                    stage = 5
+                    return
 
                 def load():
                     loads.append(time.monotonic())
@@ -133,7 +162,11 @@ def main() -> int:
                 if window._translation:
                     return
                 assert not window._overlay._translations
-                evidence["none_unloads_model_and_removes_english"] = True
+                evidence[
+                    "no_unavailable_model_loaded"
+                    if args.missing_runtime
+                    else "none_unloads_model_and_removes_english"
+                ] = True
                 window.close()
                 stage = 6
             elif stage == 6 and not window._timer.isActive():

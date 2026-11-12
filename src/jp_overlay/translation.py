@@ -32,6 +32,7 @@ class BackendChoice:
     create: Callable[[], TranslationBackend]
     key: str = ""
     preparation_id: str = ""
+    unavailable_reason: str = ""
 
 
 @dataclass(frozen=True, slots=True)

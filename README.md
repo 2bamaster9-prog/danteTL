@@ -11,13 +11,21 @@ The inspector keeps raw Japanese, bounding boxes, and English together for revie
 On Windows 11, double-click **Run JP Overlay.cmd**, then open **Models…**. Download **MeikiOCR**
 (46 MB) for recognition and a translation model: **Sugoi V4** (1.11 GB, CPU) or **Gemma 4 E2B**
 (3.35 GB, GPU). For Gemma, first install its runtime as described below. The translation dropdown
-lists downloaded models whose runtime is installed. **No translation** is always available.
+lists downloaded models. Gemma stays visible as **runtime setup needed** if its GPU runtime is
+missing; selecting that entry explains the setup to run. **No translation** is always available.
 Capture works even with no models; English appears only after selecting a translator.
 Downloads show byte progress, support cancellation, and check pinned SHA-256 hashes before files
 become usable. Retry keeps verified files; an interrupted individual file restarts. Processing works
 offline after setup. The older **Setup OCR.cmd** / **Setup Translation.cmd** shortcuts still work.
 Setup requires Python 3.12 or later on PATH to bootstrap uv; uv installs the pinned Python 3.12
 runtime locally if needed. Nothing is installed into your global Python environment.
+
+**Downloaded model but no English / no Automatic OCR?** Model files and GPU runtimes are separate.
+On a fresh NVIDIA installation, close the app and run **Setup Gemma.cmd** for Gemma translation,
+and **Setup GPU OCR.cmd** for Automatic NVIDIA OCR. Restart with **Run JP Overlay.cmd**.
+The Models dialog distinguishes downloaded files from runtime readiness and shows their folder.
+It reuses your downloads; reinstalling or redownloading model weights is unnecessary. The CPU
+launcher intentionally uses the CPU OCR environment; it does not inherit packages from the GPU one.
 
 For optional NVIDIA acceleration, run **Setup GPU OCR.cmd** after OCR model setup. It installs
 the pinned CUDA libraries in a separate `.venv-gpu` (roughly 1.8 GB of downloads), then checks real

@@ -3,7 +3,8 @@
 Implemented:
 
 - Explicit in-app model catalog/download/repair, progress/cancel, verified atomic files, and a
-  dropdown of installed/usable translators plus No translation. Capture works without models.
+  dropdown of downloaded translators plus No translation. Missing-runtime entries stay visible
+  with setup instructions. Capture works without models.
 - First-use Gemma consent, responsive preparation progress, restoration on decline/failure, and
   reuse of the prepared worker. Runtime installation stays separate and explicit.
 - Isolated AMD-compatible Vulkan runtime and launchers; CPU OCR by default, experimental checked
@@ -25,7 +26,7 @@ dense CUDA OCR and checked DirectML-to-CPU fallback; unchanged-label appearance 
 setup kept the event loop active throughout preparation and reused the loaded worker. One context
 sample preserved “Rina” where standalone translation chose “Lina,” adding about 171 ms on CUDA.
 
-The source kit contains 106 files (about 290 KB), a verified hash manifest, and all launcher/setup
+The source kit contains a verified hash manifest and all launcher/setup
 dependencies. Its unpacked application imports and discovers no installed models, as intended.
 No discrete Radeon or general game-performance claim is made. See verification/performance docs
 for measurement scope and the DirectML failure boundary.

@@ -12,7 +12,10 @@ still checks integrity. Explicit download is the only network operation; no back
 An interrupted file restarts, while verified completed files are reused. Repair never replaces a
 file until its replacement is verified. Models remain absent from the sharing archive.
 
-Composition lists only downloaded translators with available runtimes. No translation is a real
+Composition lists downloaded translators, including unavailable Gemma with a runtime setup reason.
+Selecting that entry explains the required setup and preserves the committed model; no failed
+inference is scheduled. Download status reports weights and runtime availability separately.
+No translation is a real
 selection; missing OCR allows capture/preview without inference. After an OCR download completes,
 an active capture can initialize recognition. Runtime setup remains a launcher action, avoiding pip
 changes underneath a running native process. Downloading Gemma alone does not install its runtime.

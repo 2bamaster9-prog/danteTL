@@ -75,6 +75,60 @@ def test_no_models_do_not_start_inference_and_refresh_never_prepares_implicitly(
     window.deleteLater()
 
 
+def test_downloaded_model_without_runtime_stays_visible_and_explains_setup(
+    app, tmp_path, monkeypatch
+):
+    windows = Mock()
+    windows.list_targets.return_value = []
+    factory = Mock()
+    choice = BackendChoice(
+        "Gemma · runtime setup needed",
+        factory,
+        "gemma-unavailable",
+        unavailable_reason="Close the app and run Setup Gemma.cmd.",
+    )
+    messages = []
+    monkeypatch.setattr(QMessageBox, "information", lambda *a: messages.append(a[-1]))
+    window = MainWindow(windows, factory, (choice,), cache_path=tmp_path / "cache")
+    assert window.backend_combo.isEnabled() and window.translate_check.isEnabled()
+    assert window.backend_combo.currentData() is None  # Never implicitly load an unusable model.
+    window._poll_translation(True)
+    assert "runtime setup" in window.translation_status.text()
+    window.backend_combo.setCurrentIndex(0)
+    assert messages == [choice.unavailable_reason]
+    assert window.backend_combo.currentData() is None and window._translation is None
+    factory.assert_not_called()
+    window.close()
+    window.deleteLater()
+
+
+def test_download_completion_reports_missing_runtime_instead_of_false_readiness(
+    app, tmp_path, monkeypatch
+):
+    import hashlib
+    import io
+
+    from jp_overlay.model_manager import ModelManager
+    from jp_overlay.model_store import ModelBundle
+    from jp_overlay.models import ModelAsset
+
+    asset = ModelAsset("fixture", "revision", "weights", hashlib.sha256(b"good").hexdigest(), 4)
+    bundle = ModelBundle("gemma", "Gemma", tmp_path, (asset,), "")
+    monkeypatch.setattr("jp_overlay.model_store.urlopen", lambda *a, **k: io.BytesIO(b"good"))
+    monkeypatch.setattr("jp_overlay.gemma.installed_device", lambda: None)
+    manager = ModelManager((bundle,))
+    manager._download()
+    assert manager.operation is not None
+    manager.operation._thread.join(2)
+    manager._poll()
+    assert manager.operation is None and bundle.present()
+    assert "not installed" in manager.status.text() and "Setup Gemma.cmd" in manager.status.text()
+    assert manager.download.text() == "Verify / repair"
+    assert manager.progress.value() == manager.progress.maximum()
+    manager.close()
+    manager.deleteLater()
+
+
 def test_preparation_decline_preserves_selection_and_accept_loads_once_off_ui(
     app, tmp_path, monkeypatch
 ):

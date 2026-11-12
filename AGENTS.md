@@ -73,6 +73,10 @@ Read `engineering/README.md` first. The agreed product plan is in
   Gemma first-use consent must retain the committed selection until accepted; declined/failed
   preparation restores the previous choice. Reuse the prepared translation worker. Capture must
   work without models. Run `tools/verify_setup_windows.py` for native setup lifecycle changes.
+  Test a clean CPU-only distribution with downloaded Gemma but no llama runtime: keep the model
+  visible with setup instructions, never load it, and never equate downloaded weights with GPU
+  availability. Use `verify_setup_windows.py --missing-runtime` for that regression. OCR device
+  choices reflect runtime packages, not the presence of Meiki weights.
 - AMD packaging isolates Vulkan/DirectML in `.venv-amd`; never mix ONNX or llama runtime wheels.
   CPU OCR is the AMD default. Strict `--device directml` must fail on provider/probe failure;
   `auto-directml` reports CPU fallback. DirectML initialized but miscomputed our pinned models:

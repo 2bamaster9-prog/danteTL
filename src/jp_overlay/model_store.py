@@ -14,6 +14,13 @@ from urllib.request import urlopen
 
 from jp_overlay.models import ModelAsset
 
+GEMMA_RUNTIME_SETUP = (
+    "Gemma is downloaded, but its GPU runtime is not installed in this app environment. "
+    "Close JP Overlay, then run Setup Gemma.cmd for NVIDIA or Setup AMD.cmd for AMD. "
+    "Reopen with Run JP Overlay.cmd (NVIDIA) or Run JP Overlay AMD.cmd (AMD). "
+    "Your model files are already present; no model download is needed."
+)
+
 
 @dataclass(frozen=True, slots=True)
 class ModelBundle:
@@ -63,6 +70,27 @@ def model_catalog() -> tuple[ModelBundle, ...]:
             "Select the downloaded model to prepare it for this PC.",
         ),
     )
+
+
+def model_status(bundle: ModelBundle) -> str:
+    """Distinguish downloaded weights from the runtime available to this process."""
+    if not bundle.present():
+        return "Not downloaded. Choose Download to install this model's files."
+    if bundle.key == "gemma":
+        from jp_overlay.gemma import installed_device
+
+        if installed_device() is None:
+            return GEMMA_RUNTIME_SETUP
+    if bundle.key == "ocr":
+        from jp_overlay.ocr_runtime import gpu_runtime_installed
+
+        if not (gpu_runtime_installed() or gpu_runtime_installed("onnxruntime-directml")):
+            return (
+                "Downloaded. CPU OCR is ready. The Automatic NVIDIA OCR option needs a separate "
+                "runtime: close the app, run Setup GPU OCR.cmd, then use Run JP Overlay.cmd. "
+                "Downloading Meiki does not install GPU support."
+            )
+    return "Downloaded. Runtime available; integrity is checked before use."
 
 
 class Cancelled(Exception):
@@ -141,7 +169,7 @@ def install_model(bundle: ModelBundle, progress: Progress, cancel: threading.Eve
         finally:
             if temporary is not None:
                 temporary.unlink(missing_ok=True)
-    progress(ModelProgress("Installed and verified. Ready to select.", bundle.size, bundle.size))
+    progress(ModelProgress("Model files downloaded and verified.", bundle.size, bundle.size))
 
 
 class ModelOperation:

@@ -2,7 +2,7 @@
 
 from functools import partial
 
-from PySide6.QtCore import QTimer, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QComboBox,
@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from jp_overlay.model_store import ModelBundle, ModelOperation, install_model
+from jp_overlay.model_store import ModelBundle, ModelOperation, install_model, model_status
 
 
 class ModelManager(QDialog):
@@ -23,7 +23,8 @@ class ModelManager(QDialog):
     def __init__(self, bundles: tuple[ModelBundle, ...], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Local models")
-        self.resize(580, 300)
+        self.resize(640, 460)
+        self.setMinimumSize(580, 420)
         self._bundles = bundles
         self.operation: ModelOperation | None = None
         self._closing = False
@@ -38,7 +39,12 @@ class ModelManager(QDialog):
         layout.addWidget(self.description)
         self.status = QLabel()
         self.status.setWordWrap(True)
+        self.status.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         layout.addWidget(self.status)
+        self.location = QLabel()
+        self.location.setWordWrap(True)
+        self.location.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        layout.addWidget(self.location)
         self.progress = QProgressBar()
         layout.addWidget(self.progress)
         self.download = QPushButton("Download")
@@ -63,11 +69,8 @@ class ModelManager(QDialog):
             f"{bundle.description}\nDownload: {bundle.size / 1e6:.1f} MB. "
             "Processing stays offline after setup."
         )
-        self.status.setText(
-            "Downloaded. Integrity is checked before use."
-            if bundle.present()
-            else "Not installed. Download to make it available in the app."
-        )
+        self.status.setText(model_status(bundle))
+        self.location.setText(f"Model folder: {bundle.directory}")
         self.download.setText("Verify / repair" if bundle.present() else "Download")
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
@@ -108,6 +111,10 @@ class ModelManager(QDialog):
             self.choice.setEnabled(True)
             self.download.setEnabled(True)
             self.cancel_button.setEnabled(False)
+            bundle = self.choice.currentData()
+            if not value.error and not value.cancelled and isinstance(bundle, ModelBundle):
+                self.status.setText(model_status(bundle))
+                self.download.setText("Verify / repair")
             self.models_changed.emit()
             if self._closing:
                 self.close()

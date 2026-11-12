@@ -49,7 +49,7 @@ def create_translator(*, beam_size: int = 2) -> TranslationBackend:
 
 def translation_backends() -> tuple[BackendChoice, ...]:
     from jp_overlay.gemma import installed_device
-    from jp_overlay.model_store import model_catalog, preparation_id
+    from jp_overlay.model_store import GEMMA_RUNTIME_SETUP, model_catalog, preparation_id
 
     bundles = {bundle.key: bundle for bundle in model_catalog()}
     choices = []
@@ -63,14 +63,21 @@ def translation_backends() -> tuple[BackendChoice, ...]:
             )
         )
     device = installed_device()
-    if bundles["gemma"].present() and device:
-        label = "Vulkan GPU" if device == "vulkan" else "NVIDIA GPU"
+    if bundles["gemma"].present():
+        label = (
+            "Vulkan GPU"
+            if device == "vulkan"
+            else "NVIDIA GPU"
+            if device
+            else "runtime setup needed"
+        )
         choices.append(
             BackendChoice(
                 f"Gemma 4 E2B · {label}",
                 create_gemma_translator,
-                f"gemma-{device}",
-                preparation_id(bundles["gemma"], device),
+                f"gemma-{device or 'unavailable'}",
+                preparation_id(bundles["gemma"], device) if device else "",
+                GEMMA_RUNTIME_SETUP if device is None else "",
             )
         )
     return tuple(choices)
