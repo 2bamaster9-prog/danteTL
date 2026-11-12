@@ -384,8 +384,8 @@ Setup/dialog/overlay fixture screenshots were visually reviewed. No game, discre
 mixed-DPI transition, or general name-consistency guarantee follows from these synthetic checks.
 Artifacts live in ignored `artifacts/setup`, `artifacts/context` and `artifacts/amd`.
 
-For friends: open Models → Runtime setup, select AMD, install, then restart. Download models in
-Models, select Gemma and accept preparation. The new in-app AMD profile uses CPU OCR. If using the
+For friends: open Settings → Models & runtime → Acceleration, select AMD, install, then restart.
+Download models in the Models tab, select Gemma and accept preparation. The in-app AMD profile uses CPU OCR. If using the
 legacy experimental DirectML package, record the actual
 provider/fallback reason and use `--device directml` for strict verification, never `auto-directml`
 as evidence of GPU execution. Report GPU/driver, model load time and warm inference timings.
@@ -422,7 +422,7 @@ only in the development environment, where every optional runtime is installed, 
 `tools/verify_runtime_windows.py --profile nvidia` must run from an extracted distribution under
 `artifacts`, never a user's installed copy. Repeat with `--profile amd` and `--profile cpu`.
 `--offline --cache-root <development-root>` restricts uv to already cached dependencies and Python;
-this tests packaging/installation, not a cold internet download. It opens Models → Runtime setup,
+this tests packaging/installation, not a cold internet download. It opens Settings → Models & runtime → Acceleration,
 checks detection without automatic installation, presses Install, observes GUI timer progress,
 restarts through MainWindow into the chosen environment, and closes only the verified child window.
 The normal launcher uses the same acknowledged-startup path. Windows venv launchers and app windows
@@ -443,5 +443,35 @@ closing during setup, worker-draining restart and launch failure recovery. Model
 a separate consent step; package/library probing alone is not full model validation.
 Final checks: 273 tests passed; Ruff formatting/lint and Pyright passed. Runtime setup screenshots
 were reviewed. Cancel testing includes an installer that spawns a sleeping child, and verifies both
-are stopped. The proposal's navigation/toggle/slider logic was checked separately from product code;
-it is not an implemented Settings window.
+are stopped. At that stage the proposed UI was separate from product code; it is implemented below.
+
+## Compact UI, Settings and independent inspection (2026-11-13)
+
+`tools/verify_ui_windows.py --output artifacts/ui-redesign` checks native switch keyboard handling,
+compact/expanded geometry, nonmodal Settings reuse, all tabs, small-window scrolling, accessible
+information controls, saved opacity/font values and shutdown. It captures only its own widgets.
+The Settings and main layouts were visually reviewed at DPI 168. This is not mixed-monitor testing.
+
+287 model-free tests, Ruff formatting/lint and Pyright passed. New behaviors cover validated/default
+preferences, preservation of malformed/newer files, atomic write failures/retry, coalescing off-thread
+writes, no implicit model preparation on restore, stable Gemma IDs across runtimes, staged device/rate
+changes, background setup/cancellation and app shutdown. Hidden inspection performs no frame-image
+conversion/table build; pause freezes both inspector languages while live reconciliation/acknowledgement
+continues. Translation off shows no numbered boxes unless explicitly requested.
+
+The CUDA/Gemma live demo with dialogue/typewriter/transitions/debug passed model swaps, grouping,
+pause, resize/minimize/restart and worker shutdown. Complete dialogue appeared 0.813 s after the last
+character in this synthetic run. The pause-render assertion controls foreground eligibility because
+the fixture deliberately does not steal focus; real foreground/minimize policy is checked separately.
+The native capture regression passed input-transparent styles, capture exclusion and geometry checks.
+
+`verify_retention_windows.py --device cuda --appearance` now collapses and reopens Advanced during
+injected OCR noise. Six English blocks stayed unchanged across 348 polls/16.31 s, including six noisy
+passes; a new regional label appeared in English after 0.469 s without disturbing existing blocks.
+These are fixture measurements, not a promise of Honkai latency.
+
+Native model preparation/decline/worker reuse/unload passed. A freshly packaged source tree was
+extracted into the disposable CPU-only distribution; downloaded Gemma remained selectable with a
+clear acceleration action and no unavailable model load. NVIDIA and AMD profile reuse/verification
+and acknowledged restart through Settings both passed using cached installed environments. This
+rerun does not claim cold dependency downloads, Radeon execution, or game/anti-cheat validation.

@@ -28,7 +28,7 @@ def test_fresh_cpu_distribution_keeps_downloaded_gemma_visible_with_setup_reason
     choices = app.translation_backends()
     assert len(choices) == 1 and "Gemma" in choices[0].name
     assert "runtime setup needed" in choices[0].name
-    assert "Runtime setup" in choices[0].unavailable_reason
+    assert "Acceleration" in choices[0].unavailable_reason
     assert "not installed" in model_store.model_status(catalog["gemma"])
     assert not choices[0].preparation_id
 
@@ -62,7 +62,7 @@ def test_automatic_ocr_depends_on_runtime_not_downloaded_meiki(catalog, monkeypa
     monkeypatch.setattr(app, "gpu_runtime_installed", lambda name="onnxruntime-gpu": False)
     monkeypatch.setattr(ocr_runtime, "gpu_runtime_installed", lambda name="onnxruntime-gpu": False)
     assert len(app.ocr_backends()) == 1 and app.ocr_backends()[0].name.startswith("CPU")
-    assert "Runtime setup" in model_store.model_status(catalog["ocr"])
+    assert "Acceleration" in model_store.model_status(catalog["ocr"])
     monkeypatch.setattr(
         app, "gpu_runtime_installed", lambda name="onnxruntime-gpu": name == "onnxruntime-gpu"
     )

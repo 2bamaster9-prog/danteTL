@@ -8,9 +8,9 @@ The inspector keeps raw Japanese, bounding boxes, and English together for revie
 
 ## Run
 
-On Windows 11, double-click **Run JP Overlay.cmd**, then open **Models…**. Download **MeikiOCR**
+On Windows 11, double-click **Run JP Overlay.cmd**, then open **Settings → Models & runtime → Models**. Download **MeikiOCR**
 (46 MB) for recognition and a translation model: **Sugoi V4** (1.11 GB, CPU) or **Gemma 4 E2B**
-(3.35 GB, GPU). Use **Models… → Runtime setup…** to install acceleration inside the app.
+(3.35 GB, GPU). Use the **Acceleration** tab beside Models to install GPU support inside the app.
 The translation dropdown
 lists downloaded models. Gemma stays visible as **runtime setup needed** if its GPU runtime is
 missing; selecting that entry opens runtime setup. **No translation** is always available.
@@ -22,12 +22,12 @@ Setup requires Python 3.12 or later on PATH to bootstrap uv; uv installs the pin
 runtime locally if needed. Nothing is installed into your global Python environment.
 
 **Downloaded model but no English / no Automatic OCR?** Model files and GPU runtimes are separate.
-Open **Models… → Runtime setup…**. The app detects graphics cards and recommends a runtime;
+Open **Settings → Models & runtime → Acceleration**. The app detects graphics cards and recommends a runtime;
 you can choose manually. **Install runtime** downloads pinned dependencies into a separate local
 environment, shows stage progress, and checks native libraries. **Restart now** stops capture,
 waits for current work, and opens the new runtime. **Use on next launch** keeps this session running.
 The normal **Run JP Overlay.cmd** remembers the choice. No separate GPU setup scripts are needed.
-The Models dialog distinguishes downloaded files from runtime readiness and shows their folder.
+The Models tab distinguishes downloaded files from runtime readiness and shows their folder.
 It reuses your downloads; reinstalling or redownloading model weights is unnecessary. The CPU
 launcher intentionally uses the CPU OCR environment; it does not inherit packages from the GPU one.
 
@@ -84,13 +84,19 @@ For Gemma with the CLI, add `--group gemma` to `uv sync` and `uv run`, and insta
 environment directly. Keep CPU and GPU OCR dependency groups in their separate environments.
 
 Choose a window and select **Start capture**, then switch to the game. OCR and translation load in
-the background. **English overlay** is enabled by default; translated regions cover the original
+the background. **Translation overlay** is enabled by default; translated regions cover the original
 text with a translucent background. Regions awaiting translation leave the original text visible.
 
-- **Automatic text size** estimates the source text size and wraps English with limited shrinking.
-  Uncheck it to set a fixed size in physical pixels. Opacity controls the translated box background.
-- **OCR device** selects available NVIDIA/DirectML acceleration with CPU fallback, or CPU only. Stop capture
-  before changing it. The OCR status reports the provider actually running and any fallback reason.
+The main window contains the game picker, Start/Stop, **Show game overlay**, **Translation overlay**,
+and the model selector. **Settings…** opens a separate window; **Advanced** expands the inspector and
+detailed diagnostics. Setup errors and model loading remain visible even with Advanced collapsed.
+
+- **Settings → Appearance** contains stabilization (on by default), background opacity, and text size.
+  **Automatic text size** estimates the source height and wraps English with limited shrinking.
+  Turn it off to set a fixed size in physical pixels. Opacity changes apply immediately.
+- **Settings → Recognition → OCR device** selects available NVIDIA/DirectML acceleration with CPU
+  fallback, or CPU only. Device and capture-rate edits apply **next time capture starts**; current
+  capture continues uninterrupted. Advanced reports the actual provider and any fallback reason.
   **Capture rate** ranges from two to twelve samples/second and defaults to eight. These captures
   feed cheap visual checks; they do not each trigger OCR. Increasing capture rate improves visual
   response but increases frame-copy/analysis cost and cannot make a busy OCR model faster.
@@ -100,7 +106,7 @@ text with a translucent background. Regions awaiting translation leave the origi
 - **Gemma 4 E2B · NVIDIA/Vulkan GPU** uses an instruction-tuned LLM. It can produce more natural
   UI labels and dialogue, but quality still needs review in the actual game. Each completed label
   publishes immediately; the source-specific cache remains separate from Sugoi.
-- **Debug overlay** adds amber cells for significant visual changes and cyan dashed outlines for
+- **Advanced → Debug overlay** adds amber cells for significant visual changes and cyan dashed outlines for
   the **last completed OCR scan**. The panel shows OCR/translation times, queue waits, active call
   age, cache/model counts, and dialogue settling/reveal holds. Cyan coverage can remain after the
   scene changes: read its result age. Debug does not change scheduling or save game text/images.
@@ -111,9 +117,10 @@ text with a translucent background. Regions awaiting translation leave the origi
   reading. Weaker/equal alternatives keep its text and box unchanged; a confirmed stronger reading
   becomes the new preference. Numbers, short labels, and typewriter growth use normal confirmation.
   A consistently changed alternative can still replace the old reading after about 1.25 seconds.
-- Turn **English overlay** off to unload the translation model and inspect numbered OCR game boxes.
-  **Stabilize game boxes** can then be toggled for comparison. English always uses stable tracks.
-- **Group dialogue lines**, enabled by default, joins likely wrapped dialogue before translation
+- Turn **Translation overlay** off to unload translation and leave the game unobscured. To inspect
+  numbered game boxes, explicitly enable **Advanced → Show OCR boxes**. **Stabilize game boxes**
+  in Settings can then be toggled for comparison. English always uses stable tracks.
+- **Settings → Recognition → Group dialogue lines**, on by default, joins likely wrapped dialogue before translation
   and draws one English box. Disable it if unrelated lines group together. Short speaker names,
   marked choices, and separate columns remain separate under the conservative rules.
 - Revealing dialogue waits for its text to settle before new translation work is scheduled. Likely
@@ -131,10 +138,15 @@ text with a translucent background. Regions awaiting translation leave the origi
   automatically resize English. Isolated weak edge glyphs beside strong Japanese text can be
   excluded. Raw OCR remains unchanged in the inspector for comparison.
 
-The inspector displays the exact analyzed frame, numbered line boxes, raw OCR, and matching English:
+Settings save automatically in `data/preferences.json`. A successful model choice is remembered
+without loading it at startup; first-use preparation still requires consent. Info buttons explain
+each setting on hover, keyboard focus or click. Closing Settings during setup offers background
+continuation or cancellation; closing the app always cancels/drains setup before exiting.
+
+The **Advanced** inspector displays the exact analyzed frame, numbered line boxes, raw OCR, and matching English:
 
 - Select a text row to highlight its box and see physical coordinates/orientation.
-- Use **Pause inspection** to freeze the frame and text while capture continues. Resume picks up
+- Use **Pause inspection** to freeze the frame and both languages while capture and translation continue. Resume picks up
   the newest frame. Minimize, resize, or stopping clears the review so stale imagery is not retained.
 - Use **Character boxes** and **Fit / 100% / 200%** zoom to examine small text; scroll when zoomed.
 - **Copy Japanese / Copy English** copies the selected row, or all rows when none is selected.
@@ -145,14 +157,15 @@ The inspector displays the exact analyzed frame, numbered line boxes, raw OCR, a
   copying all rows includes each group once.
 - Confidence is the mean recognized-character score, not a probability of sentence correctness.
 - The overlay may briefly lag; use the frame-matched preview when checking OCR accuracy.
-  Pause freezes both languages in the inspector and hides the game overlay.
+  Hiding or pausing the inspector leaves the live game overlay and tracking intact. Collapsed
+  inspection skips image conversion and table updates, retaining only the latest matching pair.
 - Small shifts retain the existing box; repeated text/size changes are confirmed before updating.
   Processing delays do not erase boxes. Unchanged crop pixels preserve text through OCR misses;
   otherwise removal requires repeated negative observations. Raw OCR stays visible in the inspector.
 - IDs persist through OCR reordering and match between the inspector and game. They reset to new
-  identities after pause/resume, resize, minimize, or capture restart. Unrecognized text has no ID.
+  identities after resize, minimize, or capture restart. Unrecognized text has no ID.
 
-**Open demo window** provides Japanese text and an animated target without needing a game. CPU
+**Advanced → Open demo window** provides Japanese text and an animated target without needing a game. CPU
 inference uses two threads per engine; optional GPU acceleration applies to OCR and Gemma, while
 Sugoi stays on CPU. OCR timing and
 capture-to-start delay, current-pass time, and skipped waiting frames are shown separately from

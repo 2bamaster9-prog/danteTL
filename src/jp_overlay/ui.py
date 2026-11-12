@@ -7,10 +7,9 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
-    QCheckBox,
     QComboBox,
     QHBoxLayout,
     QLabel,
@@ -18,13 +17,13 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressDialog,
     QPushButton,
-    QSlider,
-    QSpinBox,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
 from jp_overlay.capture import CaptureSession
+from jp_overlay.controls import InfoButton, Switch
 from jp_overlay.diagnostics import debug_display
 from jp_overlay.domain import CapturedFrame, CaptureState, WindowTarget, overlay_ready
 from jp_overlay.grouping import DialogueGrouper, TextBlock
@@ -32,11 +31,21 @@ from jp_overlay.inspection import OcrInspector
 from jp_overlay.model_manager import ModelManager
 from jp_overlay.model_store import ModelBundle, is_prepared, mark_prepared
 from jp_overlay.overlay import OverlayWindow
+from jp_overlay.preferences import PreferenceStore
 from jp_overlay.presentation import EnglishPresentation
-from jp_overlay.recognition import OcrChoice, OcrSession, OcrState, Recognizer, overlay_result_ready
+from jp_overlay.recognition import (
+    OcrChoice,
+    OcrResult,
+    OcrSession,
+    OcrState,
+    Recognizer,
+    overlay_result_ready,
+)
 from jp_overlay.runtime_dialog import RuntimeSetupDialog
 from jp_overlay.runtime_restart import RuntimeRestart
 from jp_overlay.runtime_setup import project_root
+from jp_overlay.settings_window import SettingsWindow
+from jp_overlay.theme import STYLE
 from jp_overlay.tracking import TextTrack, TextTracker
 from jp_overlay.translation import BackendChoice, TranslationSession, TranslationState
 from jp_overlay.visual import VisualSession, VisualState
@@ -58,6 +67,7 @@ class MainWindow(QMainWindow):
         ocr_backends: tuple[OcrChoice, ...] = (),
         models: tuple[ModelBundle, ...] = (),
         backend_provider: Callable[[], tuple[BackendChoice, ...]] | None = None,
+        preferences_path: Path | None = None,
     ) -> None:
         super().__init__()
         self._windows = windows
@@ -70,6 +80,11 @@ class MainWindow(QMainWindow):
         self._models, self._backend_provider = models, backend_provider
         self._model_manager: ModelManager | None = None
         self._runtime_dialog: RuntimeSetupDialog | None = None
+        self._preferences = PreferenceStore(preferences_path)
+        self._saved_model = self._preferences.initial.model
+        self._accepted_ocr: OcrResult | None = None
+        self._capture_ocr_choice: OcrChoice | None = None
+        self._compact_size = QSize(720, 430)
         self._restart_target: Path | None = None
         self._restart: RuntimeRestart | None = None
         self._selected_backend: BackendChoice | None = None
@@ -98,7 +113,7 @@ class MainWindow(QMainWindow):
         self._stopping_message = "Capture stopped."
         self._demo_processes: list[subprocess.Popen[bytes]] = []
         self.setWindowTitle("JP Overlay")
-        self.resize(1280, 840)
+        self.resize(self._compact_size)
         self._build_ui()
         self._timer = QTimer(self)
         self._timer.setInterval(33)
@@ -107,23 +122,46 @@ class MainWindow(QMainWindow):
         self.refresh_windows()
 
     def _build_ui(self) -> None:
+        preferences = self._preferences.initial
+        self._settings = SettingsWindow(preferences, self._ocr_backends, self._models, self)
+        self._model_manager = self._settings.models
+        self._model_manager.models_changed.connect(self._refresh_models)
+        self._settings.restart_requested.connect(self._request_restart)
+        self._settings.runtime_created.connect(self._runtime_created)
+        # Session coordination uses the same controls owned by the Settings window.
+        self.stabilize_check = self._settings.stabilize
+        self.ocr_device = self._settings.ocr_device
+        self.capture_rate = self._settings.capture_rate
+        self.group_dialogue = self._settings.group_dialogue
+        self.automatic_font = self._settings.automatic_size
+        self.font_size = self._settings.text_size
+        self.group_dialogue.toggled.connect(self._grouping_changed)
+        self.automatic_font.toggled.connect(self._font_style_changed)
+        self.font_size.valueChanged.connect(self._font_style_changed)
+        self._settings.opacity.valueChanged.connect(self._overlay.set_opacity)
         central = QWidget()
         self.setCentralWidget(central)
         layout = QVBoxLayout(central)
         layout.setContentsMargins(24, 20, 24, 20)
-        layout.setSpacing(12)
+        layout.setSpacing(14)
+        header = QHBoxLayout()
+        title = QVBoxLayout()
         heading = QLabel("JP Overlay")
         heading.setObjectName("heading")
-        layout.addWidget(heading)
-        subtitle = QLabel("Local Japanese → English · MeikiOCR · selectable translation model")
+        title.addWidget(heading)
+        subtitle = QLabel("Japanese → English · Local")
         subtitle.setObjectName("muted")
-        layout.addWidget(subtitle)
-
+        title.addWidget(subtitle)
+        header.addLayout(title, 1)
+        self.settings_button = QPushButton("Settings…")
+        self.settings_button.clicked.connect(self._show_settings)
+        header.addWidget(self.settings_button)
+        layout.addLayout(header)
+        layout.addWidget(QLabel("Game window"))
         selection = QHBoxLayout()
-        selection.addWidget(QLabel("Game window"))
         self.windows_combo = QComboBox()
         self.windows_combo.setAccessibleName("Game window")
-        self.windows_combo.setMinimumWidth(200)
+        self.windows_combo.setMinimumContentsLength(16)
         self.windows_combo.setSizeAdjustPolicy(
             QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
         )
@@ -132,180 +170,234 @@ class MainWindow(QMainWindow):
         selection.addWidget(self.windows_combo, 1)
         selection.addWidget(self.refresh_button)
         layout.addLayout(selection)
-
-        actions = QHBoxLayout()
         self.start_button = QPushButton("Start capture")
         self.start_button.setObjectName("primary")
         self.start_button.clicked.connect(self._toggle_capture)
-        self.demo_button = QPushButton("Open demo window")
-        self.demo_button.clicked.connect(self._open_demo)
-        actions.addWidget(self.start_button, 1)
-        actions.addWidget(self.demo_button)
-        self.models_button = QPushButton("Models…")
-        self.models_button.setEnabled(bool(self._models))
-        self.models_button.clicked.connect(self._manage_models)
-        actions.addWidget(self.models_button)
-        layout.addLayout(actions)
-
-        processing = QHBoxLayout()
-        processing.addWidget(QLabel("OCR device"))
-        self.ocr_device = QComboBox()
-        for choice in self._ocr_backends:
-            self.ocr_device.addItem(choice.name, choice)
-        self.ocr_device.setToolTip(
-            "Choices reflect this app's installed runtimes, not Meiki model files. "
-            "For Automatic NVIDIA OCR, open Models → Runtime setup, install NVIDIA support, "
-            "and restart. Choose the OCR device before starting capture."
+        layout.addWidget(self.start_button)
+        overlays = QHBoxLayout()
+        self.overlay_check = Switch("Show game overlay")
+        self.overlay_check.setChecked(preferences.show_overlay)
+        self.overlay_check.setToolTip(
+            "Show or hide game rendering. Capture and translation keep their state."
         )
-        self.capture_rate = QSpinBox()
-        self.capture_rate.setRange(2, 12)
-        self.capture_rate.setSuffix(" samples/s")
-        self.capture_rate.setValue(self._ocr_backends[0].capture_fps)
-        self.capture_rate.setToolTip(
-            "Capture feeds cheap visual checks. OCR runs on changes and periodic refreshes."
+        self.translate_check = Switch("Translation overlay")
+        self.translate_check.setChecked(preferences.translation)
+        self.translate_check.setToolTip(
+            "Translate and cover recognized text. Turn off to leave the original game text visible."
         )
-        self.ocr_device.currentIndexChanged.connect(self._ocr_choice_changed)
-        processing.addWidget(self.ocr_device)
-        processing.addWidget(QLabel("Capture rate"))
-        processing.addWidget(self.capture_rate)
-        processing.addStretch()
-        layout.addLayout(processing)
-
-        options = QHBoxLayout()
-        self.overlay_check = QCheckBox("Show game overlay")
-        self.overlay_check.setChecked(True)
-        self.overlay_check.toggled.connect(self._tick)
-        options.addWidget(self.overlay_check)
-        self.stabilize_check = QCheckBox("Stabilize game boxes")
-        self.stabilize_check.setChecked(True)
-        self.stabilize_check.setToolTip(
-            "Hold small OCR shifts, confirm text changes, and bridge one missed detection. "
-            "Disable to compare raw boxes. The inspector always shows raw OCR."
+        overlays.addWidget(self.overlay_check)
+        overlays.addStretch()
+        overlays.addWidget(self.translate_check)
+        layout.addLayout(overlays)
+        label = QHBoxLayout()
+        label.addWidget(QLabel("Translation model"))
+        label.addWidget(
+            InfoButton(
+                "Translation model",
+                "Choose a downloaded local translator. Sugoi is compact and CPU friendly; "
+                "Gemma uses a supported GPU and requires preparation. "
+                "Switching unloads the previous model.",
+            )
         )
-        self.stabilize_check.toggled.connect(self._tick)
-        options.addWidget(self.stabilize_check)
-        self.debug_check = QCheckBox("Debug overlay")
-        self.debug_check.setToolTip(
-            "Amber: significant visual changes. Cyan: last completed OCR coverage. "
-            "Shows local worker timings and queue waits; does not change scheduling."
-        )
-        self.debug_check.toggled.connect(self._tick)
-        options.addWidget(self.debug_check)
-        options.addStretch()
-        options.addWidget(QLabel("Opacity"))
-        slider = QSlider(Qt.Orientation.Horizontal)
-        slider.setAccessibleName("Overlay opacity")
-        slider.setRange(20, 100)
-        slider.setValue(85)
-        slider.setMaximumWidth(120)
-        slider.valueChanged.connect(self._overlay.set_opacity)
-        options.addWidget(slider)
-        layout.addLayout(options)
-
-        translation = QHBoxLayout()
-        self.translate_check = QCheckBox("English overlay")
-        self.translate_check.setChecked(bool(self._backends))
-        self.translate_check.setEnabled(bool(self._backends))
-        self.translate_check.toggled.connect(self._tick)
-        self.translate_check.toggled.connect(self.stabilize_check.setDisabled)
-        self.stabilize_check.setDisabled(bool(self._backends))
-        self.stabilize_check.setToolTip(
-            "English always uses stable tracks. Turn English off to compare raw game boxes."
-        )
-        translation.addWidget(self.translate_check)
+        label.addStretch()
+        layout.addLayout(label)
         self.backend_combo = QComboBox()
-        self.backend_combo.setAccessibleName("Translation backend")
+        self.backend_combo.setAccessibleName("Translation model")
+        self.backend_combo.setMinimumContentsLength(20)
+        self.backend_combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
         self.backend_combo.setToolTip(
-            "Downloaded models appear here. Entries marked 'runtime setup needed' explain "
-            "which setup to run before use. "
-            "Sugoi runs on CPU; Gemma uses NVIDIA CUDA or AMD-compatible Vulkan. "
-            "Switching unloads the previous model. Quality and latency vary."
+            "Download models and install acceleration in Settings → Models & runtime."
         )
         for backend in self._backends:
             self.backend_combo.addItem(backend.name, backend)
         self.backend_combo.addItem("No translation", None)
-        # An unprepared model is never loaded implicitly on the first launch.
-        if (
-            not self._backends
-            or self._backends[0].unavailable_reason
-            or not is_prepared(self._backends[0].preparation_id)
-        ):
-            self.backend_combo.setCurrentIndex(self.backend_combo.count() - 1)
-        self._selected_backend = self.backend_combo.currentData()
-        self.backend_combo.setEnabled(bool(self._backends))
+        initial = next((b for b in self._backends if self._model_key(b) == preferences.model), None)
+        if preferences.model == "auto" and self._backends:
+            initial = self._backends[0]
+        if initial and not self._model_prepared(initial):
+            initial = None
+        self._select_backend(initial)
+        self._selected_backend = initial
         self.backend_combo.currentIndexChanged.connect(self._backend_changed)
-        translation.addWidget(self.backend_combo)
-        self.group_dialogue = QCheckBox("Group dialogue lines")
-        self.group_dialogue.setChecked(True)
-        self.group_dialogue.setToolTip(
-            "Translate likely wrapped dialogue as one passage. Disable if unrelated lines group."
+        layout.addWidget(self.backend_combo)
+        self.onboarding = QWidget()
+        onboarding = QHBoxLayout(self.onboarding)
+        onboarding.setContentsMargins(0, 0, 0, 0)
+        self.notice = QLabel()
+        self.notice.setWordWrap(True)
+        self.notice.setObjectName("muted")
+        onboarding.addWidget(self.notice, 1)
+        self.models_button = QPushButton("Set up models")
+        self.models_button.clicked.connect(self._show_setup_status)
+        onboarding.addWidget(self.models_button)
+        layout.addWidget(self.onboarding)
+        self.advanced = QToolButton()
+        self.advanced.setText("Advanced")
+        self.advanced.setCheckable(True)
+        self.advanced.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.advanced.setArrowType(Qt.ArrowType.RightArrow)
+        layout.addWidget(self.advanced)
+        self.advanced_panel = QWidget()
+        inspection = QVBoxLayout(self.advanced_panel)
+        inspection.setContentsMargins(0, 0, 0, 0)
+        diagnostics = QHBoxLayout()
+        self.raw_boxes_check = Switch("Show OCR boxes")
+        self.raw_boxes_check.setToolTip(
+            "Numbered OCR boxes on the game. Turn Translation overlay off to compare them."
         )
-        self.group_dialogue.toggled.connect(self._grouping_changed)
-        translation.addWidget(self.group_dialogue)
-        translation.addStretch()
-        self.automatic_font = QCheckBox("Automatic text size")
-        self.automatic_font.setChecked(True)
-        translation.addWidget(self.automatic_font)
-        self.font_size = QSpinBox()
-        self.font_size.setRange(10, 60)
-        self.font_size.setValue(20)
-        self.font_size.setSuffix(" px")
-        self.font_size.setAccessibleName("English font size in physical pixels")
-        self.font_size.setEnabled(False)
-        self.automatic_font.toggled.connect(self._font_style_changed)
-        self.font_size.valueChanged.connect(self._font_style_changed)
-        translation.addWidget(self.font_size)
-        layout.addLayout(translation)
-
-        label = QLabel("RAW OCR FRAME + DETECTED TEXT · PERSISTENT IDS")
+        self.raw_boxes_check.setEnabled(not self.translate_check.isChecked())
+        self.debug_check = Switch("Debug overlay")
+        self.debug_check.setToolTip(
+            "Amber: visual changes. Cyan: completed OCR coverage. "
+            "Timings and diagnostics do not change processing."
+        )
+        diagnostics.addWidget(self.raw_boxes_check)
+        diagnostics.addWidget(self.debug_check)
+        diagnostics.addStretch()
+        self.demo_button = QPushButton("Open demo window")
+        self.demo_button.clicked.connect(self._open_demo)
+        diagnostics.addWidget(self.demo_button)
+        inspection.addLayout(diagnostics)
+        label = QLabel("RAW FRAME + DETECTED TEXT · PERSISTENT IDS")
         label.setObjectName("eyebrow")
-        layout.addWidget(label)
+        inspection.addWidget(label)
         self.inspector = OcrInspector()
-        self.inspector.pause.toggled.connect(self._pause_inspection)
-        layout.addWidget(self.inspector, 1)
+        self.inspector.set_active(False)
+        inspection.addWidget(self.inspector, 1)
         self.ocr_status = QLabel("OCR starts with capture. Models stay on this PC.")
-        self.ocr_status.setWordWrap(True)
-        layout.addWidget(self.ocr_status)
-        self.translation_status = QLabel("English translation starts with capture.")
-        self.translation_status.setWordWrap(True)
-        layout.addWidget(self.translation_status)
+        self.translation_status = QLabel("Translation starts with capture.")
+        self.metrics = QLabel("Window capture · all processing local")
+        self.metrics.setObjectName("muted")
+        for value in (self.ocr_status, self.translation_status, self.metrics):
+            value.setWordWrap(True)
+            inspection.addWidget(value)
+        note = QLabel(
+            "Preview shows raw OCR. Hover English cells to review their source. "
+            "Pause freezes only the inspector; capture and translation continue."
+        )
+        note.setObjectName("muted")
+        note.setWordWrap(True)
+        inspection.addWidget(note)
+        self.advanced_panel.hide()
+        layout.addWidget(self.advanced_panel, 1)
         self.status = QLabel("Select a window, then start capture.")
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
-        self.metrics = QLabel("Window capture · all processing local")
-        self.metrics.setObjectName("muted")
-        self.metrics.setWordWrap(True)
-        layout.addWidget(self.metrics)
-        note = QLabel(
-            "Preview shows raw OCR. Hover English cells to review the source used for translation. "
-            "English wraps to fit; an ellipsis means the full text is available in the table."
+        self.advanced.toggled.connect(self._advanced_changed)
+        self.overlay_check.toggled.connect(self._settings_changed)
+        self.translate_check.toggled.connect(self._settings_changed)
+        self.translate_check.toggled.connect(self.raw_boxes_check.setDisabled)
+        self.raw_boxes_check.toggled.connect(self._tick)
+        self.debug_check.toggled.connect(self._tick)
+        self._settings.changed.connect(self._settings_changed)
+        self.setStyleSheet(STYLE)
+        self._overlay.set_opacity(preferences.opacity)
+        self._font_style_changed()
+        self._update_notice()
+
+    @staticmethod
+    def _model_key(choice: BackendChoice | None) -> str:
+        return (
+            "gemma"
+            if choice and choice.key.startswith("gemma")
+            else choice.key
+            if choice
+            else "none"
         )
-        note.setWordWrap(True)
-        note.setObjectName("muted")
-        layout.addWidget(note)
-        self.setStyleSheet("""
-            QMainWindow, QWidget { background: #111923; color: #e7edf5; font: 10pt 'Segoe UI'; }
-            QLabel#heading { font-size: 23pt; font-weight: 600; }
-            QLabel#muted { color: #9baabc; font-size: 9pt; }
-            QLabel#eyebrow { color: #92a4b7; font-size: 8pt; font-weight: 600; }
-            QPushButton, QComboBox { background: #243142; border: 1px solid #3c4c60;
-                border-radius: 6px; padding: 9px 12px; }
-            QPushButton:hover { background: #304259; }
-            QPushButton:disabled, QComboBox:disabled { color: #64748b; }
-            QPushButton#primary { background: #257c73; border-color: #359c90; }
-            QPushButton#primary:hover { background: #2d9185; }
-            QComboBox QAbstractItemView { background: #1d2938;
-                selection-background-color: #257c73; }
-            QTableWidget { background: #172230; gridline-color: #304259;
-                selection-background-color: #31544f; }
-            QHeaderView::section { background: #243142; padding: 6px; border: 0; }
-            QSlider::groove:horizontal { height: 4px; background: #35475c; }
-            QSlider::handle:horizontal { background: #5eead4; width: 12px; margin: -4px 0;
-                border-radius: 6px; }
-            QProgressBar { border: 1px solid #3c4c60; border-radius: 4px;
-                background: #172230; min-height: 18px; text-align: center; }
-            QProgressBar::chunk { background: #257c73; border-radius: 3px; }
-        """)
+
+    def _remember_model(self) -> None:
+        key = self._model_key(self._selected_backend)
+        if key != self._saved_model:
+            self._saved_model = key
+            self._save_preferences()
+
+    def _save_preferences(self) -> None:
+        self._preferences.save(
+            self._settings.values(
+                show_overlay=self.overlay_check.isChecked(),
+                translation=self.translate_check.isChecked(),
+                model=self._saved_model,
+            )
+        )
+
+    def _settings_changed(self) -> None:
+        self._save_preferences()
+        self._tick()
+
+    def _show_settings(self) -> None:
+        if not self._closing:
+            self._settings.show()
+            self._settings.raise_()
+
+    def _advanced_changed(self, expanded: bool) -> None:
+        if expanded:
+            self._compact_size = self.size()
+        self.advanced.setArrowType(Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow)
+        self.advanced_panel.setVisible(expanded)
+        self.inspector.set_active(expanded)
+        # Recompute minimum sizes before restoring the compact geometry.
+        if (central := self.centralWidget()) and (layout := central.layout()):
+            layout.activate()
+        if layout := self.layout():
+            layout.activate()
+        if expanded:
+            screen = self.screen()
+            area = screen.availableGeometry() if screen else self.geometry()
+            self.resize(min(1100, area.width() - 40), min(840, area.height() - 80))
+        else:
+            self.resize(self._compact_size)
+
+    def _show_setup_status(self) -> None:
+        if self._settings.runtime and (
+            self._settings.runtime.operation or self._settings.runtime.error_message
+        ):
+            self._manage_runtime()
+        else:
+            self._manage_models()
+
+    def _update_notice(self) -> None:
+        message = ""
+        action = "Open settings"
+        self._settings.save_note.setText(
+            "Settings could not be saved. Changes still apply to this session. "
+            + self._preferences.error
+            if self._preferences.error
+            else "Changes save automatically. Models and runtimes install only on request."
+        )
+        if self._preferences.error:
+            message = self._preferences.error
+        elif self._settings.problem:
+            message = "Setup needs attention: " + self._settings.problem
+        elif self._settings.busy:
+            message = "Setup is running in the background. Open Settings for progress."
+            action = "View setup"
+        elif not self._ocr_models_ready() or not self._backends:
+            message = (
+                "Download MeikiOCR and a translation model to get started. "
+                "Capture works without them."
+            )
+            action = "Set up models"
+        elif self._preparing:
+            message = "Preparing the translation model. Capture can continue."
+        elif self._ocr and self._ocr.snapshot().state in (OcrState.FAILED, OcrState.LOADING):
+            message = self.ocr_status.text()
+        elif self._translation and self._translation.snapshot().state in (
+            TranslationState.FAILED,
+            TranslationState.LOADING,
+        ):
+            message = self.translation_status.text()
+        elif self.translate_check.isChecked() and self._selected_backend is None:
+            message = (
+                "Select a translation model. Models marked ‘runtime setup needed’ "
+                "open acceleration setup."
+            )
+        self.notice.setText(message[:300])
+        self.notice.setToolTip(message)
+        self.models_button.setText(action)
+        self.models_button.setVisible(bool(message) and not self._preparing)
+        self.onboarding.setVisible(bool(message))
 
     def refresh_windows(self) -> None:
         if self._session:
@@ -343,14 +435,14 @@ class MainWindow(QMainWindow):
             return
         self._session = CaptureSession(target, self._windows, fps=self.capture_rate.value())
         choice = self.ocr_device.currentData()
+        self._capture_ocr_choice = choice if isinstance(choice, OcrChoice) else None
         if self._ocr_models_ready():
             self._ocr = OcrSession(
                 choice.create if isinstance(choice, OcrChoice) else self._recognizer_factory,
                 require_ack=True,
             )
             self._visual = VisualSession()
-        self.ocr_device.setEnabled(False)
-        self.capture_rate.setEnabled(False)
+        self._settings.set_capture_active(True)
         self._stopping_message = "The capture source closed. Select a window to restart."
         self._last_sequence = 0
         self._started_at = time.monotonic()
@@ -385,17 +477,6 @@ class MainWindow(QMainWindow):
             self.start_button.setEnabled(False)
             self.status.setText("Stopping capture, OCR, and translation…")
 
-    def _pause_inspection(self, paused: bool) -> None:
-        if self._ocr:
-            self._ocr.invalidate()
-        self._overlay.hide()
-        self._clear_tracking()
-        if paused:
-            self.ocr_status.setText("Inspection paused · frame and text frozen · game boxes hidden")
-        else:
-            self.inspector.clear()
-            self._last_sequence = 0
-
     def _invalidate_ocr(self) -> None:
         if self._valid_size is not None and self._ocr:
             self._ocr.invalidate()
@@ -405,6 +486,7 @@ class MainWindow(QMainWindow):
         self._clear_tracking()
 
     def _clear_tracking(self) -> None:
+        self._accepted_ocr = None
         if self._visual:
             self._visual.invalidate()
         self._visual_state = VisualState()
@@ -425,19 +507,13 @@ class MainWindow(QMainWindow):
         if self._translation:
             self._translation.invalidate()
         self._overlay.set_blocks(())
-        if not self.inspector.pause.isChecked():
-            self.inspector.set_translations(())
+        self.inspector.set_translations(())
         self._tick()
 
     def _font_style_changed(self) -> None:
         automatic = self.automatic_font.isChecked()
         self.font_size.setEnabled(not automatic)
         self._overlay.set_text_style(automatic, self.font_size.value())
-
-    def _ocr_choice_changed(self) -> None:
-        choice = self.ocr_device.currentData()
-        if isinstance(choice, OcrChoice):
-            self.capture_rate.setValue(choice.capture_fps)
 
     def _backend_changed(self) -> None:
         choice = self.backend_combo.currentData()
@@ -467,6 +543,8 @@ class MainWindow(QMainWindow):
             self._show_preparation("Finishing the previous model…")
         else:
             self._selected_backend = choice if isinstance(choice, BackendChoice) else None
+            if self._selected_backend is None:
+                self._remember_model()
         self._presentation.reset()
         self._standby = isinstance(choice, BackendChoice)
         if self._preparing:
@@ -480,8 +558,7 @@ class MainWindow(QMainWindow):
         elif self._translation:
             self._translation.request_stop()
         self._overlay.set_translations((), enabled=self.translate_check.isChecked())
-        if not self.inspector.pause.isChecked():
-            self.inspector.set_translations(())
+        self.inspector.set_translations(())
 
     def _select_backend(self, choice: BackendChoice | None) -> None:
         self.backend_combo.blockSignals(True)
@@ -548,6 +625,7 @@ class MainWindow(QMainWindow):
                 except OSError as error:
                     logger.warning("Could not save preparation receipt: %s", error)
                 self._selected_backend = choice
+                self._remember_model()
                 self._standby = True
             else:
                 self._translation = None
@@ -558,32 +636,28 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "Model preparation failed", snapshot.message)
         self._preparing = None
         self._preparation_started = False
-        self.backend_combo.setEnabled(bool(self._backends))
+        self.backend_combo.setEnabled(True)
         if self._progress_dialog:
             self._progress_dialog.close()
             self._progress_dialog.deleteLater()
             self._progress_dialog = None
 
     def _manage_models(self) -> None:
-        if self._model_manager is None:
-            self._model_manager = ModelManager(self._models, self)
-            self._model_manager.models_changed.connect(self._refresh_models)
-            self._model_manager.runtime_requested.connect(self._manage_runtime)
-        self._model_manager.show()
-        self._model_manager.raise_()
+        if not self._closing:
+            self._settings.show_models()
+
+    def _runtime_created(self, panel: RuntimeSetupDialog) -> None:
+        self._runtime_dialog = panel
 
     def _manage_runtime(self) -> None:
         if self._closing:
             return
-        if self._runtime_dialog is None:
-            self._runtime_dialog = RuntimeSetupDialog(self)
-            self._runtime_dialog.restart_requested.connect(self._request_restart)
-        self._runtime_dialog.show()
-        self._runtime_dialog.raise_()
+        self._settings.show_runtime()
 
     def _request_restart(self, target: Path) -> None:
         self._restart_target = target
         self._closing = True
+        self._settings.hide()
         if central := self.centralWidget():
             central.setEnabled(False)
         self.status.setText("Finishing active work before restarting. Capture will be stopped.")
@@ -597,7 +671,6 @@ class MainWindow(QMainWindow):
             return
         if self._backend_provider:
             choice = self.backend_combo.currentData()
-            previously_available = bool(self._backends)
             self._backends = self._backend_provider()
             self.backend_combo.blockSignals(True)
             self.backend_combo.clear()
@@ -605,13 +678,12 @@ class MainWindow(QMainWindow):
                 self.backend_combo.addItem(backend.name, backend)
             self.backend_combo.addItem("No translation", None)
             self._select_backend(choice)
-            self.backend_combo.setEnabled(bool(self._backends) and not self._preparing)
-            self.translate_check.setEnabled(bool(self._backends))
-            if self._backends and not previously_available:
-                self.translate_check.setChecked(True)
+            self.backend_combo.setEnabled(not self._preparing)
         if self._session and self._ocr is None and self._ocr_models_ready():
-            choice = self.ocr_device.currentData()
-            self._ocr = OcrSession(choice.create, require_ack=True)
+            choice = self._capture_ocr_choice
+            self._ocr = OcrSession(
+                choice.create if choice else self._recognizer_factory, require_ack=True
+            )
             self._visual = VisualSession()
             self.inspector.clear()
             self._ocr.start()
@@ -634,6 +706,8 @@ class MainWindow(QMainWindow):
             and session
             and not session.finished
         ):
+            if session.snapshot().state == TranslationState.READY:
+                self._remember_model()
             self.translation_status.setText(
                 "Model ready. Start capture to translate."
                 if session.snapshot().state == TranslationState.READY
@@ -653,8 +727,7 @@ class MainWindow(QMainWindow):
                 if session.finished:
                     self._translation = None
             self._overlay.set_translations((), enabled=self.translate_check.isChecked())
-            if not self.inspector.pause.isChecked():
-                self.inspector.set_translations(())
+            self.inspector.set_translations(())
             self.translation_status.setText(
                 "Unloading translation model…"
                 if session and not session.finished
@@ -662,7 +735,7 @@ class MainWindow(QMainWindow):
                 if self._backends and all(b.unavailable_reason for b in self._backends)
                 else "English translation is off."
                 if running
-                else "No translation model selected. Open Models to download one."
+                else "No translation model selected. Open Settings to download one."
                 if not isinstance(choice, BackendChoice)
                 else "Translation stopped."
             )
@@ -686,6 +759,8 @@ class MainWindow(QMainWindow):
             self._context_reset_sequence = state.frame.sequence
         session.update(tracks, retain=retain, reset_context=broad_change)
         snapshot = session.snapshot()
+        if snapshot.state == TranslationState.READY:
+            self._remember_model()
         published = self._presentation.update(
             retain, snapshot.results, self._tracker.display_predecessors()
         )
@@ -695,11 +770,11 @@ class MainWindow(QMainWindow):
         )
         self._overlay.set_blocks(tuple(p.painted for p in showing))
         self._overlay.set_translations(tuple(p.translation for p in showing), enabled=True)
-        if not self.inspector.pause.isChecked():
-            self.inspector.set_translations(snapshot.results)
+        self.inspector.set_translations(snapshot.results)
         if snapshot.state == TranslationState.FAILED:
             self.translation_status.setText(
-                f"Translation unavailable: {snapshot.message} Toggle English off/on to retry."
+                f"Translation unavailable: {snapshot.message} "
+                "Toggle Translation overlay off/on to retry."
             )
         elif snapshot.state == TranslationState.LOADING:
             self.translation_status.setText(
@@ -718,16 +793,15 @@ class MainWindow(QMainWindow):
     def _update_ocr(self, frame: CapturedFrame) -> None:
         ocr = self._ocr
         if ocr is None:
-            self.inspector.preview.set_frame(frame)
+            self.inspector.set_frame(frame)
             self.ocr_status.setText(
-                "Capture only. Open Models and download MeikiOCR to recognize text."
+                "Capture only. Open Settings and download MeikiOCR to recognize text."
             )
             return
-        paused = self.inspector.pause.isChecked()
         snapshot = ocr.snapshot()
-        if not paused and self._visual and snapshot.state != OcrState.FAILED:
+        if self._visual and snapshot.state != OcrState.FAILED:
             state = self._visual.poll()
-            accepted = self.inspector.result
+            accepted = self._accepted_ocr
             if snapshot.result and (
                 state.message or state.checked_sequence == snapshot.result.frame.sequence
             ):
@@ -740,6 +814,7 @@ class MainWindow(QMainWindow):
                     checked_sequence=state.checked_sequence,
                 )
                 accepted = snapshot.result
+                self._accepted_ocr = accepted
                 self.inspector.set_result(accepted, self._track_ids)
                 ocr.acknowledge(accepted.frame.sequence)
             if state.frame is not None:
@@ -760,11 +835,8 @@ class MainWindow(QMainWindow):
             self.ocr_status.setText(
                 f"OCR unavailable: {snapshot.message} Stop and restart to retry."
             )
-            if self.inspector.result is not None:
-                self.inspector.clear()
-                self._last_sequence = 0
-        elif paused:
-            self.ocr_status.setText("Inspection paused · frame and text frozen · game boxes hidden")
+            self.inspector.clear()
+            self._last_sequence = 0
         elif snapshot.state == OcrState.LOADING:
             self.ocr_status.setText(
                 "Loading local MeikiOCR models… GPU initialization can take longer."
@@ -813,11 +885,15 @@ class MainWindow(QMainWindow):
                 )
             )
         # Once OCR arrives, the inspector owns an exact source/result pair.
-        if not paused and self.inspector.result is None and frame.sequence != self._last_sequence:
-            self.inspector.preview.set_frame(frame)
+        if self._accepted_ocr is None and frame.sequence != self._last_sequence:
+            self.inspector.set_frame(frame)
         self._last_sequence = frame.sequence
 
     def _tick(self) -> None:
+        self._advance_session()
+        self._update_notice()
+
+    def _advance_session(self) -> None:
         self._advance_preparation()
         session = self._session
         if session is None:
@@ -829,6 +905,7 @@ class MainWindow(QMainWindow):
                 and (self._translation is None or self._translation.finished)
                 and not (self._model_manager and self._model_manager.operation)
                 and not (self._runtime_dialog and self._runtime_dialog.operation)
+                and not self._settings.busy
             ):
                 self.close()
             return
@@ -864,8 +941,7 @@ class MainWindow(QMainWindow):
             self.start_button.setEnabled(True)
             self.windows_combo.setEnabled(True)
             self.refresh_button.setEnabled(True)
-            self.ocr_device.setEnabled(True)
-            self.capture_rate.setEnabled(True)
+            self._settings.set_capture_active(False)
             if self._closing:
                 self.close()
             return
@@ -904,11 +980,11 @@ class MainWindow(QMainWindow):
             else:
                 self._invalidate_ocr()
                 self.status.setText("Waiting for a frame matching the window size…")
-            result = self.inspector.result
+            result = self._accepted_ocr
             tracks = self._tracker.visible(frame, time.monotonic()) if frame is not None else ()
             ready = (
                 self._tracker.translation_tracks(frame, time.monotonic())
-                if frame is not None and not self.inspector.pause.isChecked()
+                if frame is not None
                 else ()
             )
             grouped = self._grouper.update(
@@ -945,11 +1021,7 @@ class MainWindow(QMainWindow):
                 if self.debug_check.isChecked() and self._ocr
                 else None
             )
-            if (
-                not self.stabilize_check.isChecked()
-                and not self.inspector.pause.isChecked()
-                and not self.translate_check.isChecked()
-            ):
+            if not self.stabilize_check.isChecked() and not self.translate_check.isChecked():
                 tracks = (
                     tuple(
                         TextTrack(key, region.text, region.bounds, region.vertical)
@@ -963,12 +1035,20 @@ class MainWindow(QMainWindow):
                 )
             if (
                 self.overlay_check.isChecked()
-                and not self.inspector.pause.isChecked()
+                and (
+                    self.translate_check.isChecked()
+                    or self.raw_boxes_check.isChecked()
+                    or self.debug_check.isChecked()
+                )
                 and (tracks or self.debug_check.isChecked())
                 and frame is not None
                 and overlay_ready(snapshot, geometry, foreground)
             ):
-                self._overlay.set_tracks(tracks)
+                self._overlay.set_tracks(
+                    tracks
+                    if self.translate_check.isChecked() or self.raw_boxes_check.isChecked()
+                    else ()
+                )
                 self._overlay.align(geometry.client)
             else:
                 self._overlay.hide()
@@ -988,10 +1068,11 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         setup_dialogs = (self._model_manager, self._runtime_dialog)
-        if any(dialog and dialog.operation for dialog in setup_dialogs):
+        if self._settings.busy or any(dialog and dialog.operation for dialog in setup_dialogs):
+            self._settings.cancel_operations()
             for dialog in setup_dialogs:
-                if dialog:
-                    dialog.close()
+                if dialog and dialog.operation:
+                    dialog.operation.cancel()
             self._closing = True
             self._standby = False
             if self._translation:
@@ -1012,6 +1093,10 @@ class MainWindow(QMainWindow):
         if self._session is not None:
             self._closing = True
             self._stop("Capture stopped.")
+            event.ignore()
+            return
+        if not self._preferences.idle:
+            self._closing = True
             event.ignore()
             return
         if self._restart_target:
@@ -1035,5 +1120,6 @@ class MainWindow(QMainWindow):
             self._restart_target = None
             self._restart = None
         self._timer.stop()
+        self._settings.hide()
         self._overlay.close()
         super().closeEvent(event)

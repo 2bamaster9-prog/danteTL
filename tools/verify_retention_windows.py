@@ -123,6 +123,7 @@ def main() -> int:
     )
     window.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
     window.show()
+    window.advanced.setChecked(True)
     window.windows_combo.addItem(
         "Own fixture", WindowTarget(int(target.winId()), os.getpid(), target.windowTitle())
     )
@@ -205,6 +206,14 @@ def main() -> int:
                 assert showing == baseline, (
                     "Stationary accepted English or geometry changed under noisy OCR"
                 )
+                if now - stable_since >= 4 and "advanced_collapsed" not in evidence:
+                    window.advanced.setChecked(False)
+                    evidence["advanced_collapsed"] = True
+                if now - stable_since >= 8 and "advanced_resumed" not in evidence:
+                    assert window.inspector.result is None
+                    window.advanced.setChecked(True)
+                    assert window.inspector.result is window._accepted_ocr
+                    evidence["advanced_resumed"] = True
                 if now - stable_since >= 12 and passes >= 6:
                     evidence.update(
                         device=args.device,

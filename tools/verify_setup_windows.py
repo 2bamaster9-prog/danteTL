@@ -80,6 +80,12 @@ def main() -> int:
                 if window._session is not None:
                     return
                 window._models = bundles
+                # The fixture changes its catalog paths to simulate files arriving.
+                # Settings is now persistent, so update its test catalog too.
+                assert window._model_manager
+                for i, bundle in enumerate(bundles):
+                    window._model_manager.choice.setItemData(i, bundle)
+                window._model_manager._selected()
                 window._refresh_models()
                 assert window.backend_combo.currentData() is None
                 window._manage_models()
@@ -91,8 +97,8 @@ def main() -> int:
                 stage = 2
             elif stage == 2:
                 assert window._model_manager
-                window._model_manager.grab().save(str(output / "model-manager.png"))
-                window._model_manager.close()
+                window._settings.grab().save(str(output / "model-manager.png"))
+                window._settings.hide()
                 index = next(
                     i
                     for i in range(window.backend_combo.count())
@@ -102,7 +108,7 @@ def main() -> int:
                 original = window.backend_combo.itemData(index)
                 if args.missing_runtime:
                     assert original.unavailable_reason
-                    assert "Runtime setup" in original.unavailable_reason
+                    assert "Acceleration" in original.unavailable_reason
                     assert "not installed" in window._model_manager.status.text()
                     assert window.translate_check.isEnabled() and window.backend_combo.isEnabled()
                     window.backend_combo.setCurrentIndex(index)

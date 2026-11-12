@@ -65,7 +65,8 @@ def test_no_models_do_not_start_inference_and_refresh_never_prepares_implicitly(
         windows, factory, cache_path=tmp_path / "cache", backend_provider=lambda: (choice,)
     )
     assert window.backend_combo.currentData() is None
-    assert not window.translate_check.isEnabled()
+    assert window.translate_check.isEnabled() and window.models_button.isEnabled()
+    assert "Download" in window.notice.text()
     window._tick()
     window._refresh_models()
     assert window.backend_combo.currentData() is None
@@ -122,7 +123,7 @@ def test_download_completion_reports_missing_runtime_instead_of_false_readiness(
     manager.operation._thread.join(2)
     manager._poll()
     assert manager.operation is None and bundle.present()
-    assert "not installed" in manager.status.text() and "Runtime setup" in manager.status.text()
+    assert "not installed" in manager.status.text() and "Acceleration" in manager.status.text()
     assert manager.download.text() == "Verify / repair"
     assert manager.progress.value() == manager.progress.maximum()
     manager.close()
@@ -326,6 +327,283 @@ def test_preview_letterboxing_maps_physical_pixels_once() -> None:
     # Original point (960, 540) lands in the preview center, including the top margin.
     scale = target.width() / 1920
     assert (target.x() + 960 * scale, target.y() + 540 * scale) == (320, 240)
+
+
+def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_path, monkeypatch):
+    from jp_overlay.recognition import OcrChoice
+
+    windows = Mock()
+    windows.list_targets.return_value = []
+    factory = Mock()
+    choices = (OcrChoice("Automatic", factory, key="auto"), OcrChoice("CPU", factory, key="cpu"))
+    path = tmp_path / "preferences.json"
+    window = MainWindow(windows, factory, ocr_backends=choices, preferences_path=path)
+    window._show_settings()
+    original = window._settings
+    window._show_settings()
+    assert window._settings is original
+    window.stabilize_check.setChecked(False)
+    window._settings.opacity.setValue(61)
+    window.automatic_font.setChecked(False)
+    window.font_size.setValue(26)
+    window.group_dialogue.setChecked(False)
+    window.ocr_device.setCurrentIndex(1)
+    window.capture_rate.setValue(5)
+    window.translate_check.setChecked(False)
+    window.overlay_check.setChecked(False)
+    deadline = time.monotonic() + 2
+    while not window._preferences.idle:
+        assert time.monotonic() < deadline
+        time.sleep(0.005)
+    window.close()
+    window.deleteLater()
+    restored = MainWindow(windows, factory, ocr_backends=choices, preferences_path=path)
+    assert not restored.stabilize_check.isChecked() and not restored.group_dialogue.isChecked()
+    assert restored._overlay._opacity == 0.61 and restored.font_size.value() == 26
+    assert not restored.automatic_font.isChecked() and restored.font_size.isEnabled()
+    assert restored.ocr_device.currentData().key == "cpu" and restored.capture_rate.value() == 5
+    assert not restored.translate_check.isChecked() and not restored.overlay_check.isChecked()
+    assert not restored.advanced.isChecked() and not restored.inspector.pause.isChecked()
+    factory.assert_not_called()
+    restored.close()
+    restored.deleteLater()
+
+
+def test_hidden_inspector_does_no_frame_copy_or_table_build_and_resume_uses_latest_pair(
+    app, monkeypatch
+):
+    from jp_overlay import inspection
+
+    panel = OcrInspector()
+    panel.set_active(False)
+    copied = Mock(wraps=inspection.frame_image)
+    monkeypatch.setattr(inspection, "frame_image", copied)
+    bounds = Rect(0, 0, 4, 4)
+    geometry = WindowGeometry(bounds, bounds, bounds, 96)
+    latest = None
+    for sequence, text in enumerate(("猫", "犬", "鳥"), 1):
+        frame = CapturedFrame(sequence, sequence, geometry, b"\xff" * 64)
+        latest = OcrResult(frame, (TextRegion(text, bounds),), 10, sequence)
+        panel.set_result(latest, (7,))
+        panel.set_translations((TranslatedText(TranslationRequest(7, 1, text), text + " English"),))
+    copied.assert_not_called()
+    assert panel.result is None and panel.table.rowCount() == 0
+    panel.set_active(True)
+    assert latest is not None
+    assert copied.call_count == 1
+    assert panel.result is latest and panel._display_frame is latest.frame
+    assert cell(panel, 0, 1).text() == "鳥" and cell(panel, 0, 3).text() == "鳥 English"
+    panel.pause.setChecked(True)
+    newer = replace(
+        latest, frame=replace(latest.frame, sequence=4), regions=(TextRegion("魚", bounds),)
+    )
+    panel.set_result(newer, (8,))
+    panel.set_translations((TranslatedText(TranslationRequest(8, 1, "魚"), "Fish"),))
+    assert panel.result is latest and cell(panel, 0, 3).text() == "鳥 English"
+    panel.pause.setChecked(False)
+    assert panel.result is newer and cell(panel, 0, 3).text() == "Fish"
+    panel.clear()
+    panel.set_active(False)
+    panel.set_active(True)
+    assert panel.result is None and panel._latest_frame is None
+    panel.deleteLater()
+
+
+def test_device_and_rate_edits_wait_for_next_capture_even_when_models_arrive_mid_session(
+    app, tmp_path, monkeypatch
+):
+    from jp_overlay.domain import WindowTarget
+    from jp_overlay.recognition import OcrChoice
+
+    windows = Mock()
+    windows.list_targets.return_value = [WindowTarget(1, 1, "Fixture")]
+    cpu, gpu = Mock(), Mock()
+    choices = (OcrChoice("CPU", cpu, key="cpu"), OcrChoice("GPU", gpu, key="auto"))
+    capture, ocr = Mock(), Mock()
+    monkeypatch.setattr("jp_overlay.ui.CaptureSession", capture)
+    monkeypatch.setattr("jp_overlay.ui.OcrSession", ocr)
+    monkeypatch.setattr("jp_overlay.ui.VisualSession", Mock())
+    window = MainWindow(windows, cpu, ocr_backends=choices, cache_path=tmp_path / "cache")
+    window._timer.stop()
+    window._tick = Mock()
+    window._ocr_models_ready = Mock(return_value=False)
+    window._toggle_capture()
+    assert capture.call_args.kwargs["fps"] == 8 and window._capture_ocr_choice == choices[1]
+    window.ocr_device.setCurrentIndex(0)
+    window.capture_rate.setValue(5)
+    window._ocr_models_ready.return_value = True
+    window._refresh_models()
+    ocr.assert_called_once_with(gpu, require_ack=True)
+    assert capture.call_count == 1  # Editing settings did not restart the current session.
+    window._session = window._ocr = window._visual = None
+    window._toggle_capture()
+    assert capture.call_args.kwargs["fps"] == 5
+    assert ocr.call_args.args == (cpu,)
+    window._session = window._ocr = window._visual = None
+    window.close()
+    window.deleteLater()
+
+
+@pytest.mark.parametrize("prepared", [False, True])
+def test_saved_gemma_choice_survives_runtime_change_without_implicit_preparation(
+    app, tmp_path, monkeypatch, prepared
+):
+    from jp_overlay.preferences import Preferences, PreferenceStore
+
+    path = tmp_path / "preferences.json"
+    store = PreferenceStore(path)
+    store._write(Preferences(model="gemma"))
+    windows = Mock()
+    windows.list_targets.return_value = []
+    factory = Mock()
+    sugoi = BackendChoice("Sugoi", factory, "sugoi-fast")
+    gemma = BackendChoice("Gemma Vulkan", factory, "gemma-vulkan", "vulkan-receipt")
+    monkeypatch.setattr("jp_overlay.ui.is_prepared", lambda key: prepared or not key)
+    consent = Mock(return_value=QMessageBox.StandardButton.No)
+    monkeypatch.setattr(QMessageBox, "question", consent)
+    window = MainWindow(windows, factory, (sugoi, gemma), preferences_path=path)
+    assert window.backend_combo.currentData() == (gemma if prepared else None)
+    consent.assert_not_called()
+    factory.assert_not_called()
+    if not prepared:
+        window.backend_combo.setCurrentIndex(1)
+        consent.assert_called_once()
+        assert window.backend_combo.currentData() is None
+    window._settings.opacity.setValue(63)
+    drain(window, lambda: window._preferences.idle)
+    assert PreferenceStore(path).initial.model == "gemma"
+    # Explicit No translation is a successful user choice and persists immediately.
+    if window.backend_combo.currentData() is None:
+        window.backend_combo.setCurrentIndex(0)
+    window.backend_combo.setCurrentIndex(2)
+    drain(window, lambda: window._preferences.idle)
+    assert PreferenceStore(path).initial.model == "none"
+    factory.assert_not_called()
+    window.close()
+    window.deleteLater()
+
+
+def test_live_reconciliation_and_ocr_ack_continue_while_inspector_is_hidden_or_paused(
+    app, tmp_path
+):
+    from jp_overlay.recognition import OcrSnapshot, OcrState
+    from jp_overlay.visual import VisualState
+
+    windows = Mock()
+    windows.list_targets.return_value = []
+    window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
+    window._ocr, window._visual, window._tracker = Mock(), Mock(), Mock()
+    window._tracker.visible.return_value = ()
+    window._tracker.translation_activity.return_value = ()
+    window._tracker.observe.return_value = (1,)
+    bounds = Rect(0, 0, 4, 4)
+    geometry = WindowGeometry(bounds, bounds, bounds, 96)
+    frozen = None
+    for sequence in range(1, 4):
+        frame = CapturedFrame(sequence, sequence, geometry, b"\xff" * 64)
+        result = OcrResult(frame, (TextRegion("猫", bounds),), 10, sequence)
+        window._ocr.snapshot.return_value = OcrSnapshot(OcrState.READY, result)
+        window._visual.poll.return_value = VisualState(
+            frame=frame, request_ocr=True, checked_sequence=sequence
+        )
+        window._update_ocr(frame)
+        assert window._accepted_ocr is result
+        window._ocr.acknowledge.assert_called_with(sequence)
+        assert window._visual.submit.call_args.args[1] is result
+        if sequence == 1:
+            assert window.inspector.result is None
+            window.advanced.setChecked(True)
+            frozen = window.inspector.result
+            window.inspector.pause.setChecked(True)
+        else:
+            assert window.inspector.result is frozen
+            window.advanced.setChecked(False)
+    window._tracker.reset.assert_not_called()
+    window._ocr.invalidate.assert_not_called()
+    assert window._ocr.submit.call_count == 3
+    window.inspector.pause.setChecked(False)
+    assert window.inspector.result is None  # Still collapsed: no hidden image conversion.
+    window.advanced.setChecked(True)
+    assert window.inspector.result is window._accepted_ocr
+    window._ocr = window._visual = None
+    window.close()
+    window.deleteLater()
+
+
+def test_translation_off_leaves_game_unobscured_until_ocr_boxes_are_requested(app, tmp_path):
+    from jp_overlay.domain import CaptureSnapshot, CaptureState, WindowTarget
+
+    windows = Mock()
+    windows.list_targets.return_value = []
+    bounds = Rect(0, 0, 400, 200)
+    geometry = WindowGeometry(bounds, bounds, bounds, 96)
+    frame = CapturedFrame(1, time.monotonic(), geometry, b"\xff" * 320000)
+    windows.geometry.return_value = geometry
+    windows.is_foreground.return_value = True
+    window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
+    window.translate_check.setChecked(False)
+    window._session = Mock(finished=False, target=WindowTarget(1, 1, "Fixture"))
+    window._session.snapshot.return_value = CaptureSnapshot(CaptureState.RUNNING, frame)
+    window._valid_size = bounds.size
+    window._update_ocr = Mock()
+    window._tracker = Mock()
+    track = TextTrack(1, "猫", Rect(20, 20, 40, 20))
+    window._tracker.visible.return_value = (track,)
+    window._tracker.translation_tracks.return_value = (track,)
+    window._tracker.translation_activity.return_value = ()
+    window._overlay.align = Mock()
+    window._tick()
+    window._overlay.align.assert_not_called()
+    window.raw_boxes_check.setChecked(True)
+    window._overlay.align.assert_called_with(bounds)
+    window.overlay_check.setChecked(False)
+    window._tracker.reset.assert_not_called()
+    window._session = None
+    window.close()
+    window.deleteLater()
+
+
+@pytest.mark.parametrize("cancel_operation", [False, True])
+def test_settings_close_can_keep_setup_running_or_cancel_without_stopping_app(
+    app, tmp_path, monkeypatch, cancel_operation
+):
+    from jp_overlay.model_store import Cancelled, ModelBundle
+
+    windows = Mock()
+    windows.list_targets.return_value = []
+    entered = threading.Event()
+
+    def install(bundle, progress, cancel):
+        entered.set()
+        assert cancel.wait(2)
+        raise Cancelled()
+
+    monkeypatch.setattr("jp_overlay.model_manager.install_model", install)
+    monkeypatch.setattr(QMessageBox, "exec", lambda self: 0)
+    selected = "Cancel operation" if cancel_operation else "Continue in background"
+    monkeypatch.setattr(
+        QMessageBox,
+        "clickedButton",
+        lambda self: next(b for b in self.buttons() if b.text() == selected),
+    )
+    bundle = ModelBundle("fixture", "Fixture", tmp_path, (), "")
+    window = MainWindow(windows, Mock(), models=(bundle,), cache_path=tmp_path / "cache")
+    window._manage_models()
+    manager = window._settings.models
+    manager._download()
+    assert entered.wait(1) and manager.operation
+    operation = manager.operation
+    window._settings.close()
+    assert not window._closing and window._timer.isActive()
+    assert operation._cancel.is_set() == cancel_operation
+    if not cancel_operation:
+        assert window._settings.busy and not window._settings.isVisible()
+    window.close()  # Closing the whole app always cancels and drains, without another prompt.
+    operation._thread.join(2)
+    manager._poll()
+    window._tick()
+    assert not window._settings.busy and not window._timer.isActive()
+    window.deleteLater()
 
 
 def test_text_selection_and_empty_result_replace_previous_frame_and_boxes(app) -> None:

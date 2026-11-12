@@ -1,4 +1,8 @@
-# UI proposal — not implemented
+# Slice fourteen — Compact main window and separate Settings
+
+Approved and implemented on 2026-11-13. The filename is retained for existing proposal links.
+The earlier interactive mockup remains a design reference; application code and these behaviors
+describe the delivered slice. No OCR algorithms, model runtimes, or translation prompts changed.
 
 Keep everyday use compact. The window picker, refresh, and Start/Stop capture remain necessary
 session controls. Below them show only **Show game overlay**, **Translation overlay**, and the
@@ -13,9 +17,8 @@ to screen readers. No animated fade of game text is introduced by using switches
 ## Main window behavior
 
 - Show game overlay hides/shows game rendering without stopping capture or forgetting state.
-- Translation overlay controls English translation/rendering. Proposed off-state leaves the game
-  unobscured; numbered OCR boxes become an explicit Advanced diagnostic. This changes the current
-  off-state and must be implemented deliberately in the later slice.
+- Translation overlay controls English translation/rendering. Turning it off leaves the game
+  unobscured; numbered OCR boxes are an explicit Advanced diagnostic.
 - The selector lists installed translators and No translation. Downloaded-but-unavailable models
   remain visible with a setup action; never silently disable the entire translation control.
 - With no models, show a short inline **Set up models** action. Capture still works. Preparation,
@@ -39,10 +42,12 @@ in background** or **Cancel operation**; app shutdown still drains/cancels befor
 Save ordinary preferences automatically; no Apply/Cancel ceremony for changes that already affect
 the live overlay. Keep runtime install and restart as explicit actions. Persist model/profile IDs
 only after success, not file paths supplied by a dropdown. Do not persist an HWND as a durable game
-identity. Use a versioned, validated settings file with migration/default tests in the later slice.
+identity. `data/preferences.json` stores validated version-one settings. Invalid individual values
+use defaults; corrupt/newer files are preserved with a visible warning and session-only changes.
+One coalescing writer atomically replaces the file off the GUI thread, and shutdown drains it.
 
 Add a small focusable **info** button by every setting. It should work on hover, keyboard focus,
-and click; do not make critical requirements available only on hover. Proposed tooltip copy:
+and click; do not make critical requirements available only on hover. Information copy:
 
 | Setting | Information text |
 | --- | --- |
@@ -69,8 +74,9 @@ invisible inspector; resume with the newest matching frame/result when expanded.
 bounded latest inspection pair, preserving the existing source-frame contract. Hiding Advanced must
 never change OCR scheduling, grouping, retention, cache behavior, or diagnostics collection.
 
-Acceptance for the eventual slice: keyboard and high-DPI layouts, long model/window names, disabled
+Acceptance: keyboard and high-DPI layouts, long model/window names, disabled
 reason tooltips, no-model and no-runtime onboarding, settings persistence, pending device changes,
 background setup, Advanced show/hide without capture or translation disruption, and regression of
-overlay alignment/click-through and exact frame/result inspection. This document and the conversation
-mockup are design proposals only; the current layout is intentionally retained for now.
+overlay alignment/click-through and exact frame/result inspection. Verification and its platform
+limits are recorded in [verification](../verification.md). See
+[decision 014](../decisions/014-settings-and-inspection.md) for ownership boundaries.

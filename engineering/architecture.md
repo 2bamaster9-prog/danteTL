@@ -3,8 +3,10 @@
 ## Current implementation
 
 `app` assembles the Windows boundary, QApplication, main window, and lazy OCR/translation factories.
-`ui` owns controls and coordination for one capture/OCR/translation session. `inspection` owns the
-image/text inspector. `capture` owns asynchronous native capture and shutdown.
+`ui` owns coordination for one capture/OCR/translation session and the compact main window.
+`settings_window` owns nonmodal configuration/setup views; `preferences` owns validated settings
+and coalesced atomic persistence. `controls` and `theme` provide shared Qt presentation.
+`inspection` owns the independent image/text inspector. `capture` owns native capture and shutdown.
 `overlay` owns rendering and display placement. `windows` owns Win32 identity, geometry, and
 overlay styles. `domain` contains immutable shared values and pure geometry/visibility policy.
 `demo` is an optional animated test target.
@@ -64,7 +66,8 @@ window with matching capture dimensions. It hides on focus loss, minimize, stop,
 
 English mode draws translated text over a translucent background at committed track positions.
 Untranslated/pending regions leave the original game text visible. English always uses stabilization.
-Turning English off reveals numbered OCR boxes for diagnosis; only this mode allows raw box comparison.
+Turning translation off leaves the game unobscured. Advanced's explicit Show OCR boxes switch
+enables numbered diagnostics; only this mode allows raw box comparison.
 The default stabilized mode retains committed positions through small OCR changes and brief misses.
 Processing delay never expires committed tracks. Equal crop pixels preserve a missed track;
 otherwise three completed negative observations spanning at least 350 ms retire it. A changed crop
@@ -93,10 +96,11 @@ whole engine on CPU after initialization/inference failure. The fallback is visi
 once per engine, not on every frame. Strict CUDA is reserved for verification. Missing/corrupt model
 files fail before fallback. The GPU uses the same model files and batches; CPU handles unsupported
 graph nodes. The per-session CUDA arena target is 512 MiB, not a total-process VRAM cap. Device and
-2–12 Hz capture settings are frozen during a session. Both providers default to 8 Hz; visual
+2–12 Hz capture settings are sampled when a session starts. Edits apply next capture, including
+when downloaded OCR models become available mid-session. Both providers default to 8 Hz; visual
 evidence, rather than every captured frame, schedules regional or full-frame inference.
 
-Resize, minimize, and pause increment a generation and clear pending/published work. Already-running
+Resize and minimize increment a generation and clear pending/published work. Already-running
 native inference finishes, but cannot publish into an invalid generation. Each new capture has a
 separate worker. Stop clears the inspector and overlay immediately; the GUI polls all workers'
 completion before restarting or closing. A model failure preserves its diagnostic while capture
@@ -110,6 +114,12 @@ filtered to Japanese, so other visible text may also appear. Detector-only boxes
 recognition. Displayed confidence is the mean retained-character score; detection scores are not
 exposed by the pinned upstream implementation.
 
+The coordinator retains accepted OCR independently of inspector visibility. Collapsed inspection
+keeps only the newest source/result pair without image conversion or table work. Pause inspection
+freezes its displayed frame, Japanese and English; it does not clear generations, stop OCR, or hide
+the game overlay. Expanding/resuming renders the newest exact pair. An explicit frozen review may
+retain one additional displayed pair; resize/minimize/stop clears it too.
+
 Worker snapshots expose completed/skipped counts, capture-to-start delay, the mean of eight recent
 inference durations, and the start time of the active pass. The UI exposes these independently of
 capture frequency. This is bounded diagnostic state, not logging of source text or pixels.
@@ -119,7 +129,7 @@ capture frequency. This is bounded diagnostic state, not logging of source text 
 `visual.VisualSession` owns a second, lightweight worker. One replaceable job contains the latest
 frame, current tracks/assignments, activity, and the latest OCR/source pair. Snapshots contain current
 evidence and a coalesced request for OCR, acknowledged by UI polling. Expensive OpenCV/NumPy work
-and native imports stay off the GUI thread. Pause, resize, minimize, stop, and source closure clear
+and native imports stay off the GUI thread. Resize, minimize, stop, and source closure clear
 generations; late work cannot republish. Failure switches visibly to ordinary OCR until reset.
 
 `VisualAnalyzer` stores a 640 x 360 grayscale thumbnail, a 32 x 18 tile-motion map, at most 128 text
@@ -288,7 +298,7 @@ not submitted to the Japanese-to-English backend.
 
 The worker checks the memory/SQLite cache, translates missing entries, and publishes only requests
 still desired in the same generation. In-flight work can populate the cache after invalidation, but
-cannot repopulate obsolete display results. Reset, pause, minimize, resize, and model switches
+cannot repopulate obsolete display results. Reset, minimize, resize, and model switches
 invalidate generations. The renderer independently matches the full request, including all members.
 
 `TranslationBackend` exposes `cache_identity`, batched `translate`, and `close`. Factories are passed
@@ -388,5 +398,8 @@ work. It distinguishes the real GUI PID from the Windows Python launcher PID. `t
 uses the verified next-launch selection with CPU fallback. Models/cache remain shared at project
 level, while each native runtime environment lives in `.runtimes`. The in-app AMD profile uses
 Vulkan translation and CPU OCR; the older experimental DirectML package remains isolated.
-See [decision 013](decisions/013-in-app-runtime-setup.md). Main/Settings/Advanced changes are design
-proposals only, with no renderer or inference scheduling changes in this slice.
+See [decision 013](decisions/013-in-app-runtime-setup.md). These views are embedded in Settings;
+closing that window can leave setup running or cancel it. App shutdown always cancels/drains.
+Versioned preferences are automatically saved in `data/preferences.json`, without HWNDs or debug
+state. Model IDs persist only after successful loading; unavailable/unprepared choices never load
+implicitly on startup. See [decision 014](decisions/014-settings-and-inspection.md).

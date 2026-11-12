@@ -80,6 +80,7 @@ class OcrChoice:
     name: str
     create: Callable[[], Recognizer]
     capture_fps: int = 8
+    key: str = ""
 
 
 class OcrSession:

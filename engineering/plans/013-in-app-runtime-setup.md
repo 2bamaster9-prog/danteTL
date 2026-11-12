@@ -16,5 +16,5 @@ Actual CUDA OCR and Gemma preparation/reuse run in the app-installed NVIDIA envi
 Radeon testing and a cold download on a friend's machine remain user validation.
 
 See [decision 013](../decisions/013-in-app-runtime-setup.md) and
-[verification](../verification.md) for boundaries and commands. The next UI work is a
-[proposal only](014-ui-proposal.md), pending user feedback.
+[verification](../verification.md) for boundaries and commands. The subsequently approved
+[UI slice](014-ui-proposal.md) integrates these views into Settings.

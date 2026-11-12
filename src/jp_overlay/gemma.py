@@ -131,10 +131,11 @@ class GemmaBackend:
             runtime = load_runtime(device)
         except (ImportError, OSError, RuntimeError) as error:
             raise RuntimeError(
-                "Gemma runtime is unavailable. Open Models → Runtime setup, then restart."
+                "Gemma runtime is unavailable. Open Settings → Models & runtime → Acceleration, "
+                "then restart."
             ) from error
         if device != "cpu" and not runtime.llama_supports_gpu_offload():
-            raise RuntimeError("Gemma GPU runtime unavailable. Open Runtime setup or select Sugoi.")
+            raise RuntimeError("Gemma GPU runtime unavailable. Open Settings or select Sugoi.")
         self._model: Any = None
         self._model = runtime.Llama(
             model_path=str(directory / ASSETS[0].filename),

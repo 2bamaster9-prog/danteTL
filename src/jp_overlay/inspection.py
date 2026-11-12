@@ -1,7 +1,16 @@
 """Frame-matched OCR inspection: zoomable image, numbered boxes, and copyable text."""
 
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QColor, QFont, QGuiApplication, QImage, QPainter, QPaintEvent, QPen
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QGuiApplication,
+    QImage,
+    QPainter,
+    QPaintEvent,
+    QPen,
+    QResizeEvent,
+)
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -130,18 +139,27 @@ class OcrInspector(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self.result: OcrResult | None = None
+        self._active = True
+        self._latest_result: OcrResult | None = None
+        self._latest_frame: CapturedFrame | None = None
+        self._display_frame: CapturedFrame | None = None
+        self._latest_ids: tuple[int | None, ...] | None = None
+        self._latest_translations: tuple[TranslatedText, ...] = ()
         self._translations: tuple[TranslatedText, ...] = ()
         self._row_translations: dict[int, TranslatedText] = {}
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         toolbar = QHBoxLayout()
         self.pause = QCheckBox("Pause inspection")
-        self.pause.setToolTip("Freeze this frame and its text. Capture continues; OCR work pauses.")
+        self.pause.setToolTip("Freeze only the inspector. Capture, OCR and translation continue.")
+        self.pause.toggled.connect(self._pause_changed)
         toolbar.addWidget(self.pause)
         characters = QCheckBox("Character boxes")
         characters.toggled.connect(self._characters_changed)
         toolbar.addWidget(characters)
         toolbar.addStretch()
+        layout.addLayout(toolbar)
+        toolbar = QHBoxLayout()
         zoom = QComboBox()
         zoom.setAccessibleName("Preview zoom")
         for label, scale in (("Fit", 0.0), ("100%", 1.0), ("200%", 2.0)):
@@ -157,7 +175,7 @@ class OcrInspector(QWidget):
         toolbar.addWidget(copy_english)
         layout.addLayout(toolbar)
 
-        splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter = splitter = QSplitter(Qt.Orientation.Horizontal)
         self.preview = CapturePreview()
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -173,7 +191,7 @@ class OcrInspector(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        self.table.setMinimumWidth(460)
+        self.table.setMinimumSize(240, 150)
         self.table.itemSelectionChanged.connect(self._selection_changed)
         splitter.addWidget(self.table)
         splitter.setSizes([620, 520])
@@ -188,9 +206,44 @@ class OcrInspector(QWidget):
     def set_result(
         self, result: OcrResult, track_ids: tuple[int | None, ...] | None = None
     ) -> None:
+        self._latest_result, self._latest_frame, self._latest_ids = result, result.frame, track_ids
+        self._render_latest()
+
+    def set_frame(self, frame: CapturedFrame) -> None:
+        self._latest_result, self._latest_frame, self._latest_ids = None, frame, None
+        self._render_latest()
+
+    def set_active(self, active: bool) -> None:
+        self._active = active
+        if not active and not self.pause.isChecked():
+            self._clear_display()
+        self._render_latest()
+
+    def _pause_changed(self, paused: bool) -> None:
+        if not paused and not self._active:
+            self._clear_display()
+        self._render_latest()
+
+    def _render_latest(self) -> None:
+        if not self._active or self.pause.isChecked():
+            return
+        changed = self._translations != self._latest_translations
+        self._translations = self._latest_translations
+        if self._latest_result is not None:
+            if self.result is not self._latest_result:
+                self._show_result(self._latest_result, self._latest_ids)
+            elif changed:
+                self._refresh_english()
+        elif self._display_frame is not self._latest_frame:
+            self._clear_display()
+            self._display_frame = self._latest_frame
+            self.preview.set_frame(self._latest_frame)
+
+    def _show_result(self, result: OcrResult, track_ids: tuple[int | None, ...] | None) -> None:
         if self.result is result:
             return
         self.result = result
+        self._display_frame = result.frame
         self.preview.selected = -1
         labels = (
             tuple(str(key) if key is not None else "—" for key in track_ids)
@@ -216,9 +269,8 @@ class OcrInspector(QWidget):
         self._selection_changed()
 
     def set_translations(self, results: tuple[TranslatedText, ...]) -> None:
-        if results != self._translations:
-            self._translations = results
-            self._refresh_english()
+        self._latest_translations = results
+        self._render_latest()
 
     def _refresh_english(self) -> None:
         self._row_translations.clear()
@@ -253,13 +305,26 @@ class OcrInspector(QWidget):
             self.table.setItem(row, 3, cell)
 
     def clear(self) -> None:
+        self._latest_result = self._latest_frame = None
+        self._latest_ids = None
+        self._latest_translations = ()
+        self._clear_display()
+
+    def _clear_display(self) -> None:
         self.result = None
+        self._display_frame = None
         self._translations = ()
         self._row_translations.clear()
         self.preview.set_frame(None)
         self.table.setRowCount(0)
         self.copy_button.setEnabled(False)
         self._selection_changed()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self.splitter.setOrientation(
+            Qt.Orientation.Horizontal if self.width() >= 820 else Qt.Orientation.Vertical
+        )
 
     def _selection_changed(self) -> None:
         rows = self.table.selectionModel().selectedRows()

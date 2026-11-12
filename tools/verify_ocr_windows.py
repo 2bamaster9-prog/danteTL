@@ -8,6 +8,7 @@ import traceback
 from dataclasses import replace
 from functools import partial
 from pathlib import Path
+from unittest.mock import patch
 
 import shiboken6
 from PySide6.QtCore import Qt, QTimer
@@ -103,6 +104,10 @@ def main() -> int:
         window.backend_combo.setCurrentIndex(2)
     window.debug_check.setChecked(args.debug)
     window.show()
+    window.advanced.setChecked(True)
+    if not args.translation:
+        window.translate_check.setChecked(False)
+        window.raw_boxes_check.setChecked(True)
     target = WindowTarget(int(demo.winId()), os.getpid(), demo.windowTitle())
     window.windows_combo.addItem("OCR verification fixture", target)
     window.windows_combo.setCurrentIndex(window.windows_combo.count() - 1)
@@ -366,11 +371,16 @@ def main() -> int:
                 stage = 8
             elif stage == 1 and now - stage_started > 0.7:
                 assert window.inspector.result is frozen, "Pause replaced the reviewed frame"
-                assert not window._overlay.isVisible()
+                # The fixture deliberately does not steal foreground focus. Exercise
+                # pause rendering with foreground eligibility controlled independently.
+                with patch.object(windows, "is_foreground", return_value=True):
+                    window._tick()
+                    assert window._overlay.isVisible(), "Inspector pause hid the live overlay"
                 assert window._session is not None
                 captured = window._session.snapshot().frame
                 assert captured and frozen and captured.sequence > frozen.frame.sequence
                 evidence["pause_freezes_result_while_capture_continues"] = True
+                evidence["pause_preserves_live_overlay"] = True
                 window.inspector.pause.setChecked(False)
                 window.stabilize_check.setChecked(True)
                 evidence["raw_comparison_and_pause_toggle"] = True

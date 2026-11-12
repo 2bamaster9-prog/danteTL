@@ -2,8 +2,7 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/013-in-app-runtime-setup.md`. The UI redesign in
-`engineering/plans/014-ui-proposal.md` is a proposal only; do not implement it yet.
+`engineering/plans/014-ui-proposal.md`. The user approved this UI slice; it is implemented.
 
 - Use Python with deep modules: small public interfaces that own meaningful complexity.
 - Keep Windows, Qt, capture-library, and model details at their respective boundaries.
@@ -98,6 +97,14 @@ Read `engineering/README.md` first. The agreed product plan is in
   remain model-free. Preserve raw OCR inspection and full English text when overlay layout overflows.
 - Update relevant engineering documents when architecture or behavior changes; record major choices
   in `engineering/decisions/`. Keep documentation concise and avoid duplicated instructions.
+- Main/Settings/Advanced are separate views of the same live session. Hiding or pausing inspection
+  must never invalidate OCR, visual evidence, tracks or translation. Keep accepted OCR outside the
+  inspector; hidden inspection retains only the latest source/result pair, without image conversion
+  or table rebuilds. Pause freezes both inspector languages only. Preserve exact source matching.
+  Settings persist validated IDs/values asynchronously; never persist HWNDs, debug or pause state.
+  Device/rate edits apply on the next capture, including when models arrive during capture. Settings
+  may hide with setup running; app close always cancels/drains it. Run `verify_ui_windows.py`, the
+  native setup regression, and live translation/pause checks for changes to these boundaries.
 - Do not claim game, mixed-DPI, HDR, or anti-cheat compatibility based solely on a demo window.
 - Do not implement later milestones without a user request. Capture, OCR, tracking, local Sugoi
   translation, bounded caching, English layout, icon cleanup, and dialogue grouping are implemented.

@@ -28,8 +28,8 @@ Read these documents as relevant to the task:
 | [Gemma/debug decision](decisions/011-gemma-and-diagnostics.md) | Optional quality backend and diagnostic boundaries |
 | [Models/context decision](decisions/012-model-management-and-context.md) | Explicit setup, AMD boundaries, and bounded conversation memory |
 | [Runtime setup decision](decisions/013-in-app-runtime-setup.md) | Explicit installs, isolated environments, and restart |
-| [Current slice](plans/013-in-app-runtime-setup.md) | Deliverables, progress, and remaining gaps |
-| [UI proposal](plans/014-ui-proposal.md) | Proposed main/Settings/Advanced split; not implemented |
+| [UI decision](decisions/014-settings-and-inspection.md) | Settings ownership, persistence, and independent inspection |
+| [Current slice](plans/014-ui-proposal.md) | Implemented main/Settings/Advanced split and acceptance |
 
 The harness consists of these documents, executable checks, deterministic tests, and live capture
 verification. Add guidance when it resolves a concrete ambiguity; replace stale guidance instead

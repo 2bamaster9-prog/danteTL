@@ -159,6 +159,11 @@ AMD-compatible Vulkan setup and source sharing package are available. CPU OCR re
 default; DirectML OCR failed numerical checks locally and is experimental with visible CPU fallback.
 Discrete Radeon testing, permanent terminology/glossaries, and a frozen installer remain future work.
 
+[Slice thirteen](plans/013-in-app-runtime-setup.md) adds explicit in-app runtime detection,
+installation, progress, repair and restart. [Slice fourteen](plans/014-ui-proposal.md) implements
+the approved compact main window, separate Settings, persistent preferences and optional Advanced
+inspector. Hidden or paused inspection does not interrupt the live translation pipeline.
+
 ## Technical references
 
 - [Windows capture](https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/screen-capture)

@@ -60,7 +60,8 @@ def create_sessions(paths: tuple[Any, ...], threads: int, provider: str) -> list
     if provider == CUDA:
         if CUDA not in ort.get_available_providers():
             raise RuntimeError(
-                "CUDA runtime is not installed. Open Models → Runtime setup or choose CPU."
+                "CUDA runtime is not installed. Open Settings → Models & runtime → Acceleration "
+                "or choose CPU."
             )
         prepare_cuda(ort)
     if provider == DML and DML not in ort.get_available_providers():

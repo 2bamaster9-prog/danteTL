@@ -24,21 +24,25 @@ def create_recognizer(*, device: str = "cpu") -> Recognizer:
 def ocr_backends() -> tuple[OcrChoice, ...]:
     if gpu_runtime_installed("onnxruntime-directml"):
         return (
-            OcrChoice("CPU · recommended with the AMD package", create_recognizer, 8),
+            OcrChoice("CPU · recommended with the AMD package", create_recognizer, 8, "cpu"),
             OcrChoice(
                 "DirectML · experimental, checked CPU fallback",
                 partial(create_recognizer, device="auto-directml"),
                 8,
+                "auto-directml",
             ),
         )
     if gpu_runtime_installed():
         return (
             OcrChoice(
-                "Automatic · GPU with CPU fallback", partial(create_recognizer, device="auto"), 8
+                "Automatic · GPU with CPU fallback",
+                partial(create_recognizer, device="auto"),
+                8,
+                "auto",
             ),
-            OcrChoice("CPU · low resource use", create_recognizer, 8),
+            OcrChoice("CPU · low resource use", create_recognizer, 8, "cpu"),
         )
-    return (OcrChoice("CPU · GPU setup optional", create_recognizer, 8),)
+    return (OcrChoice("CPU · GPU setup optional", create_recognizer, 8, "cpu"),)
 
 
 def create_translator(*, beam_size: int = 2) -> TranslationBackend:
@@ -111,6 +115,7 @@ def main() -> None:
     from PySide6.QtWidgets import QApplication, QMessageBox
 
     from jp_overlay.model_store import model_catalog
+    from jp_overlay.runtime_setup import project_root
     from jp_overlay.ui import MainWindow
     from jp_overlay.windows import Windows
 
@@ -141,6 +146,7 @@ def main() -> None:
         ocr_backends=ocr_backends(),
         models=model_catalog(),
         backend_provider=translation_backends,
+        preferences_path=project_root() / "data/preferences.json",
     )
     window.show()
     from jp_overlay.runtime_restart import acknowledge_startup

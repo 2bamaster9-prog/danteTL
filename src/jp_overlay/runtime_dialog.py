@@ -5,11 +5,12 @@ import threading
 from functools import partial
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
+    QHBoxLayout,
     QLabel,
     QProgressBar,
     QPushButton,
@@ -17,6 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from jp_overlay.controls import InfoButton
 from jp_overlay.hardware import Adapter, detect_adapters, recommended_profile
 from jp_overlay.model_store import ModelOperation, ModelProgress, Progress
 from jp_overlay.runtime_setup import (
@@ -32,8 +34,14 @@ from jp_overlay.runtime_setup import (
 class RuntimeSetupDialog(QDialog):
     restart_requested = Signal(object)
 
-    def __init__(self, parent: QWidget | None = None, *, root: Path | None = None) -> None:
+    def __init__(
+        self, parent: QWidget | None = None, *, root: Path | None = None, embedded: bool = False
+    ) -> None:
         super().__init__(parent)
+        self._embedded = embedded
+        if embedded:
+            self.setWindowFlags(Qt.WindowType.Widget)
+        self.error_message = ""
         self.root = root or project_root()
         self.setWindowTitle("Runtime setup")
         self.resize(660, 460)
@@ -46,6 +54,18 @@ class RuntimeSetupDialog(QDialog):
         self.hardware = QLabel("Checking installed graphics adapters…")
         self.hardware.setWordWrap(True)
         layout.addWidget(self.hardware)
+        header = QHBoxLayout()
+        header.addWidget(QLabel("Runtime"))
+        header.addWidget(
+            InfoButton(
+                "Runtime",
+                "Installs local libraries for your graphics hardware. "
+                "Does not download model weights or update system drivers. "
+                "You can override the recommendation or choose CPU.",
+            )
+        )
+        header.addStretch()
+        layout.addLayout(header)
         self.choice = QComboBox()
         for profile in PROFILES:
             self.choice.addItem(profile.name, profile)
@@ -58,9 +78,8 @@ class RuntimeSetupDialog(QDialog):
         self.description.setWordWrap(True)
         layout.addWidget(self.description)
         note = QLabel(
-            "Installation needs internet access and free disk space. It creates a separate app "
-            "environment and keeps your model files. No system drivers are installed. "
-            "After restart, selecting Gemma will offer its first-use preparation."
+            "Needs internet access and free disk space. Your model files are kept. "
+            "Restart applies the new runtime; selecting Gemma then offers first-use preparation."
         )
         note.setWordWrap(True)
         layout.addWidget(note)
@@ -86,7 +105,9 @@ class RuntimeSetupDialog(QDialog):
         self.later.clicked.connect(self._later)
         layout.addWidget(self.later)
         self.cancel_button = QPushButton("Cancel")
-        self.cancel_button.clicked.connect(self.close)
+        self.cancel_button.clicked.connect(self.cancel_operation if embedded else self.close)
+        if embedded:
+            self.cancel_button.setText("Cancel setup")
         layout.addWidget(self.cancel_button)
         self.choice.currentIndexChanged.connect(self._selected)
         self._selected()
@@ -112,6 +133,12 @@ class RuntimeSetupDialog(QDialog):
         self.install.setText("Verify / repair runtime" if ready else "Install runtime")
         self.restart.setEnabled(idle and bool(ready) and not current)
         self.later.setEnabled(self.restart.isEnabled())
+        self.restart.setVisible(self.restart.isEnabled())
+        self.later.setVisible(self.later.isEnabled())
+        self.progress.setVisible(not idle)
+        if self._embedded:
+            self.cancel_button.setEnabled(not idle)
+            self.cancel_button.setVisible(not idle and not self._detecting)
         if idle:
             self.status.setText(
                 "This runtime is in use."
@@ -126,12 +153,16 @@ class RuntimeSetupDialog(QDialog):
         if self.operation or not isinstance(profile, RuntimeProfile):
             return
         self._closing = self._cancelling = False
+        self.error_message = ""
         self.operation = ModelOperation(partial(install_runtime, self.root, profile))
         self.choice.setEnabled(False)
         self.install.setEnabled(False)
         self.restart.setEnabled(False)
         self.later.setEnabled(False)
         self.progress.setRange(0, 0)
+        self.progress.show()
+        self.cancel_button.setEnabled(True)
+        self.cancel_button.show()
         self.operation.start()
 
     def _poll(self) -> None:
@@ -146,6 +177,7 @@ class RuntimeSetupDialog(QDialog):
         if not value.done:
             return
         self.operation = None
+        self.error_message = value.error
         self.progress.setRange(0, 1)
         self.progress.setValue(0 if value.error or value.cancelled else 1)
         self.choice.setEnabled(True)
@@ -174,7 +206,8 @@ class RuntimeSetupDialog(QDialog):
         profile = self.choice.currentData()
         ready = ready_runtime(self.root, profile.key)
         if ready and self.operation is None:
-            self.hide()
+            if not self._embedded:
+                self.hide()
             self.restart_requested.emit(ready)
 
     def _later(self) -> None:
@@ -188,12 +221,21 @@ class RuntimeSetupDialog(QDialog):
                 self.status.setText(str(error))
 
     def reject(self) -> None:
-        self.close()
+        if self._embedded:
+            self.window().close()
+        else:
+            self.close()
+
+    def cancel_operation(self) -> None:
+        if self.operation:
+            self._cancelling = True
+            self.operation.cancel()
+            self.cancel_button.setEnabled(False)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         if self.operation:
-            self._closing = self._cancelling = True
-            self.operation.cancel()
+            self._closing = True
+            self.cancel_operation()
             event.ignore()
         else:
             event.accept()
