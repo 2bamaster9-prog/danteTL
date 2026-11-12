@@ -50,6 +50,7 @@ def test_worker_skips_backlog_and_keeps_exact_source_frame() -> None:
     try:
         session.submit(frame(1))
         assert engine.entered.wait(3)
+        assert session.snapshot().processing_since is not None
         for sequence in range(2, 1001):
             session.submit(frame(sequence))
         engine.release.set()
@@ -62,6 +63,11 @@ def test_worker_skips_backlog_and_keeps_exact_source_frame() -> None:
         assert result.frame == frame(1000)
         assert result.regions[0].text == "1000"
         assert engine.sequences == [1, 1000]
+        snapshot = session.snapshot()
+        assert snapshot.processed_frames == 2
+        assert snapshot.skipped_frames == 998
+        assert snapshot.mean_duration_ms >= 0 and snapshot.queue_ms >= 0
+        assert snapshot.processing_since is None
         session.submit(frame(1000))
         session.submit(frame(2))
         assert engine.sequences == [1, 1000]

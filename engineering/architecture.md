@@ -13,7 +13,8 @@ The domain imports no Qt or Windows code. Capture does not depend on Qt and cons
 geometry-source protocol. `recognition` owns the OCR worker, immutable observations, and lifecycle;
 it imports no Qt, Win32, or model runtime. `meiki` isolates pinned MeikiOCR/ONNX details. `models`
 defines and validates pinned local assets. `tracking` owns bounded text identities, matching,
-confirmation, and expiration; it stores no frame images and has no native/model dependencies.
+confirmation, and retirement; it stores no frame images and has no native/model dependencies.
+`presence` computes bounded exact crop digests; tracks retain only those digests and their bounds.
 `translation` owns scheduling, backend swaps, and result validity through a small backend protocol.
 `sugoi` owns SentencePiece/CTranslate2 and pinned translation assets; `translation_cache` owns bounded
 memory/SQLite storage. `text_layout` owns measured English wrapping and viewport limits. The current
@@ -61,8 +62,10 @@ English mode draws translated text over a translucent background at committed tr
 Untranslated/pending regions leave the original game text visible. English always uses stabilization.
 Turning English off reveals numbered OCR boxes for diagnosis; only this mode allows raw box comparison.
 The default stabilized mode retains committed positions through small OCR changes and brief misses.
-An unchanged source frame can retain its boxes indefinitely. Advancing capture without fresh matching
-OCR expires tracks after 800 ms; two consecutive missed OCR observations also remove a track.
+Processing delay never expires committed tracks. Equal crop pixels preserve a missed track;
+otherwise three completed negative observations spanning at least 350 ms retire it. A changed crop
+and a negative OCR result on a now-static source can settle 350 ms after completion without duplicate
+WGC frames. These are operational evidence rules, not proof of semantic absence.
 Dimension mismatches always hide/clear them. The comparison checkbox displays raw boxes with the
 original 750 ms freshness policy. The original sample mode remains for the native regression harness.
 
@@ -93,6 +96,10 @@ filtered to Japanese, so other visible text may also appear. Detector-only boxes
 recognition. Displayed confidence is the mean retained-character score; detection scores are not
 exposed by the pinned upstream implementation.
 
+Worker snapshots expose completed/skipped counts, capture-to-start delay, the mean of eight recent
+inference durations, and the start time of the active pass. The UI exposes these independently of
+capture frequency. This is bounded diagnostic state, not logging of source text or pixels.
+
 Pause freezes the current image/table and invalidates queued work while capture continues. Resume
 resubmits the latest frame. Resize/minimize/stop clear even a frozen inspection to prevent a stale
 source from appearing active. Tracking resets on these events and on failure; IDs are never reused
@@ -108,9 +115,11 @@ Structural punctuation, numbers, interior characters, incomplete metadata, and u
 remain intact. The inspector still displays original detector/character boxes, text, and scores.
 
 The GUI coordinator observes each completed OCR sequence once; repeated polling cannot count as
-confirmation. All timestamps are explicit monotonic capture times. No background timer, history
+confirmation. Capture/completion times are explicit monotonic values. No background timer, history
 queue, extra model, or image copy is introduced. Matching runs only on new OCR, bounded to 128 tracks
-and 128 candidate regions. One-to-one greedy assignment uses overlap, spatial proximity, orientation,
+and 512 candidate regions. Existing matches get priority over new admissions, so detector ordering
+cannot evict them merely by crossing the display limit. Truncated input cannot vote for absence.
+One-to-one greedy assignment uses overlap, spatial proximity, orientation,
 and exact/approximate normalized text; ties are deterministic. Identical distant labels cannot match
 on text alone. The raw inspector receives the assigned IDs in original detector row order.
 
@@ -127,23 +136,32 @@ keep the ordinary confirmation path.
 
 A weaker similar candidate can still replace the preference after 1.25 seconds of consistent
 evidence, resetting its confidence baseline. This prevents genuine one-character dialogue edits
-from being hidden indefinitely. Returning to the winner, another candidate, a miss, or a long OCR
-gap breaks that evidence. New content and expired/reset tracks do not inherit an old score.
+from being hidden indefinitely. Returning to the winner, another candidate, or a miss breaks that
+evidence. Slow but consecutive completed observations still count. New content and retired/reset
+tracks do not inherit an old score.
 Missing/invalid confidence falls back to ordinary confirmation. Raw inspector text/scores are unchanged.
 If no newer frame arrives, ordinary pending changes settle after 350 ms on that latest captured
 frame; protected weaker variants use the longer 1.25-second interval. WGC does not need to repeat
-identical pixels. A long static pause preserves IDs without counting
-pending edits on either side of the gap as consecutive evidence.
+identical pixels. A long pause or slow inference preserves IDs; duplicate polling never adds votes.
 
 New recognized regions display immediately in diagnostic mode. Translation waits for a second
-consistent observation, or 350 ms on an unchanged latest frame. Previously confirmed content remains
-eligible through pending edits and the one-miss grace period, keeping its existing English visible.
+consistent observation, exact crop presence in a second observation, or 350 ms on an unchanged latest
+frame. Previously confirmed content remains
+eligible through pending edits, slow processing, and the two-miss grace period, keeping English visible.
 A committed new revision invalidates its old English. Empty recognition remains visible in the raw
-inspector but cannot refresh a track. Text tracking does not yet implement visual scene-cut detection,
+inspector. A missed track whose crop is identical to its accepted reference stays present even after
+repeated misses. Exact-pixel checks use BLAKE2b digests, at most 65,536 pixels per crop and 1,000,000
+pixels per observation, without retaining frames. Missing checks take priority over reference refresh.
+Unknown/oversized/out-of-bounds crops fall back to OCR votes. Rejected source candidates cannot replace
+references; committing a new source clears its old reference. Pixel changes alone never remove text.
+A stalled OCR worker keeps the last state until recovery/failure/reset; current-pass elapsed time
+remains visible. Text tracking does not yet implement visual scene-cut detection,
 optical flow, or split/merge reconciliation.
 See [the policy decision](decisions/003-stable-display.md) for thresholds and tradeoffs.
 The [confidence decision](decisions/005-confidence-stability.md) refines text acceptance without
-changing public track values, translation/cache identities, or model ownership.
+changing public track values, translation/cache identities, or model ownership. The
+[persistence decision](decisions/007-evidence-based-persistence.md) supersedes the old age timeout
+and defines removal evidence and its limits.
 
 ## Translation and layout
 

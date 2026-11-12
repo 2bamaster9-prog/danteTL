@@ -14,8 +14,8 @@ from verify_translation import process_memory
 
 from jp_overlay.app import create_recognizer, translation_backends
 from jp_overlay.demo import DIALOGUE_LINES, DemoWindow
-from jp_overlay.domain import WindowTarget
-from jp_overlay.recognition import OcrState
+from jp_overlay.domain import CapturedFrame, WindowTarget
+from jp_overlay.recognition import OcrState, TextRegion
 from jp_overlay.translation import TranslationState
 from jp_overlay.ui import MainWindow
 from jp_overlay.windows import Windows
@@ -28,9 +28,21 @@ def main() -> int:
         "--translation", action="store_true", help="Include real Sugoi and profile swapping"
     )
     parser.add_argument("--dialogue", action="store_true", help="Verify two-line dialogue grouping")
+    parser.add_argument("--ocr-delay-ms", type=int, default=0, help="Simulate a slow OCR worker")
     args = parser.parse_args()
     if args.dialogue and not args.translation:
         parser.error("--dialogue requires --translation")
+    if not 0 <= args.ocr_delay_ms <= 1500:
+        parser.error("--ocr-delay-ms must be between 0 and 1500")
+
+    class DelayedRecognizer:
+        def __init__(self) -> None:
+            self.engine = create_recognizer()
+
+        def recognize(self, frame: CapturedFrame) -> tuple[TextRegion, ...]:
+            time.sleep(args.ocr_delay_ms / 1000)
+            return self.engine.recognize(frame)
+
     windows = Windows()
     windows.enable_dpi_awareness()
     app = QApplication([])
@@ -42,7 +54,7 @@ def main() -> int:
     demo.show()
     window = MainWindow(
         windows,
-        create_recognizer,
+        DelayedRecognizer if args.ocr_delay_ms else create_recognizer,
         translation_backends() if args.translation else (),
         cache_path=Path(__file__).resolve().parents[1]
         / "artifacts/verification-translation.sqlite3",
@@ -62,12 +74,16 @@ def main() -> int:
     phrase_bounds = None
     swapped = False
     grouping_stage = 0
+    continuity_started = 0.0
+    continuity_polls = 0
+    continuity_request = None
     evidence: dict[str, object] = {}
     failure = ""
 
     def tick() -> None:
         nonlocal stage, stage_started, frozen, initial_size, failure, phrase_id, phrase_bounds
         nonlocal swapped, grouping_stage
+        nonlocal continuity_started, continuity_polls, continuity_request
         now = time.monotonic()
         try:
             if now - started > 30:
@@ -87,6 +103,22 @@ def main() -> int:
             ):
                 raise RuntimeError(window._translation.snapshot().message)
             result = window.inspector.result
+            if stage == 8 and phrase_id and window._session:
+                latest = window._session.snapshot().frame
+                if latest:
+                    current = window._tracker.visible(latest, now)
+                    assert any(t.track_id == phrase_id for t in current), (
+                        "Track blinked between OCR passes"
+                    )
+                if continuity_request is not None:
+                    assert window._translation is not None
+                    assert any(
+                        t.request == continuity_request
+                        for t in window._translation.snapshot().results
+                    ), "English disappeared between slow OCR passes"
+                    assert any(
+                        t.request == continuity_request for t in window._overlay._translations
+                    ), "Overlay discarded an unchanged translation"
             if stage == 0 and result is not None:
                 text = [r.text for r in result.regions]
                 assert expected in text, text
@@ -134,6 +166,18 @@ def main() -> int:
                     )
                     if english is None:
                         return  # Other blocks can finish while a newly regrouped passage settles.
+                    if args.ocr_delay_ms and (not args.dialogue or grouping_stage == 2):
+                        if not continuity_started:
+                            if not any(
+                                t.request == english.request for t in window._overlay._translations
+                            ):
+                                return  # The worker can finish between two UI polls.
+                            continuity_started = now
+                            continuity_request = english.request
+                        continuity_polls += 1
+                        if now - continuity_started < 3:
+                            return
+                        evidence["slow_ocr_english_continuity_polls"] = continuity_polls
                     assert "adventure" in english.english.lower()
                     evidence["english_after_backend_swap"] = english.english
                     if args.dialogue:

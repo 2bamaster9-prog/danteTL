@@ -144,6 +144,7 @@ def test_same_text_far_away_does_not_steal_old_identity() -> None:
     current = replay.step(region(x=1100, y=100))
     assert replay.ids == (first.track_id + 1,)
     assert len(current) == 2  # Old region has one-frame dropout grace.
+    assert len(replay.step(region(x=1100, y=100))) == 2
     assert len(replay.step(region(x=1100, y=100))) == 1
 
 
@@ -154,18 +155,20 @@ def test_one_missed_detection_or_empty_recognition_does_not_blink() -> None:
     assert replay.ids == (None,)
     assert replay.step(region()) == original
     assert replay.step() == original
+    assert replay.step() == original
     assert replay.step() == ()
     assert replay.step(region())[0].track_id != original[0].track_id
 
 
-def test_static_frame_survives_but_stalled_ocr_on_advancing_capture_expires() -> None:
+def test_slow_ocr_and_advancing_capture_do_not_prove_text_disappeared() -> None:
     replay = Replay()
     original = replay.step(region())
     assert replay.result is not None
     source = replay.result.frame
     assert replay.tracker.visible(source, 100) == original
     advanced = replace(source, sequence=source.sequence + 1, captured_at=1)
-    assert replay.tracker.visible(advanced, 1.1) == ()
+    assert replay.tracker.visible(advanced, 1.1) == original
+    assert replay.tracker.visible(advanced, 100) == original
 
 
 def test_duplicate_or_out_of_order_results_cannot_confirm_a_text_change() -> None:
@@ -200,8 +203,11 @@ def test_reset_and_resize_clear_state_without_reusing_ids() -> None:
 def test_scene_replacement_drops_missing_tracks_and_track_count_is_bounded() -> None:
     replay = Replay(TrackingPolicy(max_tracks=4))
     assert len(replay.step(*(region(str(i), y=i * 80) for i in range(8)))) == 4
-    # Expired tracks must not crowd out fresh observations indefinitely.
-    current = replay.step(region("別の場面", y=900), dt=1)
+    # Capacity cannot evict a tracked label on one missed pass. Once absence is
+    # confirmed, its slot is available to the new scene.
+    replay.step(region("別の場面", y=900), dt=1)
+    replay.step(region("別の場面", y=900))
+    current = replay.step(region("別の場面", y=900))
     assert len(current) == 1 and current[0].text == "別の場面"
 
 
@@ -243,12 +249,12 @@ def test_pending_edit_does_not_settle_on_unprocessed_advancing_capture() -> None
     assert replay.tracker.visible(advanced, replay.now + 0.4)[0] is original
 
 
-def test_long_gap_cannot_confirm_an_old_pending_candidate() -> None:
+def test_slow_consecutive_observations_can_confirm_a_new_reading() -> None:
     replay = Replay()
     original = replay.step(region("猫"))[0]
     replay.step(region("犬"))
-    assert replay.step(region("犬"), dt=10)[0] is original
-    assert replay.step(region("犬"))[0].text == "犬"
+    changed = replay.step(region("犬"), dt=10)[0]
+    assert changed.text == "犬" and changed.track_id == original.track_id
 
 
 def test_translation_waits_for_confirmation_and_preserves_committed_content_through_noise() -> None:
@@ -264,6 +270,9 @@ def test_translation_waits_for_confirmation_and_preserves_committed_content_thro
     assert replay.tracker.translation_tracks(replay.result.frame, replay.now) == stable
     settled = replay.tracker.translation_tracks(replay.result.frame, replay.now + 0.4)
     assert settled[0].text == "新しい冒険が始まる"
+    replay.step()
+    assert replay.result is not None
+    assert replay.tracker.translation_tracks(replay.result.frame, replay.now) == settled
     replay.step()
     assert replay.result is not None
     assert replay.tracker.translation_tracks(replay.result.frame, replay.now) == settled
@@ -394,6 +403,7 @@ def test_removed_or_reset_tracks_do_not_inherit_confidence_at_the_same_position(
     else:
         replay.step()
         replay.step()
+        replay.step()
     recreated = replay.step(region("ポーションを使う", confidence=0.6))[0]
     assert recreated.track_id != original.track_id
     replay.step(region("ボーションを使う", confidence=0.8))
@@ -424,3 +434,88 @@ def test_missed_observations_break_a_weaker_candidates_sustained_confirmation() 
         for _ in range(3):
             assert replay.step(region("西の門へ向かってください", confidence=0.6))[0] is original
         assert replay.step()[0] is original
+
+
+def test_dense_slow_results_and_two_pass_dropouts_keep_all_committed_objects() -> None:
+    tracker = TextTracker()
+    viewport = Rect(0, 0, 3840, 2160)
+    observations = tuple(
+        region("設定の確認", x=40 + i % 8 * 450, y=40 + i // 8 * 150, width=260, height=36)
+        for i in range(80)
+    )
+    original = ()
+    for sequence in range(1, 15):
+        captured = sequence * 1.2
+        frame = CapturedFrame(
+            sequence, captured, WindowGeometry(viewport, viewport, viewport, 96), b""
+        )
+        # Ten labels are missed twice in a row, then return; detection order varies.
+        detected = observations if sequence % 3 == 0 or sequence <= 2 else observations[10:]
+        tracker.observe(OcrResult(frame, detected[::-1], 1100, captured + 1.1))
+        latest = replace(frame, sequence=sequence + 1, captured_at=captured + 1)
+        for offset in (1.1, 1.4, 1.8, 2.2):
+            current = tracker.visible(latest, captured + offset)
+            if not original:
+                original = current
+            assert len(current) == 80
+            assert all(a is b for a, b in zip(original, current, strict=True))
+        if sequence >= 2:
+            assert tracker.translation_tracks(latest, captured + 2.2) == original
+
+
+def test_duplicate_polls_and_skipped_capture_frames_never_count_as_absence() -> None:
+    replay = Replay()
+    original = replay.step(region())
+    replay.step()
+    assert replay.result is not None
+    latest = replace(replay.result.frame, sequence=1000, captured_at=20)
+    for now in range(1, 100):
+        replay.tracker.observe(replay.result)
+        assert replay.tracker.visible(latest, now) == original
+    assert replay.step() == original
+    assert replay.step() == ()
+
+
+def test_static_miss_without_pixel_evidence_does_not_expire_on_a_timer() -> None:
+    replay = Replay()
+    original = replay.step(region())
+    replay.step()
+    assert replay.result is not None
+    frame = replay.result.frame
+    assert replay.tracker.visible(frame, replay.result.completed_at + 0.2) == original
+    assert replay.tracker.visible(frame, replay.result.completed_at + 50) == original
+
+
+def test_fast_missing_passes_need_time_span_and_redetection_resets_absence() -> None:
+    replay = Replay()
+    original = replay.step(region())
+    for _ in range(10):
+        assert replay.step(dt=0.01) == original
+    assert replay.step(region()) == original
+    assert replay.step(dt=2) == original  # A long first miss is still only one miss.
+    assert replay.step() == original
+    assert replay.step() == ()
+
+
+def test_dense_detector_reordering_cannot_evict_existing_tracks_at_capacity() -> None:
+    replay = Replay(TrackingPolicy(max_tracks=8))
+    observations = tuple(region("設定", x=i * 100, y=100, width=60) for i in range(16))
+    original = replay.step(*observations)
+    for _ in range(6):
+        assert replay.step(*observations[::-1]) == original
+
+
+def test_truncated_observations_are_not_negative_evidence_for_unexamined_regions() -> None:
+    replay = Replay(TrackingPolicy(max_tracks=2))
+    original = replay.step(region("設定", x=1500, y=900, width=60))
+    crowded = tuple(region("別の項目", x=i * 100, y=100, width=60) for i in range(9))
+    for _ in range(6):
+        current = replay.step(*crowded, region("設定", x=1500, y=900, width=60))
+        assert current[0] is original[0]
+
+
+def test_one_orientation_error_cannot_erase_the_existing_box() -> None:
+    replay = Replay()
+    original = replay.step(region())
+    assert replay.step(region(vertical=True)) == original
+    assert replay.step(region()) == original

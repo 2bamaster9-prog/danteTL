@@ -2,7 +2,7 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/006-dialogue-grouping.md`.
+`engineering/plans/007-evidence-based-persistence.md`.
 
 - Use Python with deep modules: small public interfaces that own meaningful complexity.
 - Keep Windows, Qt, capture-library, and model details at their respective boundaries.
@@ -20,6 +20,11 @@ Read `engineering/README.md` first. The agreed product plan is in
 - Tracking is deterministic and bounded. Pass time explicitly, test replay sequences, preserve
   track identity through detector-order changes, and never turn approximate text matching into
   permanent suppression of real content edits. Only committed display changes request repaint.
+- Processing time and skipped capture frames are not absence evidence. Keep committed tracks and
+  English between completed OCR observations. Use bounded `presence` crop digests to retain text
+  through unchanged-pixel misses; never retain frame history or use pixel changes alone as absence.
+  Test slow workers, dense/reordered observations, repeated misses, genuine removal, and resets.
+  Run `verify_ocr.py --dense` and the live translation/dialogue check with `--ocr-delay-ms 900`.
 - Confidence belongs to a live track/content family, not a permanent screen-position cache. Keep
   the winning score private to tracking; rejected variants must preserve text revision and geometry.
   Test alternating variants, real edits, static settling, and reset boundaries before changing policy.

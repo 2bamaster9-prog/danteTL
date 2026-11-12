@@ -61,8 +61,8 @@ the reviewed pair plus current capture. No history grows with session length. Re
 ## Tracking slice
 
 Tracking stores at most 128 entries (strings, rectangles, counters, timestamps) and no images.
-One-to-one matching considers at most 128 × 128 candidate pairs per new OCR result; ordinary UI
-polls only read/expire the small tracked set. Capture and OCR frequency remain unchanged so new
+One-to-one matching now considers at most 128 × 512 candidate pairs per new OCR result; ordinary UI
+polls only read/settle the small tracked set. Capture and OCR frequency remain unchanged so new
 text can still be discovered. Equivalent committed display values no longer request an application
 overlay repaint; native expose/resize events may still paint. No game frame-time benchmark or
 midrange-PC timing claim is inferred from the deterministic/live correctness checks.
@@ -114,3 +114,29 @@ a net throughput/latency improvement. Worker batch and cache limits are unchange
 The grouped live fixture at DPI 168 sampled 855.1 MiB working set, 1,373.3 MiB private memory, and
 1,627.3 MiB peak working set after model and grouping toggles. This is a short development-PC
 snapshot including its own demo, not a sustained-memory or game-frame-time benchmark.
+
+## Busy-screen persistence (2026-11-13)
+
+`verify_ocr.py --dense` draws 80 labels at 38-pixel font size in a 3840 × 2160 image. Meiki detected
+64 regions and made some spelling errors, so this is not a perfect-recognition fixture. With the
+existing two-thread CPU settings, five warm passes measured median 468 ms and maximum 485 ms;
+earlier runs measured 453/469 and 469/593 ms. Approximate inference capacity for this workload is two passes
+per second, below the four-sample capture rate. More capture requests would primarily replace
+waiting frames. Real game contents, fonts, and hardware can change these timings substantially.
+
+Reconciliation of those 64 detections, including exact-pixel reference hashes, measured median
+8.53 ms and maximum 9.19 ms over five warm passes after moving text normalization behind spatial
+rejection (the earlier reconciliation run measured 9.70/10.87 ms). The hash budget is one million pixels per
+observation, at most 65,536 per crop, with no crop copies or retained images. Persistent hashes
+occupy 16 bytes per track plus Python metadata. Diagnostics retain only eight inference durations
+and counters. No new model, frame queue, or thread is added. The ordinary three-region fixture
+measured about 0.30 ms tracking in a parallel verification run.
+
+Removal latency follows completed OCR evidence, not a fixed 800 ms age timeout. Three misses
+span at least 350 ms; slow OCR can therefore retain disappeared labels longer. Identical crop
+pixels retain them, while changed pixels plus a static negative result can settle after 350 ms.
+These development-machine smoke measurements do not establish p95, sustained memory, or game impact.
+
+The live slow-worker run took 15.44 seconds including startup, model/profile switching and lifecycle
+checks. Its snapshot was 863.0 MiB working set, 1,381.0 MiB private memory, and 1,640.7 MiB peak working
+set. The added 900 ms sleep simulates latency; it does not simulate equivalent CPU contention.

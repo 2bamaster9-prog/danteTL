@@ -67,14 +67,16 @@ The inspector displays the exact analyzed frame, numbered line boxes, raw OCR, a
 - The overlay may briefly lag; use the frame-matched preview when checking OCR accuracy.
   Pause freezes both languages in the inspector and hides the game overlay.
 - Small shifts retain the existing box; repeated text/size changes are confirmed before updating.
-  A missed detection gets a short grace period. The inspector always keeps raw OCR coordinates/text.
+  Processing delays do not erase boxes. Unchanged crop pixels preserve text through OCR misses;
+  otherwise removal requires repeated negative observations. Raw OCR stays visible in the inspector.
 - IDs persist through OCR reordering and match between the inspector and game. They reset to new
   identities after pause/resume, resize, minimize, or capture restart. Unrecognized text has no ID.
 
 **Open demo window** provides Japanese text and an animated target without needing a game. Models
 run on CPU with two inference threads per engine; a GPU toolkit is not needed. OCR timing and
-source-frame age are shown separately from capture frequency. Frames are replaced rather than
-queued when busy.
+capture-to-start delay, current-pass time, and skipped waiting frames are shown separately from
+capture frequency. Hover the OCR status for recent average inference time. Frames are replaced
+rather than queued when busy; capture remains at four samples/second.
 
 Use windowed or borderless fullscreen. The overlay hides when the target loses focus, minimizes,
 or closes. Stop capture before changing sources. Windows may show its capture border.
@@ -86,9 +88,11 @@ This app does not inject into games, request administrator access, or save scree
 uv sync --locked
 uv run python tools/check.py
 uv run python tools/verify_ocr.py --output artifacts/ocr
+uv run python tools/verify_ocr.py --dense --output artifacts/dense-ocr
 uv run python tools/verify_translation.py
 uv run python tools/verify_windows.py
 uv run python tools/verify_ocr_windows.py --translation --dialogue
+uv run python tools/verify_ocr_windows.py --translation --dialogue --ocr-delay-ms 900
 ```
 
 The replay check renders an original Japanese fixture and blocks network connections during model
@@ -96,7 +100,7 @@ loading/inference. Only its synthetic output is saved. The two Windows checks op
 windows on an unlocked desktop. See [verification](engineering/verification.md).
 
 Read the [agreed plan](engineering/plan.md), [engineering guide](engineering/README.md), and
-[milestone status](engineering/plans/006-dialogue-grouping.md). The application runs locally;
+[milestone status](engineering/plans/007-evidence-based-persistence.md). The application runs locally;
 only explicit setup downloads require a network connection.
 
 Models are kept in ignored `models/meiki` and `models/sugoi-v4`; set `JP_OVERLAY_MODEL_DIR` or
@@ -123,6 +127,9 @@ Tracking uses position/text heuristics, not semantic understanding or optical fl
 major layout changes, and multiline splits/merges can create new identities. A disappeared region
 may linger briefly; real-game stabilization thresholds still need feedback. OCR continues sampling
 to discover changes even when the displayed overlay remains unchanged.
+Absence confirmation is a heuristic, not certainty. Slow inference delays discovery and removal;
+a stuck worker retains its last state until recovery, failure, or a session reset. Unchanged text
+over an animated background may still need repeated OCR evidence because its crop pixels differ.
 
 Dialogue grouping uses alignment, spacing, size, and punctuation; it does not identify actual game
 panel boundaries. Punctuation-free, centered, or unusual dialogue may stay separate, and similar

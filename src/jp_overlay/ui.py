@@ -417,10 +417,21 @@ class MainWindow(QMainWindow):
             result = snapshot.result
             self._track_ids = self._tracker.observe(result)
             self.inspector.set_result(result, self._track_ids)
+            busy = (
+                f" · current pass {time.monotonic() - snapshot.processing_since:.1f} s"
+                if snapshot.processing_since is not None
+                else ""
+            )
             self.ocr_status.setText(
                 f"{len(result.regions)} text regions · {result.duration_ms:.0f} ms OCR · "
-                f"frame #{result.frame.sequence} · "
-                f"{max(0, time.monotonic() - result.frame.captured_at):.1f} s old · CPU · local"
+                f"{snapshot.queue_ms:.0f} ms capture-to-start · "
+                f"{snapshot.skipped_frames} waiting frames skipped{busy} · local CPU"
+            )
+            self.ocr_status.setToolTip(
+                f"Average of the last 8 passes: {snapshot.mean_duration_ms:.0f} ms. "
+                f"{snapshot.processed_frames} passes completed. Only the newest waiting frame "
+                "is kept; skipped frames do not count as missing text. "
+                "Existing English stays visible while the next pass runs."
             )
         else:
             self.ocr_status.setText("Reading the newest frame with MeikiOCR…")

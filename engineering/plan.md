@@ -123,6 +123,11 @@ filters likely isolated icon glyphs, and groups likely wrapped dialogue into one
 overlay block. Raw evidence stays inspectable. Grouping is conservative and can be disabled; it
 does not yet identify game panel boundaries or retain conversation history.
 
+[Slice seven](plans/007-evidence-based-persistence.md) replaces age-based disappearance with
+completed-observation and pixel evidence, preserves existing tracks under dense detector reordering,
+and exposes processing/queue diagnostics. Capture remains four samples/second; dense workloads
+are measured separately from the synthetic dialogue fixture.
+
 ## Technical references
 
 - [Windows capture](https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/screen-capture)

@@ -47,6 +47,15 @@ and one combined English overlay. The app's Open demo window uses this dialogue 
 standalone demo accepts `--dialogue` too. The native regression remains
 `uv run python tools/verify_windows.py`.
 
+Add `--ocr-delay-ms 900` to the translation/dialogue live check to keep capture advancing while
+each OCR pass takes about one second. It checks track continuity between passes and holds the
+translated passage under observation for at least three seconds after it first reaches the overlay.
+The first publication waits for the UI poll; subsequent missing translations fail the check.
+
+`uv run python tools/verify_ocr.py --dense --output artifacts/dense-ocr` measures an original 4K
+fixture with 80 small labels and reports actual detection count, OCR latency, and reconciliation
+time. The detector need not recover every label; raw errors/misses stay visible in its artifact.
+
 ## Live Windows check
 
 Run `uv run python tools/verify_windows.py` on an unlocked Windows 11 desktop. This creates and
@@ -191,3 +200,23 @@ Manual review: revisit the supplied button, compare raw character boxes with the
 source, then inspect wrapped dialogue and toggle grouping. Confirm a speaker/choice stays separate,
 full paragraphs copy once, and new dialogue clears old English. See
 [current slice](plans/006-dialogue-grouping.md).
+
+## Busy-screen persistence evidence
+
+- 151 fast tests passed with Ruff/Pyright. The old 800 ms timeout was reproduced by an 80-label,
+  1.1-second OCR replay. New replays retain IDs, geometry, group membership, and English through
+  slow passes and two-pass dropouts. Duplicate polling/skipped captures never add absence votes.
+- Pixel tests retain text through repeated misses with unchanged crops, ignore animation outside
+  the box, remove confirmed changed/absent content, and prevent a new revision reusing old evidence.
+  Work budgets, invalid frames, orientation outliers, dense reordering, and truncated input are covered.
+- Offline Meiki and Sugoi passed with socket connections blocked. Dense Meiki returned 64 regions
+  from 80 labels with some spelling variants; final warm median/max 468/485 ms. Tracking with pixel
+  hashes measured 8.53/9.19 ms. These observations do not claim dense-game OCR accuracy.
+- Live translation/dialogue at DPI 168 passed with 900 ms injected latency per OCR call, including
+  49 English continuity checks over at least three seconds, model/grouping toggles, pause, resize,
+  minimize/restore, restart, and teardown. Total 15.44 seconds; inspector artifact reviewed. This
+  simulates slow inference without claiming equivalent game CPU contention or actual scene coverage.
+
+Manual review: repeat the crowded scene, then change menus/dialogue. Confirm persistence and genuine
+removal; record OCR duration and current-pass time if a delay remains. See
+[current slice](plans/007-evidence-based-persistence.md).

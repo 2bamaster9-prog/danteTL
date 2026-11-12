@@ -1,4 +1,4 @@
-"""Bounded, deterministic text tracking. No images, clocks, Qt, or model ownership.
+"""Bounded, deterministic text tracking. No frame history, clocks, Qt, or models.
 
 Observe each completed OCR frame once, then ask for visible tracks using capture's
 latest frame and an explicit monotonic time. Display geometry has a deadband around
@@ -11,6 +11,7 @@ from difflib import SequenceMatcher
 from math import isfinite
 
 from jp_overlay.domain import CapturedFrame, Rect
+from jp_overlay.presence import FrameEvidence
 from jp_overlay.recognition import OcrResult, TextRegion
 from jp_overlay.text_content import content_region
 
@@ -27,8 +28,8 @@ class TextTrack:
 @dataclass(frozen=True, slots=True)
 class TrackingPolicy:
     max_tracks: int = 128
-    missing_frames: int = 2
-    stale_seconds: float = 0.8
+    missing_frames: int = 3
+    missing_seconds: float = 0.35
     static_settle_seconds: float = 0.35
     confirmation_frames: int = 2
     weaker_reading_seconds: float = 1.25
@@ -36,8 +37,8 @@ class TrackingPolicy:
     def __post_init__(self) -> None:
         if min(self.max_tracks, self.missing_frames, self.confirmation_frames) < 1:
             raise ValueError("Tracking counts must be positive.")
-        if min(self.stale_seconds, self.static_settle_seconds, self.weaker_reading_seconds) <= 0:
-            raise ValueError("Tracking expiry must be positive.")
+        if min(self.missing_seconds, self.static_settle_seconds, self.weaker_reading_seconds) <= 0:
+            raise ValueError("Tracking confirmation times must be positive.")
 
 
 @dataclass(slots=True)
@@ -47,6 +48,7 @@ class _Track:
     last_seen: float
     last_sequence: int
     misses: int = 0
+    missing_since: float | None = None
     pending_text: str = ""
     text_hits: int = 0
     pending_bounds: Rect | None = None
@@ -56,6 +58,9 @@ class _Track:
     pending_confidence: float | None = None
     pending_since: float = 0
     pending_protected: bool = False
+    fingerprint: bytes | None = None
+    fingerprint_bounds: Rect | None = None
+    pixels_changed: bool = False
 
 
 def _normalized(text: str) -> str:
@@ -128,6 +133,7 @@ def _commit_text(track: _Track) -> None:
     )
     # A genuinely new reading starts a new confidence baseline, even if it scores lower.
     track.best_confidence = track.pending_confidence
+    track.fingerprint, track.fingerprint_bounds = None, None
     track.confirmed = True
     _clear_text_candidate(track)
 
@@ -135,13 +141,13 @@ def _commit_text(track: _Track) -> None:
 def _match_score(track: _Track, region: TextRegion) -> float | None:
     if track.value.vertical != region.vertical:
         return None
-    old, new = _normalized(track.value.text), _normalized(region.text)
     overlap = _overlap(track.observed, region.bounds)
     distance = _edge_distance(track.observed, region.bounds)
     thickness = max(1, min(track.observed.size), min(region.bounds.size))
     # Text alone cannot attach an identical label on the other side of the screen.
     if overlap < 0.2 and distance > max(24, thickness * 3):
         return None
+    old, new = _normalized(track.value.text), _normalized(region.text)
     if old == new:
         similarity = 1.0
     else:
@@ -163,6 +169,8 @@ class TextTracker:
         self._next_id = 1
         self._sequence = 0
         self._captured_at = float("-inf")
+        self._completed_at = float("-inf")
+        self._complete_observation = True
         self._size: tuple[int, int] | None = None
         self._assignments: tuple[int | None, ...] = ()
 
@@ -171,6 +179,8 @@ class TextTracker:
         self._tracks.clear()
         self._sequence = 0
         self._captured_at = float("-inf")
+        self._completed_at = float("-inf")
+        self._complete_observation = True
         self._size = None
         self._assignments = ()
 
@@ -183,12 +193,19 @@ class TextTracker:
             self.reset()
             self._size = frame.geometry.client.size
         self._sequence, self._captured_at = frame.sequence, frame.captured_at
+        self._completed_at = result.completed_at
+        # Consider more observations than display slots so detector ordering cannot
+        # evict an existing track on a dense screen. Truncation is not absence evidence.
+        raw_regions = result.regions[: self._policy.max_tracks * 4]
+        complete = len(raw_regions) == len(result.regions)
+        self._complete_observation = complete
+        evidence = FrameEvidence(frame)
         regions = [
             (index, region)
-            for index, raw in enumerate(result.regions)
+            for index, raw in enumerate(raw_regions)
             for region in (content_region(raw),)
             if _normalized(region.text) and min(region.bounds.size) > 0
-        ][: self._policy.max_tracks]
+        ]
         candidates = []
         observations = dict(regions)
         for key, track in self._tracks.items():
@@ -198,7 +215,7 @@ class TextTracker:
                     candidates.append((-score, key, index))
         assignments: list[int | None] = [None] * len(result.regions)
         used: set[int] = set()
-        # One-to-one matching, deterministic ties. At most 128 x 128 candidates.
+        # One-to-one matching, deterministic ties. At most 128 x 512 candidates.
         for _, key, index in sorted(candidates):
             if key in used or assignments[index] is not None:
                 continue
@@ -207,23 +224,41 @@ class TextTracker:
             self._update(self._tracks[key], observations[index], frame)
         for key in list(self._tracks):
             track = self._tracks[key]
-            if key not in used:
+            if key not in used and complete:
+                current = (
+                    evidence.fingerprint(track.fingerprint_bounds)
+                    if track.fingerprint is not None and track.fingerprint_bounds is not None
+                    else None
+                )
+                track.pixels_changed = current is not None and current != track.fingerprint
+                if current is not None and current == track.fingerprint:
+                    # The same crop still contains the pixels that produced this text.
+                    # A missed detector result cannot erase or split its translation.
+                    track.misses, track.missing_since = 0, None
+                    track.confirmed = True
+                    _clear_text_candidate(track)
+                    track.position_hits, track.pending_bounds = 0, None
+                    continue
                 track.misses += 1
+                if track.missing_since is None:
+                    track.missing_since = frame.captured_at
                 _clear_text_candidate(track)
                 track.position_hits, track.pending_bounds = 0, None
                 if (
                     track.misses >= self._policy.missing_frames
-                    or frame.captured_at - track.last_seen > self._policy.stale_seconds
+                    and frame.captured_at - track.missing_since >= self._policy.missing_seconds
                 ):
                     del self._tracks[key]
         for index, region in regions:
             if assignments[index] is not None:
                 continue
-            # An unrelated replacement at the same location supersedes an unmatched
-            # ghost immediately; do not draw two overlapping boxes during the grace period.
-            for key in list(self._tracks):
-                if key not in used and _overlap(self._tracks[key].observed, region.bounds) >= 0.55:
-                    del self._tracks[key]
+            # Wait for absence confirmation before admitting an incompatible overlapping
+            # observation (e.g. a one-pass orientation error). Never draw both boxes.
+            if any(
+                key not in used and _overlap(track.observed, region.bounds) >= 0.55
+                for key, track in self._tracks.items()
+            ):
+                continue
             if len(self._tracks) >= self._policy.max_tracks:
                 continue
             key = self._next_id
@@ -238,17 +273,25 @@ class TextTracker:
             )
             used.add(key)
             assignments[index] = key
+        # Capture a reference only for accepted content, never for a rejected candidate.
+        # Missing-track checks run first so reference refresh cannot consume their budget.
+        for index, key in enumerate(assignments):
+            if key is None:
+                continue
+            track = self._tracks[key]
+            if _normalized(observations[index].text) == _normalized(track.value.text):
+                digest = evidence.fingerprint(track.value.bounds)
+                track.fingerprint, track.fingerprint_bounds = digest, track.value.bounds
         self._assignments = tuple(assignments)
         return self._assignments
 
     def _update(self, track: _Track, region: TextRegion, frame: CapturedFrame) -> None:
-        # An unchanged source can legitimately stop delivering frames. Keep its ID,
-        # but never combine pending edits across a long gap as consecutive evidence.
-        if frame.captured_at - track.last_seen > self._policy.stale_seconds:
-            _clear_text_candidate(track)
-            track.pending_bounds, track.position_hits = None, 0
+        # Completed observations count as evidence regardless of inference speed.
+        # Actual misses, rather than elapsed processing time, break candidate runs.
         track.observed = region.bounds
         track.last_seen, track.last_sequence, track.misses = frame.captured_at, frame.sequence, 0
+        track.missing_since = None
+        track.pixels_changed = False
         text_changed = self._observe_text(track, region, frame.captured_at)
         if track.pending_protected:
             # An icon/crop variant must not move the winning box while its text is rejected.
@@ -320,7 +363,7 @@ class TextTracker:
         )
 
     def visible(self, latest: CapturedFrame, now: float) -> tuple[TextTrack, ...]:
-        """Expire missed/stalled observations, but keep a truly unchanged source visible."""
+        """Retain committed state between observations; time alone cannot prove absence."""
         if self._size != latest.geometry.client.size:
             self.reset()
             return ()
@@ -336,7 +379,17 @@ class TextTracker:
                 if track.pending_bounds is not None:
                     track.value = replace(track.value, bounds=track.observed)
                     track.pending_bounds, track.position_hits = None, 0
-            if not static and now - track.last_seen > self._policy.stale_seconds:
+                    track.fingerprint, track.fingerprint_bounds = None, None
+            # Changed crop pixels AND a completed miss can settle on a now-static
+            # source without duplicate WGC frames. Time/unchanged pixels alone cannot.
+            if (
+                track.misses
+                and self._complete_observation
+                and track.pixels_changed
+                and latest.sequence == self._sequence
+                and now - max(latest.captured_at, self._completed_at)
+                >= self._policy.static_settle_seconds
+            ):
                 del self._tracks[key]
         return tuple(track.value for track in self._tracks.values())
 

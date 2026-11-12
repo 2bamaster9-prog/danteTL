@@ -95,6 +95,48 @@ def test_noisy_readings_do_not_clear_english_or_trigger_more_translation(tmp_pat
     assert backend.calls == [("ポーションを使う",)]
 
 
+def test_busy_screen_keeps_english_and_dialogue_membership_between_slow_passes(tmp_path) -> None:
+    backend = Backend()
+    session = TranslationSession(lambda: backend, tmp_path / "cache.sqlite3")
+    tracker, grouper = TextTracker(), DialogueGrouper()
+    viewport = Rect(0, 0, 3840, 2160)
+    regions = tuple(
+        TextRegion("設定の確認", Rect(40 + i % 8 * 450, 40 + i // 8 * 100, 260, 32))
+        for i in range(64)
+    ) + (
+        TextRegion("新しい冒険が始まりますが、", Rect(100, 1700, 800, 36)),
+        TextRegion("その前に準備をしてください。", Rect(100, 1750, 800, 36)),
+    )
+    session.start()
+    try:
+        committed = None
+        for sequence in range(1, 10):
+            captured = sequence * 1.2
+            frame = CapturedFrame(
+                sequence, captured, WindowGeometry(viewport, viewport, viewport, 96), b""
+            )
+            # Miss some labels AND a dialogue member twice, then recover.
+            detected = regions if sequence <= 2 or sequence % 3 == 0 else regions[8:-1]
+            tracker.observe(OcrResult(frame, detected, 1100, captured + 1.1))
+            latest = replace(frame, sequence=sequence + 1, captured_at=captured + 1)
+            for offset in (1.1, 1.5, 1.9):
+                now = captured + offset
+                grouped = grouper.update(
+                    tracker.visible(latest, now), tracker.translation_tracks(latest, now), now
+                )
+                session.update(grouped.ready)
+                if committed is not None:
+                    assert session.snapshot().results == committed
+                    assert session.snapshot().pending == 0
+            if sequence == 2:
+                until(lambda: len(session.snapshot().results) == 65)
+                committed = session.snapshot().results
+        assert committed and any(len(t.request.members) == 2 for t in committed)
+        assert sum(len(batch) for batch in backend.calls) == 2
+    finally:
+        stop(session)
+
+
 def test_dialogue_translates_as_one_request_and_rejects_a_late_changed_member(tmp_path) -> None:
     backend = Backend()
     backend.release.clear()
