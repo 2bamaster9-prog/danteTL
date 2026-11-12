@@ -74,6 +74,9 @@ class _Track:
     reading: str = ""
     changed_at: float = 0
     growing: bool = False
+    review_attempts: int = 0
+    visual_same: bool = False
+    display_predecessor: TextTrack | None = None
 
 
 def _normalized(text: str) -> str:
@@ -158,6 +161,7 @@ def _match_score(track: _Track, region: TextRegion) -> float | None:
     distance = _edge_distance(track.observed, region.bounds)
     thickness = max(1, min(track.observed.size), min(region.bounds.size))
     a, b = track.observed, region.bounds
+    old, new = _normalized(track.value.text), _normalized(region.text)
     tolerance = _deadband(a)
     same_origin = (
         abs(a.x - b.x) <= tolerance
@@ -167,10 +171,15 @@ def _match_score(track: _Track, region: TextRegion) -> float | None:
         )
         <= tolerance
     )
+    if not region.vertical and (old.startswith(new) or new.startswith(old)):
+        same_origin |= (
+            abs(a.x - b.x) <= tolerance
+            and abs((a.y + a.height / 2) - (b.y + b.height / 2)) <= max(a.height, b.height) * 0.3
+            and max(a.height, b.height) <= min(a.height, b.height) * 2.5
+        )  # A first glyph such as 二 can be shorter than the eventual full line.
     # Text alone cannot attach an identical label on the other side of the screen.
     if overlap < 0.2 and distance > max(24, thickness * 3) and not same_origin:
         return None
-    old, new = _normalized(track.value.text), _normalized(region.text)
     if old == new:
         similarity = 1.0
     else:
@@ -180,7 +189,7 @@ def _match_score(track: _Track, region: TextRegion) -> float | None:
         prefix = (min(len(old), len(new)) >= 3 or same_origin) and (
             old.startswith(new) or new.startswith(old)
         )
-        if not (related or prefix) and overlap < 0.55:
+        if not (related or prefix or same_origin) and overlap < 0.55:
             return None
     # Spatial proximity is essential for repeated menu labels. Exact text helps
     # distinguish neighboring lines when detector order changes.
@@ -209,7 +218,16 @@ class TextTracker:
         self._size = None
         self._assignments = ()
 
-    def observe(self, result: OcrResult) -> tuple[int | None, ...]:
+    def observe(
+        self,
+        result: OcrResult,
+        *,
+        visually_absent: frozenset[TextTrack] = frozenset(),
+        visual_sequence: int = 0,
+        unchanged: frozenset[TextTrack] = frozenset(),
+        visual_checked: frozenset[TextTrack] = frozenset(),
+        checked_sequence: int = 0,
+    ) -> tuple[int | None, ...]:
         """Return IDs in raw OCR row order. Repeated/late frames cannot confirm changes."""
         frame = result.frame
         if frame.sequence <= self._sequence or frame.captured_at < self._captured_at:
@@ -233,6 +251,15 @@ class TextTracker:
         ]
         candidates = []
         observations = dict(regions)
+        # Evidence must describe the exact source being reconciled and the current
+        # accepted revision. Evidence from a newer/older capture is not interchangeable.
+        checked = visual_checked if checked_sequence == frame.sequence else frozenset()
+        unchanged = unchanged & checked
+        for track in self._tracks.values():
+            track.visual_same = track.value in unchanged
+            if track.value in checked and not track.visual_same:
+                track.review_attempts = 0
+                track.display_predecessor = None
         for key, track in self._tracks.items():
             for index, region in regions:
                 score = _match_score(track, region)
@@ -246,7 +273,11 @@ class TextTracker:
                 continue
             used.add(key)
             assignments[index] = key
-            self._update(self._tracks[key], observations[index], frame)
+            track = self._tracks[key]
+            if track.visual_same:
+                self._review_unchanged(track, observations[index], frame)
+            else:
+                self._update(track, observations[index], frame)
         for key in list(self._tracks):
             track = self._tracks[key]
             if key not in used and complete:
@@ -256,7 +287,7 @@ class TextTracker:
                     else None
                 )
                 track.pixels_changed = current is not None and current != track.fingerprint
-                if current is not None and current == track.fingerprint:
+                if track.visual_same or (current is not None and current == track.fingerprint):
                     # The same crop still contains the pixels that produced this text.
                     # A missed detector result cannot erase or split its translation.
                     track.misses, track.missing_since = 0, None
@@ -272,7 +303,7 @@ class TextTracker:
                 if (
                     track.misses >= self._policy.missing_frames
                     and frame.captured_at - track.missing_since >= self._policy.missing_seconds
-                ):
+                ) or (track.value in visually_absent and visual_sequence >= frame.sequence):
                     del self._tracks[key]
         for index, region in regions:
             if assignments[index] is not None:
@@ -312,6 +343,51 @@ class TextTracker:
         self._assignments = tuple(assignments)
         return self._assignments
 
+    def _review_unchanged(self, track: _Track, region: TextRegion, frame: CapturedFrame) -> None:
+        """Hold accepted layout/content; allow three strictly better low-score reviews.
+
+        Confidence is OCR confidence, not translation quality. Retries belong to this
+        visual content lifetime and do not reset when OCR alternates or a review wins.
+        """
+        track.last_seen, track.last_sequence = frame.captured_at, frame.sequence
+        track.misses, track.missing_since, track.pixels_changed = 0, None, False
+        track.pending_bounds, track.position_hits = None, 0
+        track.observed = track.value.bounds
+        track.confirmed = True
+        _clear_text_candidate(track)
+        score = _confidence(region)
+        same_text = _normalized(region.text) == _normalized(track.value.text)
+        eligible = track.review_attempts < 3 and (
+            track.best_confidence is None or track.best_confidence < 0.9
+        )
+        if eligible:
+            track.review_attempts += 1
+        if same_text:
+            track.best_confidence = _best_score(track.best_confidence, score)
+        elif (
+            eligible
+            and score is not None
+            and (track.best_confidence is None or score > track.best_confidence + 0.01)
+            and _overlap(track.value.bounds, region.bounds) >= 0.7
+        ):
+            # This is an OCR correction on unchanged pixels, not a new game sentence.
+            # Its predecessor remains eligible for display until the replacement
+            # English arrives; the renderer must still validate the explicit lineage.
+            track.display_predecessor = track.value
+            track.value = replace(
+                track.value, text=region.text, text_revision=track.value.text_revision + 1
+            )
+            track.best_confidence = score
+        track.reading = track.value.text
+
+    def display_predecessors(self) -> tuple[tuple[TextTrack, TextTrack], ...]:
+        """Explicit same-pixel correction lineage, never permission for arbitrary stale text."""
+        return tuple(
+            (track.value, track.display_predecessor)
+            for track in self._tracks.values()
+            if track.display_predecessor is not None
+        )
+
     def _update(self, track: _Track, region: TextRegion, frame: CapturedFrame) -> None:
         # Completed observations count as evidence regardless of inference speed.
         # Actual misses, rather than elapsed processing time, break candidate runs.
@@ -319,11 +395,19 @@ class TextTracker:
         track.last_seen, track.last_sequence, track.misses = frame.captured_at, frame.sequence, 0
         track.missing_since = None
         track.pixels_changed = False
+        track.display_predecessor = None
         previous, new = _normalized(track.reading), _normalized(region.text)
         if previous != new and not _minor_variant(previous, new):
             track.changed_at = frame.captured_at
             track.growing = bool(previous) and (
-                new.startswith(previous) or previous.startswith(new)
+                new.startswith(previous)
+                or previous.startswith(new)
+                or (
+                    len(new) > len(previous)
+                    and region.bounds.width > track.value.bounds.width
+                    and abs(region.bounds.x - track.value.bounds.x) <= _deadband(region.bounds)
+                    and not region.vertical
+                )
             )
         track.reading = region.text
         text_changed = self._observe_text(track, region, frame.captured_at)
@@ -371,8 +455,14 @@ class TextTracker:
         else:
             track.pending_text, track.text_hits = region.text, 1
             track.pending_confidence, track.pending_since = score, captured_at
+            revealed_ending = (
+                track.growing
+                and new.startswith(old)
+                and len(new) > len(old)
+                and all(char in "。、！？!?」』" for char in new[len(old) :])
+            )
             track.pending_protected = _same_location(track.value.bounds, region.bounds) and (
-                _minor_variant(old, new)
+                _minor_variant(old, new) and not revealed_ending
             )
         track.pending_protected = (
             track.pending_protected
@@ -449,3 +539,20 @@ class TextTracker:
             )
             for track in self._tracks.values()
         )
+
+    def confirm_visual(self, sequence: int, indices: tuple[int, ...], now: float) -> None:
+        """Settle a current OCR reading whose expanded pixels stayed stable afterward.
+
+        Evidence belongs to this exact observation, never a later revision. Protected
+        weaker readings still need their existing confidence escape interval.
+        """
+        if sequence != self._sequence:
+            return
+        for index in indices:
+            key = self._assignments[index] if 0 <= index < len(self._assignments) else None
+            track = self._tracks.get(key) if key is not None else None
+            if track is None or track.last_sequence != sequence or track.misses:
+                continue
+            track.confirmed = True
+            if track.pending_text and self._text_ready(track, now):
+                _commit_text(track)

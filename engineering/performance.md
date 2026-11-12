@@ -178,3 +178,37 @@ Reveal activity adds a few fields per existing track; request retention still ca
 ready/retained set at 128. No new frame history, concurrent OCR, or polling inference is introduced.
 The old fixed 350 ms post-commit group wait is superseded by source-time quiet periods; see
 [decision 008](decisions/008-responsive-ocr.md).
+
+## Visual scheduling and stable accepted regions (2026-11-13)
+
+On the same development PC, the dense 4K fixture (80 drawn labels, 64 detections) measured:
+
+| Work | Median | Maximum | Samples |
+| --- | --- | --- | --- |
+| Warm GPU OCR | 226.6 ms | 229.4 ms | 5 |
+| Tracking with pixel hashes | 11.36 ms | 11.96 ms | 5 |
+| Visual checks, unchanged captures | 7.82 ms | 8.86 ms | 15 warm |
+| Visual checks, whole image shifted 4–6 pixels | 74.23 ms | 74.88 ms | 8 |
+| Visual checks including exact-source OCR review | 27.85 ms | 59.23 ms | 8 |
+
+The first source-review sample also returns from the shifted stress image to the reference image;
+its maximum includes those crop checks. Heavy scene changes cost substantially more than idle frames.
+These are bounded-worker costs, not UI-thread work, p95, or measured game frame-time impact. The
+worker replaces its pending job when behind; no inference queue grows. Candidate and accepted OCR
+source frames are referenced alongside the newest capture, with no historical frame list.
+
+Sixteen unchanged captures at eight Hz requested three model passes (initial, settling follow-up,
+periodic refresh). This does not imply thirteen additional completed inferences were previously
+performed: the original OCR worker already coalesced waiting captures. Regions are locked for
+acceptance individually; scheduled model calls still scan the full frame.
+
+Live GPU final-dialogue latency was 0.625 seconds; the CPU test with an added 900 ms sleep measured
+1.938 seconds. Menu hiding measured 0.438/0.375 seconds and restoring 0.250/0.250 seconds respectively.
+The CPU hide preceded its next OCR result. These are single synthetic runs, not general guarantees.
+The GPU process snapshot including the demo was 1,664.6 MiB working set, 3,481.2 MiB private, and
+2,438.1 MiB peak working set; CPU slow fixture was 908.1/1,427.7/1,664.7 MiB. Added sleep simulates
+latency, not equivalent CPU contention. Capture defaults to eight Hz, adjustable from two to twelve.
+
+The stationary-label stress fixture kept six translations and their geometry unchanged over twelve
+seconds, 256 display polls and eight deliberately hostile OCR passes. It tests publication stability,
+not translation quality. See [decision 009](decisions/009-visual-evidence.md).

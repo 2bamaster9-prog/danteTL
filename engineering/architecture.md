@@ -67,6 +67,7 @@ Processing delay never expires committed tracks. Equal crop pixels preserve a mi
 otherwise three completed negative observations spanning at least 350 ms retire it. A changed crop
 and a negative OCR result on a now-static source can settle 350 ms after completion without duplicate
 WGC frames. These are operational evidence rules, not proof of semantic absence.
+Visual masking and the combined visual/OCR early-retirement rule below refine this policy.
 Dimension mismatches always hide/clear them. The comparison checkbox displays raw boxes with the
 original 750 ms freshness policy. The original sample mode remains for the native regression harness.
 
@@ -89,7 +90,8 @@ whole engine on CPU after initialization/inference failure. The fallback is visi
 once per engine, not on every frame. Strict CUDA is reserved for verification. Missing/corrupt model
 files fail before fallback. The GPU uses the same model files and batches; CPU handles unsupported
 graph nodes. The per-session CUDA arena target is 512 MiB, not a total-process VRAM cap. Device and
-2–8 Hz capture settings are frozen during a session. Defaults are CPU 4 Hz and GPU auto 6 Hz.
+2–12 Hz capture settings are frozen during a session. Both providers default to 8 Hz; visual
+evidence, rather than every captured frame, now schedules full-frame inference.
 
 Resize, minimize, and pause increment a generation and clear pending/published work. Already-running
 native inference finishes, but cannot publish into an invalid generation. Each new capture has a
@@ -108,6 +110,44 @@ exposed by the pinned upstream implementation.
 Worker snapshots expose completed/skipped counts, capture-to-start delay, the mean of eight recent
 inference durations, and the start time of the active pass. The UI exposes these independently of
 capture frequency. This is bounded diagnostic state, not logging of source text or pixels.
+
+## Visual evidence between capture and OCR
+
+`visual.VisualSession` owns a second, lightweight worker. One replaceable job contains the latest
+frame, current tracks/assignments, activity, and the latest OCR/source pair. Snapshots contain current
+evidence and a coalesced request for OCR, acknowledged by UI polling. Expensive OpenCV/NumPy work
+and native imports stay off the GUI thread. Pause, resize, minimize, stop, and source closure clear
+generations; late work cannot republish. Failure switches visibly to ordinary OCR until reset.
+
+`VisualAnalyzer` stores a 640 x 360 grayscale thumbnail, a 32 x 18 tile-motion map, at most 128 text
+anchors, and 128 expanded reading probes. Templates are capped at 256 x 48, never full-frame history;
+each crop samples at most 1024 x 192 source pixels before resizing.
+Area downsampling detects changed tiles, avoiding repeated crop work in unchanged tiles. Novel
+motion, settling, and quiet changed text prompt OCR, with a 200 ms minimum request interval and a
+1.5-second fallback refresh on advancing frames. One follow-up helps uncertain initial confirmation.
+Continuously growing dialogue defers intermediate scans, but never suppresses the periodic refresh.
+Skipped captures are not negative OCR observations. Raw inspection remains frame/result matched.
+
+Anchors compare signed edges and spatial pattern correlation with a one-template-pixel tolerance.
+Brightness and polarity changes are tolerated. Strong pattern loss on two distinct captures masks
+the exact track/revision/geometry in rendering; it does not discard English or identity. Two positive
+captures can restore it. An actual OCR miss plus fresh two-frame visual absence can retire it early,
+freeing slots before new admissions. Exact unchanged pixels still override contradictory absence;
+incomplete OCR cannot vote for removal. Otherwise the prior three-miss policy remains.
+
+Expanded reading areas cover following characters and plausible lower lines. Append-like stroke
+additions block new translation of an older partial reading, including a small first character below
+it. General background replacement is not treated as typing. Matching stable expanded pixels can
+confirm the exact current OCR reading without a second inference; protected low-confidence candidates
+still obey their existing escape interval. UI translation scheduling waits until visual evidence has
+examined the latest OCR source, preventing a publication race. Retained English is independent of
+readiness. A single static WGC frame can still settle normally without another callback.
+Punctuation appended to an actively revealing line takes the normal confirmation path; ordinary
+static labels retain confidence protection for otherwise similar alternatives.
+
+These are bounded appearance heuristics, not game-panel detection or semantic absence proof. The
+1.5-second full refresh covers missed/ambiguous changes. ROI inference and learned panel detection
+remain future work. See [decision 009](decisions/009-visual-evidence.md).
 
 Pause freezes the current image/table and invalidates queued work while capture continues. Resume
 resubmits the latest frame. Resize/minimize/stop clear even a frozen inspection to prevent a stale
@@ -176,7 +216,7 @@ and defines removal evidence and its limits.
 
 `grouping.DialogueGrouper` forms `TextBlock` values from stable lines. It requires nearby horizontal
 lines of comparable height and left alignment, continuation/punctuation evidence, and an unambiguous
-successor. Short/narrow speaker labels, marked choices, completed sentences, separate columns, and
+successor. Short/narrow speaker labels, marked choices, separate columns, and
 vertical lines stay separate. Limits are six lines and 512 source characters per group. Every member
 must be confirmed before translation. Tracking also exposes bounded `TextActivity`: the plausible
 latest reading/geometry, last substantive change time, growth evidence, and whether an edit is
@@ -190,6 +230,8 @@ after terminal punctuation, 550 ms for revealed/unfinished multiline text, and 3
 long single lines. Ordinary short labels add no delay. Genuine pending edits block new work;
 turning grouping off still debounces growing lines. Timing is a heuristic: a long pause can make
 unfinished dialogue ready. The checkbox disables grouping without resetting OCR.
+Completed sentences stay separate unless observed reveal activity supports a continuing paragraph;
+this permits multiple sentences in a typewritten dialogue without generally merging static menu rows.
 
 ```mermaid
 flowchart LR
@@ -247,6 +289,26 @@ continuation rows point to that group, and tooltips show its source and full tra
 English from any member copies the complete group; copying all rows deduplicates by request.
 A pending OCR edit may show no English in the table while the game holds the prior committed
 translation. Pause freezes both table languages. Raw Japanese/boxes always remain inspectable.
+
+## Accepted visual content and atomic English publication
+
+New OCR is held for a source-matched `VisualState` before the UI reconciles it. The visual worker
+compares each accepted template against that exact candidate frame, independently of the newest
+capture used for fast masking. Evidence contains full immutable track values plus the source
+sequence; late evidence cannot validate a newer revision. Templates/probes remain bounded and
+analysis stays off the Qt thread. The inspector receives the untouched OCR/frame once reconciled.
+
+Unchanged foreground patterns suppress misses, text substitutions and geometry jitter. Per-cell
+checks catch small numeric edits that whole-region similarity could conceal. High-contrast additions
+beyond the previous line unlock reveal growth; dim background texture does not. Scores below 0.90
+allow three matched reviews and require an improvement greater than 0.01. Strong readings lock;
+real visual changes return to ordinary change confirmation. Weak templates use OCR fallback.
+
+`presentation.EnglishPresentation` separates accepted source from painted source. Only explicit
+same-pixel correction lineage permits the previous block/English pair to remain while its successor
+is translated; new English swaps both together. Each member must validate. Real changes, regrouping,
+removal and resets revoke this permission. This bounded layer retains at most 128 publications and
+does not queue inference, change cache identities, or weaken the renderer's exact-request check.
 
 ## Runtime data
 

@@ -2,7 +2,7 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/008-responsive-ocr.md`.
+`engineering/plans/009-visual-evidence.md`.
 
 - Use Python with deep modules: small public interfaces that own meaningful complexity.
 - Keep Windows, Qt, capture-library, and model details at their respective boundaries.
@@ -25,6 +25,18 @@ Read `engineering/README.md` first. The agreed product plan is in
   through unchanged-pixel misses; never retain frame history or use pixel changes alone as absence.
   Test slow workers, dense/reordered observations, repeated misses, genuine removal, and resets.
   Run `verify_ocr.py --dense` and the live translation/dialogue check with `--ocr-delay-ms 900`.
+- Visual analysis owns a separate bounded worker. Keep its thumbnails, templates, and pending job
+  bounded; never run image analysis on the UI thread or rewrite raw OCR/source frame pairs. Strong
+  pattern loss on two captured frames may mask a box reversibly; retirement also needs completed
+  negative OCR, current revision/geometry, and visual evidence at least as new as that OCR frame.
+  New translation requests wait until visual checks have examined their OCR source. Test tiny
+  continuation growth, background motion, brightness/polarity changes, stale generations, static
+  WGC frames, and failure fallback. Run the live dialogue check with `--typewriter --transitions`.
+- Reconcile new OCR only after source-matched visual evidence arrives. Unchanged accepted glyphs
+  retain identity, geometry and English across noisy/missed OCR. Below 90% confidence allow three
+  reviews with a strictly better score; never reset the budget on spelling alternation. Real local
+  changes unlock ordinary tracking. `presentation` may bridge only explicit same-pixel correction
+  lineage, never arbitrary stale revisions. Run `tools/verify_retention_windows.py` for this policy.
 - Keep OCR providers at the runtime boundary. Never co-install CPU/GPU ONNX distributions. GPU
   verification must use `--device cuda` and fail on fallback; normal automatic mode reports fallback.
   Use `.venv-gpu/Scripts/python.exe` for GPU checks, and preserve the default CPU environment.

@@ -60,12 +60,17 @@ class GroupedText:
     ready: tuple[TextBlock, ...]
 
 
-def _can_follow(upper: TextTrack, lower: TextTrack) -> bool:
+def _can_follow(upper: TextTrack, lower: TextTrack, *, revealing: bool = False) -> bool:
     a, b = upper.bounds, lower.bounds
     first, second = upper.text.strip(), lower.text.strip()
     if upper.vertical or lower.vertical or not has_japanese(first) or not has_japanese(second):
         return False
-    if len(first) < 10 or len(second) < 1 or first.endswith((*_END, ":", "：")):
+    if (
+        len(first) < 10
+        or len(second) < 1
+        or first.endswith((":", "："))
+        or (first.endswith(_END) and not revealing)
+    ):
         return False
     if _CHOICE.match(first) or _CHOICE.match(second) or second.startswith(("「", "『")):
         return False
@@ -105,7 +110,11 @@ def _blocks(
                     for line in ordered
                     if line.track_id not in used
                     and line not in lines
-                    and _can_follow(lines[-1], line)
+                    and _can_follow(
+                        lines[-1],
+                        line,
+                        revealing=any(member.track_id in growing for member in (*lines, line)),
+                    )
                 ]
                 if len(candidates) != 1:
                     break  # Ambiguous columns/layouts stay separate.

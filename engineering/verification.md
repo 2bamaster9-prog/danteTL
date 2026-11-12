@@ -56,6 +56,10 @@ Add `--typewriter` to verify gradual character reveal, no partial dialogue reque
 fixture's animation, and completion-to-English timing. Each typewriter check uses a fresh synthetic
 translation cache under `artifacts`, so its final passage requires actual inference. The standalone
 demo also accepts `--typewriter`. This is one reveal cadence, not every game's animation behavior.
+Add `--transitions` to close and reopen the panel after English appears. It measures hide/restore
+latency and, with `--ocr-delay-ms 900`, requires hiding before a new OCR result. It also checks that
+the visual worker finishes on restart/close. Failure output includes bounded synthetic state and
+uses escaped text so Japanese assertions cannot break shutdown on a legacy Windows console.
 
 After `Setup GPU OCR.cmd`, use `.venv-gpu\Scripts\python.exe tools/verify_ocr.py --device cuda`
 and repeat with `--dense`. Then run that interpreter with
@@ -67,6 +71,39 @@ interpreters. Keep raw OCR accuracy evidence; a provider merely being installed 
 `uv run python tools/verify_ocr.py --dense --output artifacts/dense-ocr` measures an original 4K
 fixture with 80 small labels and reports actual detection count, OCR latency, and reconciliation
 time. The detector need not recover every label; raw errors/misses stay visible in its artifact.
+The same command also benchmarks the visual stage on sixteen unchanged captures and on eight
+shifted frames that stress every crop. Report static and moving costs separately; skipped OCR
+requests do not mean every skipped capture would previously have completed an inference.
+The exact-source review benchmark separately includes comparisons for a newly completed OCR frame.
+
+Run `uv run python tools/verify_retention_windows.py` (or the GPU interpreter with `--device cuda`)
+for stationary-label retention. It creates six Japanese labels over dim moving stars, loads real
+Meiki/Sugoi, then injects unrelated low-confidence readings, wider boxes and total Japanese misses.
+It requires unchanged published blocks and English on every poll for at least twelve seconds and
+six hostile OCR passes. It closes all workers and saves only synthetic diagnostic state under
+`artifacts/visual`. Neither this fixture nor the model-free replays use the user's game video.
+
+## Visual scheduling and stationary retention evidence (2026-11-13)
+
+- 194 model-free checks pass with Ruff/Pyright. Replays cover unchanged noisy OCR, repeated misses,
+  geometry jitter, three-review budgets, high-confidence locking, changed digits, large and tiny
+  reveal additions, dim moving stars, stale evidence, correction lineage, reset and real removal.
+- Native stationary fixture, CUDA/DPI 168: six English blocks remained identical for 12.0 seconds,
+  256 render-state polls and eight injected noisy OCR passes. Worker teardown passed. This test
+  initially exposed a false growth signal from dim stars; the final foreground-specific guard passed.
+- Full GPU typewriter/transitions run, DPI 168: no partial dialogue publication; complete English
+  0.625 seconds after reveal; close-to-hide 0.438 seconds, reopen-to-restore 0.250 seconds. Profile and
+  grouping switches, font controls, pause, resize, minimize/restore, CPU restart and shutdown passed.
+- Full CPU run with 900 ms artificial OCR delay: no partial dialogue; final English after 1.938
+  seconds; close-to-hide 0.375 seconds, before new OCR completed; restore 0.250 seconds. Existing
+  English survived 50 continuity polls. The same lifecycle checks passed in 23.69 seconds.
+- Offline real GPU OCR at 4K still detected 64 of 80 drawn labels, with raw spelling variants retained.
+  Visual and source-review costs are recorded in [performance](performance.md). Local Sugoi's offline
+  check also passed with connections blocked (94 ms sample batch). Saved live JSON accompanies the
+  synthetic screenshots for reproducibility.
+- The user's monitor recording was visually inspected; it includes camera motion and English boxes,
+  so it was not treated as clean source capture. Exact live Honkai behavior and game FPS remain
+  unverified. No model/download/setup changes are needed to try the updated launcher.
 
 ## Live Windows check
 

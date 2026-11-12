@@ -133,6 +133,14 @@ grouping, and optional NVIDIA CUDA OCR with CPU fallback. Capture pacing is now 
 2–8 samples/second (CPU defaults to four; GPU auto to six). A bounded local CUDA cache avoids
 repeated first-use compilation. Other GPU vendors and translation GPU acceleration are deferred.
 
+[Slice nine](plans/009-visual-evidence.md) adds bounded visual checks between capture and OCR. Changes
+and settling schedule full inference; strong text-pattern loss masks closed panels before OCR can
+confirm removal. Expanded reading areas detect continuation growth before the next OCR result, and
+revealed multi-sentence paragraphs can stay grouped. Capture defaults to eight checks/second while
+OCR is adaptive. Region-only inference and learned panel detection remain future improvements.
+The follow-up from the stationary character-screen video also gates OCR reconciliation per accepted
+visual region, bounds low-confidence reviews, and publishes corrections without an empty overlay gap.
+
 ## Technical references
 
 - [Windows capture](https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/screen-capture)

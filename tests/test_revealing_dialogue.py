@@ -68,3 +68,13 @@ def test_pending_source_edits_cannot_be_enqueued_as_the_old_confirmed_fragment()
     assert any(len(b.lines) == 2 for b in replay.step(FIRST, SECOND).ready)
     changed = replay.step(FIRST, "違う文章に変わっています。")
     assert not any(len(b.lines) == 2 for b in changed.ready)
+
+
+def test_revealed_multi_sentence_dialogue_can_join_after_a_completed_first_sentence() -> None:
+    replay = Reveal()
+    first = "新しい冒険がここから始まります。"
+    for count in (1, 5, 10, len(first)):
+        replay.step(first[:count])
+    for count in (1, 5, len(SECOND)):
+        assert len(replay.step(first, SECOND[:count]).blocks) == 2
+    assert any(b.text == first + SECOND for b in replay.step(first, SECOND).ready)

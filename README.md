@@ -42,8 +42,9 @@ text with a translucent background. Regions awaiting translation leave the origi
   Uncheck it to set a fixed size in physical pixels. Opacity controls the translated box background.
 - **OCR device** selects automatic NVIDIA acceleration with CPU fallback, or CPU only. Stop capture
   before changing it. The OCR status reports the provider actually running and any fallback reason.
-  **Capture rate** ranges from two to eight samples/second; defaults are six for GPU and four for CPU.
-  Increasing it reduces sampling delay when OCR has spare capacity; it cannot make a busy model faster.
+  **Capture rate** ranges from two to twelve samples/second and defaults to eight. These captures
+  feed cheap visual checks; they do not each trigger OCR. Increasing capture rate improves visual
+  response but increases frame-copy/analysis cost and cannot make a busy OCR model faster.
 - **Sugoi V4 · Fast CPU** is the default. **Wider search** uses the same weights with more decoding
   candidates; it can take longer and is not guaranteed to improve every sentence. Switching safely
   unloads the previous backend before loading the selected one.
@@ -63,6 +64,13 @@ text with a translucent background. Regions awaiting translation leave the origi
   continuation lines join while they are still appearing, avoiding a second grouping delay at the
   end. Existing, revision-valid English remains visible while readiness changes. A long pause in
   unfinished text can still look like completion; this is a timing heuristic.
+- Visual checks watch known text and the space where dialogue can continue. Small stroke additions
+  can hold an obsolete partial translation before OCR recognizes the new line. A revealed paragraph
+  may contain multiple sentences; a period alone no longer splits a paragraph that was growing.
+- Closing a menu can hide its English after two visual checks find its text pattern gone, even
+  while OCR is busy. Identity/cache entries stay available until OCR confirms absence; strong fresh
+  visual absence plus one negative OCR pass can free old display slots promptly. Brightness shifts
+  and hover color inversions are tolerated. Ambiguous cases keep the slower OCR evidence rules.
 - Tracking uses recognized-character bounds so a detector box expanding over an icon does not
   automatically resize English. Isolated weak edge glyphs beside strong Japanese text can be
   excluded. Raw OCR remains unchanged in the inspector for comparison.
@@ -94,6 +102,17 @@ on CPU. OCR timing and
 capture-to-start delay, current-pass time, and skipped waiting frames are shown separately from
 capture frequency. Hover the OCR status for recent average inference time. Frames are replaced
 rather than queued when busy; processing one frame never starts overlapping OCR jobs.
+The visual worker also keeps only its newest waiting job. Changed/settled regions prompt OCR;
+unchanged or continuously animated content gets an occasional full refresh (about 1.5 seconds).
+Accepted regions also gate later OCR results: unchanged glyph patterns retain the same Japanese
+source, English and geometry, even when a later pass misses or misreads them. Readings below 90%
+OCR confidence get three review attempts; only a score improvement greater than one percentage
+point can win. The previous English stays visible until the corrected translation is ready.
+Real local changes unlock normal updates. The inspector always keeps the raw model output.
+
+Status shows unchanged regions held, visual-check time, and captures that did not request OCR.
+This is not a guarantee that
+every animation can be ignored. Visual failure is reported and falls back to ordinary OCR.
 
 Use windowed or borderless fullscreen. The overlay hides when the target loses focus, minimizes,
 or closes. Stop capture before changing sources. Windows may show its capture border.
@@ -111,6 +130,7 @@ uv run python tools/verify_windows.py
 uv run python tools/verify_ocr_windows.py --translation --dialogue
 uv run python tools/verify_ocr_windows.py --translation --dialogue --ocr-delay-ms 900
 uv run python tools/verify_ocr_windows.py --translation --dialogue --typewriter
+uv run python tools/verify_ocr_windows.py --translation --dialogue --typewriter --transitions --ocr-delay-ms 900
 ```
 
 After GPU setup, use `.venv-gpu\Scripts\python.exe` directly for the same checks, adding
@@ -123,7 +143,7 @@ loading/inference. Only its synthetic output is saved. The two Windows checks op
 windows on an unlocked desktop. See [verification](engineering/verification.md).
 
 Read the [agreed plan](engineering/plan.md), [engineering guide](engineering/README.md), and
-[milestone status](engineering/plans/008-responsive-ocr.md). The application runs locally;
+[milestone status](engineering/plans/009-visual-evidence.md). The application runs locally;
 only explicit setup downloads require a network connection.
 
 Models are kept in ignored `models/meiki` and `models/sugoi-v4`; set `JP_OVERLAY_MODEL_DIR` or
@@ -151,8 +171,9 @@ major layout changes, and multiline splits/merges can create new identities. A d
 may linger briefly; real-game stabilization thresholds still need feedback. OCR continues sampling
 to discover changes even when the displayed overlay remains unchanged.
 Absence confirmation is a heuristic, not certainty. Slow inference delays discovery and removal;
-a stuck worker retains its last state until recovery, failure, or a session reset. Unchanged text
-over an animated background may still need repeated OCR evidence because its crop pixels differ.
+a stuck worker retains its last state until recovery, failure, or a session reset. Foreground-stroke
+checks retain unchanged labels over dim animated backgrounds; ambiguous/weak templates still use
+OCR confirmation and can behave less reliably.
 
 Dialogue grouping uses alignment, spacing, size, and punctuation; it does not identify actual game
 panel boundaries. Punctuation-free, centered, or unusual dialogue may stay separate, and similar
@@ -161,3 +182,8 @@ a glossary. Icon filtering is conservative and cannot identify every high-confid
 icon. Names and short labels can translate awkwardly. English boxes may expand over neighboring
 dense UI; collision-aware layout remains future work. Vertical source text stays ungrouped and
 renders as horizontal English. Toggle English off/on to retry a visible backend failure.
+
+Visual checks add evidence, not semantic certainty. A flash, occlusion, low-contrast/tiny text, or
+unusual background can still delay or temporarily mask a box. Periodic full OCR catches uncertain
+changes; inference currently still processes the full frame. An already-running model call cannot
+be canceled, so very slow OCR still delays new English even when old boxes hide promptly.

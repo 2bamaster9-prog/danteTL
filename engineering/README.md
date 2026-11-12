@@ -1,8 +1,9 @@
 # Engineering guide
 
 JP Overlay is a local Windows application that translates Japanese game text into English at the
-original text locations. The current slice improves readiness for revealing dialogue and adds an
-optional NVIDIA OCR runtime with CPU fallback, local kernel caching, and adjustable capture pacing.
+original text locations. The current slice uses cheap visual evidence to schedule OCR, mask closed
+text panels promptly, retain unchanged accepted labels through noisy OCR, and detect continuing
+dialogue before the next model result arrives.
 
 Read these documents as relevant to the task:
 
@@ -21,7 +22,8 @@ Read these documents as relevant to the task:
 | [Content/grouping decision](decisions/006-text-content-and-dialogue.md) | Character bounds, icon evidence, and dialogue units |
 | [Persistence decision](decisions/007-evidence-based-persistence.md) | Slow OCR, missed detections, and pixel evidence |
 | [Responsive OCR decision](decisions/008-responsive-ocr.md) | Reveal readiness, GPU isolation, and fallback |
-| [Current slice](plans/008-responsive-ocr.md) | Deliverables, progress, and remaining gaps |
+| [Visual evidence decision](decisions/009-visual-evidence.md) | Change scheduling, occlusion, and readiness |
+| [Current slice](plans/009-visual-evidence.md) | Deliverables, progress, and remaining gaps |
 
 The harness consists of these documents, executable checks, deterministic tests, and live capture
 verification. Add guidance when it resolves a concrete ambiguity; replace stale guidance instead

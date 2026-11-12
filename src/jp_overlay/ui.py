@@ -27,9 +27,11 @@ from jp_overlay.domain import CapturedFrame, CaptureState, WindowTarget, overlay
 from jp_overlay.grouping import DialogueGrouper, TextBlock
 from jp_overlay.inspection import OcrInspector
 from jp_overlay.overlay import OverlayWindow
+from jp_overlay.presentation import EnglishPresentation
 from jp_overlay.recognition import OcrChoice, OcrSession, OcrState, Recognizer, overlay_result_ready
 from jp_overlay.tracking import TextTrack, TextTracker
 from jp_overlay.translation import BackendChoice, TranslationSession, TranslationState
+from jp_overlay.visual import VisualSession, VisualState
 from jp_overlay.windows import Windows, WindowUnavailable
 
 logger = logging.getLogger(__name__)
@@ -51,6 +53,8 @@ class MainWindow(QMainWindow):
         self._windows = windows
         self._session: CaptureSession | None = None
         self._ocr: OcrSession | None = None
+        self._visual: VisualSession | None = None
+        self._visual_state = VisualState()
         self._translation: TranslationSession | None = None
         self._backends = backends
         self._cache_path = (
@@ -61,6 +65,7 @@ class MainWindow(QMainWindow):
         self._valid_size: tuple[int, int] | None = None
         self._tracker = TextTracker()
         self._grouper = DialogueGrouper()
+        self._presentation = EnglishPresentation()
         self._track_ids: tuple[int | None, ...] = ()
         self._overlay = OverlayWindow(windows)
         self._overlay.set_tracks(())
@@ -124,10 +129,12 @@ class MainWindow(QMainWindow):
             "Choose before starting capture. GPU setup is optional and local."
         )
         self.capture_rate = QSpinBox()
-        self.capture_rate.setRange(2, 8)
+        self.capture_rate.setRange(2, 12)
         self.capture_rate.setSuffix(" samples/s")
         self.capture_rate.setValue(self._ocr_backends[0].capture_fps)
-        self.capture_rate.setToolTip("Higher rates reduce sampling delay but use more resources.")
+        self.capture_rate.setToolTip(
+            "Capture feeds cheap visual checks. OCR runs on changes and periodic refreshes."
+        )
         self.ocr_device.currentIndexChanged.connect(self._ocr_choice_changed)
         processing.addWidget(self.ocr_device)
         processing.addWidget(QLabel("Capture rate"))
@@ -289,6 +296,7 @@ class MainWindow(QMainWindow):
         self._ocr = OcrSession(
             choice.create if isinstance(choice, OcrChoice) else self._recognizer_factory
         )
+        self._visual = VisualSession()
         self.ocr_device.setEnabled(False)
         self.capture_rate.setEnabled(False)
         self._stopping_message = "The capture source closed. Select a window to restart."
@@ -304,6 +312,7 @@ class MainWindow(QMainWindow):
         self.status.setText("Starting window capture…")
         self._session.start()
         self._ocr.start()
+        self._visual.start()
 
     def _stop(self, message: str) -> None:
         self._stopping_message = message
@@ -312,6 +321,8 @@ class MainWindow(QMainWindow):
         self.inspector.clear()
         if self._ocr:
             self._ocr.request_stop()
+        if self._visual:
+            self._visual.request_stop()
         if self._translation:
             self._translation.request_stop()
         if self._session:
@@ -339,8 +350,12 @@ class MainWindow(QMainWindow):
         self._clear_tracking()
 
     def _clear_tracking(self) -> None:
+        if self._visual:
+            self._visual.invalidate()
+        self._visual_state = VisualState()
         self._tracker.reset()
         self._grouper.reset()
+        self._presentation.reset()
         self._track_ids = ()
         self._overlay.set_tracks(())
         self._overlay.set_blocks(())
@@ -350,6 +365,7 @@ class MainWindow(QMainWindow):
 
     def _grouping_changed(self) -> None:
         self._grouper.reset()
+        self._presentation.reset()
         if self._translation:
             self._translation.invalidate()
         self._overlay.set_blocks(())
@@ -368,6 +384,7 @@ class MainWindow(QMainWindow):
             self.capture_rate.setValue(choice.capture_fps)
 
     def _backend_changed(self) -> None:
+        self._presentation.reset()
         choice = self.backend_combo.currentData()
         if self._translation and isinstance(choice, BackendChoice):
             if self._translation.finished:
@@ -384,6 +401,7 @@ class MainWindow(QMainWindow):
         session = self._translation
         enabled = running and self.translate_check.isChecked()
         if not enabled:
+            self._presentation.reset()
             if session:
                 session.request_stop()
                 if session.finished:
@@ -410,7 +428,15 @@ class MainWindow(QMainWindow):
             session.start()
         session.update(tracks, retain=retain)
         snapshot = session.snapshot()
-        self._overlay.set_translations(snapshot.results, enabled=True)
+        published = self._presentation.update(
+            retain, snapshot.results, self._tracker.display_predecessors()
+        )
+        hidden_ids = {t.track_id for t in self._visual_state.hidden}
+        showing = tuple(
+            p for p in published if not any(t.track_id in hidden_ids for t in p.accepted.lines)
+        )
+        self._overlay.set_blocks(tuple(p.painted for p in showing))
+        self._overlay.set_translations(tuple(p.translation for p in showing), enabled=True)
         if not self.inspector.pause.isChecked():
             self.inspector.set_translations(snapshot.results)
         if snapshot.state == TranslationState.FAILED:
@@ -432,9 +458,38 @@ class MainWindow(QMainWindow):
         if ocr is None:
             return
         paused = self.inspector.pause.isChecked()
-        if not paused:
-            ocr.submit(frame)
         snapshot = ocr.snapshot()
+        if not paused and self._visual and snapshot.state != OcrState.FAILED:
+            state = self._visual.poll()
+            accepted = self.inspector.result
+            if snapshot.result and (
+                state.message or state.checked_sequence == snapshot.result.frame.sequence
+            ):
+                self._track_ids = self._tracker.observe(
+                    snapshot.result,
+                    visually_absent=state.absent,
+                    visual_sequence=state.frame.sequence if state.frame else 0,
+                    unchanged=state.unchanged,
+                    visual_checked=state.checked,
+                    checked_sequence=state.checked_sequence,
+                )
+                accepted = snapshot.result
+                self.inspector.set_result(accepted, self._track_ids)
+            if state.frame is not None:
+                self._visual_state = state
+                if state.request_ocr:
+                    ocr.submit(state.frame)
+                self._tracker.confirm_visual(
+                    state.ocr_sequence, state.stable_regions, state.frame.captured_at
+                )
+            self._visual.submit(
+                frame,
+                accepted,
+                self._tracker.visible(frame, time.monotonic()),
+                self._track_ids,
+                self._tracker.translation_activity(),
+                snapshot.result,
+            )
         if snapshot.state == OcrState.FAILED:
             self._clear_tracking()
             self.ocr_status.setText(
@@ -451,8 +506,6 @@ class MainWindow(QMainWindow):
             )
         elif snapshot.result is not None:
             result = snapshot.result
-            self._track_ids = self._tracker.observe(result)
-            self.inspector.set_result(result, self._track_ids)
             busy = (
                 f" · current pass {time.monotonic() - snapshot.processing_since:.1f} s"
                 if snapshot.processing_since is not None
@@ -464,6 +517,10 @@ class MainWindow(QMainWindow):
                 f"{snapshot.skipped_frames} waiting frames skipped{busy} · "
                 f"{'NVIDIA GPU' if snapshot.provider == 'CUDAExecutionProvider' else 'CPU'}"
                 f"{(' · ' + snapshot.message) if snapshot.message else ''}"
+                f" · visual {self._visual_state.duration_ms:.1f} ms · "
+                f"{self._visual_state.avoided} captures skipped for OCR"
+                f" · {len(self._visual_state.unchanged)} unchanged regions held"
+                f"{(' · ' + self._visual_state.message) if self._visual_state.message else ''}"
             )
             self.ocr_status.setToolTip(
                 f"Average of the last 8 passes: {snapshot.mean_duration_ms:.0f} ms. "
@@ -502,6 +559,11 @@ class MainWindow(QMainWindow):
             self._clear_tracking()
             self.inspector.clear()
             self._poll_translation(False)
+            if self._visual:
+                self._visual.request_stop()
+                if not self._visual.finished:
+                    return
+                self._visual = None
             if self._ocr and not self._ocr.finished:
                 self._ocr.request_stop()
             if self._translation is not None:
@@ -577,8 +639,22 @@ class MainWindow(QMainWindow):
                 enabled=self.group_dialogue.isChecked(),
                 activity=self._tracker.translation_activity(),
             )
-            self._overlay.set_blocks(grouped.blocks)
-            self._poll_translation(True, grouped.ready, grouped.blocks)
+            if not self.translate_check.isChecked():
+                self._overlay.set_blocks(grouped.blocks)
+            self._poll_translation(
+                True,
+                tuple(
+                    block
+                    for block in grouped.ready
+                    if not any(t.track_id in self._visual_state.blocked for t in block.lines)
+                    and (
+                        self._visual_state.message
+                        or (result and self._visual_state.ocr_sequence == result.frame.sequence)
+                    )
+                ),
+                grouped.blocks,
+            )
+            tracks = tuple(t for t in tracks if t not in self._visual_state.hidden)
             if (
                 not self.stabilize_check.isChecked()
                 and not self.inspector.pause.isChecked()

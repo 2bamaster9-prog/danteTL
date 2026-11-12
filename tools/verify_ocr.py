@@ -14,6 +14,7 @@ from dataclasses import asdict, replace
 from pathlib import Path
 from unittest.mock import patch
 
+import numpy as np
 import shiboken6
 from PySide6.QtCore import QCoreApplication, QEvent, Qt
 from PySide6.QtGui import QColor, QFont, QImage, QPainter
@@ -25,6 +26,7 @@ from jp_overlay.meiki import MeikiRecognizer
 from jp_overlay.models import model_directory
 from jp_overlay.recognition import OcrResult
 from jp_overlay.tracking import TextTracker
+from jp_overlay.visual import VisualAnalyzer
 
 EXPECTED = ("新しい冒険が、ここから始まる。", "旅の準備はできましたか？", "設定")
 
@@ -109,6 +111,53 @@ def main() -> None:
         "tracking_warm_max_ms": round(max(tracking_timings[1:]), 2),
         "regions": [asdict(region) for region in regions],
     }
+    visual, tracker = VisualAnalyzer(), TextTracker()
+    reference = replace(frame, sequence=1, captured_at=0)
+    result = OcrResult(reference, regions, timings[-1], 0.05)
+    assignments = tracker.observe(result)
+    tracks = tracker.visible(reference, 0.05)
+    visual_times, requests = [], 0
+    for i in range(1, 17):
+        state = visual.observe(
+            replace(reference, sequence=i, captured_at=(i - 1) / 8),
+            result,
+            tracks,
+            assignments,
+        )
+        visual_times.append(state.duration_ms)
+        requests += state.request_ocr
+    evidence.update(
+        visual_warm_median_ms=round(statistics.median(visual_times[1:]), 2),
+        visual_warm_max_ms=round(max(visual_times[1:]), 2),
+        unchanged_captures=16,
+        unchanged_ocr_requests=requests,
+    )
+    moving_times = []
+    pixels = np.frombuffer(frame.bgra, np.uint8).reshape(frame.height, frame.width, 4)
+    for i in range(17, 25):
+        # Stress every known crop. Frame generation is outside the visual timer.
+        moving = replace(
+            reference,
+            sequence=i,
+            captured_at=(i - 1) / 8,
+            bgra=np.roll(pixels, 4 + i % 3, axis=1).tobytes(),
+        )
+        moving_times.append(visual.observe(moving, result, tracks, assignments).duration_ms)
+    evidence.update(
+        moving_visual_median_ms=round(statistics.median(moving_times), 2),
+        moving_visual_max_ms=round(max(moving_times), 2),
+    )
+    review_times = []
+    for i in range(25, 33):
+        source = replace(reference, sequence=i, captured_at=(i - 1) / 8)
+        candidate = replace(result, frame=source)
+        state = visual.observe(source, result, tracks, assignments, candidate=candidate)
+        review_times.append(state.duration_ms)
+        assert len(state.unchanged) == len(tracks)
+    evidence.update(
+        source_review_median_ms=round(statistics.median(review_times), 2),
+        source_review_max_ms=round(max(review_times), 2),
+    )
     if args.output:
         args.output.mkdir(parents=True, exist_ok=True)
         panel = OcrInspector()

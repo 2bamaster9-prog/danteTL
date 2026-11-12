@@ -19,6 +19,7 @@ class DemoWindow(QWidget):
         self._dialogue = dialogue
         self.revealed = 0 if typewriter else sum(map(len, DIALOGUE_LINES))
         self.reveal_active = typewriter
+        self.panel_visible = True
         self.setWindowTitle("JP Overlay Demo")
         self.resize(900, 580)
         self.setMinimumSize(440, 330)
@@ -70,6 +71,9 @@ class DemoWindow(QWidget):
             35, 180, round((self.width() - 70) * self.phase / 100), 6, QColor("#5eead4")
         )
         box = sample_box(self.width(), self.height())
+        self.button.setVisible(self.panel_visible)
+        if not self.panel_visible:
+            return
         if self._dialogue:
             box = Rect(box.x, box.y - 60, box.width, box.height + 60)
         painter.fillRect(box.x, box.y, box.width, box.height, QColor("#29465e"))

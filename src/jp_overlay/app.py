@@ -25,11 +25,11 @@ def ocr_backends() -> tuple[OcrChoice, ...]:
     if gpu_runtime_installed():
         return (
             OcrChoice(
-                "Automatic · GPU with CPU fallback", partial(create_recognizer, device="auto"), 6
+                "Automatic · GPU with CPU fallback", partial(create_recognizer, device="auto"), 8
             ),
-            OcrChoice("CPU · low resource use", create_recognizer, 4),
+            OcrChoice("CPU · low resource use", create_recognizer, 8),
         )
-    return (OcrChoice("CPU · GPU setup optional", create_recognizer, 4),)
+    return (OcrChoice("CPU · GPU setup optional", create_recognizer, 8),)
 
 
 def create_translator(*, beam_size: int = 2) -> TranslationBackend:

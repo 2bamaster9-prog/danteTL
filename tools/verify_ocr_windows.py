@@ -31,6 +31,7 @@ def main() -> int:
     parser.add_argument("--dialogue", action="store_true", help="Verify two-line dialogue grouping")
     parser.add_argument("--ocr-delay-ms", type=int, default=0, help="Simulate a slow OCR worker")
     parser.add_argument("--device", choices=("cpu", "auto", "cuda"), default="cpu")
+    parser.add_argument("--transitions", action="store_true", help="Close/reopen the text panel")
     parser.add_argument(
         "--typewriter", action="store_true", help="Check gradual dialogue readiness"
     )
@@ -39,6 +40,8 @@ def main() -> int:
         parser.error("--dialogue requires --translation")
     if args.typewriter and not args.dialogue:
         parser.error("--typewriter requires --dialogue")
+    if args.transitions and not args.dialogue:
+        parser.error("--transitions requires --dialogue")
     if not 0 <= args.ocr_delay_ms <= 1500:
         parser.error("--ocr-delay-ms must be between 0 and 1500")
 
@@ -64,9 +67,9 @@ def main() -> int:
     factory = (
         DelayedRecognizer if args.ocr_delay_ms else partial(create_recognizer, device=args.device)
     )
-    choices = (OcrChoice(args.device, factory, 6 if args.device != "cpu" else 4),)
+    choices = (OcrChoice(args.device, factory, 8),)
     if args.device != "cpu":
-        choices += (OcrChoice("CPU", create_recognizer, 4),)
+        choices += (OcrChoice("CPU", create_recognizer, 8),)
     cache_path = (
         Path(__file__).resolve().parents[1]
         / "artifacts"
@@ -105,6 +108,7 @@ def main() -> int:
     evidence: dict[str, object] = {"translation_cache_initially_empty": cache_initially_empty}
     failure = ""
     reveal_finished = 0.0
+    transitions_done = False
     timeout = 180 if args.device != "cpu" else 45
 
     def tick() -> None:
@@ -112,6 +116,7 @@ def main() -> int:
         nonlocal swapped, grouping_stage
         nonlocal continuity_started, continuity_polls, continuity_request
         nonlocal reveal_finished
+        nonlocal transitions_done
         now = time.monotonic()
         try:
             if now - started > timeout:
@@ -227,6 +232,8 @@ def main() -> int:
                     )
                     if english is None:
                         return  # Other blocks can finish while a newly regrouped passage settles.
+                    if not any(t.request == english.request for t in window._overlay._translations):
+                        return  # Publication occurs on the next UI poll after worker completion.
                     if args.ocr_delay_ms and (not args.dialogue or grouping_stage == 2):
                         if not continuity_started:
                             if not any(
@@ -267,6 +274,12 @@ def main() -> int:
                     assert window._overlay._manual_size == 24
                     window.automatic_font.setChecked(True)
                     evidence["automatic_and_manual_font_controls"] = True
+                    if args.transitions and not transitions_done:
+                        demo.panel_visible = False
+                        demo.update()
+                        continuity_request = None
+                        stage, stage_started = 10, now
+                        return
                 evidence["repeated_ocr_keeps_dialogue_id_and_bounds"] = True
                 window.stabilize_check.setChecked(False)
                 window.inspector.pause.setChecked(True)
@@ -276,6 +289,26 @@ def main() -> int:
                     args.output.parent.mkdir(parents=True, exist_ok=True)
                     window.grab().save(str(args.output))
                 stage, stage_started = 1, now
+            elif stage == 10:
+                if any(len(b.lines) > 1 for b in window._overlay._blocks or ()):
+                    assert now - stage_started < 1.0, "Closed panel retained its English too long"
+                    return
+                evidence["panel_hide_seconds"] = round(now - stage_started, 3)
+                evidence["hidden_before_new_ocr"] = bool(
+                    result and result.frame.captured_at < stage_started
+                )
+                if args.ocr_delay_ms:
+                    assert evidence["hidden_before_new_ocr"]
+                demo.panel_visible = True
+                demo.update()
+                stage, stage_started = 11, now
+            elif stage == 11:
+                if not any(len(b.lines) > 1 for b in window._overlay._blocks or ()):
+                    assert now - stage_started < 3, "Reopened panel never restored English"
+                    return
+                evidence["panel_restore_seconds"] = round(now - stage_started, 3)
+                transitions_done = True
+                stage = 8
             elif stage == 1 and now - stage_started > 0.7:
                 assert window.inspector.result is frozen, "Pause replaced the reviewed frame"
                 assert not window._overlay.isVisible()
@@ -306,6 +339,7 @@ def main() -> int:
             elif stage == 5 and window._session is None:
                 assert window._ocr is None
                 assert window._translation is None
+                assert window._visual is None
                 assert window.inspector.result is None
                 if args.device != "cpu":
                     window.ocr_device.setCurrentIndex(1)
@@ -321,16 +355,28 @@ def main() -> int:
             elif stage == 7 and window._session is None:
                 assert window._ocr is None
                 assert window._translation is None
+                assert window._visual is None
                 assert not window.isVisible()
                 evidence["close_finishes_all_workers"] = True
                 evidence["elapsed_seconds"] = round(now - started, 2)
                 stage = 99
         except Exception as error:
             failure = f"{type(error).__name__}: {error}"
+            evidence["failure"] = failure
+            evidence["failure_state"] = {
+                "stage": stage,
+                "revealed": demo.revealed,
+                "visual_source": window._visual_state.ocr_sequence,
+                "visual_blocked": sorted(window._visual_state.blocked),
+                "readings": [
+                    {"text": a.observation.text, "pending": a.pending, "growing": a.growing}
+                    for a in window._tracker.translation_activity()
+                ],
+            }
             traceback.print_exc()
-            print(f"FAIL: {failure}", flush=True)
             window.close()
             stage = 99
+            print(f"FAIL: {failure!a}", flush=True)
             if now - started > timeout + 5:
                 timer.stop()
                 app.exit(1)
@@ -341,6 +387,11 @@ def main() -> int:
     timer.start()
     app.exec()
     shiboken6.delete(app)
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.with_suffix(".json").write_text(
+            json.dumps(evidence, indent=2), encoding="utf-8"
+        )
     print(json.dumps(evidence, indent=2))
     return 1 if failure else 0
 

@@ -519,3 +519,35 @@ def test_one_orientation_error_cannot_erase_the_existing_box() -> None:
     original = replay.step(region())
     assert replay.step(region(vertical=True)) == original
     assert replay.step(region()) == original
+
+
+@pytest.mark.parametrize("revealing", [True, False])
+def test_lower_confidence_terminal_punctuation_only_gets_fast_confirmation_after_reveal(revealing):
+    replay = Replay()
+    text = "新しい冒険がここから始まります"
+    if revealing:
+        replay.step(region("新しい", confidence=0.99))
+    replay.step(region(text, confidence=0.99))
+    replay.step(region(text, confidence=0.99))
+    replay.step(region(text + "。", confidence=0.90))
+    values = replay.step(region(text + "。", confidence=0.90))
+    assert values[0].text == (text + "。" if revealing else text)
+
+
+@pytest.mark.parametrize(
+    "first,following",
+    [
+        (region("新しい冒険―", width=200), region("新しい冒険がここから始まります", width=500)),
+        (region("確認", width=60), region("新しい冒険がここから始まります", width=500)),
+        (region("二", y=710, width=20, height=18), region("二度目の冒険が始まります", width=500)),
+    ],
+)
+def test_same_line_origin_does_not_spawn_duplicate_partial_tracks(first, following):
+    replay = Replay()
+    original = replay.step(first)[0]
+    pending = replay.step(following)
+    assert len(pending) == 1 and pending[0].track_id == original.track_id
+    assert replay.tracker.translation_activity()[0].pending
+    final = replay.step(following)
+    assert len(final) == 1 and final[0].track_id == original.track_id
+    assert final[0].text == following.text
