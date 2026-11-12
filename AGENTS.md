@@ -2,7 +2,7 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/007-evidence-based-persistence.md`.
+`engineering/plans/008-responsive-ocr.md`.
 
 - Use Python with deep modules: small public interfaces that own meaningful complexity.
 - Keep Windows, Qt, capture-library, and model details at their respective boundaries.
@@ -25,6 +25,14 @@ Read `engineering/README.md` first. The agreed product plan is in
   through unchanged-pixel misses; never retain frame history or use pixel changes alone as absence.
   Test slow workers, dense/reordered observations, repeated misses, genuine removal, and resets.
   Run `verify_ocr.py --dense` and the live translation/dialogue check with `--ocr-delay-ms 900`.
+- Keep OCR providers at the runtime boundary. Never co-install CPU/GPU ONNX distributions. GPU
+  verification must use `--device cuda` and fail on fallback; normal automatic mode reports fallback.
+  Use `.venv-gpu/Scripts/python.exe` for GPU checks, and preserve the default CPU environment.
+  Treat first-use compilation separately from warm inference; retain the bounded local CUDA cache.
+- Translation readiness is separate from display retention. Pending growth can reserve a dialogue
+  group but cannot become a translation source until committed. Keep revision-valid published
+  English while readiness changes; never enqueue retained-only requests. Test typewriter growth,
+  early continuation, short menus, and genuine edits. Run the live dialogue check with `--typewriter`.
 - Confidence belongs to a live track/content family, not a permanent screen-position cache. Keep
   the winning score private to tracking; rejected variants must preserve text revision and geometry.
   Test alternating variants, real edits, static settling, and reset boundaries before changing policy.

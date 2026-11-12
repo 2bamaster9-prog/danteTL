@@ -52,6 +52,18 @@ each OCR pass takes about one second. It checks track continuity between passes 
 translated passage under observation for at least three seconds after it first reaches the overlay.
 The first publication waits for the UI poll; subsequent missing translations fail the check.
 
+Add `--typewriter` to verify gradual character reveal, no partial dialogue requests during the
+fixture's animation, and completion-to-English timing. Each typewriter check uses a fresh synthetic
+translation cache under `artifacts`, so its final passage requires actual inference. The standalone
+demo also accepts `--typewriter`. This is one reveal cadence, not every game's animation behavior.
+
+After `Setup GPU OCR.cmd`, use `.venv-gpu\Scripts\python.exe tools/verify_ocr.py --device cuda`
+and repeat with `--dense`. Then run that interpreter with
+`tools/verify_ocr_windows.py --translation --dialogue --typewriter --device cuda`. Strict CUDA
+asserts the provider and fails on errors; normal auto mode may fall back. The GPU live check also
+stops and restarts on CPU, verifying the selected provider. Run `tools/check.py` with both environment
+interpreters. Keep raw OCR accuracy evidence; a provider merely being installed is insufficient.
+
 `uv run python tools/verify_ocr.py --dense --output artifacts/dense-ocr` measures an original 4K
 fixture with 80 small labels and reports actual detection count, OCR latency, and reconciliation
 time. The detector need not recover every label; raw errors/misses stay visible in its artifact.
@@ -220,3 +232,18 @@ full paragraphs copy once, and new dialogue clears old English. See
 Manual review: repeat the crowded scene, then change menus/dialogue. Confirm persistence and genuine
 removal; record OCR duration and current-pass time if a delay remains. See
 [current slice](plans/007-evidence-based-persistence.md).
+
+## Responsive OCR evidence (2026-11-13)
+
+159 tests passed in both isolated environments; Ruff and Pyright passed. CPU/GPU offline OCR and
+CPU Sugoi inference passed with Python sockets blocked. CUDA profiling recorded 4,422 GPU and
+222 CPU detector node executions, plus 4,752 GPU and 288 CPU horizontal-recognizer executions
+across six sparse passes. The vertical model was loaded but not exercised by this fixture.
+
+The live typewriter GPU check used a fresh translation cache and showed the final combined English
+0.75 seconds after the last character, with no partial requests during reveal. GPU-to-CPU selection,
+profile/grouping toggles, font controls, pause, resize, minimize/restore, restart, and shutdown passed
+at DPI 168. The CPU typewriter check passed as well (its earlier run reused the synthetic cache).
+The 900 ms slow-CPU regression preserved English across 49 continuity checks for at least three
+seconds. Screenshots of our fixture/inspector were reviewed. Game-frame-time and other-GPU claims
+remain unverified. See [slice eight](plans/008-responsive-ocr.md).

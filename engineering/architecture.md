@@ -11,7 +11,8 @@ overlay styles. `domain` contains immutable shared values and pure geometry/visi
 
 The domain imports no Qt or Windows code. Capture does not depend on Qt and consumes a small
 geometry-source protocol. `recognition` owns the OCR worker, immutable observations, and lifecycle;
-it imports no Qt, Win32, or model runtime. `meiki` isolates pinned MeikiOCR/ONNX details. `models`
+it imports no Qt, Win32, or model runtime. `meiki` isolates pinned MeikiOCR details; `ocr_runtime`
+owns provider/session construction and process-local NVIDIA DLL loading. `models`
 defines and validates pinned local assets. `tracking` owns bounded text identities, matching,
 confirmation, and retirement; it stores no frame images and has no native/model dependencies.
 `presence` computes bounded exact crop digests; tracks retain only those digests and their bounds.
@@ -82,6 +83,14 @@ time with at most one replaceable pending frame and one published result. No inf
 accumulates. The CPU provider uses two intra-op threads per session, one inter-op thread, disabled
 idle spinning, OpenCV one thread, and recognition batches of four. Models execute sequentially.
 
+The optional GPU environment replaces the CPU ONNX distribution with its CUDA build; they are
+never co-installed. Auto mode tries CUDA, verifies actual session providers, and rebuilds the
+whole engine on CPU after initialization/inference failure. The fallback is visible and is attempted
+once per engine, not on every frame. Strict CUDA is reserved for verification. Missing/corrupt model
+files fail before fallback. The GPU uses the same model files and batches; CPU handles unsupported
+graph nodes. The per-session CUDA arena target is 512 MiB, not a total-process VRAM cap. Device and
+2–8 Hz capture settings are frozen during a session. Defaults are CPU 4 Hz and GPU auto 6 Hz.
+
 Resize, minimize, and pause increment a generation and clear pending/published work. Already-running
 native inference finishes, but cannot publish into an invalid generation. Each new capture has a
 separate worker. Stop clears the inspector and overlay immediately; the GUI polls all workers'
@@ -147,7 +156,7 @@ identical pixels. A long pause or slow inference preserves IDs; duplicate pollin
 New recognized regions display immediately in diagnostic mode. Translation waits for a second
 consistent observation, exact crop presence in a second observation, or 350 ms on an unchanged latest
 frame. Previously confirmed content remains
-eligible through pending edits, slow processing, and the two-miss grace period, keeping English visible.
+displayable through pending edits, slow processing, and the two-miss grace period, keeping English visible.
 A committed new revision invalidates its old English. Empty recognition remains visible in the raw
 inspector. A missed track whose crop is identical to its accepted reference stays present even after
 repeated misses. Exact-pixel checks use BLAKE2b digests, at most 65,536 pixels per crop and 1,000,000
@@ -169,8 +178,18 @@ and defines removal evidence and its limits.
 lines of comparable height and left alignment, continuation/punctuation evidence, and an unambiguous
 successor. Short/narrow speaker labels, marked choices, completed sentences, separate columns, and
 vertical lines stay separate. Limits are six lines and 512 source characters per group. Every member
-must be confirmed, and a group must keep its membership/source for 350 ms before translation. Single
-lines retain their existing readiness policy. The checkbox disables grouping without resetting OCR.
+must be confirmed before translation. Tracking also exposes bounded `TextActivity`: the plausible
+latest reading/geometry, last substantive change time, growth evidence, and whether an edit is
+pending. Grouping can reserve a continuation using this evidence before it commits, but translation
+sources always use committed text. One-character prefix growth at the same origin retains identity.
+Minor confidence variants do not restart the quiet period. Growth can support grouping even before
+terminal punctuation appears. Geometric, speaker, choice, and size safeguards remain in force.
+
+Readiness is timed from source observations, not from the eventual committed group: 180 ms quiet
+after terminal punctuation, 550 ms for revealed/unfinished multiline text, and 350 ms for other
+long single lines. Ordinary short labels add no delay. Genuine pending edits block new work;
+turning grouping off still debounces growing lines. Timing is a heuristic: a long pause can make
+unfinished dialogue ready. The checkbox disables grouping without resetting OCR.
 
 ```mermaid
 flowchart LR
@@ -191,7 +210,9 @@ its sole validity check. Splits, merges, member edits/removal, and toggle change
 The memory/SQLite key uses the exact combined source and existing backend identity; member geometry
 does not enter that key. Resetting tracking also resets the bounded group-settling state.
 
-The UI replaces the desired set of up to 128 confirmed Japanese blocks. One worker owns
+The UI supplies ready requests separately from revision-valid blocks whose already-published English
+may remain visible. Retained requests never initiate inference; new revisions/membership invalidate
+them. Desired plus retained requests are capped at 128. One worker owns
 one backend and one cache. It coalesces identical text into batches of at most four distinct sources;
 there is no historical job queue. Non-Japanese regions remain available in the raw inspector but are
 not submitted to the Japanese-to-English backend.

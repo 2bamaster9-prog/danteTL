@@ -14,9 +14,11 @@ DIALOGUE_LINES = ("新しい冒険がここから始まりますが、", "その
 
 
 class DemoWindow(QWidget):
-    def __init__(self, *, dialogue: bool = False) -> None:
+    def __init__(self, *, dialogue: bool = False, typewriter: bool = False) -> None:
         super().__init__()
         self._dialogue = dialogue
+        self.revealed = 0 if typewriter else sum(map(len, DIALOGUE_LINES))
+        self.reveal_active = typewriter
         self.setWindowTitle("JP Overlay Demo")
         self.resize(900, 580)
         self.setMinimumSize(440, 330)
@@ -54,6 +56,8 @@ class DemoWindow(QWidget):
 
     def _animate(self) -> None:
         self.phase = (self.phase + 1) % 100
+        if self.reveal_active and self.phase % 3 == 0:
+            self.revealed = min(sum(map(len, DIALOGUE_LINES)), self.revealed + 1)
         self.update()
 
     def paintEvent(self, event: QPaintEvent) -> None:
@@ -77,8 +81,10 @@ class DemoWindow(QWidget):
             painter.drawText(box.x + 24, box.y + 24, "旅人")
             font.setPixelSize(20)
             painter.setFont(font)
+            remaining = self.revealed
             for index, line in enumerate(DIALOGUE_LINES):
-                painter.drawText(box.x + 24, box.y + 54 + index * 30, line)
+                painter.drawText(box.x + 24, box.y + 54 + index * 30, line[: max(0, remaining)])
+                remaining -= len(line)
             self.button.setGeometry(box.x + 20, box.y + 100, box.width - 40, box.height - 108)
             return
         painter.setFont(QFont("Yu Gothic UI", 16))
@@ -95,10 +101,11 @@ class DemoWindow(QWidget):
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dialogue", action="store_true", help="Show wrapped Japanese dialogue")
+    parser.add_argument("--typewriter", action="store_true", help="Reveal dialogue gradually")
     args = parser.parse_args()
     Windows().enable_dpi_awareness()
     app = QApplication(sys.argv)
-    window = DemoWindow(dialogue=args.dialogue)
+    window = DemoWindow(dialogue=args.dialogue or args.typewriter, typewriter=args.typewriter)
     window.show()
     sys.exit(app.exec())
 

@@ -6,7 +6,7 @@ from statistics import median
 
 from jp_overlay.domain import Rect, union_bounds
 from jp_overlay.text_content import has_japanese
-from jp_overlay.tracking import TextTrack
+from jp_overlay.tracking import TextActivity, TextTrack
 
 _END = tuple("。！？!?」』")
 _CHOICE = re.compile(r"^(?:[・•●○◆◇▶▷→\-]|[0-9０-９①-⑳]+[.．、:：)）]|[A-Za-z][.．)）])")
@@ -65,7 +65,7 @@ def _can_follow(upper: TextTrack, lower: TextTrack) -> bool:
     first, second = upper.text.strip(), lower.text.strip()
     if upper.vertical or lower.vertical or not has_japanese(first) or not has_japanese(second):
         return False
-    if len(first) < 10 or len(second) < 2 or first.endswith((*_END, ":", "：")):
+    if len(first) < 10 or len(second) < 1 or first.endswith((*_END, ":", "：")):
         return False
     if _CHOICE.match(first) or _CHOICE.match(second) or second.startswith(("「", "『")):
         return False
@@ -88,7 +88,9 @@ def _dialogue_evidence(lines: tuple[TextTrack, ...]) -> bool:
     )
 
 
-def _blocks(tracks: tuple[TextTrack, ...], enabled: bool) -> tuple[TextBlock, ...]:
+def _blocks(
+    tracks: tuple[TextTrack, ...], enabled: bool, growing: frozenset[int] = frozenset()
+) -> tuple[TextBlock, ...]:
     ordered = sorted(tracks[:128], key=lambda t: (t.bounds.y, t.bounds.x, t.track_id))
     used: set[int] = set()
     blocks: list[TextBlock] = []
@@ -111,7 +113,9 @@ def _blocks(tracks: tuple[TextTrack, ...], enabled: bool) -> tuple[TextBlock, ..
                 if len(join_lines(proposed)) > 512:
                     break
                 lines = proposed
-        if len(lines) > 1 and not _dialogue_evidence(lines):
+        if len(lines) > 1 and not (
+            _dialogue_evidence(lines) or any(line.track_id in growing for line in lines)
+        ):
             lines = (first,)  # Nearby menu labels alone are not evidence of a dialogue box.
         used.update(line.track_id for line in lines)
         blocks.append(TextBlock(lines))
@@ -135,15 +139,45 @@ class DialogueGrouper:
         now: float,
         *,
         enabled: bool = True,
+        activity: tuple[TextActivity, ...] | None = None,
     ) -> GroupedText:
-        blocks = _blocks(visible, enabled)
+        observed = {value.observation.track_id: value for value in activity or ()}
+        growing = frozenset(key for key, value in observed.items() if value.growing)
+        layout = tuple(
+            observed[t.track_id].observation if t.track_id in observed else t for t in visible
+        )
+        displayed = {t.track_id: t for t in visible}
+        blocks = tuple(
+            TextBlock(tuple(displayed[t.track_id] for t in b.lines))
+            for b in _blocks(layout, enabled, growing)
+        )
         ready_keys = {(line.track_id, line.text_revision, line.text) for line in confirmed}
         since = {block.key: self._since.get(block.key, now) for block in blocks}
         ready = tuple(
             block
             for block in blocks
             if all(key in ready_keys for key in block.key)
-            and (len(block.lines) == 1 or now - since[block.key] >= self._settle_seconds)
+            and (
+                self._activity_ready(block, observed, now, enabled)
+                if activity is not None
+                else len(block.lines) == 1 or now - since[block.key] >= self._settle_seconds
+            )
         )
         self._since = since
         return GroupedText(blocks, ready)
+
+    def _activity_ready(
+        self, block: TextBlock, activity: dict[int, TextActivity], now: float, enabled: bool
+    ) -> bool:
+        members = [activity[t.track_id] for t in block.lines if t.track_id in activity]
+        if len(members) != len(block.lines) or any(t.pending for t in members):
+            return False
+        revealing = any(t.growing for t in members)
+        dialogue = enabled and (
+            len(block.lines) > 1 or (len(block.text) >= 10 and not _CHOICE.match(block.text))
+        )
+        if not revealing and not dialogue:
+            return True  # Ordinary short menu labels need no extra debounce.
+        complete = block.text.rstrip().endswith(_END)
+        quiet = 0.18 if complete else 0.55 if revealing or len(block.lines) > 1 else 0.35
+        return now - max(t.changed_at for t in members) >= quiet

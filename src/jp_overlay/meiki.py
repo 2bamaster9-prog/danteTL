@@ -5,36 +5,26 @@ initialize its three sessions explicitly, preserving its OCR algorithms. No glob
 monkeypatches, hub lookups, automatic downloads, or GPU dependency are needed.
 """
 
+import logging
 import math
 from pathlib import Path
 from typing import Any
 
 import cv2
 import numpy as np
-import onnxruntime as ort
 from meikiocr import MeikiOCR
 
 from jp_overlay.domain import CapturedFrame, Rect
 from jp_overlay.models import local_model_paths
+from jp_overlay.ocr_runtime import CPU, CUDA, create_sessions
 from jp_overlay.recognition import TextCharacter, TextRegion
 
 
 class _LocalMeiki(MeikiOCR):
-    def __init__(self, paths: tuple[Path, ...], threads: int) -> None:
-        options = ort.SessionOptions()
-        options.intra_op_num_threads = threads
-        options.inter_op_num_threads = 1
-        options.add_session_config_entry("session.intra_op.allow_spinning", "0")
-        options.add_session_config_entry("session.inter_op.allow_spinning", "0")
-        options.log_severity_level = 3
-        sessions = [
-            ort.InferenceSession(
-                str(path), sess_options=options, providers=["CPUExecutionProvider"]
-            )
-            for path in paths
-        ]
+    def __init__(self, paths: tuple[Path, ...], threads: int, provider: str = CPU) -> None:
+        sessions = create_sessions(paths, threads, provider)
         self.det_session, self.rec_session, self.vrec_session = sessions
-        self.active_provider = "CPUExecutionProvider"
+        self.active_provider = provider
         self.max_batch_size = 4
         self.detected: list[dict[str, Any]] = []
 
@@ -73,16 +63,43 @@ def convert_regions(
 
 
 class MeikiRecognizer:
-    def __init__(self, directory: Path, *, threads: int = 2) -> None:
-        paths = local_model_paths(directory)  # Validate before initializing model sessions.
+    def __init__(self, directory: Path, *, threads: int = 2, device: str = "cpu") -> None:
+        if device not in ("cpu", "auto", "cuda"):
+            raise ValueError("OCR device must be cpu, auto, or cuda.")
+        self._paths = local_model_paths(directory)  # Validate before GPU fallback.
         if not 1 <= threads <= 8:
             raise ValueError("OCR CPU threads must be between 1 and 8.")
         cv2.setNumThreads(1)
-        self._engine = _LocalMeiki(paths, threads)
+        self._threads, self._device = threads, device
+        self.message = ""
+        try:
+            self._engine = _LocalMeiki(self._paths, threads, CPU if device == "cpu" else CUDA)
+        except Exception as error:
+            if device != "auto":
+                raise
+            self._fallback(error)
+
+    @property
+    def provider(self) -> str:
+        return self._engine.active_provider
+
+    def _fallback(self, error: Exception) -> None:
+        logging.getLogger(__name__).warning("GPU OCR unavailable; using CPU: %s", error)
+        detail = (str(error).splitlines() or [type(error).__name__])[0][:180]
+        self.message = f"GPU unavailable; using CPU. {detail}"
+        if hasattr(self, "_engine"):
+            del self._engine  # Release GPU sessions before allocating the CPU engine.
+        self._engine = _LocalMeiki(self._paths, self._threads, CPU)
 
     def recognize(self, frame: CapturedFrame) -> tuple[TextRegion, ...]:
         bgra = np.frombuffer(frame.bgra, dtype=np.uint8).reshape(frame.height, frame.width, 4)
         bgr = cv2.cvtColor(bgra, cv2.COLOR_BGRA2BGR)
         # Meiki scales detection internally and maps both box types back to this image.
-        results = self._engine.run_ocr(bgr, det_threshold=0.5, rec_threshold=0.1)
+        try:
+            results = self._engine.run_ocr(bgr, det_threshold=0.5, rec_threshold=0.1)
+        except Exception as error:
+            if self._device != "auto" or self.provider != CUDA:
+                raise
+            self._fallback(error)
+            results = self._engine.run_ocr(bgr, det_threshold=0.5, rec_threshold=0.1)
         return convert_regions(self._engine.detected, results, frame.width, frame.height)

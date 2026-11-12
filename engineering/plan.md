@@ -128,6 +128,11 @@ completed-observation and pixel evidence, preserves existing tracks under dense 
 and exposes processing/queue diagnostics. Capture remains four samples/second; dense workloads
 are measured separately from the synthetic dialogue fixture.
 
+[Slice eight](plans/008-responsive-ocr.md) adds reveal-aware dialogue readiness, early continuation
+grouping, and optional NVIDIA CUDA OCR with CPU fallback. Capture pacing is now selectable from
+2–8 samples/second (CPU defaults to four; GPU auto to six). A bounded local CUDA cache avoids
+repeated first-use compilation. Other GPU vendors and translation GPU acceleration are deferred.
+
 ## Technical references
 
 - [Windows capture](https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/screen-capture)

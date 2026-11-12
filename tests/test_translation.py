@@ -137,6 +137,32 @@ def test_busy_screen_keeps_english_and_dialogue_membership_between_slow_passes(t
         stop(session)
 
 
+def test_reveal_debounce_preserves_published_english_without_queueing_unready_work(
+    tmp_path,
+) -> None:
+    backend = Backend()
+    session = TranslationSession(lambda: backend, tmp_path / "cache.sqlite3")
+    block = TextBlock((track(),))
+    session.start()
+    try:
+        session.update((block,))
+        until(lambda: bool(session.snapshot().results))
+        original = session.snapshot().results
+        session.update((), retain=(block,))
+        assert session.snapshot().results == original
+        assert session.snapshot().pending == 0
+        assert len(backend.calls) == 1
+        # Retention never accepts a changed source or an in-flight unready result.
+        changed = TextBlock((track("別の文章", revision=2),))
+        session.update((), retain=(changed,))
+        assert not session.snapshot().results and session.snapshot().pending == 0
+        session.update((changed,), retain=(changed,))
+        until(lambda: bool(session.snapshot().results))
+        assert session.snapshot().results[0].request.source == "別の文章"
+    finally:
+        stop(session)
+
+
 def test_dialogue_translates_as_one_request_and_rejects_a_late_changed_member(tmp_path) -> None:
     backend = Backend()
     backend.release.clear()

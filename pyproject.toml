@@ -13,7 +13,6 @@ dependencies = [
   "sentencepiece>=0.2,<0.3",
   "meikiocr==0.3.5",
   "numpy>=2,<3",
-  "onnxruntime>=1.20,<2",
   "opencv-python>=4.10,<6",
   "PySide6-Essentials>=6.8,<7",
   "windows-capture>=2.0.0,<3; sys_platform == 'win32'",
@@ -24,11 +23,27 @@ jp-overlay = "jp_overlay.app:main"
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "pyright>=1.1.400", "ruff>=0.12"]
+cpu = ["onnxruntime>=1.20,<2"]
+gpu = [
+  "onnxruntime-gpu[cuda,cudnn]==1.26.0",
+  "nvidia-cublas-cu12==12.9.2.10",
+  "nvidia-cudnn-cu12==9.10.2.21",
+]
 
 [tool.uv]
+default-groups = ["dev", "cpu"]
+required-environments = ["sys_platform == 'win32' and platform_machine == 'AMD64'"]
+conflicts = [[{ group = "cpu" }, { group = "gpu" }]]
 # windows-capture already needs opencv-python, which provides the same cv2 API.
 # Installing both OpenCV distributions would overwrite shared package files.
 exclude-dependencies = ["opencv-python-headless"]
+
+# Meiki imports the shared onnxruntime namespace. Select exactly one distribution
+# via CPU/GPU groups instead of installing overlapping CPU and GPU files together.
+[[tool.uv.dependency-metadata]]
+name = "meikiocr"
+version = "0.3.5"
+requires-dist = ["numpy", "opencv-python-headless", "huggingface-hub"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/jp_overlay"]

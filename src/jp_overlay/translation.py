@@ -92,6 +92,7 @@ class TranslationSession:
         self._generation = 0
         self._backend_generation = 0
         self._desired: tuple[TranslationRequest, ...] = ()
+        self._retained: tuple[TranslationRequest, ...] = ()
         self._results: dict[TranslationRequest, TranslatedText] = {}
         self._state = TranslationState.LOADING
         self._message = ""
@@ -101,7 +102,12 @@ class TranslationSession:
     def start(self) -> None:
         self._thread.start()
 
-    def update(self, tracks: tuple[TextTrack | TextBlock, ...]) -> None:
+    def update(
+        self,
+        tracks: tuple[TextTrack | TextBlock, ...],
+        *,
+        retain: tuple[TextBlock, ...] = (),
+    ) -> None:
         desired = tuple(
             TranslationRequest.from_block(t)
             if isinstance(t, TextBlock)
@@ -109,17 +115,28 @@ class TranslationSession:
             for t in tracks
             if has_japanese(t.text)
         )[:128]
+        retained = tuple(
+            key
+            for block in retain[:128]
+            if (key := TranslationRequest.from_block(block)) not in desired
+        )[: 128 - len(desired)]
         with self._condition:
-            if self._stop or self._state == TranslationState.FAILED or desired == self._desired:
+            if (
+                self._stop
+                or self._state == TranslationState.FAILED
+                or (desired == self._desired and retained == self._retained)
+            ):
                 return
-            self._desired = desired
-            self._results = {key: value for key, value in self._results.items() if key in desired}
+            self._desired, self._retained = desired, retained
+            allowed = set(desired) | set(retained)
+            self._results = {key: value for key, value in self._results.items() if key in allowed}
             self._condition.notify()
 
     def invalidate(self) -> None:
         with self._condition:
             self._generation += 1
             self._desired = ()
+            self._retained = ()
             self._results.clear()
             self._condition.notify()
 
@@ -139,6 +156,7 @@ class TranslationSession:
         with self._condition:
             self._stop = True
             self._desired = ()
+            self._retained = ()
             self._results.clear()
             if self._state not in (TranslationState.FAILED, TranslationState.STOPPED):
                 self._state = TranslationState.STOPPING
@@ -153,7 +171,7 @@ class TranslationSession:
             return TranslationSnapshot(
                 self._state,
                 tuple(self._results.values()),
-                len(self._desired) - len(self._results),
+                sum(key not in self._results for key in self._desired),
                 self._duration,
                 self._message,
             )

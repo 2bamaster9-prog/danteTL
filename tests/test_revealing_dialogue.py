@@ -1,0 +1,70 @@
+from dataclasses import replace
+
+from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
+from jp_overlay.grouping import DialogueGrouper
+from jp_overlay.recognition import OcrResult, TextRegion
+from jp_overlay.tracking import TextTracker
+
+FIRST = "新しい冒険がここから始まりますが、"
+SECOND = "その前に旅の準備をしてください。"
+
+
+class Reveal:
+    def __init__(self) -> None:
+        self.tracker, self.grouper = TextTracker(), DialogueGrouper()
+        self.now, self.sequence = 0.0, 0
+
+    def step(self, first: str, second: str = "", dt: float = 1 / 6):
+        self.now += dt
+        self.sequence += 1
+        viewport = Rect(0, 0, 1920, 1080)
+        frame = CapturedFrame(
+            self.sequence, self.now, WindowGeometry(viewport, viewport, viewport, 96), b""
+        )
+        regions = [TextRegion("設定", Rect(1500, 50, 60, 32))]
+        if first:
+            regions.append(TextRegion(first, Rect(100, 700, len(first) * 32, 32)))
+        if second:
+            regions.append(TextRegion(second, Rect(100, 744, len(second) * 32, 32)))
+        self.tracker.observe(OcrResult(frame, tuple(regions), 25, self.now + 0.025))
+        # Capture advances independently; polling must not pretend a candidate is static.
+        latest = replace(frame, sequence=self.sequence + 1)
+        return self.grouper.update(
+            self.tracker.visible(latest, self.now + 0.025),
+            self.tracker.translation_tracks(latest, self.now + 0.025),
+            self.now + 0.025,
+            activity=self.tracker.translation_activity(),
+        )
+
+
+def test_typewriter_waits_for_the_complete_paragraph_without_stacked_group_delay() -> None:
+    replay = Reveal()
+    for count in (1, 5, 10, 15, len(FIRST)):
+        grouped = replay.step(FIRST[:count])
+        assert not any(b.text != "設定" for b in grouped.ready)
+    for count in (1, 5, 10, len(SECOND)):
+        grouped = replay.step(FIRST, SECOND[:count])
+        assert not any(b.text != "設定" for b in grouped.ready)
+        assert len(grouped.blocks) == 2  # Menu plus the evolving paragraph, already grouped.
+    finished_at = replay.now
+    ready = replay.step(FIRST, SECOND).ready
+    assert {b.text for b in ready} == {"設定", FIRST + SECOND}
+    assert replay.now - finished_at < 0.2
+    paragraph = next(b for b in ready if len(b.lines) == 2)
+    assert paragraph.lines[0].track_id == 2  # Initial one-character reading retained its identity.
+
+
+def test_unpunctuated_reveal_waits_for_a_quiet_period_but_does_not_stall_forever() -> None:
+    replay = Reveal()
+    for count in (1, 5, 10):
+        assert not any(b.text != "設定" for b in replay.step(FIRST[:count]).ready)
+    assert not any(b.text != "設定" for b in replay.step(FIRST[:10]).ready)
+    assert any(b.text == FIRST[:10] for b in replay.step(FIRST[:10], dt=0.6).ready)
+
+
+def test_pending_source_edits_cannot_be_enqueued_as_the_old_confirmed_fragment() -> None:
+    replay = Reveal()
+    replay.step(FIRST, SECOND)
+    assert any(len(b.lines) == 2 for b in replay.step(FIRST, SECOND).ready)
+    changed = replay.step(FIRST, "違う文章に変わっています。")
+    assert not any(len(b.lines) == 2 for b in changed.ready)

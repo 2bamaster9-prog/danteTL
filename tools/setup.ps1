@@ -1,3 +1,4 @@
+param([switch]$Gpu)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $projectRoot
@@ -19,6 +20,12 @@ if (Get-Command uv -ErrorAction SilentlyContinue) {
     }
 }
 
-& $uvCommand sync --locked
+if ($Gpu) {
+    $env:UV_PROJECT_ENVIRONMENT = Join-Path $projectRoot '.venv-gpu'
+    & $uvCommand sync --locked --no-default-groups --group gpu --group dev
+} else {
+    $env:UV_PROJECT_ENVIRONMENT = Join-Path $projectRoot '.venv'
+    & $uvCommand sync --locked
+}
 if ($LASTEXITCODE -ne 0) { throw 'Dependency setup failed. Check the network connection and retry.' }
 Write-Host 'JP Overlay is ready. Double-click Run JP Overlay.cmd.'

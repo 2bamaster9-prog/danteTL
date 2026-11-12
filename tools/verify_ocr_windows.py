@@ -5,6 +5,7 @@ import json
 import os
 import time
 import traceback
+from functools import partial
 from pathlib import Path
 
 import shiboken6
@@ -15,7 +16,7 @@ from verify_translation import process_memory
 from jp_overlay.app import create_recognizer, translation_backends
 from jp_overlay.demo import DIALOGUE_LINES, DemoWindow
 from jp_overlay.domain import CapturedFrame, WindowTarget
-from jp_overlay.recognition import OcrState, TextRegion
+from jp_overlay.recognition import OcrChoice, OcrState, TextRegion
 from jp_overlay.translation import TranslationState
 from jp_overlay.ui import MainWindow
 from jp_overlay.windows import Windows
@@ -29,15 +30,21 @@ def main() -> int:
     )
     parser.add_argument("--dialogue", action="store_true", help="Verify two-line dialogue grouping")
     parser.add_argument("--ocr-delay-ms", type=int, default=0, help="Simulate a slow OCR worker")
+    parser.add_argument("--device", choices=("cpu", "auto", "cuda"), default="cpu")
+    parser.add_argument(
+        "--typewriter", action="store_true", help="Check gradual dialogue readiness"
+    )
     args = parser.parse_args()
     if args.dialogue and not args.translation:
         parser.error("--dialogue requires --translation")
+    if args.typewriter and not args.dialogue:
+        parser.error("--typewriter requires --dialogue")
     if not 0 <= args.ocr_delay_ms <= 1500:
         parser.error("--ocr-delay-ms must be between 0 and 1500")
 
     class DelayedRecognizer:
         def __init__(self) -> None:
-            self.engine = create_recognizer()
+            self.engine = create_recognizer(device=args.device)
 
         def recognize(self, frame: CapturedFrame) -> tuple[TextRegion, ...]:
             time.sleep(args.ocr_delay_ms / 1000)
@@ -47,17 +54,35 @@ def main() -> int:
     windows.enable_dpi_awareness()
     app = QApplication([])
     app.setQuitOnLastWindowClosed(False)
-    demo = DemoWindow(dialogue=args.dialogue)
+    demo = DemoWindow(dialogue=args.dialogue, typewriter=args.typewriter)
+    if args.typewriter:
+        demo.reveal_active = False  # Begin after model initialization/first inference.
     expected = DIALOGUE_LINES[0] if args.dialogue else "新しい冒険が、ここから始まる。"
     translation_source = "".join(DIALOGUE_LINES) if args.dialogue else expected
     demo.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
     demo.show()
+    factory = (
+        DelayedRecognizer if args.ocr_delay_ms else partial(create_recognizer, device=args.device)
+    )
+    choices = (OcrChoice(args.device, factory, 6 if args.device != "cpu" else 4),)
+    if args.device != "cpu":
+        choices += (OcrChoice("CPU", create_recognizer, 4),)
+    cache_path = (
+        Path(__file__).resolve().parents[1]
+        / "artifacts"
+        / (
+            f"typewriter-{time.time_ns()}.sqlite3"
+            if args.typewriter
+            else "verification-translation.sqlite3"
+        )
+    )
+    cache_initially_empty = not cache_path.exists()
     window = MainWindow(
         windows,
-        DelayedRecognizer if args.ocr_delay_ms else create_recognizer,
+        factory,
         translation_backends() if args.translation else (),
-        cache_path=Path(__file__).resolve().parents[1]
-        / "artifacts/verification-translation.sqlite3",
+        cache_path=cache_path,
+        ocr_backends=choices,
     )
     window.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
     window.show()
@@ -77,16 +102,19 @@ def main() -> int:
     continuity_started = 0.0
     continuity_polls = 0
     continuity_request = None
-    evidence: dict[str, object] = {}
+    evidence: dict[str, object] = {"translation_cache_initially_empty": cache_initially_empty}
     failure = ""
+    reveal_finished = 0.0
+    timeout = 180 if args.device != "cpu" else 45
 
     def tick() -> None:
         nonlocal stage, stage_started, frozen, initial_size, failure, phrase_id, phrase_bounds
         nonlocal swapped, grouping_stage
         nonlocal continuity_started, continuity_polls, continuity_request
+        nonlocal reveal_finished
         now = time.monotonic()
         try:
-            if now - started > 30:
+            if now - started > timeout:
                 raise RuntimeError(f"Live OCR verification timed out at stage {stage}")
             if stage == 99:
                 if window._session is None:
@@ -103,6 +131,31 @@ def main() -> int:
             ):
                 raise RuntimeError(window._translation.snapshot().message)
             result = window.inspector.result
+            if (
+                args.typewriter
+                and reveal_finished
+                and not swapped
+                and window._translation
+                and any(
+                    t.request.source == translation_source for t in window._overlay._translations
+                )
+            ):
+                evidence.setdefault(
+                    "typewriter_to_full_english_seconds", round(now - reveal_finished, 3)
+                )
+            if stage == 0 and args.typewriter and result is not None:
+                demo.reveal_active = True
+                if demo.revealed < sum(map(len, DIALOGUE_LINES)):
+                    if window._translation:
+                        for translated in window._translation.snapshot().results:
+                            assert translated.request.source == "旅人", (
+                                "Premature dialogue translation: " + translated.request.source
+                            )
+                    return
+                if not reveal_finished:
+                    reveal_finished = now
+                if not all(line in [r.text for r in result.regions] for line in DIALOGUE_LINES):
+                    return
             if stage == 8 and phrase_id and window._session:
                 latest = window._session.snapshot().frame
                 if latest:
@@ -128,6 +181,11 @@ def main() -> int:
                 evidence["live_japanese_recognized"] = True
                 evidence["ocr_ms"] = round(result.duration_ms, 1)
                 evidence["dpi"] = result.frame.geometry.dpi
+                if args.device == "cuda" and not args.ocr_delay_ms:
+                    assert (
+                        window._ocr and window._ocr.snapshot().provider == "CUDAExecutionProvider"
+                    )
+                    evidence["actual_gpu_provider"] = window._ocr.snapshot().provider
                 initial_size = result.frame.geometry.client.size
                 frozen = result
                 tracks = window._tracker.visible(result.frame, now)
@@ -150,6 +208,9 @@ def main() -> int:
                     if not translated.results or translated.pending:
                         return
                     if not swapped:
+                        if args.typewriter:
+                            assert "typewriter_to_full_english_seconds" in evidence
+                            evidence["no_partial_dialogue_translations"] = True
                         window.backend_combo.setCurrentIndex(1)
                         swapped = True
                         return
@@ -246,9 +307,14 @@ def main() -> int:
                 assert window._ocr is None
                 assert window._translation is None
                 assert window.inspector.result is None
+                if args.device != "cpu":
+                    window.ocr_device.setCurrentIndex(1)
                 window.start_button.click()
                 stage = 6
             elif stage == 6 and result:
+                if args.device != "cpu":
+                    assert window._ocr and window._ocr.snapshot().provider == "CPUExecutionProvider"
+                    evidence["cpu_selection_after_gpu_session"] = True
                 evidence["restart_receives_new_result"] = True
                 window.close()
                 stage = 7
@@ -265,7 +331,7 @@ def main() -> int:
             print(f"FAIL: {failure}", flush=True)
             window.close()
             stage = 99
-            if now - started > 35:
+            if now - started > timeout + 5:
                 timer.stop()
                 app.exit(1)
 

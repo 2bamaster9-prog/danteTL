@@ -63,10 +63,18 @@ class OcrSnapshot:
     queue_ms: float = 0
     mean_duration_ms: float = 0
     processing_since: float | None = None
+    provider: str = ""
 
 
 class Recognizer(Protocol):
     def recognize(self, frame: CapturedFrame, /) -> tuple[TextRegion, ...]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class OcrChoice:
+    name: str
+    create: Callable[[], Recognizer]
+    capture_fps: int = 4
 
 
 class OcrSession:
@@ -145,6 +153,14 @@ class OcrSession:
                 processing_since=self._processing_since,
             )
 
+    def _ready(self, engine: Recognizer, result: OcrResult | None = None) -> OcrSnapshot:
+        return OcrSnapshot(
+            OcrState.READY,
+            result,
+            str(getattr(engine, "message", "")),
+            provider=str(getattr(engine, "provider", "")),
+        )
+
     def _run(self) -> None:
         try:
             with self._condition:
@@ -154,7 +170,7 @@ class OcrSession:
             with self._condition:
                 if self._stop:
                     return
-                self._snapshot = OcrSnapshot(OcrState.READY)
+                self._snapshot = self._ready(engine)
             while True:
                 with self._condition:
                     self._condition.wait_for(lambda: self._stop or self._pending is not None)
@@ -175,7 +191,7 @@ class OcrSession:
                         self._processed += 1
                         self._queue_ms = max(0, (started - frame.captured_at) * 1000)
                         self._durations.append(result.duration_ms)
-                        self._snapshot = OcrSnapshot(OcrState.READY, result)
+                        self._snapshot = self._ready(engine, result)
                 # Do not keep old frame buffers alive through the next idle wait.
                 del job, frame, result
         except Exception as error:

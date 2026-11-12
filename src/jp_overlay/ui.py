@@ -27,7 +27,7 @@ from jp_overlay.domain import CapturedFrame, CaptureState, WindowTarget, overlay
 from jp_overlay.grouping import DialogueGrouper, TextBlock
 from jp_overlay.inspection import OcrInspector
 from jp_overlay.overlay import OverlayWindow
-from jp_overlay.recognition import OcrSession, OcrState, Recognizer, overlay_result_ready
+from jp_overlay.recognition import OcrChoice, OcrSession, OcrState, Recognizer, overlay_result_ready
 from jp_overlay.tracking import TextTrack, TextTracker
 from jp_overlay.translation import BackendChoice, TranslationSession, TranslationState
 from jp_overlay.windows import Windows, WindowUnavailable
@@ -45,6 +45,7 @@ class MainWindow(QMainWindow):
         backends: tuple[BackendChoice, ...] = (),
         *,
         cache_path: Path | None = None,
+        ocr_backends: tuple[OcrChoice, ...] = (),
     ) -> None:
         super().__init__()
         self._windows = windows
@@ -56,6 +57,7 @@ class MainWindow(QMainWindow):
             cache_path or Path(__file__).resolve().parents[2] / "data/translations.sqlite3"
         )
         self._recognizer_factory = recognizer_factory
+        self._ocr_backends = ocr_backends or (OcrChoice("CPU", recognizer_factory),)
         self._valid_size: tuple[int, int] | None = None
         self._tracker = TextTracker()
         self._grouper = DialogueGrouper()
@@ -112,6 +114,26 @@ class MainWindow(QMainWindow):
         actions.addWidget(self.start_button, 1)
         actions.addWidget(self.demo_button)
         layout.addLayout(actions)
+
+        processing = QHBoxLayout()
+        processing.addWidget(QLabel("OCR device"))
+        self.ocr_device = QComboBox()
+        for choice in self._ocr_backends:
+            self.ocr_device.addItem(choice.name, choice)
+        self.ocr_device.setToolTip(
+            "Choose before starting capture. GPU setup is optional and local."
+        )
+        self.capture_rate = QSpinBox()
+        self.capture_rate.setRange(2, 8)
+        self.capture_rate.setSuffix(" samples/s")
+        self.capture_rate.setValue(self._ocr_backends[0].capture_fps)
+        self.capture_rate.setToolTip("Higher rates reduce sampling delay but use more resources.")
+        self.ocr_device.currentIndexChanged.connect(self._ocr_choice_changed)
+        processing.addWidget(self.ocr_device)
+        processing.addWidget(QLabel("Capture rate"))
+        processing.addWidget(self.capture_rate)
+        processing.addStretch()
+        layout.addLayout(processing)
 
         options = QHBoxLayout()
         self.overlay_check = QCheckBox("Show game overlay")
@@ -196,7 +218,7 @@ class MainWindow(QMainWindow):
         self.status = QLabel("Select a window, then start capture.")
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
-        self.metrics = QLabel("Window capture · 4 samples/s target · all processing local")
+        self.metrics = QLabel("Window capture · all processing local")
         self.metrics.setObjectName("muted")
         self.metrics.setWordWrap(True)
         layout.addWidget(self.metrics)
@@ -262,8 +284,13 @@ class MainWindow(QMainWindow):
         target = self.windows_combo.currentData()
         if not isinstance(target, WindowTarget):
             return
-        self._session = CaptureSession(target, self._windows)
-        self._ocr = OcrSession(self._recognizer_factory)
+        self._session = CaptureSession(target, self._windows, fps=self.capture_rate.value())
+        choice = self.ocr_device.currentData()
+        self._ocr = OcrSession(
+            choice.create if isinstance(choice, OcrChoice) else self._recognizer_factory
+        )
+        self.ocr_device.setEnabled(False)
+        self.capture_rate.setEnabled(False)
         self._stopping_message = "The capture source closed. Select a window to restart."
         self._last_sequence = 0
         self._started_at = time.monotonic()
@@ -335,6 +362,11 @@ class MainWindow(QMainWindow):
         self.font_size.setEnabled(not automatic)
         self._overlay.set_text_style(automatic, self.font_size.value())
 
+    def _ocr_choice_changed(self) -> None:
+        choice = self.ocr_device.currentData()
+        if isinstance(choice, OcrChoice):
+            self.capture_rate.setValue(choice.capture_fps)
+
     def _backend_changed(self) -> None:
         choice = self.backend_combo.currentData()
         if self._translation and isinstance(choice, BackendChoice):
@@ -346,7 +378,9 @@ class MainWindow(QMainWindow):
         if not self.inspector.pause.isChecked():
             self.inspector.set_translations(())
 
-    def _poll_translation(self, running: bool, tracks: tuple[TextBlock, ...] = ()) -> None:
+    def _poll_translation(
+        self, running: bool, tracks: tuple[TextBlock, ...] = (), retain: tuple[TextBlock, ...] = ()
+    ) -> None:
         session = self._translation
         enabled = running and self.translate_check.isChecked()
         if not enabled:
@@ -374,7 +408,7 @@ class MainWindow(QMainWindow):
             session = TranslationSession(choice.create, self._cache_path)
             self._translation = session
             session.start()
-        session.update(tracks)
+        session.update(tracks, retain=retain)
         snapshot = session.snapshot()
         self._overlay.set_translations(snapshot.results, enabled=True)
         if not self.inspector.pause.isChecked():
@@ -412,7 +446,9 @@ class MainWindow(QMainWindow):
         elif paused:
             self.ocr_status.setText("Inspection paused · frame and text frozen · game boxes hidden")
         elif snapshot.state == OcrState.LOADING:
-            self.ocr_status.setText("Loading local MeikiOCR models on CPU…")
+            self.ocr_status.setText(
+                "Loading local MeikiOCR models… GPU initialization can take longer."
+            )
         elif snapshot.result is not None:
             result = snapshot.result
             self._track_ids = self._tracker.observe(result)
@@ -425,7 +461,9 @@ class MainWindow(QMainWindow):
             self.ocr_status.setText(
                 f"{len(result.regions)} text regions · {result.duration_ms:.0f} ms OCR · "
                 f"{snapshot.queue_ms:.0f} ms capture-to-start · "
-                f"{snapshot.skipped_frames} waiting frames skipped{busy} · local CPU"
+                f"{snapshot.skipped_frames} waiting frames skipped{busy} · "
+                f"{'NVIDIA GPU' if snapshot.provider == 'CUDAExecutionProvider' else 'CPU'}"
+                f"{(' · ' + snapshot.message) if snapshot.message else ''}"
             )
             self.ocr_status.setToolTip(
                 f"Average of the last 8 passes: {snapshot.mean_duration_ms:.0f} ms. "
@@ -434,7 +472,19 @@ class MainWindow(QMainWindow):
                 "Existing English stays visible while the next pass runs."
             )
         else:
-            self.ocr_status.setText("Reading the newest frame with MeikiOCR…")
+            elapsed = (
+                f" {time.monotonic() - snapshot.processing_since:.0f} s."
+                if snapshot.processing_since is not None
+                else ""
+            )
+            self.ocr_status.setText(
+                f"Reading the first frame…{elapsed}"
+                + (
+                    " First GPU use may compile kernels; later launches reuse the local cache."
+                    if snapshot.provider == "CUDAExecutionProvider"
+                    else ""
+                )
+            )
         # Once OCR arrives, the inspector owns an exact source/result pair.
         if not paused and self.inspector.result is None and frame.sequence != self._last_sequence:
             self.inspector.preview.set_frame(frame)
@@ -473,6 +523,8 @@ class MainWindow(QMainWindow):
             self.start_button.setEnabled(True)
             self.windows_combo.setEnabled(True)
             self.refresh_button.setEnabled(True)
+            self.ocr_device.setEnabled(True)
+            self.capture_rate.setEnabled(True)
             if self._closing:
                 self.close()
             return
@@ -519,10 +571,14 @@ class MainWindow(QMainWindow):
                 else ()
             )
             grouped = self._grouper.update(
-                tracks, ready, time.monotonic(), enabled=self.group_dialogue.isChecked()
+                tracks,
+                ready,
+                time.monotonic(),
+                enabled=self.group_dialogue.isChecked(),
+                activity=self._tracker.translation_activity(),
             )
             self._overlay.set_blocks(grouped.blocks)
-            self._poll_translation(True, grouped.ready)
+            self._poll_translation(True, grouped.ready, grouped.blocks)
             if (
                 not self.stabilize_check.isChecked()
                 and not self.inspector.pause.isChecked()

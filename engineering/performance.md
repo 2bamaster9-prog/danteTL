@@ -140,3 +140,41 @@ These development-machine smoke measurements do not establish p95, sustained mem
 The live slow-worker run took 15.44 seconds including startup, model/profile switching and lifecycle
 checks. Its snapshot was 863.0 MiB working set, 1,381.0 MiB private memory, and 1,640.7 MiB peak working
 set. The added 900 ms sleep simulates latency; it does not simulate equivalent CPU contention.
+
+## Optional GPU OCR and revealing dialogue (2026-11-13)
+
+RTX 5080 (16,303 MiB reported), NVIDIA driver 610.88, Ryzen 9800X3D, 64 GB. CPU ONNX Runtime 1.32.0;
+GPU ONNX Runtime 1.26.0 (CUDA 12.8 build), cuDNN 9.10.2.21, cublas 12.9.2.10. Both use Meiki 0.3.5,
+the same model files, two CPU threads, and batches of four. GPU uses HEURISTIC convolution selection
+and TF32 disabled. The final benchmark uses perf_counter for sub-tick duration precision on Windows.
+
+| Fixture | CPU warm median / maximum | GPU warm median / maximum | GPU first inference after cache warm-up |
+| --- | --- | --- | --- |
+| 4K, 80 drawn labels / 64 detections | 476.1 / 483.3 ms | 237.7 / 258.6 ms | 1,308.7 ms |
+| 1080p, three Japanese regions | Not remeasured in this slice | 35.7 / 36.6 ms | 1,081.4 ms |
+
+Each warm statistic covers five passes. Dense output included spelling variants on both providers;
+this is not an 80/80 recognition result. These development-machine samples are not p95 or game FPS.
+GPU model initialization took about 890–915 ms. First use with an empty CUDA kernel cache took
+about 54 seconds, dominated by compilation; setup primes a project-local 512 MiB-budget cache.
+Subsequent processes reuse it. New kernels or a driver change can require compilation again.
+
+A live GPU typewriter run at 1575 × 1015 / DPI 168 showed complete English 0.75 seconds after the
+last character, starting with an empty translation cache. No partial dialogue requests were
+published during its reveal cadence. An earlier warm-translation-cache run measured 0.50 seconds.
+These include discovery, readiness, Sugoi, UI polling, and rendering; they are single samples.
+The GPU live OCR sample for the fixture's mixed English/Japanese content was 156 ms, illustrating
+why sparse Japanese-only timings do not predict every screen. A six-Hz capture target can still
+outpace a dense OCR worker; only its newest pending frame is retained.
+
+After profile/grouping swaps, the GPU live process (including its demo) sampled 1,656.1 MiB working
+set, 3,459.5 MiB private memory, and 2,443.1 MiB peak working set. The slow CPU run sampled 861.8 /
+1,380.3 / 1,640.3 MiB respectively. These metrics differ; private memory is not physical RAM usage.
+The GPU option has a larger memory footprint and is not a validated 2 GB private-memory budget.
+The 512 MiB arena setting applies per ONNX session; total VRAM includes other allocations and has
+not been measured independently of the game/desktop. CPU remains the lower-resource option.
+
+Reveal activity adds a few fields per existing track; request retention still caps the combined
+ready/retained set at 128. No new frame history, concurrent OCR, or polling inference is introduced.
+The old fixed 350 ms post-commit group wait is superseded by source-time quiet periods; see
+[decision 008](decisions/008-responsive-ocr.md).

@@ -55,21 +55,22 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--dense", action="store_true", help="Benchmark 80 labels at 4K")
+    parser.add_argument("--device", choices=("cpu", "auto", "cuda"), default="cpu")
     args = parser.parse_args()
     app = QApplication.instance() or QApplication([])
     frame = fixture(args.dense)
     with patch.object(
         socket.socket, "connect", side_effect=AssertionError("Unexpected network I/O")
     ):
-        started = time.monotonic()
-        engine = MeikiRecognizer(model_directory())
-        load_ms = (time.monotonic() - started) * 1000
+        started = time.perf_counter()
+        engine = MeikiRecognizer(model_directory(), device=args.device)
+        load_ms = (time.perf_counter() - started) * 1000
         timings = []
         regions = ()
         for _ in range(6):
-            started = time.monotonic()
+            started = time.perf_counter()
             regions = engine.recognize(frame)
-            timings.append((time.monotonic() - started) * 1000)
+            timings.append((time.perf_counter() - started) * 1000)
     observed = {region.text for region in regions}
 
     def normalize(text: str) -> str:
@@ -97,7 +98,8 @@ def main() -> None:
         "region_count": len(regions),
         "drawn_label_count": 80 if args.dense else len(EXPECTED),
         "match_policy": "NFKC (full-width/ASCII punctuation differences); raw text preserved",
-        "provider": "CPUExecutionProvider",
+        "provider": engine.provider,
+        "provider_message": engine.message,
         "cpu_threads": 2,
         "model_load_ms": round(load_ms, 1),
         "first_inference_ms": round(timings[0], 1),

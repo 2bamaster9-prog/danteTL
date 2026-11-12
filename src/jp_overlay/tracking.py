@@ -26,6 +26,16 @@ class TextTrack:
 
 
 @dataclass(frozen=True, slots=True)
+class TextActivity:
+    """Latest plausible layout and reveal activity, separate from committed display."""
+
+    observation: TextTrack
+    changed_at: float
+    growing: bool
+    pending: bool
+
+
+@dataclass(frozen=True, slots=True)
 class TrackingPolicy:
     max_tracks: int = 128
     missing_frames: int = 3
@@ -61,6 +71,9 @@ class _Track:
     fingerprint: bytes | None = None
     fingerprint_bounds: Rect | None = None
     pixels_changed: bool = False
+    reading: str = ""
+    changed_at: float = 0
+    growing: bool = False
 
 
 def _normalized(text: str) -> str:
@@ -144,8 +157,18 @@ def _match_score(track: _Track, region: TextRegion) -> float | None:
     overlap = _overlap(track.observed, region.bounds)
     distance = _edge_distance(track.observed, region.bounds)
     thickness = max(1, min(track.observed.size), min(region.bounds.size))
+    a, b = track.observed, region.bounds
+    tolerance = _deadband(a)
+    same_origin = (
+        abs(a.x - b.x) <= tolerance
+        and abs(a.y - b.y) <= tolerance
+        and abs(
+            (a.width if region.vertical else a.height) - (b.width if region.vertical else b.height)
+        )
+        <= tolerance
+    )
     # Text alone cannot attach an identical label on the other side of the screen.
-    if overlap < 0.2 and distance > max(24, thickness * 3):
+    if overlap < 0.2 and distance > max(24, thickness * 3) and not same_origin:
         return None
     old, new = _normalized(track.value.text), _normalized(region.text)
     if old == new:
@@ -154,7 +177,9 @@ def _match_score(track: _Track, region: TextRegion) -> float | None:
         similarity = SequenceMatcher(None, old, new, autojunk=False).ratio()
         # Short labels/numbers are meaningful edits, never fuzzy-equivalent content.
         related = min(len(old), len(new)) >= 6 and similarity >= 0.8
-        prefix = min(len(old), len(new)) >= 3 and (old.startswith(new) or new.startswith(old))
+        prefix = (min(len(old), len(new)) >= 3 or same_origin) and (
+            old.startswith(new) or new.startswith(old)
+        )
         if not (related or prefix) and overlap < 0.55:
             return None
     # Spatial proximity is essential for repeated menu labels. Exact text helps
@@ -270,6 +295,8 @@ class TextTracker:
                 frame.captured_at,
                 frame.sequence,
                 best_confidence=_confidence(region),
+                reading=region.text,
+                changed_at=frame.captured_at,
             )
             used.add(key)
             assignments[index] = key
@@ -292,6 +319,13 @@ class TextTracker:
         track.last_seen, track.last_sequence, track.misses = frame.captured_at, frame.sequence, 0
         track.missing_since = None
         track.pixels_changed = False
+        previous, new = _normalized(track.reading), _normalized(region.text)
+        if previous != new and not _minor_variant(previous, new):
+            track.changed_at = frame.captured_at
+            track.growing = bool(previous) and (
+                new.startswith(previous) or previous.startswith(new)
+            )
+        track.reading = region.text
         text_changed = self._observe_text(track, region, frame.captured_at)
         if track.pending_protected:
             # An icon/crop variant must not move the winning box while its text is rejected.
@@ -401,3 +435,17 @@ class TextTracker:
         """
         visible = self.visible(latest, now)
         return tuple(value for value in visible if self._tracks[value.track_id].confirmed)
+
+    def translation_activity(self) -> tuple[TextActivity, ...]:
+        """Expose reveal timing without allowing candidate text to alter displayed English."""
+        return tuple(
+            TextActivity(
+                replace(track.value, text=track.pending_text, bounds=track.observed)
+                if track.pending_text and not track.pending_protected
+                else track.value,
+                track.changed_at,
+                track.growing,
+                bool(track.pending_text) and not track.pending_protected,
+            )
+            for track in self._tracks.values()
+        )

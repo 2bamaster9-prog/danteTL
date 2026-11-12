@@ -9,15 +9,27 @@ from pathlib import Path
 from types import TracebackType
 
 from jp_overlay.models import model_directory
-from jp_overlay.recognition import Recognizer
+from jp_overlay.ocr_runtime import gpu_runtime_installed
+from jp_overlay.recognition import OcrChoice, Recognizer
 from jp_overlay.translation import BackendChoice, TranslationBackend
 
 
-def create_recognizer() -> Recognizer:
+def create_recognizer(*, device: str = "cpu") -> Recognizer:
     # Import native inference dependencies on the OCR worker, keeping GUI startup light.
     from jp_overlay.meiki import MeikiRecognizer
 
-    return MeikiRecognizer(model_directory())
+    return MeikiRecognizer(model_directory(), device=device)
+
+
+def ocr_backends() -> tuple[OcrChoice, ...]:
+    if gpu_runtime_installed():
+        return (
+            OcrChoice(
+                "Automatic · GPU with CPU fallback", partial(create_recognizer, device="auto"), 6
+            ),
+            OcrChoice("CPU · low resource use", create_recognizer, 4),
+        )
+    return (OcrChoice("CPU · GPU setup optional", create_recognizer, 4),)
 
 
 def create_translator(*, beam_size: int = 2) -> TranslationBackend:
@@ -76,7 +88,9 @@ def main() -> None:
         )
 
     sys.excepthook = report_exception
-    window = MainWindow(windows, create_recognizer, translation_backends())
+    window = MainWindow(
+        windows, create_recognizer, translation_backends(), ocr_backends=ocr_backends()
+    )
     window.show()
     exit_code = app.exec()
     # Tear down Qt while its native dependencies are still loaded, before Python finalization.
