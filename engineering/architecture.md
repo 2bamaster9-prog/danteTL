@@ -91,7 +91,7 @@ once per engine, not on every frame. Strict CUDA is reserved for verification. M
 files fail before fallback. The GPU uses the same model files and batches; CPU handles unsupported
 graph nodes. The per-session CUDA arena target is 512 MiB, not a total-process VRAM cap. Device and
 2–12 Hz capture settings are frozen during a session. Both providers default to 8 Hz; visual
-evidence, rather than every captured frame, now schedules full-frame inference.
+evidence, rather than every captured frame, schedules regional or full-frame inference.
 
 Resize, minimize, and pause increment a generation and clear pending/published work. Already-running
 native inference finishes, but cannot publish into an invalid generation. Each new capture has a
@@ -123,9 +123,9 @@ generations; late work cannot republish. Failure switches visibly to ordinary OC
 anchors, and 128 expanded reading probes. Templates are capped at 256 x 48, never full-frame history;
 each crop samples at most 1024 x 192 source pixels before resizing.
 Area downsampling detects changed tiles, avoiding repeated crop work in unchanged tiles. Novel
-motion, settling, and quiet changed text prompt OCR, with a 200 ms minimum request interval and a
-1.5-second fallback refresh on advancing frames. One follow-up helps uncertain initial confirmation.
-Continuously growing dialogue defers intermediate scans, but never suppresses the periodic refresh.
+motion, settling, and quiet changed text prompt OCR, with a 120 ms minimum request interval and a
+three-second full refresh on advancing frames. One follow-up helps uncertain initial confirmation.
+Continuously growing dialogue defers only its region, never unrelated new labels or full discovery.
 Skipped captures are not negative OCR observations. Raw inspection remains frame/result matched.
 
 Anchors compare signed edges and spatial pattern correlation with a one-template-pixel tolerance.
@@ -146,8 +146,32 @@ Punctuation appended to an actively revealing line takes the normal confirmation
 static labels retain confidence protection for otherwise similar alternatives.
 
 These are bounded appearance heuristics, not game-panel detection or semantic absence proof. The
-1.5-second full refresh covers missed/ambiguous changes. ROI inference and learned panel detection
-remain future work. See [decision 009](decisions/009-visual-evidence.md).
+three-second full refresh covers missed/ambiguous changes. Learned panel detection remains future
+work. See [decision 009](decisions/009-visual-evidence.md).
+
+## Regional OCR observations
+
+`regions` owns rectangle clipping, merging and whole-line closure. The visual worker accumulates
+novel/settled dirty tiles until serviced, pads their connected regions, and expands over known text.
+At most four disjoint areas covering up to 45% of the client are selected; broader requests use a
+full scan. Local dialogue probes add continuation context. Full discovery has an independent deadline.
+
+`OcrSession` unions pending coverage while replacing pixels with the newest frame. It crops only
+on its worker, calls the same recognizer, offsets line and character bounds exactly once, and retains
+the original source frame. Detections touching artificial crop edges trigger one full-scan fallback.
+`OcrResult.scanned` records actual coverage (`None` for full). The inspector never synthesizes old
+detections onto a new image. Tracking considers a miss only when that track was fully covered; a
+newer unrelated crop cannot settle an older miss. Grouping still uses all retained tracks.
+
+The application acknowledges a result after visual review and tracking reconciliation. Until then,
+the OCR worker holds its next bounded job; fast crops cannot overwrite an unconsumed observation.
+Invalidation clears both pending work and the acknowledgement gate. Retained dialogue probes carry
+their original per-line sequence/text, allowing confirmation after scans of other areas while
+rejecting stale positive/negative evidence. See [decision 010](decisions/010-regional-ocr.md).
+
+CUDA recognition uses a fixed batch of four: incomplete batches are padded and outputs sliced back
+to the actual count before postprocessing. This avoids measured half-second cuDNN replanning when
+switching full scans and one-line crops. CPU batching is unchanged. No dummy detection can publish.
 
 Pause freezes the current image/table and invalidates queued work while capture continues. Resume
 resubmits the latest frame. Resize/minimize/stop clear even a frozen inspection to prevent a stale

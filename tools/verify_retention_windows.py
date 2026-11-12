@@ -19,8 +19,10 @@ from PySide6.QtWidgets import QApplication, QWidget
 
 from jp_overlay.app import create_recognizer, translation_backends
 from jp_overlay.domain import CapturedFrame, Rect, WindowTarget
+from jp_overlay.grouping import TextBlock
 from jp_overlay.recognition import OcrChoice, OcrState, TextCharacter, TextRegion
 from jp_overlay.text_content import has_japanese
+from jp_overlay.translation import TranslatedText
 from jp_overlay.ui import MainWindow
 from jp_overlay.windows import Windows
 
@@ -31,6 +33,7 @@ class CharacterScreen(QWidget):
         self.setWindowTitle("JP Overlay stationary-label verification")
         self.resize(900, 580)
         self.phase = 0
+        self.new_label = False
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.advance)
         self.timer.start(50)
@@ -53,12 +56,19 @@ class CharacterScreen(QWidget):
             ("キャラクター", "装備を確認", "攻撃力", "防御力", "速度", "詳細を表示")
         ):
             p.drawText(45 if i < 3 else 570, 90 + i % 3 * 150, label)
+        if self.new_label:
+            p.drawText(390, 520, "設定")
         p.end()
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
+    parser.add_argument(
+        "--appearance",
+        action="store_true",
+        help="Time a newly appearing menu label after retention checks",
+    )
     parser.add_argument("--output", type=Path, default=Path("artifacts/visual/stationary.json"))
     args = parser.parse_args()
     armed = threading.Event()
@@ -104,7 +114,11 @@ def main() -> int:
         windows,
         NoisyRecognizer,
         translation_backends(),
-        cache_path=Path("artifacts/stationary.sqlite3"),
+        cache_path=Path(
+            f"artifacts/appearance-{time.time_ns()}.sqlite3"
+            if args.appearance
+            else "artifacts/stationary.sqlite3"
+        ),
         ocr_backends=(OcrChoice(args.device, NoisyRecognizer, 8),),
     )
     window.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
@@ -115,13 +129,14 @@ def main() -> int:
     window.windows_combo.setCurrentIndex(window.windows_combo.count() - 1)
     window.start_button.click()
     started, stable_since = time.monotonic(), 0.0
-    baseline = None
+    baseline: tuple[tuple[TextBlock, ...] | None, tuple[TranslatedText, ...]] | None = None
     polls = 0
     finished = False
+    appearance_started = 0.0
     evidence = {}
 
     def tick() -> None:
-        nonlocal stable_since, baseline, polls, finished
+        nonlocal stable_since, baseline, polls, finished, appearance_started
         now = time.monotonic()
         try:
             if finished:
@@ -142,6 +157,39 @@ def main() -> int:
                     window._ocr.snapshot().message
                 )
             showing = (window._overlay._blocks, window._overlay._translations)
+            if appearance_started:
+                assert baseline is not None
+                prior_requests = {t.request for t in baseline[1]}
+                assert tuple(t for t in showing[1] if t.request in prior_requests) == baseline[1], (
+                    "New-label scan disturbed existing English"
+                )
+                assert all(block in (showing[0] or ()) for block in (baseline[0] or ())), (
+                    "New-label scan moved an existing box"
+                )
+                result = window.inspector.result
+                if result and any(r.text == "設定" for r in result.regions):
+                    evidence.setdefault("new_label_scan_was_regional", result.scanned is not None)
+                    evidence.setdefault("new_label_ocr_ms", round(result.duration_ms, 1))
+                    evidence.setdefault(
+                        "new_label_scan_fraction",
+                        round(
+                            sum(a.width * a.height for a in result.scanned)
+                            / (result.frame.width * result.frame.height),
+                            4,
+                        )
+                        if result.scanned
+                        else 1.0,
+                    )
+                assert now - appearance_started < 8, "New menu label was not translated promptly"
+                if any(t.request.source == "設定" for t in showing[1]):
+                    evidence["new_label_to_english_seconds"] = round(now - appearance_started, 3)
+                    evidence["existing_english_retained_during_appearance"] = True
+                    assert evidence.get("new_label_scan_was_regional"), (
+                        "New label waited for a full-frame scan"
+                    )
+                    finished = True
+                    window.close()
+                return
             if baseline is None:
                 if (
                     len(showing[1]) < 6
@@ -169,8 +217,20 @@ def main() -> int:
                         english_blocks=len(showing[1]),
                         zero_publication_changes=True,
                     )
-                    finished = True
-                    window.close()
+                    if args.appearance:
+                        latest = window.inspector.result
+                        if latest is None or latest.scanned is not None:
+                            return  # Start shortly after a full scan to exercise local discovery.
+                        evidence["last_full_source_age_seconds"] = round(
+                            now - latest.frame.captured_at, 3
+                        )
+                        armed.clear()
+                        appearance_started = now
+                        target.new_label = True
+                        target.update()
+                    else:
+                        finished = True
+                        window.close()
         except Exception as error:
             evidence["failure"] = f"{type(error).__name__}: {error}"
             evidence["noisy_ocr_passes"] = passes
@@ -178,6 +238,9 @@ def main() -> int:
             evidence["showing"] = repr((window._overlay._blocks, window._overlay._translations))
             evidence["visual"] = repr(replace(window._visual_state, frame=None))
             evidence["tracks"] = repr(window._tracker.translation_activity())
+            latest = window.inspector.result
+            evidence["last_coverage"] = repr(latest.scanned) if latest else "none"
+            evidence["last_source_age"] = now - latest.frame.captured_at if latest else None
             finished = True
             window.close()
 

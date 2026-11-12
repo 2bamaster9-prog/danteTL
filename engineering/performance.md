@@ -212,3 +212,38 @@ latency, not equivalent CPU contention. Capture defaults to eight Hz, adjustable
 The stationary-label stress fixture kept six translations and their geometry unchanged over twelve
 seconds, 256 display polls and eight deliberately hostile OCR passes. It tests publication stability,
 not translation quality. See [decision 009](decisions/009-visual-evidence.md).
+
+## Regional inference and batch switching (2026-11-13)
+
+The same original 4K fixture draws 80 labels (64 full-scan detections). A regional scan reads one
+475 × 130 crop, 61,750 pixels / 0.74% of the image, and recognizes its Japanese label correctly.
+OCR crop copying and inference run on the OCR worker.
+
+| Work | CPU median / maximum | CUDA median / maximum |
+| --- | --- | --- |
+| Full frame, five warm calls | 431.2 / 436.4 ms | 206.4 / 365.3 ms |
+| One region, five warm calls | 35.1 / 37.0 ms | 26.3 / 28.3 ms |
+| Region immediately after full scan, three alternations | 36.7 / 37.7 ms | 21.6 / 27.1 ms |
+
+The first regional call after model warm-up was 37.1 ms CPU / 24.9 ms CUDA. Initial model loading
+and first full inference remain separate (GPU 940.9 + 1,219.2 ms in this run). These are small-sample
+development-machine measurements, not p95 or a game frame-time benchmark. Dense whole-frame motion
+still costs more in the visual stage; the CPU benchmark recorded 7.70 ms median idle, 72.74 ms for
+the shifted-frame stress case, and 28.02 ms including exact-source review.
+
+Before fixed CUDA batches, direct alternating profiling measured one-region calls at 568.6, 572.7,
+and 559.5 ms after full scans, versus approximately 21 ms when repeating only the crop. The delay
+was in recognition, not detection. Warming a batch of one once did not solve repeated switching.
+CUDA now pads recognition to four and discards unused output rows; CPU batching is unchanged. The
+extra GPU arithmetic trades a little warm single-region cost for removal of the recurrent stall.
+
+The live new-label fixture scans 3.22% of its client, including padding/context. GPU OCR took 16 ms
+and English appeared after 0.468 seconds. The CPU fixture at a separate DPI used 3.66% coverage,
+31 ms OCR and 0.469 seconds to English. Both began with a fresh translation cache and retained six
+existing translations; CPU explicitly checks their publication and geometry during the update.
+These are end-to-end single samples after model loading, not a guaranteed latency for all games.
+
+Discovery targets three seconds independently of local requests. Sixteen unchanged captures now
+request two startup scans, versus three in slice nine; later idle scans use the independent deadline.
+Broad regions, excessive crop count and edge-clipped detections still use full scans. Multiple crops
+pay separate detector overhead, so cropping is not automatically faster for every screen.

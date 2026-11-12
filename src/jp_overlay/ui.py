@@ -294,7 +294,8 @@ class MainWindow(QMainWindow):
         self._session = CaptureSession(target, self._windows, fps=self.capture_rate.value())
         choice = self.ocr_device.currentData()
         self._ocr = OcrSession(
-            choice.create if isinstance(choice, OcrChoice) else self._recognizer_factory
+            choice.create if isinstance(choice, OcrChoice) else self._recognizer_factory,
+            require_ack=True,
         )
         self._visual = VisualSession()
         self.ocr_device.setEnabled(False)
@@ -475,13 +476,12 @@ class MainWindow(QMainWindow):
                 )
                 accepted = snapshot.result
                 self.inspector.set_result(accepted, self._track_ids)
+                ocr.acknowledge(accepted.frame.sequence)
             if state.frame is not None:
                 self._visual_state = state
                 if state.request_ocr:
-                    ocr.submit(state.frame)
-                self._tracker.confirm_visual(
-                    state.ocr_sequence, state.stable_regions, state.frame.captured_at
-                )
+                    ocr.submit(state.frame, state.scan_areas)
+                self._tracker.confirm_observations(state.stable_tracks, state.frame.captured_at)
             self._visual.submit(
                 frame,
                 accepted,
@@ -511,8 +511,10 @@ class MainWindow(QMainWindow):
                 if snapshot.processing_since is not None
                 else ""
             )
+            scan = "full scan" if result.scanned is None else f"{len(result.scanned)} area scan"
             self.ocr_status.setText(
                 f"{len(result.regions)} text regions · {result.duration_ms:.0f} ms OCR · "
+                f"{scan} · "
                 f"{snapshot.queue_ms:.0f} ms capture-to-start · "
                 f"{snapshot.skipped_frames} waiting frames skipped{busy} · "
                 f"{'NVIDIA GPU' if snapshot.provider == 'CUDAExecutionProvider' else 'CPU'}"
@@ -527,6 +529,8 @@ class MainWindow(QMainWindow):
                 f"{snapshot.processed_frames} passes completed. Only the newest waiting frame "
                 "is kept; skipped frames do not count as missing text. "
                 "Existing English stays visible while the next pass runs."
+                " The inspector shows only this scan's actual detections; unscanned regions "
+                "remain tracked on the overlay."
             )
         else:
             elapsed = (

@@ -102,15 +102,21 @@ on CPU. OCR timing and
 capture-to-start delay, current-pass time, and skipped waiting frames are shown separately from
 capture frequency. Hover the OCR status for recent average inference time. Frames are replaced
 rather than queued when busy; processing one frame never starts overlapping OCR jobs.
-The visual worker also keeps only its newest waiting job. Changed/settled regions prompt OCR;
-unchanged or continuously animated content gets an occasional full refresh (about 1.5 seconds).
+The visual worker also keeps only its newest waiting job. Changed/settled regions prompt cropped
+OCR; a full discovery scan runs about every three seconds. Crops include padding and whole known
+lines. Broad changes or cut-off detections use a full scan. Waiting scan areas merge on the newest
+frame so busy workers cannot lose a changed region.
 Accepted regions also gate later OCR results: unchanged glyph patterns retain the same Japanese
 source, English and geometry, even when a later pass misses or misreads them. Readings below 90%
 OCR confidence get three review attempts; only a score improvement greater than one percentage
 point can win. The previous English stays visible until the corrected translation is ready.
 Real local changes unlock normal updates. The inspector always keeps the raw model output.
 
-Status shows unchanged regions held, visual-check time, and captures that did not request OCR.
+Unscanned regions keep their accepted translations and do not count as missing text. Dialogue
+grouping uses the whole tracked scene; a scan elsewhere cannot restart a line's confirmation wait.
+The inspector shows only the current scan's real detections, not old rows carried onto a new frame.
+
+Status identifies full/area scans, unchanged regions held, visual-check time, and captures skipped.
 This is not a guarantee that
 every animation can be ignored. Visual failure is reported and falls back to ordinary OCR.
 
@@ -143,7 +149,7 @@ loading/inference. Only its synthetic output is saved. The two Windows checks op
 windows on an unlocked desktop. See [verification](engineering/verification.md).
 
 Read the [agreed plan](engineering/plan.md), [engineering guide](engineering/README.md), and
-[milestone status](engineering/plans/009-visual-evidence.md). The application runs locally;
+[milestone status](engineering/plans/010-regional-ocr.md). The application runs locally;
 only explicit setup downloads require a network connection.
 
 Models are kept in ignored `models/meiki` and `models/sugoi-v4`; set `JP_OVERLAY_MODEL_DIR` or
@@ -185,5 +191,5 @@ renders as horizontal English. Toggle English off/on to retry a visible backend 
 
 Visual checks add evidence, not semantic certainty. A flash, occlusion, low-contrast/tiny text, or
 unusual background can still delay or temporarily mask a box. Periodic full OCR catches uncertain
-changes; inference currently still processes the full frame. An already-running model call cannot
+changes; small changes use regional inference with full-scan fallback. An already-running model call cannot
 be canceled, so very slow OCR still delays new English even when old boxes hide promptly.

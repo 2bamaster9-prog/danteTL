@@ -75,6 +75,9 @@ The same command also benchmarks the visual stage on sixteen unchanged captures 
 shifted frames that stress every crop. Report static and moving costs separately; skipped OCR
 requests do not mean every skipped capture would previously have completed an inference.
 The exact-source review benchmark separately includes comparisons for a newly completed OCR frame.
+Dense verification also reads one padded region and alternates it with full scans. It checks the
+recognized phrase and coordinate containment, recording first/warm/after-full timings. This catches
+GPU batch-shape stalls that a repeated single-crop benchmark alone would conceal.
 
 Run `uv run python tools/verify_retention_windows.py` (or the GPU interpreter with `--device cuda`)
 for stationary-label retention. It creates six Japanese labels over dim moving stars, loads real
@@ -82,6 +85,40 @@ Meiki/Sugoi, then injects unrelated low-confidence readings, wider boxes and tot
 It requires unchanged published blocks and English on every poll for at least twelve seconds and
 six hostile OCR passes. It closes all workers and saves only synthetic diagnostic state under
 `artifacts/visual`. Neither this fixture nor the model-free replays use the user's game video.
+Add `--appearance` to introduce a new menu label after the stability interval, with a fresh synthetic
+translation cache. It requires regional discovery, measures appearance-to-English, and checks the
+existing English and box geometry on every poll during that update. Live dialogue checks accept
+partial raw observations while requiring the unscanned speaker to remain in the tracked scene.
+
+## Regional OCR evidence (2026-11-13)
+
+- 209 fast tests cover crop coverage/offsets, artificial-edge fallback, unchanged dialogue members,
+  independent full discovery, merged pending areas, result acknowledgement, per-line confirmation
+  across unrelated scans, and CUDA padding/output trimming for both orientations.
+- Real dense CPU/GPU OCR passed offline with socket connections blocked. Full scans still produced
+  64 detections from 80 drawn labels, including documented spelling variants. The regional sample
+  recognized its Japanese label correctly inside its declared coverage; no fabricated old rows were
+  added to new raw output. Benchmarks are in [performance](performance.md).
+- GPU stationary/new-label run at DPI 168: six existing English blocks remained stable across 342
+  polls and six injected noisy OCR calls over 16.03 seconds. A new label used 3.22% coverage, took
+  16 ms OCR and reached English in 0.468 seconds with an initially empty translation cache.
+- CPU stationary/new-label run at DPI 144: six English blocks stayed unchanged through 256 polls,
+  six injected noisy calls and 12.0 seconds. Regional discovery used 3.66% coverage, took 31 ms OCR
+  and reached English in 0.469 seconds. Assertions also verified the existing English and geometry
+  throughout the appearance update. Shutdown completed all workers.
+- Slow CPU dialogue run with 900 ms added per recognizer call: no premature partial translation,
+  correct combined passage and separate speaker, 50 English continuity polls, and full lifecycle
+  checks passed. Final dialogue appeared after 2.25 seconds. Panel hiding took 0.313 seconds before
+  OCR completed; restoration took 0.312 seconds. This delay simulation is not a CPU-load benchmark.
+- Final GPU dialogue/transitions run at DPI 144 passed grouping/profile changes, font controls,
+  pause, resize, minimize/restore, CPU restart and teardown. Full dialogue reached English in 0.750
+  seconds; panel hide/restore measured 0.375/0.250 seconds. An earlier DPI 168 run measured 0.625
+  seconds for dialogue. These are separate scale-factor runs, not cross-monitor movement tests.
+  The harness permits a new identity after a genuinely removed panel is reopened; stationary
+  continuity checks apply while the panel remains present, not across confirmed disappearance.
+- The application's real game behavior, game FPS impact, and every dialogue reveal cadence remain
+  unverified; these are controlled fixture checks. No dependency installation or model download is
+  needed to use this slice.
 
 ## Visual scheduling and stationary retention evidence (2026-11-13)
 

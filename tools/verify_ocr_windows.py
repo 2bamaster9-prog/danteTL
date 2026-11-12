@@ -181,7 +181,10 @@ def main() -> int:
                 text = [r.text for r in result.regions]
                 assert expected in text, text
                 if args.dialogue:
-                    assert DIALOGUE_LINES[1] in text and "旅人" in text, text
+                    assert DIALOGUE_LINES[1] in text, text
+                    assert any(
+                        t.text == "旅人" for t in window._tracker.visible(result.frame, now)
+                    ), "Unscanned speaker disappeared"
                 assert window.inspector.table.rowCount() == len(result.regions)
                 evidence["live_japanese_recognized"] = True
                 evidence["ocr_ms"] = round(result.duration_ms, 1)
@@ -213,6 +216,11 @@ def main() -> int:
                     if not translated.results or translated.pending:
                         return
                     if not swapped:
+                        if not any(
+                            t.request.source == translation_source
+                            for t in window._overlay._translations
+                        ):
+                            return  # A partial scan can finish before the full group publishes.
                         if args.typewriter:
                             assert "typewriter_to_full_english_seconds" in evidence
                             evidence["no_partial_dialogue_translations"] = True
@@ -307,6 +315,12 @@ def main() -> int:
                     assert now - stage_started < 3, "Reopened panel never restored English"
                     return
                 evidence["panel_restore_seconds"] = round(now - stage_started, 3)
+                assert result is not None
+                restored = next(
+                    t for t in window._tracker.visible(result.frame, now) if t.text == expected
+                )
+                evidence["closed_panel_identity_retired"] = restored.track_id != phrase_id
+                phrase_id, phrase_bounds = restored.track_id, restored.bounds
                 transitions_done = True
                 stage = 8
             elif stage == 1 and now - stage_started > 0.7:

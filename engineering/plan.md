@@ -141,6 +141,11 @@ OCR is adaptive. Region-only inference and learned panel detection remain future
 The follow-up from the stationary character-screen video also gates OCR reconciliation per accepted
 visual region, bounds low-confidence reviews, and publishes corrections without an empty overlay gap.
 
+[Slice ten](plans/010-regional-ocr.md) runs local OCR on changed regions with independent periodic
+full discovery. Explicit coverage preserves unscanned text; dialogue confirmation retains per-line
+source evidence across partial scans. CUDA batch padding removes shape-switching stalls, and native
+verification measures newly appearing labels through English publication.
+
 ## Technical references
 
 - [Windows capture](https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/screen-capture)

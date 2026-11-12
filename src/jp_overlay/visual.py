@@ -9,6 +9,7 @@ from typing import Any
 
 from jp_overlay.domain import CapturedFrame, Rect
 from jp_overlay.recognition import OcrResult
+from jp_overlay.regions import padded, scan_regions
 from jp_overlay.text_content import content_region, has_japanese
 from jp_overlay.tracking import TextActivity, TextTrack
 
@@ -32,6 +33,8 @@ class VisualState:
     checked_sequence: int = 0
     unchanged: frozenset[TextTrack] = frozenset()
     checked: frozenset[TextTrack] = frozenset()
+    scan_areas: tuple[Rect, ...] | None = None
+    stable_tracks: tuple[tuple[int, int, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -235,6 +238,9 @@ class _Probe:
     previous: Any
     changed_at: float
     dialogue: bool
+    source_sequence: int = 0
+    source_text: str = ""
+    requested_at: float = float("-inf")
     checked: bool = False
     dirty: bool = False
     growth: bool = False
@@ -272,7 +278,10 @@ class VisualAnalyzer:
         self._sequence = 0
         self._size: tuple[int, int] | None = None
         self._last_request = float("-inf")
+        self._last_full = float("-inf")
+        self._dirty: Any = np.zeros((18, 32), dtype=bool)
         self._followup: float | None = None
+        self._followup_areas: tuple[Rect, ...] | None = None
         self._avoided = 0
         self._reference_key: Any = None
         self._checked_key: Any = None
@@ -313,6 +322,15 @@ class VisualAnalyzer:
         if result.frame.sequence == self._ocr_sequence:
             return
         self._ocr_sequence = result.frame.sequence
+        # A partial observation says nothing about the rest of the screen. Keep
+        # those bounded dialogue probes and their exact original pixel references.
+        prior = [
+            p
+            for p in self._probes
+            if p.track_id in {t.track_id for t in job.tracks}
+            and p.track_id not in by_id
+            and result.scanned is not None
+        ]
         self._probes = []
         growing = {a.observation.track_id for a in job.activity if a.growing}
         for index, region in enumerate(cleaned):
@@ -333,8 +351,19 @@ class VisualAnalyzer:
             crop = _crop(source, area, wide=True)
             if crop is not None:
                 self._probes.append(
-                    _Probe(index, key, area, crop, crop, result.frame.captured_at, dialogue)
+                    _Probe(
+                        index,
+                        key,
+                        area,
+                        crop,
+                        crop,
+                        result.frame.captured_at,
+                        dialogue,
+                        result.frame.sequence,
+                        region.text,
+                    )
                 )
+        self._probes.extend(prior[: 128 - len(self._probes)])
 
     def observe(
         self,
@@ -370,16 +399,13 @@ class VisualAnalyzer:
         small = cv2.cvtColor(
             cv2.resize(pixels, (640, 360), interpolation=cv2.INTER_AREA), cv2.COLOR_BGRA2GRAY
         )
-        novel = False
-        settled = False
         changed_tiles = np.ones((18, 32), dtype=bool)
         if self._previous is not None and fresh:
             delta = np.abs(small.astype(np.int16) - self._previous.astype(np.int16))
             energy = delta.reshape(18, 20, 32, 20).mean(axis=(1, 3))
             changed_tiles = energy > 0
             tiles = energy > 1.5
-            novel = bool(np.any(tiles & (self._streak == 0)))
-            settled = int(np.count_nonzero(~tiles & (self._streak >= 2))) >= 3
+            self._dirty |= (tiles & (self._streak == 0)) | (~tiles & (self._streak >= 2))
             self._streak = np.where(tiles, np.minimum(self._streak + 1, 8), 0).astype(np.uint8)
         hidden = frozenset(
             key
@@ -387,8 +413,9 @@ class VisualAnalyzer:
             if anchor.observe(pixels, frame.sequence, _touches(changed_tiles, key.bounds, size))
         )
         stable, blocked = [], set()
-        moving_dialogue = False
-        local_settled = False
+        stable_tracks = []
+        growing_areas = []
+        local_areas = []
         for probe in self._probes:
             if not probe.checked or _touches(changed_tiles, probe.bounds, size):
                 current = _crop(pixels, probe.bounds, wide=True)
@@ -405,33 +432,53 @@ class VisualAnalyzer:
             quiet = now - probe.changed_at >= 0.16
             if growth and probe.track_id is not None:
                 blocked.add(probe.track_id)
-            if (
-                not dirty
-                and not growth
-                and quiet
-                and result
-                and frame.sequence > result.frame.sequence
-            ):
-                stable.append(probe.index)
-            moving_dialogue |= probe.dialogue and growth and not quiet
-            local_settled |= (dirty or growth) and quiet and probe.changed_at > self._last_request
+            if not dirty and not growth and quiet and frame.sequence > probe.source_sequence:
+                if probe.track_id is not None:
+                    stable_tracks.append((probe.track_id, probe.source_sequence, probe.source_text))
+                if result and probe.source_sequence == result.frame.sequence:
+                    stable.append(probe.index)
+            if probe.dialogue and growth and not quiet:
+                growing_areas.append(probe.bounds)
+            if (dirty or growth) and quiet and probe.changed_at > probe.requested_at:
+                local_areas.append(padded(probe.bounds, size))
         due = self._followup is not None and now >= self._followup
-        refresh = now - self._last_request >= 1.5
-        # During reveal, favor the first quiet frame. Unrelated UI still gets the
-        # periodic full scan; no sequence of motion can suppress OCR indefinitely.
-        changed = (novel or settled or local_settled) and not moving_dialogue
-        request = (
-            fresh
-            and now - self._last_request >= 0.2
-            and (changed or refresh or (due and not moving_dialogue))
+        refresh = now - self._last_full >= 3.0
+        # Delay only the revealing area, not unrelated newly opened UI. Dirty tiles
+        # accumulate until requested so rate limiting never loses a one-frame change.
+        eligible = self._dirty.copy()
+        for b in growing_areas:
+            x1, y1 = max(0, b.x * 32 // size[0]), max(0, b.y * 18 // size[1])
+            x2, y2 = (
+                min(32, ceil((b.x + b.width) * 32 / size[0])),
+                min(18, ceil((b.y + b.height) * 18 / size[1])),
+            )
+            eligible[y1:y2, x1:x2] = False
+        count, _, stats, _ = cv2.connectedComponentsWithStats(eligible.astype(np.uint8), 8)
+        areas = list(local_areas)
+        for x, y, w, h, _ in stats[1:count]:
+            left, top = int(x) * size[0] // 32, int(y) * size[1] // 18
+            right, bottom = ceil(int(x + w) * size[0] / 32), ceil(int(y + h) * size[1] / 18)
+            areas.append(padded(Rect(left, top, right - left, bottom - top), size, 48))
+        if due and not growing_areas:
+            proposed = None if self._followup_areas is None else (*areas, *self._followup_areas)
+        else:
+            proposed = tuple(areas)
+        coverage = (
+            None if refresh else scan_regions(proposed, size, tuple(t.bounds for t in tracks))
         )
+        request = fresh and now - self._last_request >= 0.12 and coverage != ()
         if request:
             self._last_request = now
-            self._followup = (
-                None
-                if due or (refresh and self._previous is not None and not changed)
-                else now + 0.3
-            )
+            for probe in self._probes:
+                if coverage is None or any(area.contains(probe.bounds) for area in coverage):
+                    probe.requested_at = now
+            if coverage is None:
+                self._last_full = now
+                self._dirty[:] = False
+            else:
+                self._dirty &= ~eligible
+            self._followup = None if due or (refresh and self._previous is not None) else now + 0.3
+            self._followup_areas = coverage
         elif fresh:
             self._avoided += 1
         self._previous, self._sequence = small, max(frame.sequence, self._sequence)
@@ -448,6 +495,8 @@ class VisualAnalyzer:
             checked_sequence=candidate.frame.sequence if candidate else 0,
             unchanged=self._unchanged,
             checked=self._checked,
+            scan_areas=coverage,
+            stable_tracks=tuple(stable_tracks),
         )
 
 
@@ -556,8 +605,21 @@ class VisualSession:
                     state = VisualState(job.frame, True, message="Visual checks failed; using OCR.")
                 with self._condition:
                     if not self._stop and current == self._generation:
+                        old = self._snapshot
+                        areas = state.scan_areas
+                        if old.request_ocr:
+                            areas = (
+                                None
+                                if old.scan_areas is None or (state.request_ocr and areas is None)
+                                else scan_regions(
+                                    (*old.scan_areas, *(areas or ())),
+                                    job.frame.geometry.client.size,
+                                )
+                            )
                         self._snapshot = replace(
-                            state, request_ocr=state.request_ocr or self._snapshot.request_ocr
+                            state,
+                            request_ocr=state.request_ocr or old.request_ocr,
+                            scan_areas=areas,
                         )
                 del pending, job, state
         finally:

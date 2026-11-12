@@ -28,6 +28,20 @@ class _LocalMeiki(MeikiOCR):
         self.max_batch_size = 4
         self.detected: list[dict[str, Any]] = []
 
+    def _run_recognition_inference(self, batch_tensor: Any, is_vertical: bool) -> Any:
+        # CUDA/cuDNN on the verified runtime replans when the recognition batch
+        # changes (about 0.5 s on 4 -> 1 -> 4). Keep its shape constant; discard
+        # padded outputs before Meiki associates them with any real detections.
+        if batch_tensor is None or self.active_provider != CUDA:
+            return super()._run_recognition_inference(batch_tensor, is_vertical)
+        count = len(batch_tensor)
+        if 0 < count < self.max_batch_size:
+            batch_tensor = np.pad(
+                batch_tensor, ((0, self.max_batch_size - count), (0, 0), (0, 0), (0, 0))
+            )
+        outputs: Any = super()._run_recognition_inference(batch_tensor, is_vertical)
+        return [output[:count] for output in outputs]
+
     def run_detection(self, image: Any, conf_threshold: float = 0.5) -> list[dict[str, Any]]:
         # Public run_ocr omits line bounds, including detections with no recognized chars.
         # Retain the detector's original boxes, in its original ordering.

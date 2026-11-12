@@ -9,6 +9,34 @@ from jp_overlay.models import ModelAsset, validate_asset
 from jp_overlay.ocr_runtime import CPU, CUDA
 
 
+@pytest.mark.parametrize("provider", [CPU, CUDA])
+@pytest.mark.parametrize("vertical", [False, True])
+def test_partial_gpu_batches_keep_a_fixed_shape_and_never_emit_padded_detections(
+    monkeypatch, provider, vertical
+):
+    import numpy as np
+    from meikiocr import MeikiOCR
+
+    from jp_overlay.meiki import _LocalMeiki
+
+    seen = []
+
+    def run(self, batch, is_vertical):
+        seen.append((batch.shape, is_vertical))
+        return [np.arange(len(batch)), np.ones((len(batch), 2, 4)), np.ones((len(batch), 2))]
+
+    monkeypatch.setattr(MeikiOCR, "_run_recognition_inference", run)
+    engine = object.__new__(_LocalMeiki)
+    engine.active_provider, engine.max_batch_size = provider, 4
+    h, w = (480, 32) if vertical else (32, 960)
+    for count in (4, 1, 3, 4, 1):
+        outputs = engine._run_recognition_inference(np.ones((count, 3, h, w), np.float32), vertical)
+        assert all(len(output) == count for output in outputs)
+        assert outputs[0].tolist() == list(range(count))
+    assert [shape[0] for shape, _ in seen] == ([4] * 5 if provider == CUDA else [4, 1, 3, 4, 1])
+    assert all(flag == vertical for _, flag in seen)
+
+
 def test_detection_boxes_remain_in_original_frame_pixels_and_empty_detections_survive() -> None:
     regions = convert_regions(
         [{"bbox": [100, 200, 500, 240]}, {"bbox": [-10, -10, 80, 100]}],

@@ -42,7 +42,9 @@ def test_idle_frames_skip_inference_but_changes_and_periodic_refreshes_are_not_s
     analyzer = VisualAnalyzer()
     requests = [i for i in range(1, 49) if analyzer.observe(picture(i)).request_ocr]
     assert requests[0] == 1
-    assert 4 <= len(requests) <= 6, requests  # 48 captures, about five actual model requests.
+    assert 3 <= len(requests) <= 4, (
+        requests
+    )  # Startup/follow-up, then a full scan every three seconds.
     assert analyzer.observe(picture(49, ink=False)).request_ocr
 
 

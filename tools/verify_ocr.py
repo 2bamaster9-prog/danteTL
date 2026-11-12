@@ -24,7 +24,7 @@ from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
 from jp_overlay.inspection import OcrInspector
 from jp_overlay.meiki import MeikiRecognizer
 from jp_overlay.models import model_directory
-from jp_overlay.recognition import OcrResult
+from jp_overlay.recognition import OcrResult, recognize_regions
 from jp_overlay.tracking import TextTracker
 from jp_overlay.visual import VisualAnalyzer
 
@@ -73,6 +73,22 @@ def main() -> None:
             started = time.perf_counter()
             regions = engine.recognize(frame)
             timings.append((time.perf_counter() - started) * 1000)
+        regional_times = []
+        alternating_times = []
+        regional_regions = ()
+        regional_coverage = None
+        if args.dense:
+            for _ in range(6):
+                started = time.perf_counter()
+                regional_regions, regional_coverage = recognize_regions(
+                    engine, frame, (Rect(0, 25, 475, 130),)
+                )
+                regional_times.append((time.perf_counter() - started) * 1000)
+            for _ in range(3):
+                engine.recognize(frame)
+                started = time.perf_counter()
+                recognize_regions(engine, frame, (Rect(0, 25, 475, 130),))
+                alternating_times.append((time.perf_counter() - started) * 1000)
     observed = {region.text for region in regions}
 
     def normalize(text: str) -> str:
@@ -111,6 +127,19 @@ def main() -> None:
         "tracking_warm_max_ms": round(max(tracking_timings[1:]), 2),
         "regions": [asdict(region) for region in regions],
     }
+    if regional_times:
+        assert regional_coverage is not None, "Regional fixture unexpectedly fell back to full scan"
+        assert any(normalize("アイテムの情報を確認") in normalize(r.text) for r in regional_regions)
+        assert all(regional_coverage[0].contains(r.bounds) for r in regional_regions)
+        evidence.update(
+            regional_first_ms=round(regional_times[0], 1),
+            regional_warm_median_ms=round(statistics.median(regional_times[1:]), 1),
+            regional_warm_max_ms=round(max(regional_times[1:]), 1),
+            regional_scanned_pixels=475 * 130,
+            regional_regions=[asdict(r) for r in regional_regions],
+            regional_after_full_median_ms=round(statistics.median(alternating_times), 1),
+            regional_after_full_max_ms=round(max(alternating_times), 1),
+        )
     visual, tracker = VisualAnalyzer(), TextTracker()
     reference = replace(frame, sequence=1, captured_at=0)
     result = OcrResult(reference, regions, timings[-1], 0.05)
@@ -173,7 +202,9 @@ def main() -> None:
         panel.close()
         panel.deleteLater()
         QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-    summary = {key: value for key, value in evidence.items() if key != "regions"}
+    summary = {
+        key: value for key, value in evidence.items() if key not in ("regions", "regional_regions")
+    }
     summary["recognized_text"] = list(dict.fromkeys(region.text for region in regions))
     print(json.dumps(summary, ensure_ascii=True, indent=2))
     shiboken6.delete(app)

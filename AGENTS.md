@@ -2,7 +2,7 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/009-visual-evidence.md`.
+`engineering/plans/010-regional-ocr.md`.
 
 - Use Python with deep modules: small public interfaces that own meaningful complexity.
 - Keep Windows, Qt, capture-library, and model details at their respective boundaries.
@@ -37,6 +37,11 @@ Read `engineering/README.md` first. The agreed product plan is in
   reviews with a strictly better score; never reset the budget on spelling alternation. Real local
   changes unlock ordinary tracking. `presentation` may bridge only explicit same-pixel correction
   lineage, never arbitrary stale revisions. Run `tools/verify_retention_windows.py` for this policy.
+- Partial OCR has explicit coverage. Unscanned tracks are not misses; never merge old raw rows into
+  a newer inspector frame. Coalesce pending areas as well as pixels, preserve per-line probe source
+  sequences, and validate the acknowledgement/reset path. Test crop offsets, clipping fallback,
+  whole-line closure, dialogue edits across partial scans, and independent discovery deadlines.
+  Run dense real OCR and `verify_retention_windows.py --appearance` for regional latency/stability.
 - Keep OCR providers at the runtime boundary. Never co-install CPU/GPU ONNX distributions. GPU
   verification must use `--device cuda` and fail on fallback; normal automatic mode reports fallback.
   Use `.venv-gpu/Scripts/python.exe` for GPU checks, and preserve the default CPU environment.

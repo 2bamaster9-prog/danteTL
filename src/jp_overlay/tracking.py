@@ -77,6 +77,7 @@ class _Track:
     review_attempts: int = 0
     visual_same: bool = False
     display_predecessor: TextTrack | None = None
+    missed_sequence: int = 0
 
 
 def _normalized(text: str) -> str:
@@ -280,7 +281,7 @@ class TextTracker:
                 self._update(track, observations[index], frame)
         for key in list(self._tracks):
             track = self._tracks[key]
-            if key not in used and complete:
+            if key not in used and complete and result.covers(track.value.bounds):
                 current = (
                     evidence.fingerprint(track.fingerprint_bounds)
                     if track.fingerprint is not None and track.fingerprint_bounds is not None
@@ -296,6 +297,7 @@ class TextTracker:
                     track.position_hits, track.pending_bounds = 0, None
                     continue
                 track.misses += 1
+                track.missed_sequence = frame.sequence
                 if track.missing_since is None:
                     track.missing_since = frame.captured_at
                 _clear_text_candidate(track)
@@ -510,6 +512,7 @@ class TextTracker:
                 track.misses
                 and self._complete_observation
                 and track.pixels_changed
+                and track.missed_sequence == self._sequence
                 and latest.sequence == self._sequence
                 and now - max(latest.captured_at, self._completed_at)
                 >= self._policy.static_settle_seconds
@@ -552,6 +555,27 @@ class TextTracker:
             key = self._assignments[index] if 0 <= index < len(self._assignments) else None
             track = self._tracks.get(key) if key is not None else None
             if track is None or track.last_sequence != sequence or track.misses:
+                continue
+            track.confirmed = True
+            if track.pending_text and self._text_ready(track, now):
+                _commit_text(track)
+
+    def confirm_observations(
+        self, observations: tuple[tuple[int, int, str], ...], now: float
+    ) -> None:
+        """Confirm preserved probes even after an unrelated partial scan completes.
+
+        The track's own last positive sequence and reading must match; global latest
+        OCR sequence is not a substitute for the provenance of each partial update.
+        """
+        for key, sequence, text in observations[:128]:
+            track = self._tracks.get(key)
+            if (
+                track is None
+                or track.last_sequence != sequence
+                or track.misses
+                or track.reading != text
+            ):
                 continue
             track.confirmed = True
             if track.pending_text and self._text_ready(track, now):
