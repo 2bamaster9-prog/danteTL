@@ -107,6 +107,7 @@ def main() -> None:
         raise SystemExit("JP Overlay currently requires Windows.")
     configure_logging()
     import shiboken6
+    from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication, QMessageBox
 
     from jp_overlay.model_store import model_catalog
@@ -142,6 +143,12 @@ def main() -> None:
         backend_provider=translation_backends,
     )
     window.show()
+    from jp_overlay.runtime_restart import acknowledge_startup
+
+    QTimer.singleShot(0, acknowledge_startup)
+    notice = os.environ.pop("JP_OVERLAY_STARTUP_NOTICE", "")
+    if notice:
+        window.status.setText(notice)
     exit_code = app.exec()
     # Tear down Qt while its native dependencies are still loaded, before Python finalization.
     shiboken6.delete(app)

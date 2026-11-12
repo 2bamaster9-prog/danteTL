@@ -85,17 +85,17 @@ def test_downloaded_model_without_runtime_stays_visible_and_explains_setup(
         "Gemma · runtime setup needed",
         factory,
         "gemma-unavailable",
-        unavailable_reason="Close the app and run Setup Gemma.cmd.",
+        unavailable_reason="Open Runtime setup.",
     )
-    messages = []
-    monkeypatch.setattr(QMessageBox, "information", lambda *a: messages.append(a[-1]))
+    setup = Mock()
+    monkeypatch.setattr(MainWindow, "_manage_runtime", setup)
     window = MainWindow(windows, factory, (choice,), cache_path=tmp_path / "cache")
     assert window.backend_combo.isEnabled() and window.translate_check.isEnabled()
     assert window.backend_combo.currentData() is None  # Never implicitly load an unusable model.
     window._poll_translation(True)
     assert "runtime setup" in window.translation_status.text()
     window.backend_combo.setCurrentIndex(0)
-    assert messages == [choice.unavailable_reason]
+    setup.assert_called_once()
     assert window.backend_combo.currentData() is None and window._translation is None
     factory.assert_not_called()
     window.close()
@@ -122,11 +122,80 @@ def test_download_completion_reports_missing_runtime_instead_of_false_readiness(
     manager.operation._thread.join(2)
     manager._poll()
     assert manager.operation is None and bundle.present()
-    assert "not installed" in manager.status.text() and "Setup Gemma.cmd" in manager.status.text()
+    assert "not installed" in manager.status.text() and "Runtime setup" in manager.status.text()
     assert manager.download.text() == "Verify / repair"
     assert manager.progress.value() == manager.progress.maximum()
     manager.close()
     manager.deleteLater()
+
+
+def test_runtime_setup_detects_without_installing_and_close_waits_for_cancel(
+    app, tmp_path, monkeypatch
+):
+    from jp_overlay import runtime_dialog
+    from jp_overlay.hardware import Adapter
+    from jp_overlay.model_store import Cancelled
+
+    calls = []
+    entered = threading.Event()
+    monkeypatch.setattr(
+        runtime_dialog, "detect_adapters", lambda: (Adapter("RTX", 0x10DE, 16 * 2**30),)
+    )
+
+    def install(root, profile, progress, cancel):
+        calls.append(threading.get_ident())
+        entered.set()
+        assert cancel.wait(2)
+        raise Cancelled()
+
+    monkeypatch.setattr(runtime_dialog, "install_runtime", install)
+    windows = Mock()
+    windows.list_targets.return_value = []
+    window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
+    dialog = runtime_dialog.RuntimeSetupDialog(window, root=tmp_path)
+    window._runtime_dialog = dialog
+    assert dialog.operation
+    dialog.operation._thread.join(2)
+    dialog._poll()
+    assert "RTX" in dialog.hardware.text() and dialog.choice.currentData().key == "nvidia"
+    assert not calls and dialog.install.isEnabled() and not dialog.restart.isEnabled()
+    dialog.install.click()
+    assert entered.wait(1) and calls != [threading.get_ident()]
+    assert not dialog.choice.isEnabled() and not dialog.restart.isEnabled()
+    window.close()
+    assert window._closing and dialog.operation
+    dialog.operation._thread.join(2)
+    dialog._poll()
+    window._tick()
+    assert dialog.operation is None and not window._timer.isActive()
+    window.deleteLater()
+
+
+def test_runtime_restart_waits_for_translation_and_recovers_if_launch_fails(
+    app, tmp_path, monkeypatch
+):
+    windows = Mock()
+    windows.list_targets.return_value = []
+    window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
+    worker = Mock(finished=False)
+    window._translation = worker
+    restart = Mock(side_effect=OSError("Could not launch"))
+    monkeypatch.setattr("jp_overlay.ui.RuntimeRestart", restart)
+    warnings = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a: warnings.append(a[-1]))
+    window._request_restart(tmp_path)
+    assert window._closing
+    worker.request_stop.assert_called()
+    restart.assert_not_called()
+    worker.finished = True
+    window.close()
+    restart.assert_called_once()
+    assert not window._closing and window._restart_target is None
+    assert warnings == ["Could not launch"]
+    central = window.centralWidget()
+    assert central and central.isEnabled() and window._timer.isActive()
+    window.close()
+    window.deleteLater()
 
 
 def test_preparation_decline_preserves_selection_and_accept_loads_once_off_ui(

@@ -16,8 +16,7 @@ from jp_overlay.models import ModelAsset
 
 GEMMA_RUNTIME_SETUP = (
     "Gemma is downloaded, but its GPU runtime is not installed in this app environment. "
-    "Close JP Overlay, then run Setup Gemma.cmd for NVIDIA or Setup AMD.cmd for AMD. "
-    "Reopen with Run JP Overlay.cmd (NVIDIA) or Run JP Overlay AMD.cmd (AMD). "
+    "Open Models → Runtime setup to detect your graphics card, install support, and restart. "
     "Your model files are already present; no model download is needed."
 )
 
@@ -65,8 +64,7 @@ def model_catalog() -> tuple[ModelBundle, ...]:
             "Gemma 4 E2B · local GPU translation",
             gemma.model_directory(),
             gemma.ASSETS,
-            "Google QAT Q4_0 · Apache-2.0. First run Setup Gemma.cmd (NVIDIA) or "
-            "Setup AMD.cmd, then restart with the matching launcher. "
+            "Google QAT Q4_0 · Apache-2.0. Use Runtime setup to install NVIDIA or AMD support. "
             "Select the downloaded model to prepare it for this PC.",
         ),
     )
@@ -87,7 +85,7 @@ def model_status(bundle: ModelBundle) -> str:
         if not (gpu_runtime_installed() or gpu_runtime_installed("onnxruntime-directml")):
             return (
                 "Downloaded. CPU OCR is ready. The Automatic NVIDIA OCR option needs a separate "
-                "runtime: close the app, run Setup GPU OCR.cmd, then use Run JP Overlay.cmd. "
+                "runtime: open Runtime setup, install NVIDIA support, then restart. "
                 "Downloading Meiki does not install GPU support."
             )
     return "Downloaded. Runtime available; integrity is checked before use."

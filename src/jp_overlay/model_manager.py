@@ -19,6 +19,7 @@ from jp_overlay.model_store import ModelBundle, ModelOperation, install_model, m
 
 class ModelManager(QDialog):
     models_changed = Signal()
+    runtime_requested = Signal()
 
     def __init__(self, bundles: tuple[ModelBundle, ...], parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -54,6 +55,12 @@ class ModelManager(QDialog):
         self.cancel_button.setEnabled(False)
         self.cancel_button.clicked.connect(self._cancel)
         layout.addWidget(self.cancel_button)
+        self.runtime_button = QPushButton("Runtime setup…")
+        self.runtime_button.setToolTip(
+            "Detect graphics cards and install acceleration inside the app."
+        )
+        self.runtime_button.clicked.connect(self.runtime_requested.emit)
+        layout.addWidget(self.runtime_button)
         self.choice.currentIndexChanged.connect(self._selected)
         self._selected()
         self._timer = QTimer(self)

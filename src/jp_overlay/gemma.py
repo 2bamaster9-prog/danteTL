@@ -56,6 +56,25 @@ def model_directory() -> Path:
     )
 
 
+def load_runtime(device: str) -> Any:
+    """Load native libraries on a worker or in the isolated setup probe only."""
+    if os.name == "nt" and not _dll_handles:
+        paths = set()
+        packages = ("llama-cpp-python",)
+        if device == "cuda":
+            packages += ("nvidia-cuda-runtime", "nvidia-cublas")
+        for name in packages:
+            package = distribution(name)
+            paths.update(
+                str(package.locate_file(path).parent)
+                for path in package.files or ()
+                if str(path).endswith(".dll")
+            )
+        _dll_handles.extend(os.add_dll_directory(path) for path in sorted(paths))
+        os.environ["PATH"] = os.pathsep.join((*sorted(paths), os.environ.get("PATH", "")))
+    return importlib.import_module("llama_cpp")
+
+
 def translation_prompt(text: str, context: tuple[DialogueTurn, ...] = ()) -> str:
     # Gemma 4's native turn markers differ from older Gemma templates. Escape literal
     # marker syntax in OCR data, so it cannot close the user turn. No thinking switch.
@@ -101,7 +120,6 @@ class GemmaBackend:
     def __init__(self, directory: Path, *, device: str = "cuda") -> None:
         if device not in ("cuda", "vulkan", "cpu"):
             raise ValueError("Unknown Gemma device.")
-        setup = "Setup AMD.cmd" if device == "vulkan" else "Setup Gemma.cmd"
         for asset in ASSETS:
             validate_asset(directory / asset.filename, asset, None)
         try:
@@ -110,27 +128,13 @@ class GemmaBackend:
             cache.mkdir(parents=True, exist_ok=True)
             os.environ.setdefault("CUDA_CACHE_PATH", str(cache))
             os.environ.setdefault("CUDA_CACHE_MAXSIZE", "536870912")
-            if os.name == "nt" and not _dll_handles:
-                paths = set()
-                packages = ("llama-cpp-python",)
-                if device == "cuda":
-                    packages += ("nvidia-cuda-runtime", "nvidia-cublas")
-                for name in packages:
-                    package = distribution(name)
-                    paths.update(
-                        str(package.locate_file(path).parent)
-                        for path in package.files or ()
-                        if str(path).endswith(".dll")
-                    )
-                _dll_handles.extend(os.add_dll_directory(path) for path in sorted(paths))
-                # The binding also uses LoadLibrary with legacy search flags. Keep
-                # the pip-local directories on this process's PATH for lazy loads.
-                os.environ["PATH"] = os.pathsep.join((*sorted(paths), os.environ.get("PATH", "")))
-            runtime = importlib.import_module("llama_cpp")
+            runtime = load_runtime(device)
         except (ImportError, OSError, RuntimeError) as error:
-            raise RuntimeError(f"Gemma runtime is unavailable. Run {setup} and restart.") from error
+            raise RuntimeError(
+                "Gemma runtime is unavailable. Open Models → Runtime setup, then restart."
+            ) from error
         if device != "cpu" and not runtime.llama_supports_gpu_offload():
-            raise RuntimeError(f"Gemma GPU runtime unavailable. Run {setup} or select Sugoi.")
+            raise RuntimeError("Gemma GPU runtime unavailable. Open Runtime setup or select Sugoi.")
         self._model: Any = None
         self._model = runtime.Llama(
             model_path=str(directory / ASSETS[0].filename),

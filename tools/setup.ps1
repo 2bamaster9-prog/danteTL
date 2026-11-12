@@ -22,7 +22,7 @@ if (Get-Command uv -ErrorAction SilentlyContinue) {
 }
 
 $gemmaArgs = @()
-if ($Gemma -or (Test-Path -LiteralPath (Join-Path $projectRoot 'models\gemma-4-e2b\gemma-4-E2B_q4_0-it.gguf'))) {
+if ($Gemma -or ($Gpu -and (Test-Path -LiteralPath (Join-Path $projectRoot 'models\gemma-4-e2b\gemma-4-E2B_q4_0-it.gguf')))) {
     $gemmaArgs = @('--group', 'gemma')
 }
 if ($Amd) {

@@ -60,11 +60,11 @@ def create_sessions(paths: tuple[Any, ...], threads: int, provider: str) -> list
     if provider == CUDA:
         if CUDA not in ort.get_available_providers():
             raise RuntimeError(
-                "CUDA runtime is not installed. Run Setup GPU OCR.cmd or choose CPU."
+                "CUDA runtime is not installed. Open Models → Runtime setup or choose CPU."
             )
         prepare_cuda(ort)
     if provider == DML and DML not in ort.get_available_providers():
-        raise RuntimeError("DirectML is unavailable. Run Setup AMD.cmd or choose CPU OCR.")
+        raise RuntimeError("DirectML is unavailable. Choose CPU OCR; AMD Gemma uses Vulkan.")
     options = ort.SessionOptions()
     options.intra_op_num_threads = threads
     options.inter_op_num_threads = 1

@@ -374,3 +374,19 @@ no extra context. Existing context allocation/worker counts stay unchanged. See
 The AMD launcher isolates Vulkan Gemma and DirectML/CPU OCR. CPU OCR is recommended by default;
 DirectML remains experimental and checks numerical compatibility against temporary CPU sessions
 before use. Provider initialization alone was insufficient for the pinned Meiki models.
+
+## In-app runtime setup
+
+`runtime_dialog` presents detection, installation and restart separately from model downloads.
+`hardware` owns DXGI enumeration; `runtime_setup` owns pinned profiles, contained environment paths,
+OS installation locking, fingerprinted receipts, verified reuse and replacement repair. `setup_process`
+owns cancellable hidden child processes and bounded output. Work is polled through the existing
+setup-operation snapshot; native libraries load only in a child probe or inference worker.
+
+`runtime_restart` waits for a new Qt startup acknowledgement after the main window drains active
+work. It distinguishes the real GUI PID from the Windows Python launcher PID. `tools/launch.py`
+uses the verified next-launch selection with CPU fallback. Models/cache remain shared at project
+level, while each native runtime environment lives in `.runtimes`. The in-app AMD profile uses
+Vulkan translation and CPU OCR; the older experimental DirectML package remains isolated.
+See [decision 013](decisions/013-in-app-runtime-setup.md). Main/Settings/Advanced changes are design
+proposals only, with no renderer or inference scheduling changes in this slice.

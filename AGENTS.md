@@ -2,7 +2,8 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/012-model-management-and-context.md`.
+`engineering/plans/013-in-app-runtime-setup.md`. The UI redesign in
+`engineering/plans/014-ui-proposal.md` is a proposal only; do not implement it yet.
 
 - Use Python with deep modules: small public interfaces that own meaningful complexity.
 - Keep Windows, Qt, capture-library, and model details at their respective boundaries.
@@ -81,6 +82,14 @@ Read `engineering/README.md` first. The agreed product plan is in
   CPU OCR is the AMD default. Strict `--device directml` must fail on provider/probe failure;
   `auto-directml` reports CPU fallback. DirectML initialized but miscomputed our pinned models:
   preserve the numerical compatibility probe, and do not call it validated Radeon acceleration.
+- In-app runtime setup uses isolated `.runtimes` environments; never install into a loaded venv.
+  Downloads require an explicit action. Keep detection, installation, probing and subprocess output
+  off the GUI thread. Only validated, contained environments may be activated. Cancel/timeout must
+  stop owned child processes before cleanup; preserve model files and the active runtime. Restart
+  drains workers and waits for a new Qt startup acknowledgement (actual app PID, not Windows venv
+  launcher PID). The normal launcher must honor the persisted selection and retain CPU fallback.
+  AMD's in-app profile uses Vulkan Gemma + CPU OCR, without experimental DirectML. Run
+  `tools/verify_runtime_windows.py` in a disposable extracted distribution for setup/launcher changes.
 - Dialogue history is two turns/512 characters, scoped to one unambiguous panel. Freeze context
   per request, include it in cache identity, reject outdated context, and never seed history from
   stale replies. Menus stay independent; layout/session/scene/age resets clear conversational state.

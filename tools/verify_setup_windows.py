@@ -102,12 +102,13 @@ def main() -> int:
                 original = window.backend_combo.itemData(index)
                 if args.missing_runtime:
                     assert original.unavailable_reason
-                    assert "Setup Gemma.cmd" in original.unavailable_reason
+                    assert "Runtime setup" in original.unavailable_reason
                     assert "not installed" in window._model_manager.status.text()
                     assert window.translate_check.isEnabled() and window.backend_combo.isEnabled()
-                    with patch.object(QMessageBox, "information") as explanation:
-                        window.backend_combo.setCurrentIndex(index)
-                        explanation.assert_called_once()
+                    window.backend_combo.setCurrentIndex(index)
+                    assert window._runtime_dialog and window._runtime_dialog.isVisible()
+                    window._runtime_dialog.grab().save(str(output / "runtime-setup.png"))
+                    window._runtime_dialog.close()
                     assert window.backend_combo.currentData() is None
                     assert window._translation is None and window._preparing is None
                     evidence["downloaded_gemma_visible_without_runtime"] = True

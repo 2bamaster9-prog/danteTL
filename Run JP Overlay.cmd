@@ -9,8 +9,4 @@ if not exist ".venv\Scripts\jp-overlay.exe" (
     exit /b 1
   )
 )
-if exist ".venv-gpu\ocr-verified" if exist ".venv-gpu\Scripts\jp-overlay.exe" (
-  start "" "%~dp0.venv-gpu\Scripts\pythonw.exe" -m jp_overlay
-  exit /b 0
-)
-start "" "%~dp0.venv\Scripts\pythonw.exe" -m jp_overlay
+start "" "%~dp0.venv\Scripts\pythonw.exe" "%~dp0tools\launch.py"

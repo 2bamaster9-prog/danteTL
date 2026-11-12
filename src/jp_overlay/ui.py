@@ -34,6 +34,9 @@ from jp_overlay.model_store import ModelBundle, is_prepared, mark_prepared
 from jp_overlay.overlay import OverlayWindow
 from jp_overlay.presentation import EnglishPresentation
 from jp_overlay.recognition import OcrChoice, OcrSession, OcrState, Recognizer, overlay_result_ready
+from jp_overlay.runtime_dialog import RuntimeSetupDialog
+from jp_overlay.runtime_restart import RuntimeRestart
+from jp_overlay.runtime_setup import project_root
 from jp_overlay.tracking import TextTrack, TextTracker
 from jp_overlay.translation import BackendChoice, TranslationSession, TranslationState
 from jp_overlay.visual import VisualSession, VisualState
@@ -66,6 +69,9 @@ class MainWindow(QMainWindow):
         self._backends = backends
         self._models, self._backend_provider = models, backend_provider
         self._model_manager: ModelManager | None = None
+        self._runtime_dialog: RuntimeSetupDialog | None = None
+        self._restart_target: Path | None = None
+        self._restart: RuntimeRestart | None = None
         self._selected_backend: BackendChoice | None = None
         self._preparing: BackendChoice | None = None
         self._preparation_started = False
@@ -148,8 +154,8 @@ class MainWindow(QMainWindow):
             self.ocr_device.addItem(choice.name, choice)
         self.ocr_device.setToolTip(
             "Choices reflect this app's installed runtimes, not Meiki model files. "
-            "For Automatic NVIDIA OCR, close the app and run Setup GPU OCR.cmd, then restart "
-            "with Run JP Overlay.cmd. Choose the OCR device before starting capture."
+            "For Automatic NVIDIA OCR, open Models → Runtime setup, install NVIDIA support, "
+            "and restart. Choose the OCR device before starting capture."
         )
         self.capture_rate = QSpinBox()
         self.capture_rate.setRange(2, 12)
@@ -437,9 +443,7 @@ class MainWindow(QMainWindow):
         choice = self.backend_combo.currentData()
         if isinstance(choice, BackendChoice) and choice.unavailable_reason:
             self._select_backend(self._selected_backend)
-            QMessageBox.information(
-                self, "Model downloaded — runtime setup needed", choice.unavailable_reason
-            )
+            self._manage_runtime()
             return
         if isinstance(choice, BackendChoice) and not self._model_prepared(choice):
             answer = QMessageBox.question(
@@ -564,8 +568,26 @@ class MainWindow(QMainWindow):
         if self._model_manager is None:
             self._model_manager = ModelManager(self._models, self)
             self._model_manager.models_changed.connect(self._refresh_models)
+            self._model_manager.runtime_requested.connect(self._manage_runtime)
         self._model_manager.show()
         self._model_manager.raise_()
+
+    def _manage_runtime(self) -> None:
+        if self._closing:
+            return
+        if self._runtime_dialog is None:
+            self._runtime_dialog = RuntimeSetupDialog(self)
+            self._runtime_dialog.restart_requested.connect(self._request_restart)
+        self._runtime_dialog.show()
+        self._runtime_dialog.raise_()
+
+    def _request_restart(self, target: Path) -> None:
+        self._restart_target = target
+        self._closing = True
+        if central := self.centralWidget():
+            central.setEnabled(False)
+        self.status.setText("Finishing active work before restarting. Capture will be stopped.")
+        self.close()
 
     def _ocr_models_ready(self) -> bool:
         return all(bundle.present() for bundle in self._models if bundle.key == "ocr")
@@ -806,6 +828,7 @@ class MainWindow(QMainWindow):
                 and not self._preparing
                 and (self._translation is None or self._translation.finished)
                 and not (self._model_manager and self._model_manager.operation)
+                and not (self._runtime_dialog and self._runtime_dialog.operation)
             ):
                 self.close()
             return
@@ -964,8 +987,11 @@ class MainWindow(QMainWindow):
             self.status.setText(f"Could not open the demo: {error}")
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        if self._model_manager and self._model_manager.operation:
-            self._model_manager.close()
+        setup_dialogs = (self._model_manager, self._runtime_dialog)
+        if any(dialog and dialog.operation for dialog in setup_dialogs):
+            for dialog in setup_dialogs:
+                if dialog:
+                    dialog.close()
             self._closing = True
             self._standby = False
             if self._translation:
@@ -988,6 +1014,26 @@ class MainWindow(QMainWindow):
             self._stop("Capture stopped.")
             event.ignore()
             return
+        if self._restart_target:
+            try:
+                if self._restart is None:
+                    self._restart = RuntimeRestart(project_root(), self._restart_target)
+                if not self._restart.poll():
+                    self.status.setText("Opening JP Overlay with the installed runtime…")
+                    event.ignore()
+                    return
+            except (OSError, ValueError, RuntimeError) as error:
+                self._restart_target = None
+                self._restart = None
+                self._closing = False
+                if central := self.centralWidget():
+                    central.setEnabled(True)
+                self.status.setText(str(error))
+                QMessageBox.warning(self, "Restart failed", str(error))
+                event.ignore()
+                return
+            self._restart_target = None
+            self._restart = None
         self._timer.stop()
         self._overlay.close()
         super().closeEvent(event)

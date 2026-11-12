@@ -10,9 +10,10 @@ The inspector keeps raw Japanese, bounding boxes, and English together for revie
 
 On Windows 11, double-click **Run JP Overlay.cmd**, then open **Models…**. Download **MeikiOCR**
 (46 MB) for recognition and a translation model: **Sugoi V4** (1.11 GB, CPU) or **Gemma 4 E2B**
-(3.35 GB, GPU). For Gemma, first install its runtime as described below. The translation dropdown
+(3.35 GB, GPU). Use **Models… → Runtime setup…** to install acceleration inside the app.
+The translation dropdown
 lists downloaded models. Gemma stays visible as **runtime setup needed** if its GPU runtime is
-missing; selecting that entry explains the setup to run. **No translation** is always available.
+missing; selecting that entry opens runtime setup. **No translation** is always available.
 Capture works even with no models; English appears only after selecting a translator.
 Downloads show byte progress, support cancellation, and check pinned SHA-256 hashes before files
 become usable. Retry keeps verified files; an interrupted individual file restarts. Processing works
@@ -21,32 +22,34 @@ Setup requires Python 3.12 or later on PATH to bootstrap uv; uv installs the pin
 runtime locally if needed. Nothing is installed into your global Python environment.
 
 **Downloaded model but no English / no Automatic OCR?** Model files and GPU runtimes are separate.
-On a fresh NVIDIA installation, close the app and run **Setup Gemma.cmd** for Gemma translation,
-and **Setup GPU OCR.cmd** for Automatic NVIDIA OCR. Restart with **Run JP Overlay.cmd**.
+Open **Models… → Runtime setup…**. The app detects graphics cards and recommends a runtime;
+you can choose manually. **Install runtime** downloads pinned dependencies into a separate local
+environment, shows stage progress, and checks native libraries. **Restart now** stops capture,
+waits for current work, and opens the new runtime. **Use on next launch** keeps this session running.
+The normal **Run JP Overlay.cmd** remembers the choice. No separate GPU setup scripts are needed.
 The Models dialog distinguishes downloaded files from runtime readiness and shows their folder.
 It reuses your downloads; reinstalling or redownloading model weights is unnecessary. The CPU
 launcher intentionally uses the CPU OCR environment; it does not inherit packages from the GPU one.
 
-For optional NVIDIA acceleration, run **Setup GPU OCR.cmd** after OCR model setup. It installs
-the pinned CUDA libraries in a separate `.venv-gpu` (roughly 1.8 GB of downloads), then checks real
-OCR before enabling the normal launcher to use it. No system CUDA toolkit is needed. CPU setup
-stays in `.venv`; **Run JP Overlay CPU.cmd** always uses that environment. Runtime remains offline.
-The first GPU verification can take about a minute to compile kernels. A bounded local cache in
-`data/cuda-cache` lets later launches reuse that work; new kernels or driver changes can need another
-warm-up. Setup only enables the GPU launcher after verification succeeds.
+The **NVIDIA** option installs CUDA OCR and Gemma support (several GB including dependencies).
+The **AMD** option installs Vulkan Gemma and **CPU OCR**. It does not install experimental DirectML:
+that provider produced incorrect Meiki results on the development machine. Vulkan setup and inference
+were checked on the RTX 5080; a discrete Radeon still needs testing. **CPU** provides MeikiOCR/Sugoi.
+No system CUDA toolkit or server is needed. Graphics drivers must already support the chosen runtime;
+setup never installs or updates drivers. Hardware detection is a recommendation, not a compatibility
+guarantee. Multi-GPU users can override it.
 
-For **Gemma · NVIDIA GPU**, run **Setup Gemma.cmd** once. It installs the optional embedded
-llama.cpp/CUDA runtime (about 0.64 GB); weights are downloaded through **Models…** after restarting
-the app. No server or system CUDA toolkit is needed. It works with CPU or GPU OCR.
-A current NVIDIA driver is required; Sugoi remains available for PCs without a suitable GPU.
+Runtime installation uses an indeterminate bar with actual stage/package updates; it does not invent
+a download percentage. Cancel/failure keeps the running environment and model files. A failed install
+can be retried; **Verify / repair runtime** checks an existing install and creates a separate replacement
+if needed. A failed restart leaves the old app available. CPU fallback remains accessible through
+**Run JP Overlay CPU.cmd**. Replaced runtimes are retained in `.runtimes` for recovery, so repeated
+repairs can consume extra disk space. All processing after setup stays local.
 
-For **AMD**, run **Setup AMD.cmd**, then **Run JP Overlay AMD.cmd**. This isolated environment
-uses Vulkan for Gemma; CUDA is not required. CPU OCR is the recommended default. Experimental
-**DirectML** OCR is selectable and checks its numerical output before use; failure visibly falls
-back to CPU. DirectML produced incorrect Meiki output on the development machine, so GPU OCR is
-**not yet validated**. The Vulkan package passed on an RTX 5080; discrete Radeon testing remains
-necessary. A current GPU driver with Vulkan support is required. CPU Sugoi is available in this
-environment too. Runtime packages are mutually exclusive within one Python environment.
+Library checks do not load models. The first OCR GPU load can take about a minute to compile kernels;
+its loading status stays visible. Gemma has the preparation flow below. A bounded cache under
+`data/cuda-cache` is reused; driver/kernel changes may require another warm-up. Legacy setup scripts
+remain available for development but are not required by the in-app acceleration flow.
 
 Selecting an unprepared Gemma model asks **Prepare now?** Choosing No restores the previous model
 or No translation. Yes shows a responsive progress dialog while checking weights and warming the
@@ -64,8 +67,8 @@ Its weights are Apache-2.0; Sugoi retains its separate licensing. See
 
 To share, run `python tools/package.py` and send `dist/jp-overlay-windows.zip`. This is a small
 **source/setup package**, not a frozen executable: unzip into a writable folder and use the launchers.
-It excludes weights, environments, caches, screenshots and logs. Python/uv bootstrapping and runtime
-downloads are still needed on the recipient's PC; models are chosen in the app.
+It excludes weights, environments, caches, screenshots and logs. Python/uv bootstrapping is still
+needed on the recipient's PC; optional runtimes and models are installed from inside the app.
 
 Alternatively, with uv installed:
 

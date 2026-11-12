@@ -384,8 +384,9 @@ Setup/dialog/overlay fixture screenshots were visually reviewed. No game, discre
 mixed-DPI transition, or general name-consistency guarantee follows from these synthetic checks.
 Artifacts live in ignored `artifacts/setup`, `artifacts/context` and `artifacts/amd`.
 
-For friends: run Setup AMD.cmd, launch Run JP Overlay AMD.cmd, download models in Models, then
-select Gemma and accept preparation. CPU OCR is recommended. If trying DirectML, record the actual
+For friends: open Models → Runtime setup, select AMD, install, then restart. Download models in
+Models, select Gemma and accept preparation. The new in-app AMD profile uses CPU OCR. If using the
+legacy experimental DirectML package, record the actual
 provider/fallback reason and use `--device directml` for strict verification, never `auto-directml`
 as evidence of GPU execution. Report GPU/driver, model load time and warm inference timings.
 
@@ -415,3 +416,32 @@ was written only after this check succeeded, matching the setup script's gating 
 
 Run the missing-runtime check with a genuinely CPU-only environment and downloaded Gemma. Testing
 only in the development environment, where every optional runtime is installed, misses this failure.
+
+## In-app runtime setup checks (2026-11-13)
+
+`tools/verify_runtime_windows.py --profile nvidia` must run from an extracted distribution under
+`artifacts`, never a user's installed copy. Repeat with `--profile amd` and `--profile cpu`.
+`--offline --cache-root <development-root>` restricts uv to already cached dependencies and Python;
+this tests packaging/installation, not a cold internet download. It opens Models → Runtime setup,
+checks detection without automatic installation, presses Install, observes GUI timer progress,
+restarts through MainWindow into the chosen environment, and closes only the verified child window.
+The normal launcher uses the same acknowledged-startup path. Windows venv launchers and app windows
+can have distinct PIDs; tests use the acknowledged app PID for native window cleanup.
+
+NVIDIA, AMD and CPU installs/restarts passed in the extracted CPU-only distribution. The environments
+used the existing Meiki/Gemma files. Actual strict CUDA OCR passed in the app-installed NVIDIA runtime
+with sockets blocked (29.1 ms warm median; already warmed kernel cache). The downloaded-Gemma/no-runtime
+native regression passed; Gemma consent/preparation/worker reuse/unload/shutdown passed in the new
+runtime with 63 responsive preparation polls. Actual Vulkan translation and bounded context also
+passed in the new AMD runtime with sockets blocked, using the RTX 5080. These are synthetic checks,
+not game or Radeon results.
+
+Fast tests cover vendor selection on mixed integrated/discrete PCs, exclusive profile groups,
+explicit activation, stale/corrupt/escaping receipts, cancel/probe failure retaining the old runtime,
+repair without mutating existing libraries, child output/error/cancellation, no implicit install,
+closing during setup, worker-draining restart and launch failure recovery. Model preparation remains
+a separate consent step; package/library probing alone is not full model validation.
+Final checks: 273 tests passed; Ruff formatting/lint and Pyright passed. Runtime setup screenshots
+were reviewed. Cancel testing includes an installer that spawns a sleeping child, and verifies both
+are stopped. The proposal's navigation/toggle/slider logic was checked separately from product code;
+it is not an implemented Settings window.
