@@ -35,6 +35,7 @@ class VisualState:
     checked: frozenset[TextTrack] = frozenset()
     scan_areas: tuple[Rect, ...] | None = None
     stable_tracks: tuple[tuple[int, int, str], ...] = ()
+    changed_areas: tuple[Rect, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -400,11 +401,13 @@ class VisualAnalyzer:
             cv2.resize(pixels, (640, 360), interpolation=cv2.INTER_AREA), cv2.COLOR_BGRA2GRAY
         )
         changed_tiles = np.ones((18, 32), dtype=bool)
+        significant = np.zeros((18, 32), dtype=bool)
         if self._previous is not None and fresh:
             delta = np.abs(small.astype(np.int16) - self._previous.astype(np.int16))
             energy = delta.reshape(18, 20, 32, 20).mean(axis=(1, 3))
             changed_tiles = energy > 0
             tiles = energy > 1.5
+            significant = tiles
             self._dirty |= (tiles & (self._streak == 0)) | (~tiles & (self._streak >= 2))
             self._streak = np.where(tiles, np.minimum(self._streak + 1, 8), 0).astype(np.uint8)
         hidden = frozenset(
@@ -497,6 +500,15 @@ class VisualAnalyzer:
             checked=self._checked,
             scan_areas=coverage,
             stable_tracks=tuple(stable_tracks),
+            changed_areas=tuple(
+                Rect(
+                    int(x) * size[0] // 32,
+                    int(y) * size[1] // 18,
+                    ceil(int(x + 1) * size[0] / 32) - int(x) * size[0] // 32,
+                    ceil(int(y + 1) * size[1] / 18) - int(y) * size[1] // 18,
+                )
+                for y, x in zip(*np.nonzero(significant), strict=True)
+            ),
         )
 
 

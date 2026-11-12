@@ -146,6 +146,12 @@ full discovery. Explicit coverage preserves unscanned text; dialogue confirmatio
 source evidence across partial scans. CUDA batch padding removes shape-switching stalls, and native
 verification measures newly appearing labels through English publication.
 
+[Slice eleven](plans/011-gemma-and-diagnostics.md) adds an optional Gemma 4 E2B QAT backend through
+embedded llama.cpp because CTranslate2 does not support this variant. Sugoi remains the compact CPU
+choice. GPU translation, bounded non-reasoning prompts, and model-specific caches are implemented.
+The debug checkbox shows visual changes, actual OCR coverage, and worker/cache/queue timings without
+changing scheduling. Cross-dialogue memory and game-specific terminology remain later work.
+
 ## Technical references
 
 - [Windows capture](https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/screen-capture)

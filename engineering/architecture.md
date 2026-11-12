@@ -17,7 +17,10 @@ defines and validates pinned local assets. `tracking` owns bounded text identiti
 confirmation, and retirement; it stores no frame images and has no native/model dependencies.
 `presence` computes bounded exact crop digests; tracks retain only those digests and their bounds.
 `translation` owns scheduling, backend swaps, and result validity through a small backend protocol.
-`sugoi` owns SentencePiece/CTranslate2 and pinned translation assets; `translation_cache` owns bounded
+`sugoi` owns SentencePiece/CTranslate2 and pinned translation assets; `gemma` owns optional embedded
+llama.cpp, local QAT weights, bounded prompt/output and process-local CUDA 13 library setup.
+`diagnostics` creates bounded read-only overlay snapshots from visual/OCR/translation state.
+`translation_cache` owns bounded
 memory/SQLite storage. `text_layout` owns measured English wrapping and viewport limits. The current
 single-session coordinator can move out of the UI when a second consumer requires it.
 

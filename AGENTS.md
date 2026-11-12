@@ -2,7 +2,7 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/010-regional-ocr.md`.
+`engineering/plans/011-gemma-and-diagnostics.md`.
 
 - Use Python with deep modules: small public interfaces that own meaningful complexity.
 - Keep Windows, Qt, capture-library, and model details at their respective boundaries.
@@ -63,6 +63,11 @@ Read `engineering/README.md` first. The agreed product plan is in
   validate generation, track ID, exact source, and text revision before publishing/rendering English.
 - Cache identity must include weights/tokenizers, runtime, language pair, decoding settings, and any
   future glossary/context. Moving a box must not trigger translation. Swaps unload before loading.
+- Optional Gemma uses embedded llama.cpp, not CTranslate2 or a service. Keep runtime/model setup
+  explicit, prompts bounded, reasoning off, and reject incomplete answers. Verify actual CUDA
+  inference and swapping with `verify_ocr_windows.py --translation --dialogue --gemma --debug`.
+  Diagnostics only observe worker snapshots; distinguish visual changes, proposed scans and actual
+  OCR coverage. Do not change scheduling, retention or translation sources when toggling debug.
 - For translation changes, run `uv run python tools/verify_translation.py` with local models installed
   and `uv run python tools/verify_ocr_windows.py --translation` for live integration. Fast tests must
   remain model-free. Preserve raw OCR inspection and full English text when overlay layout overflows.
@@ -71,5 +76,5 @@ Read `engineering/README.md` first. The agreed product plan is in
 - Do not claim game, mixed-DPI, HDR, or anti-cheat compatibility based solely on a demo window.
 - Do not implement later milestones without a user request. Capture, OCR, tracking, local Sugoi
   translation, bounded caching, English layout, icon cleanup, and dialogue grouping are implemented.
-  Other model adapters, richer dialogue context, glossaries, hotkeys, profiles, and packaging
+  Gemma is an optional quality backend. Richer dialogue context, glossaries, hotkeys, profiles, and packaging
   remain separate work.

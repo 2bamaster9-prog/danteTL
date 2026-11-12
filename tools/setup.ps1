@@ -1,4 +1,4 @@
-param([switch]$Gpu)
+param([switch]$Gpu, [switch]$Gemma)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $projectRoot
@@ -20,12 +20,16 @@ if (Get-Command uv -ErrorAction SilentlyContinue) {
     }
 }
 
+$gemmaArgs = @()
+if ($Gemma -or (Test-Path -LiteralPath (Join-Path $projectRoot 'models\gemma-4-e2b\gemma-4-E2B_q4_0-it.gguf'))) {
+    $gemmaArgs = @('--group', 'gemma')
+}
 if ($Gpu) {
     $env:UV_PROJECT_ENVIRONMENT = Join-Path $projectRoot '.venv-gpu'
-    & $uvCommand sync --locked --no-default-groups --group gpu --group dev
+    & $uvCommand sync --locked --no-default-groups --group gpu --group dev @gemmaArgs
 } else {
     $env:UV_PROJECT_ENVIRONMENT = Join-Path $projectRoot '.venv'
-    & $uvCommand sync --locked
+    & $uvCommand sync --locked @gemmaArgs
 }
 if ($LASTEXITCODE -ne 0) { throw 'Dependency setup failed. Check the network connection and retry.' }
 Write-Host 'JP Overlay is ready. Double-click Run JP Overlay.cmd.'

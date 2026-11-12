@@ -42,7 +42,14 @@ def translation_backends() -> tuple[BackendChoice, ...]:
     return (
         BackendChoice("Sugoi V4 · Fast CPU", create_translator),
         BackendChoice("Sugoi V4 · Wider search", partial(create_translator, beam_size=5)),
+        BackendChoice("Gemma 4 E2B · NVIDIA GPU (optional)", create_gemma_translator),
     )
+
+
+def create_gemma_translator() -> TranslationBackend:
+    from jp_overlay.gemma import GemmaBackend, model_directory
+
+    return GemmaBackend(model_directory())
 
 
 def configure_logging() -> None:

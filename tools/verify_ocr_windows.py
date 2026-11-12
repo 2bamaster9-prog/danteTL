@@ -31,11 +31,15 @@ def main() -> int:
     parser.add_argument("--dialogue", action="store_true", help="Verify two-line dialogue grouping")
     parser.add_argument("--ocr-delay-ms", type=int, default=0, help="Simulate a slow OCR worker")
     parser.add_argument("--device", choices=("cpu", "auto", "cuda"), default="cpu")
+    parser.add_argument("--gemma", action="store_true", help="Start Gemma, swap to Sugoi and back")
+    parser.add_argument("--debug", action="store_true", help="Verify diagnostic overlay rendering")
     parser.add_argument("--transitions", action="store_true", help="Close/reopen the text panel")
     parser.add_argument(
         "--typewriter", action="store_true", help="Check gradual dialogue readiness"
     )
     args = parser.parse_args()
+    if args.gemma and not args.translation:
+        parser.error("--gemma requires --translation")
     if args.dialogue and not args.translation:
         parser.error("--dialogue requires --translation")
     if args.typewriter and not args.dialogue:
@@ -88,6 +92,9 @@ def main() -> int:
         ocr_backends=choices,
     )
     window.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+    if args.gemma:
+        window.backend_combo.setCurrentIndex(2)
+    window.debug_check.setChecked(args.debug)
     window.show()
     target = WindowTarget(int(demo.winId()), os.getpid(), demo.windowTitle())
     window.windows_combo.addItem("OCR verification fixture", target)
@@ -100,7 +107,7 @@ def main() -> int:
     initial_size = (0, 0)
     phrase_id = 0
     phrase_bounds = None
-    swapped = False
+    swapped = 0
     grouping_stage = 0
     continuity_started = 0.0
     continuity_polls = 0
@@ -109,7 +116,7 @@ def main() -> int:
     failure = ""
     reveal_finished = 0.0
     transitions_done = False
-    timeout = 180 if args.device != "cpu" else 45
+    timeout = 180 if args.device != "cpu" or args.gemma else 45
 
     def tick() -> None:
         nonlocal stage, stage_started, frozen, initial_size, failure, phrase_id, phrase_bounds
@@ -224,12 +231,25 @@ def main() -> int:
                         if args.typewriter:
                             assert "typewriter_to_full_english_seconds" in evidence
                             evidence["no_partial_dialogue_translations"] = True
+                        evidence["first_backend_english"] = next(
+                            t.english
+                            for t in window._overlay._translations
+                            if t.request.source == translation_source
+                        )
                         window.backend_combo.setCurrentIndex(1)
-                        swapped = True
+                        swapped = 1
+                        return
+                    if args.gemma and swapped == 1:
+                        evidence["sugoi_between_gemma_loads"] = [
+                            t.english for t in translated.results
+                        ]
+                        window.backend_combo.setCurrentIndex(2)
+                        swapped = 2
                         return
                     if args.dialogue and grouping_stage == 1:
                         sources = {t.request.source for t in translated.results}
-                        assert all(line in sources for line in DIALOGUE_LINES), sources
+                        if not all(line in sources for line in DIALOGUE_LINES):
+                            return  # A serial backend may finish the speaker before lines settle.
                         assert not any(t.request.members for t in translated.results), translated
                         window.group_dialogue.setChecked(True)
                         grouping_stage = 2
@@ -272,6 +292,17 @@ def main() -> int:
                     window._overlay.set_translations(translated.results, enabled=True)
                     window._overlay.align(windows.geometry(target).client)
                     app.processEvents()  # Deliver the native resize before grabbing the widget.
+                    if args.debug:
+                        diagnostic = window._overlay._debug
+                        assert diagnostic and diagnostic.scanned and "OCR" in diagnostic.text
+                        evidence["debug_snapshot"] = diagnostic.text
+                        before = window._overlay._translations
+                        window.debug_check.setChecked(False)
+                        assert window._overlay._debug is None
+                        assert window._overlay._translations == before
+                        window.debug_check.setChecked(True)
+                        assert window._overlay._debug is not None
+                        evidence["debug_toggle_preserves_english"] = True
                     if args.output:
                         args.output.parent.mkdir(parents=True, exist_ok=True)
                         window._overlay.grab().save(

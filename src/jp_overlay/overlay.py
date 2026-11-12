@@ -4,6 +4,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
+from jp_overlay.diagnostics import DebugDisplay
 from jp_overlay.domain import Rect, sample_box
 from jp_overlay.grouping import TextBlock
 from jp_overlay.text_layout import layout_english
@@ -36,6 +37,12 @@ class OverlayWindow(QWidget):
         self._blocks: tuple[TextBlock, ...] | None = None
         self._automatic_size = True
         self._manual_size = 20
+        self._debug: DebugDisplay | None = None
+
+    def set_debug(self, display: DebugDisplay | None) -> None:
+        if display != self._debug:
+            self._debug = display
+            self.update()
 
     def set_translations(
         self, results: tuple[TranslatedText, ...], *, enabled: bool = False
@@ -100,6 +107,7 @@ class OverlayWindow(QWidget):
                     text = english.get(TranslationRequest.from_block(block))
                     if text:
                         self._paint_english(painter, block, text)
+                self._paint_debug(painter, ratio)
                 return  # Pending regions leave the original game text visible.
             font = QFont("Segoe UI")
             font.setPixelSize(round(13 * ratio))
@@ -120,6 +128,7 @@ class OverlayWindow(QWidget):
                 painter.fillRect(badge, QColor("#123a35"))
                 painter.drawText(badge, Qt.AlignmentFlag.AlignCenter, label)
                 painter.setOpacity(1.0)
+            self._paint_debug(painter, ratio)
             return
         painter.setPen(QPen(QColor("#5eead4"), max(2, ratio)))
         painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -139,6 +148,34 @@ class OverlayWindow(QWidget):
             Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap,
             "Sample overlay · clicks pass through\nNative capture and alignment check",
         )
+        self._paint_debug(painter, ratio)
+
+    def _paint_debug(self, painter: QPainter, ratio: float) -> None:
+        if self._debug is None:
+            return
+        painter.save()
+        painter.setOpacity(1)
+        painter.setPen(Qt.PenStyle.NoPen)
+        for box in self._debug.changed:
+            painter.fillRect(QRectF(box.x, box.y, box.width, box.height), QColor(255, 180, 50, 55))
+        painter.setPen(QPen(QColor("#22d3ee"), max(2, ratio), Qt.PenStyle.DashLine))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        for box in self._debug.scanned:
+            painter.drawRect(
+                QRectF(box.x + 1, box.y + 1, max(0, box.width - 2), max(0, box.height - 2))
+            )
+        font = QFont("Consolas")
+        font.setPixelSize(round(12 * ratio))
+        painter.setFont(font)
+        metrics = painter.fontMetrics()
+        lines = self._debug.text.splitlines()
+        width = min(self._bounds.width - 16, max(metrics.horizontalAdvance(s) for s in lines) + 16)
+        area = QRectF(8, 8, max(1, width), len(lines) * metrics.height() + 12)
+        painter.fillRect(area, QColor(8, 14, 23, 230))
+        painter.setPen(QColor("#e7edf5"))
+        painter.setClipRect(area)
+        painter.drawText(area.adjusted(8, 6, -8, -6), Qt.AlignmentFlag.AlignLeft, self._debug.text)
+        painter.restore()
 
     def _paint_english(self, painter: QPainter, block: TextBlock, text: str) -> None:
         layout = layout_english(

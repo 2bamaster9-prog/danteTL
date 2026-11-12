@@ -44,6 +44,42 @@ def stop(session: TranslationSession) -> None:
     until(lambda: session.finished)
 
 
+def test_serial_llm_publishes_first_label_before_waiting_for_second(tmp_path):
+    class Serial(Backend):
+        batch_size = 1
+
+        def translate(self, texts):
+            if self.calls:
+                self.release.clear()
+            return super().translate(texts)
+
+    backend = Serial()
+    session = TranslationSession(lambda: backend, tmp_path / "cache.sqlite3")
+    session.update((track("設定"), track("冒険", key=2)))
+    session.start()
+    try:
+        until(lambda: len(backend.calls) == 2)
+        snapshot = session.snapshot()
+        assert len(snapshot.results) == 1 and snapshot.results[0].request.source == "設定"
+        assert snapshot.pending == 1 and snapshot.processing_since is not None
+        assert snapshot.translated_sources == 1 and snapshot.cache_hits == 0
+        backend.release.set()
+        until(lambda: session.snapshot().pending == 0)
+        assert session.snapshot().processing_since is None
+        inference = session.snapshot().last_inference_ms
+        assert inference > 0
+        session.invalidate()
+        session.update((track("設定", key=3),))
+        until(lambda: session.snapshot().pending == 0)
+        assert len(backend.calls) == 2
+        assert session.snapshot().cache_hits == 1
+        assert session.snapshot().translated_sources == 0
+        assert session.snapshot().last_inference_ms == inference
+    finally:
+        backend.release.set()
+        stop(session)
+
+
 def test_unchanged_text_movement_and_duplicate_regions_translate_once(tmp_path) -> None:
     backend = Backend()
     session = TranslationSession(lambda: backend, tmp_path / "cache.sqlite3")

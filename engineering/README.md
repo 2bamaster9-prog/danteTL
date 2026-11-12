@@ -25,7 +25,8 @@ Read these documents as relevant to the task:
 | [Responsive OCR decision](decisions/008-responsive-ocr.md) | Reveal readiness, GPU isolation, and fallback |
 | [Visual evidence decision](decisions/009-visual-evidence.md) | Change scheduling, occlusion, and readiness |
 | [Regional OCR decision](decisions/010-regional-ocr.md) | Partial coverage, coordinate mapping, and discovery |
-| [Current slice](plans/010-regional-ocr.md) | Deliverables, progress, and remaining gaps |
+| [Gemma/debug decision](decisions/011-gemma-and-diagnostics.md) | Optional quality backend and diagnostic boundaries |
+| [Current slice](plans/011-gemma-and-diagnostics.md) | Deliverables, progress, and remaining gaps |
 
 The harness consists of these documents, executable checks, deterministic tests, and live capture
 verification. Add guidance when it resolves a concrete ambiguity; replace stale guidance instead

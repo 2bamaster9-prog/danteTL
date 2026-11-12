@@ -74,6 +74,12 @@ class TranslationSnapshot:
     pending: int = 0
     last_batch_ms: float = 0
     message: str = ""
+    processing_since: float | None = None
+    queue_ms: float = 0
+    cache_hits: int = 0
+    translated_sources: int = 0
+    load_ms: float = 0
+    last_inference_ms: float = 0
 
 
 class TranslationSession:
@@ -97,6 +103,13 @@ class TranslationSession:
         self._state = TranslationState.LOADING
         self._message = ""
         self._duration = 0.0
+        self._processing_since: float | None = None
+        self._queued_at: dict[TranslationRequest, float] = {}
+        self._queue_ms = 0.0
+        self._cache_hits = 0
+        self._translated_sources = 0
+        self._load_ms = 0.0
+        self._last_inference_ms = 0.0
         self._thread = threading.Thread(target=self._run, name="translation-owner", daemon=True)
 
     def start(self) -> None:
@@ -128,6 +141,8 @@ class TranslationSession:
             ):
                 return
             self._desired, self._retained = desired, retained
+            now = time.monotonic()
+            self._queued_at = {key: self._queued_at.get(key, now) for key in desired}
             allowed = set(desired) | set(retained)
             self._results = {key: value for key, value in self._results.items() if key in allowed}
             self._condition.notify()
@@ -138,6 +153,7 @@ class TranslationSession:
             self._desired = ()
             self._retained = ()
             self._results.clear()
+            self._queued_at.clear()
             self._condition.notify()
 
     def switch_backend(self, factory: Callable[[], TranslationBackend]) -> None:
@@ -150,6 +166,10 @@ class TranslationSession:
             self._results.clear()
             self._state = TranslationState.LOADING
             self._message = ""
+            self._queued_at = {key: time.monotonic() for key in self._desired}
+            self._duration = self._queue_ms = self._load_ms = 0
+            self._last_inference_ms = 0
+            self._cache_hits = self._translated_sources = 0
             self._condition.notify()
 
     def request_stop(self) -> None:
@@ -174,6 +194,12 @@ class TranslationSession:
                 sum(key not in self._results for key in self._desired),
                 self._duration,
                 self._message,
+                processing_since=self._processing_since,
+                queue_ms=self._queue_ms,
+                cache_hits=self._cache_hits,
+                translated_sources=self._translated_sources,
+                load_ms=self._load_ms,
+                last_inference_ms=self._last_inference_ms,
             )
 
     def _run(self) -> None:
@@ -201,25 +227,38 @@ class TranslationSession:
                     if engine is not None:
                         engine.close()
                         engine = None
+                    started = time.perf_counter()
                     engine = factory()
                     active_backend = backend_generation
                     with self._condition:
                         if not self._stop and active_backend == self._backend_generation:
                             self._state = TranslationState.READY
                             self._message = cache.warning
+                            self._load_ms = (time.perf_counter() - started) * 1000
                     continue
                 assert engine is not None
-                sources = tuple(dict.fromkeys(key.source for key in jobs))[:4]
+                batch_size = max(1, min(4, int(getattr(engine, "batch_size", 4))))
+                sources = tuple(dict.fromkeys(key.source for key in jobs))[:batch_size]
                 keys = {
                     source: translation_key(engine.cache_identity, source) for source in sources
                 }
                 answers = {source: cache.get(keys[source]) for source in sources}
                 missing = tuple(source for source in sources if answers[source] is None)
                 started = time.monotonic()
+                measured = time.perf_counter()
+                inference_ms = 0.0
+                with self._condition:
+                    self._processing_since = started if missing else None
+                    queue_ms = max(
+                        (started - self._queued_at.get(key, started)) * 1000
+                        for key in jobs
+                        if key.source in sources
+                    )
                 if missing:
                     if any(len(source) > 512 for source in missing):
                         raise ValueError("Source text exceeds the 512-character translation limit.")
                     translated = engine.translate(missing)
+                    inference_ms = (time.perf_counter() - measured) * 1000
                     for source, english in zip(missing, translated, strict=True):
                         if not english.strip() or len(english) > 4096:
                             raise RuntimeError(
@@ -227,14 +266,20 @@ class TranslationSession:
                             )
                         cache.put(keys[source], english)
                         answers[source] = english
-                duration = (time.monotonic() - started) * 1000
+                duration = (time.perf_counter() - measured) * 1000
                 with self._condition:
+                    self._processing_since = None
                     if not self._stop and generation == self._generation:
                         for key in jobs:
                             english = answers.get(key.source)
                             if key in self._desired and english is not None:
                                 self._results[key] = TranslatedText(key, english)
                         self._duration = duration
+                        self._queue_ms = queue_ms
+                        self._cache_hits = len(sources) - len(missing)
+                        self._translated_sources = len(missing)
+                        if missing:
+                            self._last_inference_ms = inference_ms
                         self._message = cache.warning
         except Exception as error:
             logger.exception("Local translation failed")
@@ -254,6 +299,7 @@ class TranslationSession:
                 except Exception:
                     logger.exception("Translation cache cleanup failed")
             with self._condition:
+                self._processing_since = None
                 if self._state != TranslationState.FAILED:
                     self._state = TranslationState.STOPPED
             self._done.set()

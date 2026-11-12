@@ -10,6 +10,7 @@ import shiboken6  # noqa: E402
 from PySide6.QtCore import QCoreApplication, QEvent  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
+from jp_overlay.diagnostics import DebugDisplay  # noqa: E402
 from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry  # noqa: E402
 from jp_overlay.grouping import TextBlock  # noqa: E402
 from jp_overlay.inspection import OcrInspector, image_target  # noqa: E402
@@ -78,6 +79,22 @@ def test_overlay_does_not_request_repaint_for_equivalent_track_values(app, monke
     assert repaint.call_count == 2
     overlay.set_tracks(())
     assert repaint.call_count == 3
+    overlay.close()
+    overlay.deleteLater()
+
+
+def test_debug_draws_without_translations_and_toggle_preserves_publication(app):
+    overlay = OverlayWindow(Mock())
+    overlay.resize(400, 300)
+    overlay._bounds = Rect(0, 0, 400, 300)
+    overlay.set_tracks(())
+    overlay.set_translations((), enabled=True)
+    assert overlay.grab().toImage().pixelColor(210, 210).alpha() == 0
+    overlay.set_debug(DebugDisplay((Rect(200, 200, 40, 40),), (), "Debug"))
+    assert overlay.grab().toImage().pixelColor(210, 210).alpha() > 0
+    assert overlay._translations == () and overlay._tracks == ()
+    overlay.set_debug(None)
+    assert overlay.grab().toImage().pixelColor(210, 210).alpha() == 0
     overlay.close()
     overlay.deleteLater()
 

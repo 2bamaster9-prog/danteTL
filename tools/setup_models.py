@@ -14,8 +14,16 @@ def main() -> None:
     parser.add_argument(
         "--translation", action="store_true", help="Install Sugoi V4 instead of OCR"
     )
+    parser.add_argument("--gemma", action="store_true", help="Install optional Gemma 4 E2B QAT")
     args = parser.parse_args()
     assets, directory, setup = ASSETS, model_directory(), "Setup OCR.cmd"
+    if args.gemma and args.translation:
+        parser.error("Choose either --gemma or --translation.")
+    if args.gemma:
+        from jp_overlay.gemma import ASSETS as gemma_assets
+        from jp_overlay.gemma import model_directory as gemma_directory
+
+        assets, directory, setup = gemma_assets, gemma_directory(), "Setup Gemma.cmd"
     if args.translation:
         from jp_overlay.sugoi import ASSETS as sugoi_assets
         from jp_overlay.sugoi import model_directory as sugoi_directory

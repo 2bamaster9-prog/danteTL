@@ -29,6 +29,14 @@ gpu = [
   "nvidia-cublas-cu12==12.9.2.10",
   "nvidia-cudnn-cu12==9.10.2.21",
 ]
+gemma = [
+  "llama-cpp-python==0.3.36; sys_platform == 'win32' and platform_machine == 'AMD64'",
+  "nvidia-cuda-runtime==13.0.96; sys_platform == 'win32' and platform_machine == 'AMD64'",
+  "nvidia-cublas==13.0.2.14; sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+
+[tool.uv.sources]
+llama-cpp-python = { url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.36-cu130/llama_cpp_python-0.3.36-py3-none-win_amd64.whl" }
 
 [tool.uv]
 default-groups = ["dev", "cpu"]

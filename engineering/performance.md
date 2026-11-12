@@ -30,6 +30,30 @@ warm-up, duration, and workload. Report median and p95 timing plus peak/steady R
 available. Compare the same scene or replay and distinguish app throughput from game performance.
 The development RTX 5080 system does not establish the ordinary-PC target.
 
+## Optional Gemma quality preset (2026-11-13)
+
+Gemma 4 E2B, official QAT Q4_0 GGUF, llama-cpp-python 0.3.36 CUDA 13.0 Windows wheel,
+2,048 context tokens, 384 output cap, greedy decoding, two host threads, all repeating/output
+layers offloaded. Per-layer embedding weights remain mapped in host memory. No multimodal projector.
+Original nine-phrase offline smoke, Python sockets blocked, RTX 5080 / Ryzen 9800X3D / 64 GB RAM:
+
+- Final one-token prefill: **31–203 ms** per phrase, median **78 ms**; a repeated phrase without
+  translation-cache assistance took 93 ms. These are tiny-sample inference times, not end-to-end
+  game latency or p95. Initial 256-token prefill had repeated ~1.4–2.1 s stalls and a ~44 s first call.
+- Model validation/load plus warm-up took **37.45 s** on first use with the project-local kernel
+  cache, then **3.64 s** on a fresh process with that cache. Driver/runtime changes may compile again.
+- Translation-only process snapshot: **1,894 MiB working set**, **3,041 MiB private memory**.
+  GPU-wide used memory rose **1,642 MiB** (7,897 → 9,539 MiB). This GPU delta is approximate and
+  includes unrelated desktop activity; it is not isolated process VRAM. Full overlay/OCR add memory.
+- Sugoi CPU on the same sources took 15–125 ms, median 63 ms, with 331 MiB working set / 338 MiB
+  private memory after inference. It remains the compact preset.
+
+Artifacts: `artifacts/gemma/translation-final.json`, `sugoi-comparison.json`. Earlier experimental
+overlapping-process measurements are not used for the final memory claim. Quality examples include
+Gemma “Settings” versus Sugoi “The setting.”, and Gemma “Review the story” versus Sugoi “I look back
+at the story.” Both handle the short adventure sentence. No broad quality score, automatic model
+confidence, game frame-time impact, or midrange-GPU claim is established by these examples.
+
 The user-selected 4K session showed about 3.5–3.8 captured samples/s during UI verification. No
 claim about game frame-time impact has been measured yet. Full-pipeline smoke samples are below.
 

@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from jp_overlay.capture import CaptureSession
+from jp_overlay.diagnostics import debug_display
 from jp_overlay.domain import CapturedFrame, CaptureState, WindowTarget, overlay_ready
 from jp_overlay.grouping import DialogueGrouper, TextBlock
 from jp_overlay.inspection import OcrInspector
@@ -92,7 +93,7 @@ class MainWindow(QMainWindow):
         heading = QLabel("JP Overlay")
         heading.setObjectName("heading")
         layout.addWidget(heading)
-        subtitle = QLabel("Local Japanese → English · MeikiOCR + Sugoi V4")
+        subtitle = QLabel("Local Japanese → English · MeikiOCR · selectable translation model")
         subtitle.setObjectName("muted")
         layout.addWidget(subtitle)
 
@@ -155,6 +156,13 @@ class MainWindow(QMainWindow):
         )
         self.stabilize_check.toggled.connect(self._tick)
         options.addWidget(self.stabilize_check)
+        self.debug_check = QCheckBox("Debug overlay")
+        self.debug_check.setToolTip(
+            "Amber: significant visual changes. Cyan: last completed OCR coverage. "
+            "Shows local worker timings and queue waits; does not change scheduling."
+        )
+        self.debug_check.toggled.connect(self._tick)
+        options.addWidget(self.debug_check)
         options.addStretch()
         options.addWidget(QLabel("Opacity"))
         slider = QSlider(Qt.Orientation.Horizontal)
@@ -180,8 +188,8 @@ class MainWindow(QMainWindow):
         self.backend_combo = QComboBox()
         self.backend_combo.setAccessibleName("Translation backend")
         self.backend_combo.setToolTip(
-            "Wider search considers more candidates and may take longer; "
-            "translation quality can vary."
+            "Sugoi runs on CPU. Gemma uses local NVIDIA GPU inference after Setup Gemma.cmd. "
+            "Switching unloads the previous model. Quality and latency vary."
         )
         for backend in self._backends:
             self.backend_combo.addItem(backend.name, backend)
@@ -361,6 +369,7 @@ class MainWindow(QMainWindow):
         self._overlay.set_tracks(())
         self._overlay.set_blocks(())
         self._overlay.set_translations(())
+        self._overlay.set_debug(None)
         if self._translation:
             self._translation.invalidate()
 
@@ -445,13 +454,17 @@ class MainWindow(QMainWindow):
                 f"Translation unavailable: {snapshot.message} Toggle English off/on to retry."
             )
         elif snapshot.state == TranslationState.LOADING:
-            self.translation_status.setText("Loading the local translation model…")
+            self.translation_status.setText(
+                "Loading/preparing the local translation model… "
+                "Gemma's first GPU use may take about a minute; "
+                "later launches reuse the CUDA cache."
+            )
         elif snapshot.state == TranslationState.STOPPING:
             self.translation_status.setText("Waiting for translation to finish unloading…")
         else:
             self.translation_status.setText(
                 f"{len(snapshot.results)} English blocks · {snapshot.pending} pending · "
-                f"{snapshot.last_batch_ms:.0f} ms last batch · local CPU. {snapshot.message}"
+                f"{snapshot.last_batch_ms:.0f} ms last batch · local. {snapshot.message}"
             )
 
     def _update_ocr(self, frame: CapturedFrame) -> None:
@@ -659,6 +672,17 @@ class MainWindow(QMainWindow):
                 grouped.blocks,
             )
             tracks = tuple(t for t in tracks if t not in self._visual_state.hidden)
+            self._overlay.set_debug(
+                debug_display(
+                    self._visual_state,
+                    self._ocr.snapshot(),
+                    self._translation.snapshot() if self._translation else None,
+                    time.monotonic(),
+                    waiting_blocks=len(grouped.blocks) - len(grouped.ready),
+                )
+                if self.debug_check.isChecked() and self._ocr
+                else None
+            )
             if (
                 not self.stabilize_check.isChecked()
                 and not self.inspector.pause.isChecked()
@@ -678,7 +702,7 @@ class MainWindow(QMainWindow):
             if (
                 self.overlay_check.isChecked()
                 and not self.inspector.pause.isChecked()
-                and tracks
+                and (tracks or self.debug_check.isChecked())
                 and frame is not None
                 and overlay_ready(snapshot, geometry, foreground)
             ):

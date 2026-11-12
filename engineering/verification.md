@@ -33,6 +33,18 @@ saves the test app's own widget rendering. This runs on an unlocked desktop like
 
 ## Local translation checks
 
+Optional Gemma: `Setup Gemma.cmd`, or `uv sync --locked --group gemma` followed by
+`uv run --group gemma python tools/setup_models.py --gemma`. Use the isolated GPU environment with
+`--no-default-groups --group gpu --group dev --group gemma` when retaining CUDA OCR.
+Run `tools/verify_translation.py --backend gemma --output artifacts/gemma/translation-final.json`
+with either Gemma-enabled interpreter. It blocks Python sockets and reports per-source inference,
+load/warm-up, memory snapshots and original Japanese/English pairs. Compare with `--backend sugoi`.
+The first GPU run can compile kernels; repeat in a new process to validate the persistent CUDA cache.
+
+Add `--gemma --debug` to the native translation/dialogue check to exercise Gemma → Sugoi → Gemma,
+grouped output, debug coverage/toggle retention and ordinary lifecycle controls. This uses only the
+test fixture, never game capture. Cold/uncached and cached results are labeled separately.
+
 Install Sugoi explicitly with `uv run python tools/setup_models.py --translation` or
 `Setup Translation.cmd`. Run `uv run python tools/verify_translation.py` to load/translate original
 sample phrases with Python socket connections blocked. It prints the backend/cache identity,
@@ -89,6 +101,33 @@ Add `--appearance` to introduce a new menu label after the stability interval, w
 translation cache. It requires regional discovery, measures appearance-to-English, and checks the
 existing English and box geometry on every poll during that update. Live dialogue checks accept
 partial raw observations while requiring the unscanned speaker to remain in the tracked scene.
+
+## Gemma and diagnostic evidence (2026-11-13)
+
+- 224 model-free tests plus Ruff formatting/lint and Pyright pass in both environments. Coverage
+  includes model setup failure, output/context limits, reasoning-marker rejection, warm-up cleanup,
+  cache identity, serial early publication, cache/inference diagnostics and debug repaint behavior.
+- Offline real Gemma and Sugoi comparisons passed with Python sockets blocked. See performance for
+  timing/memory limits. Native GPU logs identified RTX 5080 and all 36 layers offloaded; the PLE
+  embedding weights remain host-mapped. No native HTTP client or model downloader is invoked.
+- GPU OCR + Gemma, DPI 144, fresh translation cache: complete grouped English **0.75 s** after the
+  final revealed character; no partial dialogue translation. Gemma → Sugoi → Gemma, grouping off/on,
+  debug toggles, font controls, pause, resize, minimize/restore, CPU OCR restart and teardown passed.
+  Panel hide/restore measured 0.313/0.500 s. Full process snapshot: 3,063 MiB working set and
+  5,066 MiB private memory. This is a synthetic fixture, not a sustained game measurement.
+- Slow CPU OCR (900 ms added per call) + Sugoi + debug passed: complete English 2.375 s after reveal,
+  50 persistence polls, hide/restore 0.313/0.312 s. Hiding occurred before a new OCR completion.
+- Dense 4K CPU/GPU real OCR retained 64 detections from 80 labels. Regional coverage/coordinates
+  passed. GPU full/region medians 231/27 ms; CPU 453/37 ms. CPU run overlapped an experimental
+  translation profile and is only regression evidence, not an isolated speed comparison.
+- The unchanged-label GPU/Sugoi regression retained all six publications across 248 render polls
+  and seven injected noisy OCR passes over twelve seconds. New-label discovery used 3.66% regional
+  coverage and reached English in 0.469 s while preserving existing English; all workers stopped.
+- Reviewed native app/overlay PNGs under `artifacts/gemma`. The overlay diagnostics remain readable
+  and partial scan bounds use source coordinates. The raw inspector contains no debug graphics.
+
+Remaining manual review: Honkai translation quality/proper names, crowded-menu latency and game frame
+times; mixed-DPI/HDR/anti-cheat behavior; other GPUs. No broad quality score or memory guarantee.
 
 ## Regional OCR evidence (2026-11-13)
 

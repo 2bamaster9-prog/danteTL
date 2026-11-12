@@ -38,6 +38,18 @@ def reference():
     return OcrResult(source, (TextRegion(TEXT, BOX),), 300, 0.3), TextTrack(1, TEXT, BOX)
 
 
+def test_diagnostic_changes_are_local_physical_rects_not_requested_ocr_coverage():
+    analyzer = VisualAnalyzer()
+    initial = analyzer.observe(picture(1))
+    assert initial.scan_areas is None and initial.changed_areas == ()
+    assert analyzer.observe(picture(2)).changed_areas == ()
+    changed = analyzer.observe(picture(3, animation=True))
+    assert changed.changed_areas
+    assert all(Rect(0, 0, 400, 240).contains(b) for b in changed.changed_areas)
+    assert all(b.y < 30 and b.x < 115 for b in changed.changed_areas)
+    assert len(changed.changed_areas) <= 32 * 18
+
+
 def test_idle_frames_skip_inference_but_changes_and_periodic_refreshes_are_not_starved():
     analyzer = VisualAnalyzer()
     requests = [i for i in range(1, 49) if analyzer.observe(picture(i)).request_ocr]

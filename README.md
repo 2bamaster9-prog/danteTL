@@ -3,7 +3,7 @@
 A local Windows game translation overlay, being built in small milestones.
 
 **Current milestone:** capture a game window, recognize Japanese with MeikiOCR, translate stable
-text locally with Sugoi V4 through CTranslate2, and draw English in an aligned click-through overlay.
+text locally with Sugoi V4 or optional Gemma 4 E2B, and draw English in an aligned click-through overlay.
 The inspector keeps raw Japanese, bounding boxes, and English together for review.
 
 ## Run
@@ -25,6 +25,17 @@ The first GPU verification can take about a minute to compile kernels. A bounded
 `data/cuda-cache` lets later launches reuse that work; new kernels or driver changes can need another
 warm-up. Setup only enables the GPU launcher after verification succeeds.
 
+For optional **Gemma 4 E2B · NVIDIA GPU**, run **Setup Gemma.cmd** once, then restart the app
+and select it in **Translation backend**. This downloads Google's 3.35 GB QAT Q4_0 model and
+about 0.64 GB of optional embedded llama.cpp/CUDA dependencies. No server or system CUDA toolkit
+is needed. It works with either CPU or GPU OCR. A current NVIDIA driver is required; Sugoi remains
+available for PCs without a suitable GPU. First GPU preparation can take about a minute; subsequent
+launches reuse the same bounded local CUDA cache. The setup verifies a real offline translation.
+
+Gemma uses a small 2,048-token context allocation, grouped dialogue, and no reasoning output. It does
+not yet remember earlier dialogue. Its weights are Apache-2.0; Sugoi retains its separate licensing.
+Measured quality and resource examples are in [the current slice](engineering/plans/011-gemma-and-diagnostics.md).
+
 Alternatively, with uv installed:
 
 ```powershell
@@ -33,6 +44,10 @@ uv run python tools/setup_models.py
 uv run python tools/setup_models.py --translation
 uv run jp-overlay
 ```
+
+For Gemma with the CLI, add `--group gemma` to `uv sync` and `uv run`, and install its model with
+`uv run --group gemma python tools/setup_models.py --gemma`. The `.cmd` launchers use the installed
+environment directly. Keep CPU and GPU OCR dependency groups in their separate environments.
 
 Choose a window and select **Start capture**, then switch to the game. OCR and translation load in
 the background. **English overlay** is enabled by default; translated regions cover the original
@@ -48,6 +63,13 @@ text with a translucent background. Regions awaiting translation leave the origi
 - **Sugoi V4 · Fast CPU** is the default. **Wider search** uses the same weights with more decoding
   candidates; it can take longer and is not guaranteed to improve every sentence. Switching safely
   unloads the previous backend before loading the selected one.
+- **Gemma 4 E2B · NVIDIA GPU (optional)** uses an instruction-tuned LLM. It can produce more natural
+  UI labels and dialogue, but quality still needs review in the actual game. Each completed label
+  publishes immediately; the source-specific cache remains separate from Sugoi.
+- **Debug overlay** adds amber cells for significant visual changes and cyan dashed outlines for
+  the **last completed OCR scan**. The panel shows OCR/translation times, queue waits, active call
+  age, cache/model counts, and dialogue settling/reveal holds. Cyan coverage can remain after the
+  scene changes: read its result age. Debug does not change scheduling or save game text/images.
 - Translations are reused from a bounded memory cache and local SQLite database. Moving a box
   does not retranslate its text. Brief OCR jitter keeps the last committed English until a real
   change is confirmed; changed/removed text rejects late results.
@@ -97,8 +119,8 @@ The inspector displays the exact analyzed frame, numbered line boxes, raw OCR, a
   identities after pause/resume, resize, minimize, or capture restart. Unrecognized text has no ID.
 
 **Open demo window** provides Japanese text and an animated target without needing a game. CPU
-inference uses two threads per engine; optional GPU acceleration applies to OCR, while Sugoi stays
-on CPU. OCR timing and
+inference uses two threads per engine; optional GPU acceleration applies to OCR and Gemma, while
+Sugoi stays on CPU. OCR timing and
 capture-to-start delay, current-pass time, and skipped waiting frames are shown separately from
 capture frequency. Hover the OCR status for recent average inference time. Frames are replaced
 rather than queued when busy; processing one frame never starts overlapping OCR jobs.
