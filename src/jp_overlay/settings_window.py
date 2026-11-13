@@ -43,7 +43,7 @@ class SettingsWindow(QDialog):
         hotkeys: Hotkeys | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("JP Overlay · Settings")
+        self.setWindowTitle("DanteJP · Settings")
         self.setWindowModality(Qt.WindowModality.NonModal)
         self.resize(680, 620)
         self.setMinimumSize(540, 440)

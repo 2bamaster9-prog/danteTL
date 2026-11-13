@@ -20,7 +20,7 @@ class DemoWindow(QWidget):
         self.revealed = 0 if typewriter else sum(map(len, DIALOGUE_LINES))
         self.reveal_active = typewriter
         self.panel_visible = True
-        self.setWindowTitle("JP Overlay Demo")
+        self.setWindowTitle("DanteJP Demo")
         self.resize(900, 580)
         self.setMinimumSize(440, 330)
         if dialogue:

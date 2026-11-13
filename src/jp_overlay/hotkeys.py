@@ -98,7 +98,7 @@ class Hotkeys:
         if parsed:
             # Never reuse IDs: an already queued WM_HOTKEY must not operate a new binding.
             if self._next_id > 0xBFFF:
-                raise ValueError("Restart JP Overlay before changing more shortcuts.")
+                raise ValueError("Restart DanteJP before changing more shortcuts.")
             identifier = self._next_id
             self._next_id += 1
             self._registrar.register(identifier, *parsed)

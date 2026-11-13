@@ -198,7 +198,7 @@ def main() -> int:
                 if not identity.exists():
                     return
                 data = json.loads(identity.read_text())
-                target = WindowTarget(data["hwnd"], data["pid"], "JP Overlay Demo")
+                target = WindowTarget(data["hwnd"], data["pid"], "DanteJP Demo")
                 assert windows.is_target(target)
                 window.windows_combo.clear()
                 window.start_button.setEnabled(False)

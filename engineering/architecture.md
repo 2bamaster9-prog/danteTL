@@ -2,6 +2,12 @@
 
 ## Current implementation
 
+Product branding is DanteJP. Window titles, visible messages, launchers, documentation and new
+distribution archives use that name. Keep the `jp_overlay` Python namespace, `jp-overlay` package/
+CLI ID, `JP_OVERLAY_*` configuration and restart variables, and project-relative data/model paths
+stable for installed environments. Branding must not change the dependency fingerprint or force
+runtime installation. Logs now use `%LOCALAPPDATA%/DanteJP/logs`; old logs are not migrated/deleted.
+
 `app` assembles the Windows boundary, QApplication, main window, and lazy OCR/translation factories.
 `ui` owns coordination for one capture/OCR/translation session and the compact main window.
 `settings_window` owns nonmodal configuration/setup views; `preferences` owns validated settings
@@ -365,7 +371,7 @@ does not queue inference, change cache identities, or weaken the renderer's exac
 ## Runtime data
 
 Images stay in memory. No screenshots are automatically saved. Bounded diagnostic logs live under
-`%LOCALAPPDATA%/JPOverlay/logs`, with no normal logging of captured pixels or recognized text.
+`%LOCALAPPDATA%/DanteJP/logs`, with no normal logging of captured pixels or recognized text.
 Dependencies and the launcher environment are project-local when using the bundled setup script.
 Models live in ignored `models/meiki` (or `JP_OVERLAY_MODEL_DIR`) and `models/sugoi-v4`
 (or `JP_OVERLAY_SUGOI_DIR`). Explicit setup scripts or the Models dialog install them. Revisions, lengths, and

@@ -8,7 +8,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
-    output = root / "dist/jp-overlay-windows.zip"
+    output = root / "dist/dantejp-windows.zip"
     output.parent.mkdir(exist_ok=True)
     files = [
         root / name
@@ -36,8 +36,8 @@ def main() -> None:
             name = path.relative_to(root).as_posix()
             content = path.read_bytes()
             manifest[name] = hashlib.sha256(content).hexdigest()
-            archive.writestr("jp-overlay/" + name, content)
-        archive.writestr("jp-overlay/MANIFEST.json", json.dumps(manifest, indent=2))
+            archive.writestr("DanteJP/" + name, content)
+        archive.writestr("DanteJP/MANIFEST.json", json.dumps(manifest, indent=2))
     print(f"Created {output} ({output.stat().st_size / 1e6:.2f} MB, {len(manifest)} files)")
 
 

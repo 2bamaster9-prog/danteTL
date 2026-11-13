@@ -142,7 +142,7 @@ def install_runtime(
             msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
         except OSError as error:
             raise RuntimeError(
-                "Another JP Overlay instance is already installing a runtime."
+                "Another DanteJP instance is already installing a runtime."
             ) from error
         try:
             _install(root, profile, progress, cancel)

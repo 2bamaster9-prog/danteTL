@@ -23,7 +23,7 @@ class OverlayWindow(QWidget):
             | Qt.WindowType.WindowTransparentForInput
             | Qt.WindowType.WindowDoesNotAcceptFocus,
         )
-        self.setWindowTitle("JP Overlay surface")
+        self.setWindowTitle("DanteJP surface")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)

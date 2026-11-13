@@ -1,4 +1,4 @@
-# JP Overlay
+# DanteJP
 
 A local Windows game translation overlay, being built in small milestones.
 
@@ -8,7 +8,7 @@ The inspector keeps raw Japanese, bounding boxes, and English together for revie
 
 ## Run
 
-On Windows 11, double-click **Run JP Overlay.cmd**, then open **Settings → Models & runtime → Models**. Download **MeikiOCR**
+On Windows 11, double-click **Run DanteJP.cmd**, then open **Settings → Models & runtime → Models**. Download **MeikiOCR**
 (46 MB) for recognition and a translation model: **Sugoi V4** (1.11 GB, CPU) or **Gemma 4 E2B**
 (3.35 GB, GPU). Use the **Acceleration** tab beside Models to install GPU support inside the app.
 The translation dropdown
@@ -26,7 +26,7 @@ Open **Settings → Models & runtime → Acceleration**. The app detects graphic
 you can choose manually. **Install runtime** downloads pinned dependencies into a separate local
 environment, shows stage progress, and checks native libraries. **Restart now** stops capture,
 waits for current work, and opens the new runtime. **Use on next launch** keeps this session running.
-The normal **Run JP Overlay.cmd** remembers the choice. No separate GPU setup scripts are needed.
+The normal **Run DanteJP.cmd** remembers the choice. No separate GPU setup scripts are needed.
 The Models tab distinguishes downloaded files from runtime readiness and shows their folder.
 It reuses your downloads; reinstalling or redownloading model weights is unnecessary. The CPU
 launcher intentionally uses the CPU OCR environment; it does not inherit packages from the GPU one.
@@ -43,7 +43,7 @@ Runtime installation uses an indeterminate bar with actual stage/package updates
 a download percentage. Cancel/failure keeps the running environment and model files. A failed install
 can be retried; **Verify / repair runtime** checks an existing install and creates a separate replacement
 if needed. A failed restart leaves the old app available. CPU fallback remains accessible through
-**Run JP Overlay CPU.cmd**. Replaced runtimes are retained in `.runtimes` for recovery, so repeated
+**Run DanteJP CPU.cmd**. Replaced runtimes are retained in `.runtimes` for recovery, so repeated
 repairs can consume extra disk space. All processing after setup stays local.
 
 Library checks do not load models. The first OCR GPU load can take about a minute to compile kernels;
@@ -65,7 +65,7 @@ Context is part of cache identity, so unrelated conversations cannot reuse conte
 Its weights are Apache-2.0; Sugoi retains its separate licensing. See
 [the current slice](engineering/plans/012-model-management-and-context.md) for measurements.
 
-To share, run `python tools/package.py` and send `dist/jp-overlay-windows.zip`. This is a small
+To share, run `python tools/package.py` and send `dist/dantejp-windows.zip`. This is a small
 **source/setup package**, not a frozen executable: unzip into a writable folder and use the launchers.
 It excludes weights, environments, caches, screenshots and logs. Python/uv bootstrapping is still
 needed on the recipient's PC; optional runtimes and models are installed from inside the app.
@@ -78,6 +78,12 @@ uv run python tools/setup_models.py
 uv run python tools/setup_models.py --translation
 uv run jp-overlay
 ```
+
+The app is now named **DanteJP**. Existing installations can keep their current project folder,
+models, settings, caches and installed runtimes; launch with **Run DanteJP.cmd** after updating.
+The internal Python package (`jp_overlay`), CLI alias (`jp-overlay`) and `JP_OVERLAY_*` environment
+variables retain their original names for compatibility. New logs are in
+`%LOCALAPPDATA%/DanteJP/logs`; existing logs in the old folder are left intact.
 
 For Gemma with the CLI, add `--group gemma` to `uv sync` and `uv run`, and install its model with
 `uv run --group gemma python tools/setup_models.py --gemma`. The `.cmd` launchers use the installed
@@ -93,7 +99,7 @@ detailed diagnostics. Setup errors and model loading remain visible even with Ad
 The main controls stay together at the top left, with a bounded width even when maximized. Advanced
 uses the extra space without changing the window's maximized state.
 
-Global shortcuts work while the game has focus or JP Overlay is minimized:
+Global shortcuts work while the game has focus or DanteJP is minimized:
 
 | Shortcut | Action |
 | --- | --- |
@@ -103,11 +109,11 @@ Global shortcuts work while the game has focus or JP Overlay is minimized:
 
 Change either under **Settings → Hotkeys**: choose modifiers and a key, then **Apply**. Choose
 **Disabled** to turn that shortcut off. Successful changes are saved; a conflict leaves the previous
-shortcut active and explains what happened. Close another JP Overlay instance if it owns the same
+shortcut active and explains what happened. Close another DanteJP instance if it owns the same
 keys. **Capture the focused window**, enabled by default in Hotkeys, selects your focused game when
 starting through the shortcut. Turn it off to use the existing selection. The main Start button
 always uses the selected window. During capture the hotkey always stops that session, regardless
-of focus; it never switches an active session to another game. Desktop, JP Overlay and unusable
+of focus; it never switches an active session to another game. Desktop, DanteJP and unusable
 windows are rejected with a status message, without falling back to the old selection.
 
 Hold-to-show-original hides the overlay without changing its saved switches, restarting workers,

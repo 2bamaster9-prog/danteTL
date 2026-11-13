@@ -9,6 +9,6 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-echo Setup complete. Open Run JP Overlay AMD.cmd, then Models to download a model.
+echo Setup complete. Open Run DanteJP AMD.cmd, then Models to download a model.
 echo Radeon hardware validation is still needed. CPU OCR and Sugoi remain available.
 pause

@@ -36,5 +36,5 @@ if ($Amd) {
     & $uvCommand sync --locked @gemmaArgs
 }
 if ($LASTEXITCODE -ne 0) { throw 'Dependency setup failed. Check the network connection and retry.' }
-if ($Amd) { Write-Host 'Ready. Open Run JP Overlay AMD.cmd, then Models to choose downloads.' }
-else { Write-Host 'Ready. Open Run JP Overlay.cmd, then Models to choose downloads.' }
+if ($Amd) { Write-Host 'Ready. Open Run DanteJP AMD.cmd, then Models to choose downloads.' }
+else { Write-Host 'Ready. Open Run DanteJP.cmd, then Models to choose downloads.' }

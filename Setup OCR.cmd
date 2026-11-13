@@ -11,5 +11,5 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-echo OCR setup complete. Open Run JP Overlay.cmd.
+echo OCR setup complete. Open Run DanteJP.cmd.
 pause

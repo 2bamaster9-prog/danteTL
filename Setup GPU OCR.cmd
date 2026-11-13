@@ -13,10 +13,10 @@ if errorlevel 1 (
 echo Verifying real OCR and preparing the local CUDA cache. First use can take about a minute.
 ".venv-gpu\Scripts\python.exe" tools\verify_ocr.py --device cuda
 if errorlevel 1 (
-  echo GPU verification failed. Use Run JP Overlay CPU.cmd or choose CPU OCR.
+  echo GPU verification failed. Use Run DanteJP CPU.cmd or choose CPU OCR.
   pause
   exit /b 1
 )
 echo verified> ".venv-gpu\ocr-verified"
-echo GPU OCR verified. Use Run JP Overlay.cmd.
+echo GPU OCR verified. Use Run DanteJP.cmd.
 pause

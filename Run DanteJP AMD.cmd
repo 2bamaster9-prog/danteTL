@@ -1,4 +1,5 @@
 @echo off
+title DanteJP - AMD
 setlocal
 cd /d "%~dp0"
 if not exist ".venv-amd\Scripts\jp-overlay.exe" (

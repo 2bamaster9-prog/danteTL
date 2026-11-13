@@ -502,7 +502,7 @@ the new startup hardware check. These measurements use our synthetic windows, no
 ## Global hotkeys (2026-11-13)
 
 `tools/verify_hotkeys_windows.py --output artifacts/hotkeys` runs real RegisterHotKey/WM_HOTKEY
-delivery with JP Overlay minimized and a separate owned demo process in the foreground. It verifies
+delivery with DanteJP minimized and a separate owned demo process in the foreground. It verifies
 capture frames arrive, hiding/showing preserves capture and focus, repeated key-downs toggle once,
 another process's conflicting shortcut preserves the old binding, rebinding releases the old key,
 stop drains, restart uses the same selected source, and shutdown releases all registrations.
@@ -544,3 +544,13 @@ translation worker objects remain identical, and an explicitly hidden overlay st
 Native alignment/click-through, compact/Advanced UI, model preparation and extracted NVIDIA runtime
 restart also pass. Runtime handoff checks all three saved registrations and their final release.
 These fixtures do not establish Honkai or anti-cheat compatibility.
+
+## DanteJP branding (2026-11-14)
+
+325 tests, Ruff formatting/lint and Pyright passed after the rename. The native UI check passed;
+the renamed main/Settings/demo presentation was reviewed using our fixture (`artifacts/dantejp/ui`).
+The new `dantejp-windows.zip` contains a `DanteJP/` root and all three Run DanteJP launchers; its
+136-file manifest hashes were checked, with models, caches and personal data excluded. An update
+of source files in the existing disposable distribution reused the exact installed NVIDIA runtime
+offline, restarted the renamed app, transferred all three hotkeys and exited cleanly. Project
+metadata, dependency lock, model/settings paths and runtime fingerprints remain unchanged.

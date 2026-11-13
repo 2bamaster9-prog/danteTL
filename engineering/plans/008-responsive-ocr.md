@@ -39,7 +39,7 @@ over at least three seconds. Inspector/overlay artifacts were reviewed. No game 
 ## Try it
 
 This development PC already has the GPU environment installed and verified. Close the old app and
-use `Run JP Overlay.cmd`; leave **Automatic · GPU with CPU fallback** and six samples/second selected.
+use `Run DanteJP.cmd`; leave **Automatic · GPU with CPU fallback** and six samples/second selected.
 Check the OCR status says **NVIDIA GPU**. Other machines can run `Setup GPU OCR.cmd` explicitly or
 keep the default CPU setup. The CPU launcher always remains available.
 

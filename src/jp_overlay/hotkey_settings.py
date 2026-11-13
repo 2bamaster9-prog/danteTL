@@ -67,7 +67,7 @@ class HotkeySettings(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         intro = QLabel(
-            "Shortcuts work while the game has focus or JP Overlay is minimized. "
+            "Shortcuts work while the game has focus or DanteJP is minimized. "
             "Choose a combination, then Apply. Select Disabled to turn an action off."
         )
         intro.setWordWrap(True)

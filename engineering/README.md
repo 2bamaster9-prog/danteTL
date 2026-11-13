@@ -1,6 +1,6 @@
 # Engineering guide
 
-JP Overlay is a local Windows application that translates Japanese game text into English at the
+DanteJP is a local Windows application that translates Japanese game text into English at the
 original text locations. The current slice uses cheap visual evidence to schedule OCR, mask closed
 text panels promptly, retain unchanged accepted labels through noisy OCR, and detect continuing
 dialogue before the next model result arrives. Changed areas now receive cropped OCR with periodic

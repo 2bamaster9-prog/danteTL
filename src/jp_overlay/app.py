@@ -94,7 +94,7 @@ def create_gemma_translator() -> TranslationBackend:
 
 
 def configure_logging() -> None:
-    directory = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "JPOverlay" / "logs"
+    directory = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "DanteJP" / "logs"
     directory.mkdir(parents=True, exist_ok=True)
     handler = RotatingFileHandler(
         directory / "app.log", maxBytes=500_000, backupCount=2, encoding="utf-8"
@@ -108,7 +108,7 @@ def configure_logging() -> None:
 
 def main() -> None:
     if sys.platform != "win32":
-        raise SystemExit("JP Overlay currently requires Windows.")
+        raise SystemExit("DanteJP currently requires Windows.")
     configure_logging()
     import shiboken6
     from PySide6.QtCore import QTimer
@@ -125,8 +125,8 @@ def main() -> None:
     windows = Windows()
     windows.enable_dpi_awareness()
     app = QApplication(sys.argv)
-    app.setApplicationName("JP Overlay")
-    app.setOrganizationName("JPOverlay")
+    app.setApplicationName("DanteJP")
+    app.setOrganizationName("DanteJP")
 
     def report_exception(
         kind: type[BaseException], error: BaseException, traceback: TracebackType | None
@@ -136,9 +136,9 @@ def main() -> None:
         )
         QMessageBox.critical(
             None,
-            "JP Overlay",
+            "DanteJP",
             f"An unexpected error occurred:\n{error}\n\n"
-            "Details are in %LOCALAPPDATA%/JPOverlay/logs/app.log.",
+            "Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.",
         )
 
     sys.excepthook = report_exception

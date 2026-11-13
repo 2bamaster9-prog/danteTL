@@ -1,9 +1,12 @@
-# JP Overlay engineering instructions
+# DanteJP engineering instructions
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
 `engineering/plans/015-global-hotkeys.md`. Global shortcuts now include focused-window capture
 and a transient hold to show the original text.
+
+The public app name is DanteJP. Preserve the legacy Python package/CLI IDs and `JP_OVERLAY_*`
+variables for installed-runtime compatibility; the branding rename must not invalidate dependencies.
 
 - Use Python with deep modules: small public interfaces that own meaningful complexity.
 - Keep Windows, Qt, capture-library, and model details at their respective boundaries.

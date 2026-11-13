@@ -124,7 +124,7 @@ class MainWindow(QMainWindow):
         self._started_at = 0.0
         self._stopping_message = "Capture stopped."
         self._demo_processes: list[subprocess.Popen[bytes]] = []
-        self.setWindowTitle("JP Overlay")
+        self.setWindowTitle("DanteJP")
         self.resize(self._compact_size)
         self._build_ui()
         self._timer = QTimer(self)
@@ -177,7 +177,7 @@ class MainWindow(QMainWindow):
         layout.setSpacing(14)
         header = QHBoxLayout()
         title = QVBoxLayout()
-        heading = QLabel("JP Overlay")
+        heading = QLabel("DanteJP")
         heading.setObjectName("heading")
         title.addWidget(heading)
         subtitle = QLabel("Japanese → English · Local")
@@ -1257,7 +1257,7 @@ class MainWindow(QMainWindow):
         try:
             process = subprocess.Popen([str(python), "-m", "jp_overlay.demo", "--dialogue"])
             self._demo_processes.append(process)
-            self.status.setText("Demo opened. Refresh the window list and select JP Overlay Demo.")
+            self.status.setText("Demo opened. Refresh the window list and select DanteJP Demo.")
             QTimer.singleShot(1200, self.refresh_windows)
         except OSError as error:
             self.status.setText(f"Could not open the demo: {error}")
@@ -1308,7 +1308,7 @@ class MainWindow(QMainWindow):
                 if self._restart is None:
                     self._restart = RuntimeRestart(project_root(), self._restart_target)
                 if not self._restart.poll():
-                    self.status.setText("Opening JP Overlay with the installed runtime…")
+                    self.status.setText("Opening DanteJP with the installed runtime…")
                     event.ignore()
                     return
             except (OSError, ValueError, RuntimeError) as error:

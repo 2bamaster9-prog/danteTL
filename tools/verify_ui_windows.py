@@ -49,7 +49,7 @@ def main() -> int:
     )
     # Show only our fixture name in screenshots, never another application's title.
     window.windows_combo.clear()
-    window.windows_combo.addItem("JP Overlay Demo · 日本語のテスト")
+    window.windows_combo.addItem("DanteJP Demo · 日本語のテスト")
     window.show()
     started, stage = time.monotonic(), 0
     failed = False

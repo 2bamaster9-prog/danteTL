@@ -30,7 +30,7 @@ from jp_overlay.windows import Windows
 class CharacterScreen(QWidget):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("JP Overlay stationary-label verification")
+        self.setWindowTitle("DanteJP stationary-label verification")
         self.resize(900, 580)
         self.phase = 0
         self.new_label = False
