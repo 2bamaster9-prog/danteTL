@@ -3,7 +3,7 @@
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
-from jp_overlay.controls import InfoButton, StatusBanner
+from jp_overlay.controls import InfoButton, StatusBanner, Switch
 from jp_overlay.hotkeys import KEYS, MODIFIERS, HotkeyAction, Hotkeys
 
 
@@ -54,7 +54,14 @@ class _ShortcutRow(QWidget):
 class HotkeySettings(QWidget):
     changed = Signal()
 
-    def __init__(self, overlay: str, capture: str, service: Hotkeys | None) -> None:
+    def __init__(
+        self,
+        overlay: str,
+        capture: str,
+        original: str,
+        capture_focused: bool,
+        service: Hotkeys | None,
+    ) -> None:
         super().__init__()
         self._service = service
         layout = QVBoxLayout(self)
@@ -65,6 +72,22 @@ class HotkeySettings(QWidget):
         )
         intro.setWordWrap(True)
         layout.addWidget(intro)
+        focused = QHBoxLayout()
+        self.capture_focused = Switch("Capture the focused window")
+        self.capture_focused.setChecked(capture_focused)
+        help = (
+            "When starting with the capture hotkey, select the focused window automatically. "
+            "Turn off to use the main page's selection. "
+            "The Start button always uses that selection. "
+            "While capturing, the hotkey always stops the current session."
+        )
+        self.capture_focused.setToolTip(help)
+        self.capture_focused.setAccessibleName("Capture the focused window")
+        self.capture_focused.toggled.connect(lambda _: self.changed.emit())
+        focused.addWidget(self.capture_focused)
+        focused.addWidget(InfoButton("Capture the focused window", help))
+        focused.addStretch()
+        layout.addLayout(focused)
         self.rows = {
             HotkeyAction.OVERLAY: _ShortcutRow(
                 "Show / hide overlay",
@@ -73,9 +96,18 @@ class HotkeySettings(QWidget):
             ),
             HotkeyAction.CAPTURE: _ShortcutRow(
                 "Start / stop capture",
-                "Uses the game window selected on the main page. Select your game first. "
+                "Starts the focused window when automatic selection is enabled above; otherwise "
+                "uses the window selected on the main page. "
                 "Stopping ends processing; hiding the overlay keeps it running.",
                 capture,
+            ),
+            HotkeyAction.ORIGINAL: _ShortcutRow(
+                "Hold to show original",
+                "Temporarily hides the overlay while the shortcut is held. Releasing any key "
+                "restores its current visibility setting immediately. "
+                "OCR and translation continue; "
+                "nothing is restarted. Focus loss cancels the hold.",
+                original,
             ),
         }
         for action, row in self.rows.items():
@@ -84,7 +116,7 @@ class HotkeySettings(QWidget):
             row.apply.setEnabled(service is not None)
         note = QLabel(
             "Avoid combinations used by your game. Windows shortcuts and F12 are reserved. "
-            "Holding a shortcut does not repeat the action."
+            "Toggle shortcuts do not repeat while held."
         )
         note.setWordWrap(True)
         note.setObjectName("muted")

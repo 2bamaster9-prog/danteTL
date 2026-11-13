@@ -47,7 +47,11 @@ def main() -> int:
     preferences = root / "data/preferences.json"
     preferences.parent.mkdir(exist_ok=True)
     PreferenceStore(preferences)._write(
-        Preferences(overlay_hotkey="Ctrl+Alt+Shift+F6", capture_hotkey="Ctrl+Alt+Shift+F7")
+        Preferences(
+            overlay_hotkey="Ctrl+Alt+Shift+F6",
+            capture_hotkey="Ctrl+Alt+Shift+F7",
+            original_hotkey="Ctrl+Alt+Shift+F5",
+        )
     )
     hotkeys = Hotkeys(WindowsHotkeyRegistrar())
     native = WindowsHotkeyEvents(app, hotkeys)
@@ -134,7 +138,7 @@ def main() -> int:
                 evidence["restarted_pid"] = child.started_pid
                 evidence["selected_environment"] = str(runtime_setup.selected_runtime(root))
                 probe = WindowsHotkeyRegistrar()
-                for key in (0x75, 0x76):
+                for key in (0x74, 0x75, 0x76):
                     try:
                         probe.register(0x1500, 7, key)
                     except OSError as error:
@@ -159,7 +163,7 @@ def main() -> int:
                 assert child.process.returncode == 0
                 evidence["clean_child_exit"] = True
                 probe = WindowsHotkeyRegistrar()
-                for key in (0x75, 0x76):
+                for key in (0x74, 0x75, 0x76):
                     probe.register(0x1500, 7, key)
                     probe.unregister(0x1500)
                 evidence["child_exit_released_hotkeys"] = True

@@ -376,6 +376,29 @@ def main() -> int:
                 with patch.object(windows, "is_foreground", return_value=True):
                     window._tick()
                     assert window._overlay.isVisible(), "Inspector pause hid the live overlay"
+                    workers = (window._session, window._ocr, window._visual, window._translation)
+                    english = window._overlay._translations
+                    window._original_changed(True)
+                    assert not window._overlay.isVisible()
+                    window._tick()
+                    assert not window._overlay.isVisible()
+                    window._original_changed(False)
+                    assert window._overlay.isVisible(), (
+                        "Release did not immediately restore overlay"
+                    )
+                    assert window._overlay._translations == english
+                    assert workers == (
+                        window._session,
+                        window._ocr,
+                        window._visual,
+                        window._translation,
+                    ), "Original hold replaced processing workers"
+                    window.overlay_check.setChecked(False)
+                    window._original_changed(True)
+                    window._original_changed(False)
+                    assert not window._overlay.isVisible(), "Release overrode the visibility switch"
+                    window.overlay_check.setChecked(True)
+                    evidence["original_hold_restores_english_without_worker_restart"] = True
                 assert window._session is not None
                 captured = window._session.snapshot().frame
                 assert captured and frozen and captured.sequence > frozen.frame.sequence

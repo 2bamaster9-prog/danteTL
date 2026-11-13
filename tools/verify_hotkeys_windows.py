@@ -103,7 +103,9 @@ def main() -> int:
                 "version": 1,
                 **asdict(
                     Preferences(
-                        overlay_hotkey="Ctrl+Alt+Shift+F8", capture_hotkey="Ctrl+Alt+Shift+F9"
+                        overlay_hotkey="Ctrl+Alt+Shift+F8",
+                        capture_hotkey="Ctrl+Alt+Shift+F9",
+                        original_hotkey="Ctrl+Alt+Shift+F7",
                     )
                 ),
             }
@@ -141,6 +143,26 @@ def main() -> int:
     evidence = {}
     session = None
     frame_sequence = 0
+    held_keys: list[int] = []
+
+    def send_keys(values: list[tuple[int, int]]) -> None:
+        inputs = (_Input * len(values))(
+            *[_Input(1, _Payload(keyboard=_Keyboard(k, 0, flags, 0, 0))) for k, flags in values]
+        )
+        sent = windows.user.SendInput(len(inputs), inputs, ctypes.sizeof(_Input))
+        assert sent == len(inputs), f"SendInput accepted only {sent}/{len(inputs)} events"
+
+    def begin_hold() -> None:
+        assert target and windows.is_foreground(target), "Fixture lost focus; input was not sent"
+        assert not any(windows.user.GetAsyncKeyState(k) & 0x8000 for k in (16, 17, 18, 91, 92))
+        held_keys[:] = [17, 18, 16, 0x76]
+        send_keys([(key, 0) for key in held_keys])
+
+    def end_hold() -> None:
+        if held_keys:
+            # Release only keys pressed by this fixture, even after focus loss or test failure.
+            send_keys([(key, 2) for key in reversed(held_keys)])
+            held_keys.clear()
 
     def chord(key: int, repeats: int = 1) -> None:
         assert target and windows.is_foreground(target), "Fixture lost focus; input was not sent"
@@ -150,11 +172,7 @@ def main() -> int:
         # One contiguous batch: modifiers down, repeated key-down, then every key up.
         values = [(k, 0) for k in (17, 18, 16)] + [(key, 0)] * repeats
         values += [(k, 2) for k in (key, 16, 18, 17)]
-        inputs = (_Input * len(values))(
-            *[_Input(1, _Payload(keyboard=_Keyboard(k, 0, flags, 0, 0))) for k, flags in values]
-        )
-        sent = windows.user.SendInput(len(inputs), inputs, ctypes.sizeof(_Input))
-        assert sent == len(inputs), f"SendInput accepted only {sent}/{len(inputs)} events"
+        send_keys(values)
 
     def advance() -> None:
         nonlocal stage, stage_at
@@ -183,8 +201,7 @@ def main() -> int:
                 target = WindowTarget(data["hwnd"], data["pid"], "JP Overlay Demo")
                 assert windows.is_target(target)
                 window.windows_combo.clear()
-                window.windows_combo.addItem(target.title, target)
-                window.start_button.setEnabled(True)
+                window.start_button.setEnabled(False)
                 assert not window._settings.hotkeys.problem
                 windows.user.SetForegroundWindow(target.hwnd)
                 advance()
@@ -199,6 +216,8 @@ def main() -> int:
                 if not session or not session.snapshot().frame:
                     return
                 assert session.target == target and window.isMinimized()
+                assert window.windows_combo.currentData() == target
+                evidence["focused_window_selected_from_empty_picker"] = True
                 evidence["background_start_received_frame"] = True
                 chord(0x77, repeats=4)
                 advance()
@@ -260,9 +279,64 @@ def main() -> int:
                     return
                 assert window._session is not session and window._session.target == target
                 evidence["restart_same_selected_source"] = True
-                window._settings.show_hotkeys()
+                session = window._session
+                frame = session.snapshot().frame
+                assert frame
+                frame_sequence = frame.sequence
+                window.overlay_check.setChecked(True)
+                begin_hold()
                 advance()
             elif stage == 9:
+                assert session
+                if time.monotonic() - stage_at < 0.3:
+                    return
+                frame = session.snapshot().frame
+                assert frame and frame.sequence > frame_sequence
+                assert hotkeys.holding_original and window._showing_original
+                assert window._session is session and window.overlay_check.isChecked()
+                assert not window._overlay.isVisible()
+                evidence["hold_keeps_capture_running"] = True
+                send_keys([(17, 2)])  # Release a modifier before the main key.
+                held_keys.remove(17)
+                advance()
+            elif stage == 10:
+                if hotkeys.holding_original or window._showing_original:
+                    return
+                evidence["modifier_release_seconds"] = round(time.monotonic() - stage_at, 3)
+                assert window._session is session and window.overlay_check.isChecked()
+                end_hold()
+                begin_hold()
+                advance()
+            elif stage == 11:
+                if not window._showing_original:
+                    return
+                end_hold()
+                advance()
+            elif stage == 12:
+                if window._showing_original:
+                    return
+                assert not native._release_timer.isActive()
+                evidence["key_up_restores_without_capture_restart"] = window._session is session
+                assert window._session is session
+                begin_hold()
+                advance()
+            elif stage == 13:
+                if not window._showing_original:
+                    return
+                window.showNormal()
+                window.activateWindow()
+                windows.user.SetForegroundWindow(int(window.winId()))
+                advance()
+            elif stage == 14:
+                if window._showing_original:
+                    return
+                assert not hotkeys.holding_original
+                end_hold()
+                evidence["focus_loss_cancels_hold"] = True
+                window._settings.resize(680, 780)
+                window._settings.show_hotkeys()
+                advance()
+            elif stage == 15:
                 window._settings.grab().save(str(args.output / "settings.png"))
                 window.close()
                 stage = 99
@@ -288,6 +362,7 @@ def main() -> int:
         probe.unregister(0x1500)
         evidence["shutdown_released_shortcuts"] = True
     finally:
+        end_hold()
         native.close()
         if target and windows.is_target(target):
             windows.user.PostMessageW(target.hwnd, 0x0010, 0, 0)  # WM_CLOSE to our child only.

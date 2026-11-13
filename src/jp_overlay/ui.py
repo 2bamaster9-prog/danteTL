@@ -120,6 +120,7 @@ class MainWindow(QMainWindow):
         self._overlay.set_tracks(())
         self._last_sequence = 0
         self._closing = False
+        self._showing_original = False
         self._started_at = 0.0
         self._stopping_message = "Capture stopped."
         self._demo_processes: list[subprocess.Popen[bytes]] = []
@@ -133,6 +134,7 @@ class MainWindow(QMainWindow):
         self.refresh_windows()
         if self._hotkeys:
             self._hotkeys.activated = self._hotkey_activated
+            self._hotkeys.hold_changed = self._original_changed
         self._settings.hotkeys.activate()
         self._update_notice()
 
@@ -369,8 +371,58 @@ class MainWindow(QMainWindow):
         if action == HotkeyAction.OVERLAY:
             self.overlay_check.setChecked(not self.overlay_check.isChecked())
         elif action == HotkeyAction.CAPTURE:
+            if self._session is None and self._settings.hotkeys.capture_focused.isChecked():
+                try:
+                    target = self._windows.foreground_target()
+                    # Resolve only on this explicit hotkey action; do not follow focus continuously.
+                    if not self._windows.is_foreground(target):
+                        raise WindowUnavailable("Focus changed. Press the capture hotkey again.")
+                except (WindowUnavailable, OSError) as error:
+                    self.status.setText(str(error))
+                    return
+                index = -1
+                for i in range(self.windows_combo.count()):
+                    candidate = self.windows_combo.itemData(i)
+                    if isinstance(candidate, WindowTarget) and (
+                        candidate.hwnd,
+                        candidate.process_id,
+                    ) == (target.hwnd, target.process_id):
+                        index = i
+                        break
+                label = f"{target.title} · PID {target.process_id}"
+                if index == -1:
+                    self.windows_combo.addItem(label, target)
+                    index = self.windows_combo.count() - 1
+                else:
+                    self.windows_combo.setItemText(index, label)
+                    self.windows_combo.setItemData(index, target)
+                self.windows_combo.setCurrentIndex(index)
+                self.start_button.setEnabled(True)
             # Use the button's existing lifecycle guard, including asynchronous stop/drain.
             self.start_button.click()
+
+    def _original_changed(self, held: bool) -> None:
+        if held and (
+            self._closing
+            or self._session is None
+            or self._session.finished
+            or QApplication.activeModalWidget() is not None
+            or not self._windows.is_foreground(self._session.target)
+        ):
+            return
+        if self._showing_original == held:
+            return
+        self._showing_original = held
+        if held:
+            self._overlay.hide()
+        elif not self._closing:
+            self._tick()  # Restore current valid English immediately, without touching workers.
+
+    def _cancel_original(self) -> None:
+        # Clear before notifying the service, so stop/close cannot re-enter rendering.
+        self._showing_original = False
+        if self._hotkeys:
+            self._hotkeys.end_hold()
 
     def _advanced_changed(self, expanded: bool) -> None:
         maximized = self.isMaximized() or self.isFullScreen()
@@ -428,8 +480,14 @@ class MainWindow(QMainWindow):
         if self._hotkeys:
             capture_key = self._hotkeys.shortcut(HotkeyAction.CAPTURE) or "disabled"
             overlay_key = self._hotkeys.shortcut(HotkeyAction.OVERLAY) or "disabled"
+            source = (
+                "focused window"
+                if self._settings.hotkeys.capture_focused.isChecked()
+                else "selected window"
+            )
             self.start_button.setToolTip(
-                f"Start / stop the selected game window. Hotkey: {capture_key}"
+                "Button: start / stop the selected window. "
+                f"Hotkey {capture_key}: start the {source}, or stop the current capture."
             )
             self.overlay_check.setToolTip(
                 "Show or hide game rendering. Capture and translation keep their state. "
@@ -583,6 +641,7 @@ class MainWindow(QMainWindow):
             self._visual.start()
 
     def _stop(self, message: str) -> None:
+        self._cancel_original()
         self._standby = bool(self._preparing) and not self._closing
         self._stopping_message = message
         self._overlay.hide()
@@ -1018,6 +1077,14 @@ class MainWindow(QMainWindow):
         self._last_sequence = frame.sequence
 
     def _tick(self) -> None:
+        if self._showing_original and (
+            self._closing
+            or self._session is None
+            or self._session.finished
+            or QApplication.activeModalWidget() is not None
+            or not self._windows.is_foreground(self._session.target)
+        ):
+            self._cancel_original()
         self._advance_session()
         self._update_notice()
 
@@ -1163,6 +1230,7 @@ class MainWindow(QMainWindow):
                 )
             if (
                 self.overlay_check.isChecked()
+                and not self._showing_original
                 and (
                     self.translate_check.isChecked()
                     or self.raw_boxes_check.isChecked()
@@ -1195,6 +1263,7 @@ class MainWindow(QMainWindow):
             self.status.setText(f"Could not open the demo: {error}")
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        self._cancel_original()
         setup_dialogs = (self._model_manager, self._runtime_dialog)
         if self._settings.busy or any(dialog and dialog.operation for dialog in setup_dialogs):
             self._settings.cancel_operations()

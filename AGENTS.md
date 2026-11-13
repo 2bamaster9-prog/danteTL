@@ -2,7 +2,8 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/015-global-hotkeys.md`. The user requested configurable global shortcuts.
+`engineering/plans/015-global-hotkeys.md`. Global shortcuts now include focused-window capture
+and a transient hold to show the original text.
 
 - Use Python with deep modules: small public interfaces that own meaningful complexity.
 - Keep Windows, Qt, capture-library, and model details at their respective boundaries.
@@ -112,9 +113,14 @@ Read `engineering/README.md` first. The agreed product plan is in
   Model switches revoke painted and paused-inspector English. Scope presentation retention to the
   translation worker/backend generation; preserve model-keyed disk caches and reject late replies.
 - Do not claim game, mixed-DPI, HDR, or anti-cheat compatibility based solely on a demo window.
-- Global shortcuts use RegisterHotKey on the Qt thread, never keyboard hooks or polling. Preserve
+- Global shortcuts use RegisterHotKey on the Qt thread, without keyboard hooks or idle key polling.
+  While show-original is held, check only its chord at 16 ms for release; stop the timer afterward.
+  Keep this transient mask out of saved toggles and processing state. Cancel on focus loss/stop/close.
+  The capture hotkey can explicitly select the eligible foreground HWND/PID when starting; never
+  follow focus during a session, fall back to another target, or capture our own windows/desktop.
+  The ordinary Start button uses the selected window. Preserve
   working bindings if registration fails; reject stale messages after rebinding. Reuse the existing
-  capture/overlay actions and selected HWND/PID, honor stop/close/modal guards, and release shortcuts
+  capture/overlay actions, honor stop/close/modal guards, and release shortcuts
   before runtime restart. Test native delivery with `tools/verify_hotkeys_windows.py`; synthetic
   inputs must target only our foreground fixture, never a game or unrelated application.
 - Do not implement later milestones without a user request. Capture, OCR, tracking, local Sugoi

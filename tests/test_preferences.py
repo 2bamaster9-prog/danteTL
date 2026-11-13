@@ -48,6 +48,8 @@ def test_preferences_roundtrip_with_no_handles_paths_or_session_debug_state(tmp_
         translation=False,
         overlay_hotkey="Ctrl+Shift+F7",
         capture_hotkey="",
+        original_hotkey="Ctrl+Shift+F10",
+        capture_focused_window=False,
     )
     store.save(desired)
     wait_idle(store)
@@ -60,6 +62,8 @@ def test_preferences_roundtrip_with_no_handles_paths_or_session_debug_state(tmp_
 
 def test_hotkeys_upgrade_old_settings_and_validate_each_field():
     assert decode_preferences({"version": 1}).overlay_hotkey == "Ctrl+Alt+F8"
+    assert decode_preferences({"version": 1}).original_hotkey == "Ctrl+Alt+F10"
+    assert decode_preferences({"version": 1}).capture_focused_window
     value = decode_preferences({"version": 1, "overlay_hotkey": "Win+F12", "capture_hotkey": ""})
     assert value.overlay_hotkey == "Ctrl+Alt+F8" and value.capture_hotkey == ""
 

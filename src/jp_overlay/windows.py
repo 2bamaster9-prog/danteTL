@@ -34,6 +34,8 @@ class Windows:
             "GetClientRect": ([wt.HWND, ctypes.POINTER(wt.RECT)], wt.BOOL),
             "ClientToScreen": ([wt.HWND, ctypes.POINTER(wt.POINT)], wt.BOOL),
             "GetForegroundWindow": ([], wt.HWND),
+            "GetDesktopWindow": ([], wt.HWND),
+            "GetShellWindow": ([], wt.HWND),
             "GetDpiForWindow": ([wt.HWND], wt.UINT),
             "GetWindowLongPtrW": ([wt.HWND, ctypes.c_int], ctypes.c_ssize_t),
             "SetWindowLongPtrW": ([wt.HWND, ctypes.c_int, ctypes.c_ssize_t], ctypes.c_ssize_t),
@@ -79,27 +81,46 @@ class Windows:
         targets: list[WindowTarget] = []
 
         def visit(hwnd: int, _: int) -> bool:
-            if not self.user.IsWindowVisible(hwnd) or self.process_id(hwnd) == os.getpid():
-                return True
-            if self.user.GetWindowLongPtrW(hwnd, -20) & 0x80:  # WS_EX_TOOLWINDOW
-                return True
-            cloaked = wt.DWORD()
-            self.dwm.DwmGetWindowAttribute(hwnd, 14, ctypes.byref(cloaked), ctypes.sizeof(cloaked))
-            title = self.title(hwnd)
-            if title and not cloaked.value:
-                target = WindowTarget(hwnd, self.process_id(hwnd), title)
-                try:
-                    geometry = self.geometry(target)
-                    if min(geometry.client.size) > 40:
-                        targets.append(target)
-                except WindowUnavailable:
-                    pass  # Enumeration races naturally with windows closing.
+            if target := self._capture_target(hwnd):
+                targets.append(target)
             return True
 
         callback = self._enum_callback(visit)
         if not self.user.EnumWindows(callback, 0):
             raise ctypes.WinError(ctypes.get_last_error())
         return sorted(targets, key=lambda item: (item.title.casefold(), item.hwnd))
+
+    def _capture_target(self, hwnd: int) -> WindowTarget | None:
+        if (
+            not hwnd
+            or hwnd in (self.user.GetDesktopWindow(), self.user.GetShellWindow())
+            or not self.user.IsWindowVisible(hwnd)
+        ):
+            return None
+        pid = self.process_id(hwnd)
+        if not pid or pid == os.getpid() or self.user.GetWindowLongPtrW(hwnd, -20) & 0x80:
+            return None  # Exclude our windows and floating tool windows.
+        cloaked = wt.DWORD()
+        if self.dwm.DwmGetWindowAttribute(hwnd, 14, ctypes.byref(cloaked), ctypes.sizeof(cloaked)):
+            return None
+        title = self.title(hwnd)
+        if not title or cloaked.value:
+            return None
+        target = WindowTarget(hwnd, pid, title)
+        try:
+            geometry = self.geometry(target)
+            return target if min(geometry.client.size) > 40 else None
+        except WindowUnavailable:
+            return None  # Enumeration/selection races naturally with windows closing.
+
+    def foreground_target(self) -> WindowTarget:
+        """Resolve only the currently focused eligible window, never an alternate selection."""
+        target = self._capture_target(self.user.GetForegroundWindow())
+        if target is None:
+            raise WindowUnavailable("Focus the game window, then press the capture hotkey again.")
+        if not self.is_foreground(target) or self.geometry(target).minimized:
+            raise WindowUnavailable("The focused window changed. Press the capture hotkey again.")
+        return target
 
     def geometry(self, target: WindowTarget) -> WindowGeometry:
         if not self.is_target(target):

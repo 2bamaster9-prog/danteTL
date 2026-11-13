@@ -161,7 +161,11 @@ class SettingsWindow(QDialog):
         setup.addStretch()
         shortcuts = self._page("Hotkeys")
         self.hotkeys = HotkeySettings(
-            preferences.overlay_hotkey, preferences.capture_hotkey, hotkeys
+            preferences.overlay_hotkey,
+            preferences.capture_hotkey,
+            preferences.original_hotkey,
+            preferences.capture_focused_window,
+            hotkeys,
         )
         self.hotkeys.changed.connect(self.changed.emit)
         shortcuts.addWidget(self.hotkeys)
@@ -244,6 +248,8 @@ class SettingsWindow(QDialog):
             model=model,
             overlay_hotkey=self.hotkeys.rows[HotkeyAction.OVERLAY].committed,
             capture_hotkey=self.hotkeys.rows[HotkeyAction.CAPTURE].committed,
+            original_hotkey=self.hotkeys.rows[HotkeyAction.ORIGINAL].committed,
+            capture_focused_window=self.hotkeys.capture_focused.isChecked(),
         )
 
     def show_hotkeys(self) -> None:

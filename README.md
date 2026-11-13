@@ -98,13 +98,22 @@ Global shortcuts work while the game has focus or JP Overlay is minimized:
 | Shortcut | Action |
 | --- | --- |
 | **Ctrl+Alt+F8** | Show / hide the game overlay; capture and translation continue |
-| **Ctrl+Alt+F9** | Start / stop capture of the selected game window |
+| **Ctrl+Alt+F9** | Start capture of the focused window, or stop the current capture |
+| **Hold Ctrl+Alt+F10** | Show original text while held; release to restore the overlay |
 
 Change either under **Settings → Hotkeys**: choose modifiers and a key, then **Apply**. Choose
 **Disabled** to turn that shortcut off. Successful changes are saved; a conflict leaves the previous
 shortcut active and explains what happened. Close another JP Overlay instance if it owns the same
-keys. Select your game before using capture shortcuts; the app never switches to another foreground
-window automatically. Holding a shortcut does not repeat its action. Shortcuts pause during modal
+keys. **Capture the focused window**, enabled by default in Hotkeys, selects your focused game when
+starting through the shortcut. Turn it off to use the existing selection. The main Start button
+always uses the selected window. During capture the hotkey always stops that session, regardless
+of focus; it never switches an active session to another game. Desktop, JP Overlay and unusable
+windows are rejected with a status message, without falling back to the old selection.
+
+Hold-to-show-original hides the overlay without changing its saved switches, restarting workers,
+or clearing translations. Releasing any part of the chord restores current valid English immediately;
+an intentionally hidden overlay stays hidden. Focus loss, stop, rebinding and shutdown cancel the
+hold. Toggle shortcuts do not repeat while held. Shortcuts pause during modal
 prompts and shutdown; capture also waits for an earlier stop to finish. Games that reserve keys or
 intercept system input may require a different combination. There are no keyboard hooks or injection
 into the game; only native Windows shortcut registration.

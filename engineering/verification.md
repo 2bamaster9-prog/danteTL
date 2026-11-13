@@ -524,3 +524,23 @@ proves the child owns those exact shortcuts, and verifies release after its clea
 
 No Honkai, exclusive-fullscreen, elevated-game or anti-cheat compatibility is inferred from these
 fixtures. A game's input handling may reserve a chosen chord; users can select a different one.
+
+### Focused capture and hold-to-show-original follow-up
+
+325 model-free tests, Ruff and Pyright pass. New cases cover foreground selection from an empty
+picker, no retargeting while capturing, explicit selected-window mode, rejected shell/own/tool and
+closed windows, focus/PID races, persisted settings, hold repeat suppression, delayed key-downs,
+key/modifier release, rebind/disable/stop/close cleanup, focus loss and idle release-timer shutdown.
+
+The native hotkey fixture starts with an empty disabled picker, selects its separate foreground
+demo by keypress, captures through a held show-original chord, then observes release by modifier
+and main-key up. The modifier release was observed at 63 ms with the fixture's 50 ms observation
+timer; this is not an inference-latency measurement. Focus loss cancels the held state. The Settings
+layout with all three shortcuts was visually checked at DPI 168 (`artifacts/focused-original`).
+
+The CUDA/Gemma live dialogue/typewriter/debug check now verifies actual English stays accepted
+through the original hold, the overlay is immediately visible on release, all capture/OCR/visual/
+translation worker objects remain identical, and an explicitly hidden overlay stays hidden.
+Native alignment/click-through, compact/Advanced UI, model preparation and extracted NVIDIA runtime
+restart also pass. Runtime handoff checks all three saved registrations and their final release.
+These fixtures do not establish Honkai or anti-cheat compatibility.

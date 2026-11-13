@@ -1,9 +1,10 @@
-"""Windows RegisterHotKey boundary; Qt dispatches events without hooks or polling."""
+"""Native shortcuts; check key release only during an active show-original hold."""
 
 import ctypes
+from collections.abc import Callable
 from ctypes import wintypes
 
-from PySide6.QtCore import QAbstractNativeEventFilter, QByteArray, QCoreApplication
+from PySide6.QtCore import QAbstractNativeEventFilter, QByteArray, QCoreApplication, Qt, QTimer
 
 from jp_overlay.hotkeys import Hotkeys
 
@@ -37,9 +38,24 @@ class WindowsHotkeyRegistrar:
 
 
 class WindowsHotkeyEvents(QAbstractNativeEventFilter):
-    def __init__(self, app: QCoreApplication, hotkeys: Hotkeys) -> None:
+    def __init__(
+        self,
+        app: QCoreApplication,
+        hotkeys: Hotkeys,
+        *,
+        key_down: Callable[[int], bool] | None = None,
+    ) -> None:
         super().__init__()
         self._app, self._hotkeys = app, hotkeys
+        user32 = ctypes.WinDLL("user32")
+        get_state = user32.GetAsyncKeyState
+        get_state.argtypes, get_state.restype = [ctypes.c_int], wintypes.SHORT
+        self._key_down = key_down or (lambda key: bool(get_state(key) & 0x8000))
+        # RegisterHotKey has no key-up event. No idle keyboard scan or hook is needed.
+        self._release_timer = QTimer(app)
+        self._release_timer.setInterval(16)
+        self._release_timer.setTimerType(Qt.TimerType.PreciseTimer)
+        self._release_timer.timeout.connect(self._check_release)
         app.installNativeEventFilter(self)
         app.aboutToQuit.connect(self.close)
 
@@ -51,11 +67,22 @@ class WindowsHotkeyEvents(QAbstractNativeEventFilter):
             event = wintypes.MSG.from_address(int(message))
             if event.message == 0x0312:  # WM_HOTKEY
                 handled = self._hotkeys.dispatch(
-                    event.wParam, event.lParam & 0xFFFF, (event.lParam >> 16) & 0xFFFF
+                    event.wParam,
+                    event.lParam & 0xFFFF,
+                    (event.lParam >> 16) & 0xFFFF,
+                    key_down=self._key_down,
                 )
+                if self._hotkeys.holding_original and not self._release_timer.isActive():
+                    self._release_timer.start()
                 return handled, 0
         return False, 0
 
+    def _check_release(self) -> None:
+        self._hotkeys.check_release(self._key_down)
+        if not self._hotkeys.holding_original:
+            self._release_timer.stop()
+
     def close(self) -> None:
+        self._release_timer.stop()
         self._hotkeys.release()
         self._app.removeNativeEventFilter(self)

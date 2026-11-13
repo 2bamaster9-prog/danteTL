@@ -1,4 +1,4 @@
-"""Two global actions with atomic rebinding and explicit ownership of registrations."""
+"""Global actions with atomic rebinding and a transient show-original hold."""
 
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -9,10 +9,12 @@ from typing import Protocol
 class HotkeyAction(StrEnum):
     OVERLAY = "overlay"
     CAPTURE = "capture"
+    ORIGINAL = "original"
 
 
 DEFAULT_OVERLAY = "Ctrl+Alt+F8"
 DEFAULT_CAPTURE = "Ctrl+Alt+F9"
+DEFAULT_ORIGINAL = "Ctrl+Alt+F10"
 MODIFIERS = {
     "Ctrl+Alt": 0x0003,
     "Ctrl+Shift": 0x0006,
@@ -37,6 +39,12 @@ def parse_shortcut(value: str) -> tuple[int, int] | None:
     return MODIFIERS[modifiers], KEYS[key]
 
 
+def chord_down(modifiers: int, key: int, key_down: Callable[[int], bool]) -> bool:
+    return key_down(key) and all(
+        key_down(vk) for bit, vk in ((1, 18), (2, 17), (4, 16)) if modifiers & bit
+    )
+
+
 class HotkeyRegistrar(Protocol):
     def register(self, identifier: int, modifiers: int, key: int) -> None: ...
 
@@ -59,6 +67,21 @@ class Hotkeys:
         self._active: dict[HotkeyAction, _Registration] = {}
         self._next_id = 0x2000
         self.activated: Callable[[HotkeyAction], None] = lambda _: None
+        self.hold_changed: Callable[[bool], None] = lambda _: None
+        self._held: _Registration | None = None
+
+    @property
+    def holding_original(self) -> bool:
+        return self._held is not None
+
+    def end_hold(self) -> None:
+        if self._held is not None:
+            self._held = None
+            self.hold_changed(False)
+
+    def check_release(self, key_down: Callable[[int], bool]) -> None:
+        if self._held and not chord_down(self._held.modifiers, self._held.key, key_down):
+            self.end_hold()
 
     def shortcut(self, action: HotkeyAction) -> str:
         registration = self._active.get(action)
@@ -91,20 +114,38 @@ class Hotkeys:
             self._active[action] = new
         else:
             self._active.pop(action, None)
+        if action == HotkeyAction.ORIGINAL:
+            self.end_hold()
 
-    def dispatch(self, identifier: int, modifiers: int, key: int) -> bool:
+    def dispatch(
+        self,
+        identifier: int,
+        modifiers: int,
+        key: int,
+        *,
+        key_down: Callable[[int], bool] | None = None,
+    ) -> bool:
         for action, registration in self._active.items():
             if (identifier, modifiers, key) == (
                 registration.identifier,
                 registration.modifiers,
                 registration.key,
             ):
-                self.activated(action)
+                if action == HotkeyAction.ORIGINAL:
+                    # A queued key-down may arrive after release; do not flash the overlay.
+                    if not self._held and (
+                        key_down is None or chord_down(modifiers, key, key_down)
+                    ):
+                        self._held = registration
+                        self.hold_changed(True)
+                else:
+                    self.activated(action)
                 return True
         return False
 
     def release(self) -> None:
         """Release every owned registration, including before starting a replacement process."""
+        self.end_hold()
         for action, registration in tuple(self._active.items()):
             self._registrar.unregister(registration.identifier)
             del self._active[action]

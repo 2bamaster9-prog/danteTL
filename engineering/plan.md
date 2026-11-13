@@ -165,8 +165,9 @@ the approved compact main window, separate Settings, persistent preferences and 
 inspector. Hidden or paused inspection does not interrupt the live translation pipeline.
 
 [Slice fifteen](plans/015-global-hotkeys.md) adds configurable global overlay and capture toggles,
-with native registration, conflict recovery and persisted choices. Holding to show original text,
-per-game shortcuts and profiles remain separate future work.
+with native registration, conflict recovery and persisted choices. The follow-up adds foreground
+window selection when starting by hotkey, plus holding to show original text without interrupting
+processing. Per-game shortcuts and profiles remain separate future work.
 
 ## Technical references
 

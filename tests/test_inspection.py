@@ -117,6 +117,7 @@ def test_hotkeys_keep_selected_window_and_respect_stop_close_and_modal_guards(
     window._timer.stop()
     window._tick = Mock()
     window._ocr_models_ready = Mock(return_value=False)
+    window._settings.hotkeys.capture_focused.setChecked(False)
     window._hotkey_activated(HotkeyAction.CAPTURE)
     capture.assert_called_once_with(target, windows, fps=8)
     active = window._session
@@ -171,6 +172,123 @@ def test_native_hotkey_filter_accepts_both_qt_routes_and_rejects_stale_messages(
     hotkeys.release()
     assert events.nativeEventFilter(b"windows_generic_MSG", pointer) == (False, 0)
     assert hotkeys.activated.call_count == 2
+    events.close()
+
+
+def test_capture_hotkey_picks_focused_window_but_never_retargets_running_capture(
+    app, tmp_path, monkeypatch
+):
+    from jp_overlay.domain import WindowTarget
+    from jp_overlay.hotkeys import HotkeyAction
+    from jp_overlay.windows import WindowUnavailable
+
+    target = WindowTarget(101, 202, "New focused game")
+    windows = Mock()
+    windows.list_targets.return_value = []  # The initial list can be empty or stale.
+    windows.foreground_target.return_value = target
+    capture = Mock()
+    monkeypatch.setattr("jp_overlay.ui.CaptureSession", capture)
+    window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
+    window._timer.stop()
+    window._tick = Mock()
+    window._ocr_models_ready = Mock(return_value=False)
+    assert not window.start_button.isEnabled()
+    window._hotkey_activated(HotkeyAction.CAPTURE)
+    capture.assert_called_once_with(target, windows, fps=8)
+    assert window.windows_combo.currentData() == target
+    windows.foreground_target.side_effect = WindowUnavailable("Focus the game window")
+    window._hotkey_activated(HotkeyAction.CAPTURE)
+    capture.return_value.request_stop.assert_called_once()
+    windows.foreground_target.assert_called_once()
+    window._session = None
+    window.start_button.setEnabled(True)
+    window._hotkey_activated(HotkeyAction.CAPTURE)
+    assert "Focus the game" in window.status.text()
+    assert capture.call_count == 1 and window.windows_combo.currentData() == target
+    windows.foreground_target.side_effect = None
+    windows.is_foreground.return_value = False
+    window._hotkey_activated(HotkeyAction.CAPTURE)
+    assert "Focus changed" in window.status.text() and capture.call_count == 1
+    windows.is_foreground.return_value = True
+    renamed = replace(target, title="Game with a new title")
+    windows.foreground_target.return_value = renamed
+    window._hotkey_activated(HotkeyAction.CAPTURE)
+    assert window.windows_combo.count() == 1 and window.windows_combo.currentData() == renamed
+    assert capture.call_count == 2
+    window._session = None
+    window.close()
+    window.deleteLater()
+
+
+def test_original_hold_is_transient_and_focus_loss_cancels_it(app, tmp_path):
+    from jp_overlay.hotkeys import Hotkeys
+
+    windows = Mock()
+    windows.list_targets.return_value = []
+    registrar = Mock()
+    hotkeys = Hotkeys(registrar)
+    window = MainWindow(windows, Mock(), hotkeys=hotkeys, cache_path=tmp_path / "cache")
+    window._timer.stop()
+    window._advance_session = Mock()
+    window._update_notice = Mock()
+    window._session = Mock(finished=False)
+    workers = (window._session, window._ocr, window._translation)
+    clear = Mock()
+    window._clear_tracking = clear
+    window._overlay.show()
+    window._original_changed(True)
+    assert window._showing_original and not window._overlay.isVisible()
+    assert window.overlay_check.isChecked() and window.translate_check.isChecked()
+    assert (window._session, window._ocr, window._translation) == workers
+    window._original_changed(False)
+    assert not window._showing_original
+    window._advance_session.assert_called_once()  # Re-evaluate current visibility on release.
+    window.overlay_check.setChecked(False)
+    window._original_changed(True)
+    window._original_changed(False)
+    assert not window.overlay_check.isChecked()  # Does not override the user's hidden setting.
+    window._original_changed(True)
+    windows.is_foreground.return_value = False
+    window._tick()
+    assert not window._showing_original and not hotkeys.holding_original
+    window._original_changed(True)
+    assert not window._showing_original
+    clear.assert_not_called()
+    windows.is_foreground.return_value = True
+    hotkeys.dispatch(*registrar.register.call_args.args)
+    assert hotkeys.holding_original and window._showing_original
+    window._stop("Stopped during hold")
+    assert not hotkeys.holding_original and not window._showing_original
+    window._session = None
+    window.close()
+    window.deleteLater()
+
+
+def test_native_hold_checks_release_only_while_active_and_stops_after_release(app):
+    import ctypes
+    from ctypes import wintypes
+
+    from jp_overlay.hotkeys import HotkeyAction, Hotkeys
+    from jp_overlay.hotkeys_windows import WindowsHotkeyEvents
+
+    registrar = Mock()
+    hotkeys = Hotkeys(registrar)
+    hotkeys.hold_changed = Mock()
+    down = {17, 18, 0x79}
+    events = WindowsHotkeyEvents(app, hotkeys, key_down=lambda key: key in down)
+    hotkeys.bind(HotkeyAction.ORIGINAL, "Ctrl+Alt+F10")
+    identifier = registrar.register.call_args.args[0]
+    message = wintypes.MSG(message=0x0312, wParam=identifier, lParam=(0x79 << 16) | 3)
+    assert not events._release_timer.isActive()
+    events.nativeEventFilter(b"windows_generic_MSG", ctypes.addressof(message))
+    assert hotkeys.holding_original and events._release_timer.isActive()
+    down.remove(17)  # Releasing a modifier before the main key restores English too.
+    events._check_release()
+    assert not hotkeys.holding_original and not events._release_timer.isActive()
+    assert [call.args for call in hotkeys.hold_changed.call_args_list] == [(True,), (False,)]
+    # A delayed notification after release must not briefly hide anything.
+    events.nativeEventFilter(b"windows_generic_MSG", ctypes.addressof(message))
+    assert hotkeys.hold_changed.call_count == 2 and not events._release_timer.isActive()
     events.close()
 
 

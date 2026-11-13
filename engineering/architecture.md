@@ -6,8 +6,9 @@
 `ui` owns coordination for one capture/OCR/translation session and the compact main window.
 `settings_window` owns nonmodal configuration/setup views; `preferences` owns validated settings
 and coalesced atomic persistence. `controls` and `theme` provide shared Qt presentation.
-`hotkeys` owns two registrations and transactional replacement behind a small registrar protocol.
-`hotkeys_windows` bridges RegisterHotKey/WM_HOTKEY to Qt, without polling or keyboard hooks.
+`hotkeys` owns three registrations, transactional replacement and transient hold state behind a
+small registrar protocol. `hotkeys_windows` bridges RegisterHotKey/WM_HOTKEY to Qt, without keyboard
+hooks or idle polling. It checks only the active held chord for release every 16 ms, stopping when up.
 `hotkey_settings` owns drafts, active/conflict feedback and committed preference values. Composition
 in `app` installs one native event filter; MainWindow maps actions to its ordinary controls. Startup
 conflicts do not block capture. Shutdown releases bindings before runtime restart; a failed restart
