@@ -4,6 +4,17 @@ Approved and implemented on 2026-11-13. The filename is retained for existing pr
 The earlier interactive mockup remains a design reference; application code and these behaviors
 describe the delivered slice. No OCR algorithms, model runtimes, or translation prompts changed.
 
+Follow-up feedback: controls now stay top-left in a column capped at 760 logical pixels, including
+maximized mode. Advanced uses the remaining space and preserves maximize state. Missing models,
+missing selection and unused GPU acceleration have amber action banners; downloaded models have
+green check badges/list markers, with separate runtime warnings. A single background hardware check
+informs advice without claiming inference compatibility or starting installation.
+
+Accepting a translator switch now clears both painted English and any frozen inspector English.
+Presentation retention is additionally scoped to worker/backend generation. Model-specific caches
+are preserved, and regression tests cover a late old-model reply, paused review, and switching back
+to the first model's cache. No cache-key collision between Sugoi and Gemma was reproduced.
+
 Keep everyday use compact. The window picker, refresh, and Start/Stop capture remain necessary
 session controls. Below them show only **Show game overlay**, **Translation overlay**, and the
 translation-model selector. Put **Settings…** in the header and **Advanced** in a collapsed disclosure

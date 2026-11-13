@@ -90,6 +90,15 @@ text with a translucent background. Regions awaiting translation leave the origi
 The main window contains the game picker, Start/Stop, **Show game overlay**, **Translation overlay**,
 and the model selector. **Settings…** opens a separate window; **Advanced** expands the inspector and
 detailed diagnostics. Setup errors and model loading remain visible even with Advanced collapsed.
+The main controls stay together at the top left, with a bounded width even when maximized. Advanced
+uses the extra space without changing the window's maximized state.
+
+Amber banners identify missing OCR/translation downloads, no selected translator, or unused GPU
+acceleration, with a direct setup/settings action. A green **✓ Downloaded** badge and checkmarks in
+the Models list identify files already present. Gemma can show both **Downloaded** and **Acceleration
+setup required**: weights and runtime readiness are separate. GPU advice uses a one-time background
+hardware/package check; detection alone is not a promise of driver/model compatibility. CPU remains
+the normal OCR choice for the AMD runtime.
 
 - **Settings → Appearance** contains stabilization (on by default), background opacity, and text size.
   **Automatic text size** estimates the source height and wraps English with limited shrinking.
@@ -103,6 +112,9 @@ detailed diagnostics. Setup errors and model loading remain visible even with Ad
 - **Sugoi V4 · Fast CPU** is the default. **Wider search** uses the same weights with more decoding
   candidates; it can take longer and is not guaranteed to improve every sentence. Switching safely
   unloads the previous backend before loading the selected one.
+  Accepting a model switch immediately clears the old displayed English, including paused inspector
+  translations. Current text is translated by the new model; late replies from the old model cannot
+  replace it. Each model keeps its own cache, so switching back can reuse its previous translations.
 - **Gemma 4 E2B · NVIDIA/Vulkan GPU** uses an instruction-tuned LLM. It can produce more natural
   UI labels and dialogue, but quality still needs review in the actual game. Each completed label
   publishes immediately; the source-specific cache remains separate from Sugoi.
@@ -148,6 +160,7 @@ The **Advanced** inspector displays the exact analyzed frame, numbered line boxe
 - Select a text row to highlight its box and see physical coordinates/orientation.
 - Use **Pause inspection** to freeze the frame and both languages while capture and translation continue. Resume picks up
   the newest frame. Minimize, resize, or stopping clears the review so stale imagery is not retained.
+  Switching translation models also revokes frozen English; the inspected Japanese/frame stays frozen.
 - Use **Character boxes** and **Fit / 100% / 200%** zoom to examine small text; scroll when zoomed.
 - **Copy Japanese / Copy English** copies the selected row, or all rows when none is selected.
   Hover a row for full text. English that cannot fit the overlay ends with an ellipsis; the full

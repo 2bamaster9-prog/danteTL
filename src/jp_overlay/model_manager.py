@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from jp_overlay.controls import InfoButton
+from jp_overlay.controls import InfoButton, set_tone
 from jp_overlay.model_store import ModelBundle, ModelOperation, install_model, model_status
 
 
@@ -60,6 +60,15 @@ class ModelManager(QDialog):
         for bundle in bundles:
             self.choice.addItem(bundle.name, bundle)
         layout.addWidget(self.choice)
+        self.download_badge = QLabel()
+        self.download_badge.setObjectName("modelBadge")
+        self.download_badge.setWordWrap(True)
+        layout.addWidget(self.download_badge)
+        self.runtime_badge = QLabel()
+        self.runtime_badge.setObjectName("modelBadge")
+        self.runtime_badge.setWordWrap(True)
+        set_tone(self.runtime_badge, "warning")
+        layout.addWidget(self.runtime_badge)
         self.description = QLabel()
         self.description.setWordWrap(True)
         layout.addWidget(self.description)
@@ -95,11 +104,12 @@ class ModelManager(QDialog):
         self._timer.start()
 
     def _selected(self) -> None:
+        self._refresh_badges()
         bundle = self.choice.currentData()
         if not isinstance(bundle, ModelBundle):
             return
         self.description.setText(
-            f"{bundle.description}\nDownload: {bundle.size / 1e6:.1f} MB. "
+            f"{bundle.description}\nModel size: {bundle.size / 1e6:.1f} MB. "
             "Processing stays offline after setup."
         )
         self.status.setText(model_status(bundle))
@@ -109,6 +119,30 @@ class ModelManager(QDialog):
         self.progress.setValue(0)
         self.progress.hide()
         self.cancel_button.hide()
+
+    def _refresh_badges(self) -> None:
+        for i in range(self.choice.count()):
+            candidate = self.choice.itemData(i)
+            if isinstance(candidate, ModelBundle):
+                self.choice.setItemText(
+                    i, f"{'✓' if candidate.present() else '↓'}  {candidate.name}"
+                )
+        bundle = self.choice.currentData()
+        if not isinstance(bundle, ModelBundle):
+            self.download_badge.hide()
+            self.runtime_badge.hide()
+            return
+        downloaded = bundle.present()
+        self.download_badge.setText("✓  Downloaded" if downloaded else "↓  Download required")
+        self.download_badge.setAccessibleName(self.download_badge.text())
+        self.download_badge.setToolTip("Model files are present. Integrity is checked before use.")
+        set_tone(self.download_badge, "success" if downloaded else "warning")
+        self.download_badge.show()
+        from jp_overlay.gemma import installed_device
+
+        missing_runtime = downloaded and bundle.key == "gemma" and installed_device() is None
+        self.runtime_badge.setText("⚠  Acceleration setup required — model files are downloaded")
+        self.runtime_badge.setVisible(missing_runtime)
 
     def _download(self) -> None:
         bundle = self.choice.currentData()
@@ -156,6 +190,7 @@ class ModelManager(QDialog):
             if not value.error and not value.cancelled and isinstance(bundle, ModelBundle):
                 self.status.setText(model_status(bundle))
                 self.download.setText("Verify / repair")
+            self._refresh_badges()
             self.models_changed.emit()
             if self._closing:
                 self.close()

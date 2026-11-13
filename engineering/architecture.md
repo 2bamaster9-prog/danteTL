@@ -6,6 +6,9 @@
 `ui` owns coordination for one capture/OCR/translation session and the compact main window.
 `settings_window` owns nonmodal configuration/setup views; `preferences` owns validated settings
 and coalesced atomic persistence. `controls` and `theme` provide shared Qt presentation.
+Main controls occupy a width-bounded top-left column. Advanced alone consumes surplus space;
+its disclosure does not resize a maximized window. Model badges separate download presence from
+runtime availability, and actionable warning banners remain outside Advanced.
 `inspection` owns the independent image/text inspector. `capture` owns native capture and shutdown.
 `overlay` owns rendering and display placement. `windows` owns Win32 identity, geometry, and
 overlay styles. `domain` contains immutable shared values and pure geometry/visibility policy.
@@ -119,6 +122,7 @@ keeps only the newest source/result pair without image conversion or table work.
 freezes its displayed frame, Japanese and English; it does not clear generations, stop OCR, or hide
 the game overlay. Expanding/resuming renders the newest exact pair. An explicit frozen review may
 retain one additional displayed pair; resize/minimize/stop clears it too.
+An accepted model change revokes frozen English without replacing the reviewed Japanese/frame.
 
 Worker snapshots expose completed/skipped counts, capture-to-start delay, the mean of eight recent
 inference durations, and the start time of the active pass. The UI exposes these independently of
@@ -300,6 +304,10 @@ The worker checks the memory/SQLite cache, translates missing entries, and publi
 still desired in the same generation. In-flight work can populate the cache after invalidation, but
 cannot repopulate obsolete display results. Reset, minimize, resize, and model switches
 invalidate generations. The renderer independently matches the full request, including all members.
+`TranslationSnapshot.backend_generation` also scopes `EnglishPresentation` retention together with
+worker identity: a translation cannot survive a model change just because source/track IDs match.
+Switches clear painted blocks and both live/frozen inspector English immediately; persistent cache
+entries remain separated by backend identity and are intentionally reusable when switching back.
 
 `TranslationBackend` exposes `cache_identity`, batched `translate`, and `close`. Factories are passed
 from `app`; adding another engine needs an adapter and registration, not pipeline changes. The two
@@ -392,6 +400,11 @@ before use. Provider initialization alone was insufficient for the pinned Meiki 
 OS installation locking, fingerprinted receipts, verified reuse and replacement repair. `setup_process`
 owns cancellable hidden child processes and bounded output. Work is polled through the existing
 setup-operation snapshot; native libraries load only in a child probe or inference worker.
+At normal startup, one `HardwareCheck` worker reads adapters and installed package metadata without
+loading inference libraries, models or performing downloads. `setup_status` derives CPU-selection,
+missing-acceleration and actual-fallback advice. AMD Vulkan with CPU OCR is an intended configuration.
+The app drains this bounded check during shutdown; unavailable hardware detection permits manual
+setup and never invents GPU compatibility.
 
 `runtime_restart` waits for a new Qt startup acknowledgement after the main window drains active
 work. It distinguishes the real GUI PID from the Windows Python launcher PID. `tools/launch.py`

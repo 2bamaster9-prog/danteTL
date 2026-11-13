@@ -3,16 +3,18 @@
 import argparse
 import json
 import time
+from dataclasses import replace
 from pathlib import Path
 
 import shiboken6
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QPoint, Qt, QTimer
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
 from jp_overlay.app import create_recognizer, ocr_backends, translation_backends
 from jp_overlay.controls import InfoButton
 from jp_overlay.demo import DemoWindow
+from jp_overlay.hardware import HardwareCheck
 from jp_overlay.model_store import model_catalog
 from jp_overlay.preferences import PreferenceStore
 from jp_overlay.ui import MainWindow
@@ -22,6 +24,7 @@ from jp_overlay.windows import Windows
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path("artifacts/ui"))
+    parser.add_argument("--missing-models", action="store_true", help="Show first-run warnings")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     windows = Windows()
@@ -30,13 +33,19 @@ def main() -> int:
     app.setQuitOnLastWindowClosed(False)
     demo = DemoWindow(dialogue=True)
     preferences_path = args.output / f"preferences-{time.time_ns()}.json"
+    hardware = HardwareCheck()
+    hardware.start()
+    models = model_catalog()
+    if args.missing_models:
+        models = tuple(replace(b, directory=args.output / "not-installed" / b.key) for b in models)
     window = MainWindow(
         windows,
         create_recognizer,
-        translation_backends(),
-        models=model_catalog(),
+        () if args.missing_models else translation_backends(),
+        models=models,
         ocr_backends=ocr_backends(),
         preferences_path=preferences_path,
+        hardware=hardware,
     )
     # Show only our fixture name in screenshots, never another application's title.
     window.windows_combo.clear()
@@ -52,6 +61,8 @@ def main() -> int:
             assert time.monotonic() - started < 20, "UI verification timed out"
             settings = window._settings
             if stage == 0:
+                if not hardware.finished:
+                    return
                 assert not window.advanced.isChecked() and not window.advanced_panel.isVisible()
                 assert window.translate_check.text() == "Translation overlay"
                 QTest.keyClick(window.overlay_check, Qt.Key.Key_Space)
@@ -61,6 +72,11 @@ def main() -> int:
                 evidence["keyboard_switch_toggle"] = True
                 evidence["compact_size"] = [window.width(), window.height()]
                 window.grab().save(str(args.output / "main.png"))
+                if args.missing_models:
+                    assert (
+                        window.onboarding.isVisible() and "not downloaded" in window.notice.text()
+                    )
+                    assert window.onboarding.property("tone") == "warning"
                 window.settings_button.click()
                 stage = 1
             elif stage == 1:
@@ -80,7 +96,27 @@ def main() -> int:
                 window._manage_models()
                 stage = 3
             elif stage == 3:
+                assert ("Download required" if args.missing_models else "Downloaded") in (
+                    settings.models.download_badge.text()
+                )
                 settings.grab().save(str(args.output / "models.png"))
+                gemma = next(
+                    (
+                        i
+                        for i in range(settings.models.choice.count())
+                        if settings.models.choice.itemData(i).key == "gemma"
+                    ),
+                    None,
+                )
+                if gemma is not None:
+                    settings.models.choice.setCurrentIndex(gemma)
+                stage = 31
+            elif stage == 31:
+                description = settings.models.description
+                assert description.height() >= description.heightForWidth(description.width()), (
+                    "Model description is clipped after changing selection"
+                )
+                settings.grab().save(str(args.output / "gemma-status.png"))
                 settings.models.runtime_button.click()
                 stage = 4
             elif stage == 4:
@@ -113,6 +149,29 @@ def main() -> int:
                 evidence.update(
                     settings_saved=True, info_controls=len(settings.findChildren(InfoButton))
                 )
+                window.showMaximized()
+                stage = 8
+            elif stage == 8:
+                assert window.isMaximized()
+                assert window.control_panel.width() <= 760 and window.control_panel.height() < 850
+                assert window.control_panel.mapTo(window, QPoint()).y() <= 24
+                assert window.translate_check.mapTo(window, QPoint()).x() < 450
+                assert window.windows_combo.mapTo(window, QPoint()).y() < 200
+                window.grab().save(str(args.output / "maximized.png"))
+                window.advanced.setChecked(True)
+                stage = 9
+            elif stage == 9:
+                assert window.isMaximized() and window.advanced_panel.isVisible()
+                window.grab().save(str(args.output / "maximized-advanced.png"))
+                window.advanced.setChecked(False)
+                stage = 10
+            elif stage == 10:
+                assert window.isMaximized() and not window.advanced_panel.isVisible()
+                evidence["maximized_controls_stay_compact_and_left"] = True
+                evidence["advanced_preserves_maximized_state"] = True
+                window.showNormal()
+                stage = 11
+            elif stage == 11:
                 window.close()
                 stage = 7
             elif stage == 7:

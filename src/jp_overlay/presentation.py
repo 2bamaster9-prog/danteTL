@@ -24,16 +24,24 @@ class EnglishPresentation:
 
     def __init__(self) -> None:
         self._published: dict[tuple[int, ...], Publication] = {}
+        self._scope: object = None
 
     def reset(self) -> None:
         self._published.clear()
+        self._scope = None
 
     def update(
         self,
         blocks: tuple[TextBlock, ...],
         translations: tuple[TranslatedText, ...],
         corrections: tuple[tuple[TextTrack, TextTrack], ...] = (),
+        *,
+        scope: object = None,
     ) -> tuple[Publication, ...]:
+        # Identical Japanese/track IDs do not make different models interchangeable.
+        if scope != self._scope:
+            self.reset()
+            self._scope = scope
         english = {t.request: t for t in translations}
         predecessors = dict(corrections)
         published = {}

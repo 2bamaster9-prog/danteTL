@@ -6,12 +6,49 @@ from PySide6.QtCore import QPoint, QRect, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QFocusEvent, QPainter, QPaintEvent
 from PySide6.QtWidgets import (
     QCheckBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
     QStyle,
     QStyleOptionFocusRect,
     QToolButton,
     QToolTip,
     QWidget,
 )
+
+
+def set_tone(widget: QWidget, tone: str) -> None:
+    if widget.property("tone") != tone:
+        widget.setProperty("tone", tone)
+        widget.style().unpolish(widget)
+        widget.style().polish(widget)
+
+
+class StatusBanner(QWidget):
+    """A visible symbol, short explanation and action; color is never the only cue."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setObjectName("statusBanner")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(12, 10, 12, 10)
+        self.label = QLabel()
+        self.label.setTextFormat(Qt.TextFormat.PlainText)
+        self.label.setWordWrap(True)
+        layout.addWidget(self.label, 1)
+        self.action = QPushButton()
+        layout.addWidget(self.action)
+        self.hide()
+
+    def set_message(self, text: str, *, tone: str = "warning", action: str = "") -> None:
+        symbol = "⚠" if tone in ("warning", "error") else "ⓘ"
+        self.label.setText(f"{symbol}  {text[:400]}" if text else "")
+        self.label.setToolTip(text)
+        self.action.setText(action)
+        self.action.setVisible(bool(action))
+        set_tone(self, tone)
+        self.setVisible(bool(text))
 
 
 class Switch(QCheckBox):

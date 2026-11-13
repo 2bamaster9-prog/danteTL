@@ -66,7 +66,8 @@ def test_no_models_do_not_start_inference_and_refresh_never_prepares_implicitly(
     )
     assert window.backend_combo.currentData() is None
     assert window.translate_check.isEnabled() and window.models_button.isEnabled()
-    assert "Download" in window.notice.text()
+    assert "No translation model is downloaded" in window.notice.text()
+    assert window.onboarding.property("tone") == "warning"
     window._tick()
     window._refresh_models()
     assert window.backend_combo.currentData() is None
@@ -126,6 +127,9 @@ def test_download_completion_reports_missing_runtime_instead_of_false_readiness(
     assert "not installed" in manager.status.text() and "Acceleration" in manager.status.text()
     assert manager.download.text() == "Verify / repair"
     assert manager.progress.value() == manager.progress.maximum()
+    assert manager.download_badge.text() == "✓  Downloaded"
+    assert manager.download_badge.property("tone") == "success"
+    assert not manager.runtime_badge.isHidden()
     manager.close()
     manager.deleteLater()
 
@@ -169,6 +173,142 @@ def test_runtime_setup_detects_without_installing_and_close_waits_for_cancel(
     dialog._poll()
     window._tick()
     assert dialog.operation is None and not window._timer.isActive()
+    window.deleteLater()
+
+
+def test_model_download_badges_and_missing_selection_warnings_are_distinct(
+    app, tmp_path, monkeypatch
+):
+    from jp_overlay.hardware import Adapter, HardwareStatus
+    from jp_overlay.model_store import ModelBundle
+    from jp_overlay.models import ModelAsset
+
+    asset = ModelAsset("test", "revision", "weights", "", 4)
+    bundle = ModelBundle("gemma", "Gemma", tmp_path, (asset,), "Fixture")
+    windows = Mock()
+    windows.list_targets.return_value = []
+    hardware = Mock(finished=True)
+    hardware.snapshot.return_value = HardwareStatus((Adapter("RTX fixture", 0x10DE),))
+    monkeypatch.setattr("jp_overlay.gemma.installed_device", lambda: None)
+    window = MainWindow(windows, Mock(), models=(bundle,), hardware=hardware)
+    manager = window._settings.models
+    assert "Download required" in manager.download_badge.text()
+    assert manager.download_badge.property("tone") == "warning"
+    assert window.onboarding.property("tone") == "warning"
+    assert "NVIDIA GPU detected" in window.acceleration_notice.label.text()
+    (tmp_path / "weights").write_bytes(b"good")
+    window._manage_models()
+    assert manager.download_badge.text() == "✓  Downloaded"
+    assert manager.download_badge.property("tone") == "success"
+    assert manager.choice.itemText(0).startswith("✓")
+    assert not manager.runtime_badge.isHidden() and "Acceleration" in manager.runtime_badge.text()
+    choice = BackendChoice("Gemma", Mock(), "gemma", unavailable_reason="Missing runtime")
+    window._backends = (choice,)
+    window._update_notice()
+    assert "No translation model is selected" in window.notice.text()
+    assert window.models_button.text() == "Choose model"
+    assert "selected" in window._settings.model_notice.label.text()
+    window.close()
+    assert not window._settings.isVisible()
+    window.deleteLater()
+
+
+def test_switch_clears_painted_and_paused_english_rejects_late_reply_and_keeps_model_caches(
+    app, tmp_path
+):
+    class Backend:
+        batch_size = 1
+
+        def __init__(self, name):
+            self.cache_identity = name
+            self.calls = []
+            self.entered, self.release = threading.Event(), threading.Event()
+            self.release.set()
+
+        def translate(self, texts):
+            self.calls.append(texts)
+            self.entered.set()
+            assert self.release.wait(3)
+            return tuple(f"{self.cache_identity}: {text}" for text in texts)
+
+        def close(self):
+            pass
+
+    old, new, old_again = Backend("Sugoi"), Backend("Gemma"), Backend("Sugoi")
+    windows = Mock()
+    windows.list_targets.return_value = []
+    choices = (
+        BackendChoice("Sugoi", lambda: old, "sugoi-fast"),
+        BackendChoice("Gemma", lambda: new, "gemma"),
+    )
+    window = MainWindow(windows, Mock(), choices, cache_path=tmp_path / "cache")
+    window._timer.stop()
+    window.advanced.setChecked(True)
+    first = TextBlock((TextTrack(1, "猫", Rect(0, 0, 40, 20)),))
+    second = TextBlock((TextTrack(2, "犬", Rect(0, 40, 40, 20)),))
+
+    def poll_until(predicate, blocks):
+        deadline = time.monotonic() + 3
+        while True:
+            window._poll_translation(True, blocks, blocks)
+            if predicate():
+                return
+            assert time.monotonic() < deadline
+            time.sleep(0.005)
+
+    try:
+        poll_until(lambda: bool(window._overlay._translations), (first,))
+        bounds = Rect(0, 0, 80, 80)
+        frame = CapturedFrame(1, 0, WindowGeometry(bounds, bounds, bounds, 96), b"\xff" * 25600)
+        result = OcrResult(frame, (TextRegion("猫", first.bounds),), 1, 1)
+        window.inspector.set_result(result, (1,))
+        window.inspector.set_translations(window._overlay._translations)
+        window.inspector.pause.setChecked(True)
+        assert cell(window.inspector, 0, 3).text() == "Sugoi: 猫"
+        old.entered.clear()
+        old.release.clear()
+        window._poll_translation(True, (first, second), (first, second))
+        assert old.entered.wait(1)
+        new.release.clear()
+        window.backend_combo.setCurrentIndex(1)
+        assert not window._overlay._translations and not window._overlay._blocks
+        assert cell(window.inspector, 0, 3).text() == "—"
+        assert window.inspector.result is result and window.inspector.pause.isChecked()
+        old.release.set()
+        assert new.entered.wait(1)
+        window._poll_translation(True, (first, second), (first, second))
+        assert not window._overlay._translations
+        new.release.set()
+        poll_until(lambda: len(window._overlay._translations) == 2, (first, second))
+        assert all(t.english.startswith("Gemma:") for t in window._overlay._translations)
+        window.inspector.pause.setChecked(False)
+        assert cell(window.inspector, 0, 3).text() == "Gemma: 猫"
+        window.backend_combo.setItemData(0, replace(choices[0], create=lambda: old_again))
+        window.backend_combo.setCurrentIndex(0)
+        assert not window._overlay._translations
+        poll_until(lambda: len(window._overlay._translations) == 2, (first, second))
+        assert all(t.english.startswith("Sugoi:") for t in window._overlay._translations)
+        assert old_again.calls == []  # Its own cache still works; Gemma never read those entries.
+        assert new.calls == [("猫",), ("犬",)]
+    finally:
+        old.release.set()
+        new.release.set()
+        window.close()
+        drain(window, lambda: not window._closing or window._translation is None)
+        window.deleteLater()
+
+
+def test_app_shutdown_drains_startup_hardware_check(app, tmp_path):
+    windows = Mock()
+    windows.list_targets.return_value = []
+    hardware = Mock(finished=False)
+    hardware.snapshot.return_value = None
+    window = MainWindow(windows, Mock(), hardware=hardware, cache_path=tmp_path / "cache")
+    window.close()
+    assert window._closing and window._timer.isActive()
+    hardware.finished = True
+    window._tick()
+    assert not window._timer.isActive()
     window.deleteLater()
 
 

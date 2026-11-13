@@ -105,6 +105,12 @@ Read `engineering/README.md` first. The agreed product plan is in
   Device/rate edits apply on the next capture, including when models arrive during capture. Settings
   may hide with setup running; app close always cancels/drains it. Run `verify_ui_windows.py`, the
   native setup regression, and live translation/pause checks for changes to these boundaries.
+- Keep main controls top-left and width-bounded at large sizes; Advanced may expand independently.
+  Test maximized on/off disclosure without unmaximizing. Hardware advice performs one worker-based
+  read-only check, distinguishes detected adapters from verified inference, and must not flag AMD's
+  intended CPU OCR as a failure. Model badges distinguish file presence from runtime availability.
+  Model switches revoke painted and paused-inspector English. Scope presentation retention to the
+  translation worker/backend generation; preserve model-keyed disk caches and reject late replies.
 - Do not claim game, mixed-DPI, HDR, or anti-cheat compatibility based solely on a demo window.
 - Do not implement later milestones without a user request. Capture, OCR, tracking, local Sugoi
   translation, bounded caching, English layout, icon cleanup, and dialogue grouping are implemented.

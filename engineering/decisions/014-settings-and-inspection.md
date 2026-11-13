@@ -28,3 +28,14 @@ Native Qt checkbox semantics provide keyboard/accessibility behavior beneath the
 paint. Focusable information buttons expose the same explanation on hover, focus or click. These
 controls add no animation or scheduling to the game overlay. CPU/GPU runtime separation, local
 inference, consent, restart acknowledgement and the original coordinate contract remain unchanged.
+
+Follow-up: ordinary controls use a bounded top-left column; maximization expands only available
+space, not control spacing. Native tests exercise both Advanced states while maximized. Visible
+symbol/text/color badges distinguish missing/downloaded weights and missing runtimes. Startup
+hardware/package inspection runs once on a worker, without downloads; warnings do not imply that
+vendor detection validates a driver or model. AMD CPU OCR remains intentional.
+
+Model-specific persistent caches were already separated. Display retention now also has an explicit
+worker/backend-generation scope, and accepted switches clear frozen inspector English. Keeping an
+old snapshot's translation after changing its selected model was misleading. The inspected Japanese
+frame can remain frozen; its revoked English cannot. This exception to pause does not reset OCR.

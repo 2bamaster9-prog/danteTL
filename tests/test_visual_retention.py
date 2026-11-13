@@ -222,6 +222,18 @@ def test_atomic_correction_publication_requires_explicit_current_lineage_and_all
     assert not store.update((old,), ())
 
 
+def test_publication_retention_cannot_cross_backend_generations_or_worker_restarts():
+    store = EnglishPresentation()
+    block = TextBlock((TextTrack(1, "設定", BOX),))
+    old = TranslatedText(TranslationRequest.from_block(block), "Sugoi settings")
+    store.update((block,), (old,), scope=("worker1", 0))
+    assert store.update((block,), (), scope=("worker1", 0))[0].translation == old
+    assert not store.update((block,), (), scope=("worker1", 1))
+    new = replace(old, english="Gemma settings")
+    assert store.update((block,), (new,), scope=("worker1", 1))[0].translation == new
+    assert not store.update((block,), (), scope=("worker2", 0))
+
+
 def test_stale_visual_evidence_cannot_lock_new_source_or_a_new_revision():
     tracker = TextTracker()
     first = result(1)

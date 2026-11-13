@@ -2,6 +2,7 @@
 
 import ctypes as ct
 import sys
+import threading
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -12,6 +13,46 @@ class Adapter:
     name: str
     vendor: int
     dedicated_bytes: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class HardwareStatus:
+    adapters: tuple[Adapter, ...] = ()
+    cuda_ocr: bool = False
+    gemma_device: str | None = None
+    error: str = ""
+
+
+class HardwareCheck:
+    """One startup check; never load model/native inference libraries or install anything."""
+
+    def __init__(self) -> None:
+        self._done = threading.Event()
+        self._result = HardwareStatus()
+        self._thread = threading.Thread(target=self._run, name="hardware-check", daemon=True)
+
+    def start(self) -> None:
+        self._thread.start()
+
+    @property
+    def finished(self) -> bool:
+        return self._done.is_set()
+
+    def snapshot(self) -> HardwareStatus | None:
+        return self._result if self.finished else None
+
+    def _run(self) -> None:
+        try:
+            from jp_overlay.gemma import installed_device
+            from jp_overlay.ocr_runtime import gpu_runtime_installed
+
+            self._result = HardwareStatus(
+                detect_adapters(), gpu_runtime_installed(), installed_device()
+            )
+        except Exception as error:
+            self._result = HardwareStatus(error=str(error))
+        finally:
+            self._done.set()
 
 
 def recommended_profile(adapters: tuple[Adapter, ...]) -> str:

@@ -34,4 +34,14 @@ STYLE = """
     QSpinBox { padding: 7px; background: #243142; border: 1px solid #3c4c60; border-radius: 5px; }
     QSpinBox:disabled { color: #64748b; }
     QToolTip { background: #243142; color: #e7edf5; border: 1px solid #5eead4; padding: 7px; }
+    QWidget#statusBanner { border-radius: 6px; }
+    QWidget#statusBanner[tone="warning"] { background: #30291c; border: 1px solid #b58b3c; }
+    QWidget#statusBanner[tone="error"] { background: #382127; border: 1px solid #c87580; }
+    QWidget#statusBanner[tone="info"] { background: #1b2b39; border: 1px solid #557d9b; }
+    QWidget#statusBanner QLabel { background: transparent; }
+    QLabel#modelBadge { padding: 9px 12px; border-radius: 6px; font-weight: 600; }
+    QLabel#modelBadge[tone="success"] { background: #183b32; color: #82e6bd;
+        border: 1px solid #3ca983; }
+    QLabel#modelBadge[tone="warning"] { background: #30291c; color: #f0ca7c;
+        border: 1px solid #b58b3c; }
 """

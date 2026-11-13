@@ -475,3 +475,26 @@ extracted into the disposable CPU-only distribution; downloaded Gemma remained s
 clear acceleration action and no unavailable model load. NVIDIA and AMD profile reuse/verification
 and acknowledged restart through Settings both passed using cached installed environments. This
 rerun does not claim cold dependency downloads, Radeon execution, or game/anti-cheat validation.
+
+### UI feedback: large windows, model status and switching
+
+`verify_ui_windows.py` now checks maximized compact/Advanced layouts, a bounded top-left control
+column, retained maximize state, readable model descriptions, and downloaded badges. Run with
+`--missing-models` for first-run warnings. Native captures were reviewed in the CUDA environment,
+the CPU environment with missing model paths, and the extracted CPU-only distribution with Gemma
+downloaded but no runtime. The latter shows both a green download badge and an acceleration warning.
+
+301 fast tests pass with Ruff/Pyright. New cases cover one background hardware/package check and
+shutdown draining, NVIDIA CPU selection/fallback, AMD Vulkan with intended CPU OCR, missing download
+versus missing selection, and badge updates after download. A real worker + temporary SQLite GUI
+test publishes Sugoi, holds a second reply in flight, switches to Gemma while inspection is paused,
+and proves immediate display revocation, late-result rejection and Gemma-only output. Switching
+back reuses only Sugoi's cache. A separate publication test rejects retention across worker/model
+generations. No Sugoi/Gemma persistent cache-key collision was reproduced.
+
+The native CUDA/Gemma dialogue/typewriter/debug/model-switch check passed (0.75 s after final
+character in this fixture), as did offline socket-blocked Gemma translation and native preparation
+consent/worker reuse. Retention held six blocks unchanged across 344 polls/16.12 s and six noisy
+passes, including Advanced collapse/reopen; a new regional label appeared in English after 0.562 s.
+The extracted downloaded-Gemma/no-runtime regression and NVIDIA runtime reuse/restart passed with
+the new startup hardware check. These measurements use our synthetic windows, not Honkai or Radeon.

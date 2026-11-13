@@ -85,6 +85,7 @@ class TranslationSnapshot:
     translated_sources: int = 0
     load_ms: float = 0
     last_inference_ms: float = 0
+    backend_generation: int = 0
 
 
 class TranslationSession:
@@ -231,6 +232,7 @@ class TranslationSession:
                 translated_sources=self._translated_sources,
                 load_ms=self._load_ms,
                 last_inference_ms=self._last_inference_ms,
+                backend_generation=self._backend_generation,
             )
 
     def _run(self) -> None:

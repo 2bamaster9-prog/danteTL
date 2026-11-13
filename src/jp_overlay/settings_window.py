@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from jp_overlay.controls import InfoButton, Switch
+from jp_overlay.controls import InfoButton, StatusBanner, Switch
 from jp_overlay.model_manager import ModelManager
 from jp_overlay.model_store import ModelBundle
 from jp_overlay.preferences import Preferences
@@ -47,6 +47,10 @@ class SettingsWindow(QDialog):
         self.runtime: RuntimeSetupDialog | None = None
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 16, 20, 16)
+        self.model_notice = StatusBanner()
+        self.acceleration_notice = StatusBanner()
+        layout.addWidget(self.model_notice)
+        layout.addWidget(self.acceleration_notice)
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs, 1)
         appearance = self._page("Appearance")
@@ -238,9 +242,16 @@ class SettingsWindow(QDialog):
         )
 
     def show_models(self) -> None:
+        if self.models.operation is None:
+            self.models._selected()
         self.models.show()
         self.tabs.setCurrentIndex(2)
         self.setup_tabs.setCurrentIndex(0)
+        self.show()
+        self.raise_()
+
+    def show_recognition(self) -> None:
+        self.tabs.setCurrentIndex(1)
         self.show()
         self.raise_()
 

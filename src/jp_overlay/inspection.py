@@ -272,6 +272,12 @@ class OcrInspector(QWidget):
         self._latest_translations = results
         self._render_latest()
 
+    def clear_translations(self) -> None:
+        """A model change revokes English even in an explicitly frozen inspection."""
+        self._latest_translations = self._translations = ()
+        if self.result is not None:
+            self._refresh_english()
+
     def _refresh_english(self) -> None:
         self._row_translations.clear()
         if self.result is None:

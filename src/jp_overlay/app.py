@@ -114,6 +114,7 @@ def main() -> None:
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication, QMessageBox
 
+    from jp_overlay.hardware import HardwareCheck
     from jp_overlay.model_store import model_catalog
     from jp_overlay.runtime_setup import project_root
     from jp_overlay.ui import MainWindow
@@ -139,6 +140,8 @@ def main() -> None:
         )
 
     sys.excepthook = report_exception
+    hardware = HardwareCheck()
+    hardware.start()
     window = MainWindow(
         windows,
         create_recognizer,
@@ -147,6 +150,7 @@ def main() -> None:
         models=model_catalog(),
         backend_provider=translation_backends,
         preferences_path=project_root() / "data/preferences.json",
+        hardware=hardware,
     )
     window.show()
     from jp_overlay.runtime_restart import acknowledge_startup
