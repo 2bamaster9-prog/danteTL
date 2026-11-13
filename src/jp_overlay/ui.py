@@ -239,7 +239,7 @@ class MainWindow(QMainWindow):
             QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
         )
         self.backend_combo.setToolTip(
-            "Download models and install acceleration in Settings → Models & runtime."
+            "Download models in Settings → Models; GPU setup is in Settings → Acceleration."
         )
         for backend in self._backends:
             self.backend_combo.addItem(backend.name, backend)

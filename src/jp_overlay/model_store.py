@@ -17,7 +17,7 @@ from jp_overlay.paths import state_root
 
 GEMMA_RUNTIME_SETUP = (
     "Gemma is downloaded, but its language-model engine is not installed in this app environment. "
-    "Open Settings → Models & runtime → Acceleration and choose CPU or GPU, then restart. "
+    "Open Settings → Acceleration and choose CPU or GPU, then restart. "
     "Your model files are already present; no model download is needed."
 )
 

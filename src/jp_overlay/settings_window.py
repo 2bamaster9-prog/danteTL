@@ -56,6 +56,7 @@ class SettingsWindow(QDialog):
         layout.addWidget(self.model_notice)
         layout.addWidget(self.acceleration_notice)
         self.tabs = QTabWidget()
+        self._pages: dict[str, QScrollArea] = {}
         layout.addWidget(self.tabs, 1)
         appearance = self._page("Appearance")
         self.stabilize = Switch("Stabilize game boxes")
@@ -126,7 +127,7 @@ class SettingsWindow(QDialog):
             "OCR device",
             "Chooses the device that reads Japanese text, separately from the translation model. "
             "Automatic reports CPU fallback when acceleration cannot be used. Install acceleration "
-            "under Models & runtime. AMD currently uses CPU OCR.",
+            "in the Acceleration tab. AMD currently uses CPU OCR.",
         )
         self.capture_rate = QSpinBox()
         self.capture_rate.setRange(2, 12)
@@ -146,19 +147,14 @@ class SettingsWindow(QDialog):
         recognition.addWidget(self.capture_note)
         recognition.addStretch()
 
-        setup = self._page("Models & runtime")
-        self.setup_tabs = QTabWidget()
+        model_page = self._page("Models")
         self.models = ModelManager(models, self, embedded=True)
         self.models.models_changed.connect(self.models_changed.emit)
         self.models.runtime_requested.connect(self.show_runtime)
-        self.setup_tabs.addTab(self.models, "Models")
-        self.runtime_host = QWidget()
-        self.runtime_layout = QVBoxLayout(self.runtime_host)
-        self.runtime_layout.setContentsMargins(0, 0, 0, 0)
-        self.setup_tabs.addTab(self.runtime_host, "Acceleration")
-        self.setup_tabs.currentChanged.connect(self._setup_tab_changed)
-        setup.addWidget(self.setup_tabs)
-        setup.addStretch()
+        model_page.addWidget(self.models)
+        model_page.addStretch()
+        self.runtime_layout = self._page("Acceleration")
+        self.runtime_layout.addStretch()
         shortcuts = self._page("Hotkeys")
         self.hotkeys = HotkeySettings(
             preferences.overlay_hotkey,
@@ -169,6 +165,7 @@ class SettingsWindow(QDialog):
         )
         self.hotkeys.changed.connect(self.changed.emit)
         shortcuts.addWidget(self.hotkeys)
+        self.tabs.currentChanged.connect(self._tab_changed)
         footer = QHBoxLayout()
         self.save_note = QLabel(
             "Changes save automatically; hotkeys save when applied. Downloads require your action."
@@ -197,6 +194,7 @@ class SettingsWindow(QDialog):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         scroll.setWidget(page)
+        self._pages[name] = scroll
         self.tabs.addTab(scroll, name)
         return layout
 
@@ -253,7 +251,7 @@ class SettingsWindow(QDialog):
         )
 
     def show_hotkeys(self) -> None:
-        self.tabs.setCurrentIndex(3)
+        self.tabs.setCurrentWidget(self._pages["Hotkeys"])
         self.show()
         self.raise_()
 
@@ -268,30 +266,27 @@ class SettingsWindow(QDialog):
         if self.models.operation is None:
             self.models._selected()
         self.models.show()
-        self.tabs.setCurrentIndex(2)
-        self.setup_tabs.setCurrentIndex(0)
+        self.tabs.setCurrentWidget(self._pages["Models"])
         self.show()
         self.raise_()
 
     def show_recognition(self) -> None:
-        self.tabs.setCurrentIndex(1)
+        self.tabs.setCurrentWidget(self._pages["Recognition"])
         self.show()
         self.raise_()
 
     def show_runtime(self) -> None:
-        self.tabs.setCurrentIndex(2)
-        self.setup_tabs.setCurrentIndex(1)
-        self._setup_tab_changed(1)
+        self.tabs.setCurrentWidget(self._pages["Acceleration"])
         if self.runtime:
             self.runtime.show()
         self.show()
         self.raise_()
 
-    def _setup_tab_changed(self, index: int) -> None:
-        if index == 1 and self.runtime is None:
+    def _tab_changed(self, index: int) -> None:
+        if self.tabs.widget(index) is self._pages["Acceleration"] and self.runtime is None:
             self.runtime = RuntimeSetupDialog(self, embedded=True)
             self.runtime.restart_requested.connect(self.restart_requested.emit)
-            self.runtime_layout.addWidget(self.runtime)
+            self.runtime_layout.insertWidget(0, self.runtime)
             self.runtime_created.emit(self.runtime)
 
     @property

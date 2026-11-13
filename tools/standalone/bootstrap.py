@@ -46,7 +46,7 @@ def main() -> None:
     elif (state / "data/runtime.json").is_file():
         os.environ["JP_OVERLAY_STARTUP_NOTICE"] = (
             "The saved runtime is unavailable for this app version. Using the bundled CPU "
-            "runtime. Open Settings → Models & runtime → Acceleration to set it up again."
+            "runtime. Open Settings → Acceleration to set it up again."
         )
     from jp_overlay.app import main as app_main
 

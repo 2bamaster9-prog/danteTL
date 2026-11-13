@@ -15,7 +15,7 @@ EXE. Models, settings, caches and optional runtimes go to **`%LOCALAPPDATA%\Dant
 app updates. Extract updates into a new folder after closing the app; your downloads stay in AppData.
 To uninstall, delete the app folder; delete its AppData folder only if you also want to remove your data.
 
-On Windows 11, open **Settings → Models & runtime → Models**. Download **MeikiOCR**
+On Windows 11, open **Settings → Models**. Download **MeikiOCR**
 (46 MB) for recognition and a translation model: **Sugoi V4** (1.11 GB, CPU) or **Gemma 4 E2B**
 (3.35 GB, CPU or GPU). The standalone app includes the CPU language-model engine: Gemma needs
 no GPU setup after its model download. CPU translation can be slower, so the app labels it clearly.
@@ -30,7 +30,7 @@ those developer launchers require Python to bootstrap uv. The standalone release
 private CPU runtime, including llama.cpp, and dependency installer. GPU setup manages any additional Python privately in AppData.
 
 **Downloaded model but no English / no Automatic OCR?** Model files and GPU runtimes are separate.
-Open **Settings → Models & runtime → Acceleration**. The app detects graphics cards and recommends a runtime;
+Open **Settings → Acceleration**. The app detects graphics cards and recommends a runtime;
 you can choose manually. **Install runtime** downloads pinned dependencies into a separate local
 environment, shows stage progress, and checks native libraries. **Restart now** stops capture,
 waits for current work, and opens the new runtime. **Use on next launch** keeps this session running.

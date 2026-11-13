@@ -81,6 +81,14 @@ def main() -> int:
                 stage = 1
             elif stage == 1:
                 assert settings.isVisible() and not settings.isModal()
+                assert [settings.tabs.tabText(i) for i in range(settings.tabs.count())] == [
+                    "Appearance",
+                    "Recognition",
+                    "Models",
+                    "Acceleration",
+                    "Hotkeys",
+                ]
+                assert settings.runtime is None  # Merely opening Settings does not start setup.
                 assert window.stabilize_check.isChecked() and window.automatic_font.isChecked()
                 settings.grab().save(str(args.output / "appearance.png"))
                 settings.opacity.setValue(62)
@@ -96,6 +104,7 @@ def main() -> int:
                 window._manage_models()
                 stage = 3
             elif stage == 3:
+                assert settings.tabs.tabText(settings.tabs.currentIndex()) == "Models"
                 assert ("Download required" if args.missing_models else "Downloaded") in (
                     settings.models.download_badge.text()
                 )
@@ -123,8 +132,18 @@ def main() -> int:
                 if settings.busy:
                     return
                 assert window._runtime_dialog and window._runtime_dialog.isVisible()
+                assert settings.tabs.tabText(settings.tabs.currentIndex()) == "Acceleration"
                 assert not window._translation and not window._ocr
                 settings.grab().save(str(args.output / "runtime.png"))
+                runtime = settings.runtime
+                settings.show_hotkeys()
+                assert settings.tabs.tabText(settings.tabs.currentIndex()) == "Hotkeys"
+                settings.show_models()
+                settings.show_runtime()
+                assert (
+                    settings.runtime is runtime
+                )  # Navigating never replaces an active setup view.
+                evidence["separate_setup_tabs_and_navigation"] = True
                 settings.resize(550, 470)
                 stage = 5
             elif stage == 5:

@@ -2,7 +2,7 @@ DanteJP - Windows x64
 
 1. Extract this entire ZIP to a folder. Do not run it inside the ZIP preview.
 2. Double-click DanteJP.exe. Keep the _internal folder beside the EXE.
-3. Open Settings > Models & runtime > Models. Download MeikiOCR and Sugoi V4
+3. Open Settings > Models. Download MeikiOCR and Sugoi V4
    (CPU) or Gemma 4 E2B (CPU or GPU). No models download until you ask.
 4. CPU support is included: Gemma works without installing a GPU runtime.
    For faster processing, optionally use the Acceleration tab to install

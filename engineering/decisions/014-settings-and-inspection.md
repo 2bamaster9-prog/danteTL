@@ -4,6 +4,10 @@ The user approved the compact main window and separate Settings after reviewing 
 Everyday controls stay on the main window; setup, appearance and recognition belong in a single
 nonmodal Settings window. Advanced is collapsed initially. Essential failures remain visible.
 
+Settings exposes Appearance, Recognition, Models, Acceleration and Hotkeys as peer tabs. There
+is no nested Models/runtime tab bar. Setup links select their page by identity, and Acceleration
+creates its existing view lazily on first visit. Navigating away never replaces or stops its worker.
+
 `settings_window` owns the configuration widgets and embeds the existing model/runtime views.
 Their workers continue when Settings hides; an explicit choice permits background operation or
 cancels it. App shutdown still cancels and drains all owned work before restart or destruction.

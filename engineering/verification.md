@@ -677,3 +677,14 @@ hotkeys. Actual user AppData, model files and development GPU environments were 
 342 model-free tests, Ruff and Pyright passed. Coverage includes CPU engine discovery without
 native imports, missing/incomplete engines, CPU loading without NVIDIA packages, bounded CPU
 threads/no offload, CPU selection without forced setup, and CPU/GPU-specific model/cache readiness.
+
+## Separate Settings tabs (2026-11-14)
+
+Models and Acceleration are peer tabs beside Appearance, Recognition and Hotkeys. Native UI checks
+passed direct setup/hotkey navigation, lazy runtime creation/reuse, compact scrolling and maximized
+Advanced disclosure. Reviewed screenshots under `artifacts/settings-tabs/ui` show one tab bar.
+342 model-free tests, Ruff and Pyright passed. Native model preparation and live CPU translation,
+dialogue swaps, inspection pause and shutdown also passed. The rebuilt ZIP's 6,928 manifest files
+passed Unicode-path relocation with Python absent from PATH. Packaged runtime verification/restart
+through Acceleration reused the existing isolated CPU runtime and transferred/released hotkeys.
+Only fixture AppData was used; no game compatibility claim or dependency changes accompany this UI edit.
