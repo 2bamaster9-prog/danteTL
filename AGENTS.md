@@ -2,13 +2,19 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/021-imported-models.md`. NVIDIA OCR and Gemma share pinned CUDA 13 libraries.
+`engineering/plans/022-session-lifecycle.md`. NVIDIA OCR and Gemma share pinned CUDA 13 libraries.
 Standalone releases bundle MeikiOCR weights, CPU ONNX and llama.cpp; translation models, preferences and optional GPU
 environments live in per-user AppData. Runtime names describe hardware, not model brands.
 
 The public app name is DanteJP. Preserve the legacy Python package/CLI IDs and `JP_OVERLAY_*`
 variables for installed-runtime compatibility; the branding rename must not invalidate dependencies.
 
+- `LiveSession` owns reconciliation/acknowledgement order, scene resets, grouping and English publication.
+  Keep Qt presentation and model preparation separate; test policy with explicit-time worker replays.
+  Known `RequestRejected` failures are scoped to bounded request/revision/context state; fatal native
+  failures still stop the translator. OCR cleanup must finish on its owner before `finished` is true.
+  Runtime selection validates the selected environment's own receipt, independent of latest prepared.
+  `OwnedProcess` creates suspended, assigns its job and then resumes; never launch before containment.
 - Use Python with deep modules: small public interfaces that own meaningful complexity.
 - Keep Windows, Qt, capture-library, and model details at their respective boundaries.
 - Use explicit dependencies and typed values. Do not create generic frameworks for hypothetical needs.

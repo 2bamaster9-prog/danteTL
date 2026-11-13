@@ -12,6 +12,7 @@ from jp_overlay.dialogue_context import DialogueTurn
 from jp_overlay.gguf_models import ImportedModel, fingerprint, inspect_gguf
 from jp_overlay.llama_runtime import load_runtime
 from jp_overlay.paths import state_root
+from jp_overlay.translation_backend import RequestRejected
 
 CONTEXT = 2048
 OUTPUT_LIMIT = 384
@@ -40,7 +41,9 @@ def user_prompt(text: str, context: tuple[DialogueTurn, ...]) -> str:
 def completed_answer(response: Any) -> str:
     choice = response["choices"][0]
     if choice["finish_reason"] != "stop":
-        raise RuntimeError("Model reached its output limit; incomplete translation was discarded.")
+        raise RequestRejected(
+            "Model reached its output limit; incomplete translation was discarded."
+        )
     text = choice["text"].strip()
     # Qwen's non-thinking template can emit an empty block. Never publish actual reasoning.
     text = re.sub(r"^<think>\s*</think>\s*", "", text)
@@ -60,7 +63,7 @@ def completed_answer(response: Any) -> str:
             )
         )
     ):
-        raise RuntimeError(
+        raise RequestRejected(
             "Model returned empty text, reasoning, or control tokens. Try another profile/model."
         )
     return text
@@ -179,7 +182,7 @@ class GgufBackend:
         if self._model is None:
             raise RuntimeError("Imported model is closed.")
         if not text.strip() or len(text) > 512:
-            raise ValueError("Translation source must contain 1–512 characters.")
+            raise RequestRejected("Translation source must contain 1–512 characters.")
         context = context[-2:]
         while sum(len(t.source) + len(t.english) for t in context) > 512:
             context = context[1:]
@@ -196,12 +199,12 @@ class GgufBackend:
                 )
                 prompt = formatted.prompt
             if len(prompt) > 65_536:
-                raise ValueError("Model chat template produced an oversized prompt.")
+                raise RequestRejected("Model chat template produced an oversized prompt.")
             tokens = self._model.tokenize(prompt.encode(), add_bos=False, special=True)
             if len(tokens) + OUTPUT_LIMIT <= CONTEXT:
                 break
             if not context:
-                raise ValueError("Source exceeds the allocated context; refusing truncation.")
+                raise RequestRejected("Source exceeds the allocated context; refusing truncation.")
             context = context[1:]
         response = self._model.create_completion(
             prompt=tokens,

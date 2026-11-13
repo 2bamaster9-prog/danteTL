@@ -9,7 +9,11 @@ stable for installed environments. Branding must not change the dependency finge
 runtime installation. Logs now use `%LOCALAPPDATA%/DanteJP/logs`; old logs are not migrated/deleted.
 
 `app` assembles the Windows boundary, QApplication, main window, and lazy OCR/translation factories.
-`ui` owns coordination for one capture/OCR/translation session and the compact main window.
+`ui` owns Qt presentation and model/setup lifecycle. `live_session.LiveSession` owns the live
+capture/OCR/visual session, resets, accepted observations, tracking/grouping, acknowledgement order
+and published English. Its commands accept explicit time and return immutable scene values; replay
+checks require no window. Worker factories are explicit dependencies. Preparing/selecting a model
+remains separate; the coordinator supplies work to the active translation worker.
 `settings_window` owns nonmodal configuration/setup views; `preferences` owns validated settings
 and coalesced atomic persistence. `controls` and `theme` provide shared Qt presentation.
 `hotkeys` owns three registrations, transactional replacement and transient hold state behind a
@@ -39,8 +43,9 @@ confirmation, and retirement; it stores no frame images and has no native/model 
 llama.cpp, local QAT weights, bounded prompt/output and process-local CUDA 13 library setup.
 `diagnostics` creates bounded read-only overlay snapshots from visual/OCR/translation state.
 `translation_cache` owns bounded
-memory/SQLite storage. `text_layout` owns measured English wrapping and viewport limits. The current
-single-session coordinator can move out of the UI when a second consumer requires it.
+memory/SQLite storage. `text_layout` owns measured English wrapping and viewport limits. Live coordination
+is extracted now because reconciliation/lifecycle ordering has become substantial application policy.
+See [decision 022](decisions/022-session-lifecycle.md).
 
 ## Coordinates
 
@@ -119,7 +124,8 @@ evidence, rather than every captured frame, schedules regional or full-frame inf
 Resize and minimize increment a generation and clear pending/published work. Already-running
 native inference finishes, but cannot publish into an invalid generation. Each new capture has a
 separate worker. Stop clears the inspector and overlay immediately; the GUI polls all workers'
-completion before restarting or closing. A model failure preserves its diagnostic while capture
+completion before restarting or closing. Recognizers explicitly release native sessions on the
+owning worker; `finished` also requires that thread to exit. A model failure preserves its diagnostic while capture
 continues; stop/start retries loading. There is no forced interruption of an ONNX call.
 
 An `OcrResult` retains its exact source frame, text regions, character boxes/scores, inference duration,
@@ -203,8 +209,8 @@ CUDA recognition uses a fixed batch of four: incomplete batches are padded and o
 to the actual count before postprocessing. This avoids measured half-second cuDNN replanning when
 switching full scans and one-line crops. CPU batching is unchanged. No dummy detection can publish.
 
-Pause freezes the current image/table and invalidates queued work while capture continues. Resume
-resubmits the latest frame. Resize/minimize/stop clear even a frozen inspection to prevent a stale
+Pause freezes only the inspector image/table. Capture, reconciliation and translation continue;
+resume displays the latest source-matched observation without invalidating or resubmitting work. Resize/minimize/stop clear even a frozen inspection to prevent a stale
 source from appearing active. Tracking resets on these events and on failure; IDs are never reused
 during the tracker object's lifetime. The raw inspector remains independent of smoothed display data.
 
@@ -322,12 +328,16 @@ worker identity: a translation cannot survive a model change just because source
 Switches clear painted blocks and both live/frozen inspector English immediately; persistent cache
 entries remain separated by backend identity and are intentionally reusable when switching back.
 
-`TranslationBackend` exposes `cache_identity`, batched `translate`, and `close`. Factories are passed
+`TranslationBackend` exposes `cache_identity`, `batch_size`, batched `translate`, and `close`.
+`ContextualBackend` explicitly adds bounded contextual translation. Factories are passed
 from `app`; adding another engine needs an adapter and registration, not pipeline changes. The two
 initial choices are Sugoi decoding profiles, not different model weights. Switching drains the active
 call, unloads the old backend, then loads the latest selected backend on the same worker. No two
 loaded models are deliberately retained. Stop is nonblocking; native calls finish before teardown.
-Failure leaves OCR/capture running and presents a diagnostic; toggle English off/on to retry.
+Known input/answer rejection affects only that request and exposes a diagnostic. The worker retains
+unrelated results and suppresses repeated failed work using a bounded request/revision/context map.
+Session/backend resets clear that map. Fatal engine failure leaves OCR/capture running; toggle
+Translation overlay off/on to retry. See [decision 022](decisions/022-session-lifecycle.md).
 
 Sugoi uses pinned local weights, Japanese/English SentencePiece files, CPU int8, two threads, and
 beam size two (Fast CPU) or five (Wider search). The adapter rejects overlong input or missing output
@@ -410,8 +420,10 @@ before use. Provider initialization alone was insufficient for the pinned Meiki 
 
 `runtime_dialog` presents detection, installation and restart separately from model downloads.
 `hardware` owns DXGI enumeration; `runtime_setup` owns pinned profiles, contained environment paths,
-OS installation locking, fingerprinted receipts, verified reuse and replacement repair. `setup_process`
-owns cancellable hidden child processes and bounded output. Work is polled through the existing
+OS installation locking, fingerprinted receipts, verified reuse and replacement repair. Latest
+prepared and committed selection are independent; selection/rollback validate the environment's
+own receipt. `owned_process` creates suspended, assigns its Windows job, then resumes. `setup_process`
+owns cancellation, deadlines and bounded output; termination drains owned descendants. Work uses the existing
 setup-operation snapshot; native libraries load only in a child probe or inference worker.
 At normal startup, one `HardwareCheck` worker reads adapters and installed package metadata without
 loading inference libraries, models or performing downloads. `setup_status` derives CPU-selection,

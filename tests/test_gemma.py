@@ -5,6 +5,7 @@ import pytest
 
 from jp_overlay import gemma
 from jp_overlay.dialogue_context import DialogueTurn
+from jp_overlay.translation_backend import RequestRejected
 
 
 @pytest.fixture
@@ -60,7 +61,7 @@ def test_gemma_uses_bounded_local_gpu_and_complete_answers(runtime, tmp_path):
     ],
 )
 def test_unfinished_or_reasoning_responses_never_enter_cache(text, reason):
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RequestRejected):
         gemma.completed_translation({"choices": [{"text": text, "finish_reason": reason}]})
 
 

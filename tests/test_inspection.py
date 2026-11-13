@@ -289,18 +289,18 @@ def test_hotkeys_keep_selected_window_and_respect_stop_close_and_modal_guards(
     window._settings.hotkeys.capture_focused.setChecked(False)
     window._hotkey_activated(HotkeyAction.CAPTURE)
     capture.assert_called_once_with(target, windows, fps=8)
-    active = window._session
+    active = window._pipeline.capture
     clear = Mock()
     window._clear_tracking = clear
     window._hotkey_activated(HotkeyAction.OVERLAY)
-    assert not window.overlay_check.isChecked() and window._session is active
+    assert not window.overlay_check.isChecked() and window._pipeline.capture is active
     clear.assert_not_called()
     window._hotkey_activated(HotkeyAction.CAPTURE)
     assert not window.start_button.isEnabled()
     capture.return_value.request_stop.assert_called_once()
     window._hotkey_activated(HotkeyAction.CAPTURE)
     capture.return_value.request_stop.assert_called_once()
-    window._session = None
+    window._pipeline.capture = None
     window.start_button.setEnabled(True)
     windows.is_target.return_value = False
     window._hotkey_activated(HotkeyAction.CAPTURE)
@@ -369,7 +369,7 @@ def test_capture_hotkey_picks_focused_window_but_never_retargets_running_capture
     window._hotkey_activated(HotkeyAction.CAPTURE)
     capture.return_value.request_stop.assert_called_once()
     windows.foreground_target.assert_called_once()
-    window._session = None
+    window._pipeline.capture = None
     window.start_button.setEnabled(True)
     window._hotkey_activated(HotkeyAction.CAPTURE)
     assert "Focus the game" in window.status.text()
@@ -384,7 +384,7 @@ def test_capture_hotkey_picks_focused_window_but_never_retargets_running_capture
     window._hotkey_activated(HotkeyAction.CAPTURE)
     assert window.windows_combo.count() == 1 and window.windows_combo.currentData() == renamed
     assert capture.call_count == 2
-    window._session = None
+    window._pipeline.capture = None
     window.close()
     window.deleteLater()
 
@@ -400,15 +400,15 @@ def test_original_hold_is_transient_and_focus_loss_cancels_it(app, tmp_path):
     window._timer.stop()
     window._advance_session = Mock()
     window._update_notice = Mock()
-    window._session = Mock(finished=False)
-    workers = (window._session, window._ocr, window._translation)
+    window._pipeline.capture = Mock(finished=False)
+    workers = (window._pipeline.capture, window._pipeline.ocr, window._translation)
     clear = Mock()
     window._clear_tracking = clear
     window._overlay.show()
     window._original_changed(True)
     assert window._showing_original and not window._overlay.isVisible()
     assert window.overlay_check.isChecked() and window.translate_check.isChecked()
-    assert (window._session, window._ocr, window._translation) == workers
+    assert (window._pipeline.capture, window._pipeline.ocr, window._translation) == workers
     window._original_changed(False)
     assert not window._showing_original
     window._advance_session.assert_called_once()  # Re-evaluate current visibility on release.
@@ -428,7 +428,7 @@ def test_original_hold_is_transient_and_focus_loss_cancels_it(app, tmp_path):
     assert hotkeys.holding_original and window._showing_original
     window._stop("Stopped during hold")
     assert not hotkeys.holding_original and not window._showing_original
-    window._session = None
+    window._pipeline.capture = None
     window.close()
     window.deleteLater()
 
@@ -1016,6 +1016,7 @@ def test_device_and_rate_edits_wait_for_next_capture_even_when_models_arrive_mid
     cpu, gpu = Mock(), Mock()
     choices = (OcrChoice("CPU", cpu, key="cpu"), OcrChoice("GPU", gpu, key="auto"))
     capture, ocr = Mock(), Mock()
+    capture.return_value.finished = False
     monkeypatch.setattr("jp_overlay.ui.CaptureSession", capture)
     monkeypatch.setattr("jp_overlay.ui.OcrSession", ocr)
     monkeypatch.setattr("jp_overlay.ui.VisualSession", Mock())
@@ -1031,11 +1032,11 @@ def test_device_and_rate_edits_wait_for_next_capture_even_when_models_arrive_mid
     window._refresh_models()
     ocr.assert_called_once_with(gpu, require_ack=True)
     assert capture.call_count == 1  # Editing settings did not restart the current session.
-    window._session = window._ocr = window._visual = None
+    window._pipeline.capture = window._pipeline.ocr = window._pipeline.visual = None
     window._toggle_capture()
     assert capture.call_args.kwargs["fps"] == 5
     assert ocr.call_args.args == (cpu,)
-    window._session = window._ocr = window._visual = None
+    window._pipeline.capture = window._pipeline.ocr = window._pipeline.visual = None
     window.close()
     window.deleteLater()
 
@@ -1088,24 +1089,28 @@ def test_live_reconciliation_and_ocr_ack_continue_while_inspector_is_hidden_or_p
     windows = Mock()
     windows.list_targets.return_value = []
     window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
-    window._ocr, window._visual, window._tracker = Mock(), Mock(), Mock()
-    window._tracker.visible.return_value = ()
-    window._tracker.translation_activity.return_value = ()
-    window._tracker.observe.return_value = (1,)
+    window._pipeline.ocr, window._pipeline.visual, window._pipeline._tracker = (
+        Mock(),
+        Mock(),
+        Mock(),
+    )
+    window._pipeline._tracker.visible.return_value = ()
+    window._pipeline._tracker.translation_activity.return_value = ()
+    window._pipeline._tracker.observe.return_value = (1,)
     bounds = Rect(0, 0, 4, 4)
     geometry = WindowGeometry(bounds, bounds, bounds, 96)
     frozen = None
     for sequence in range(1, 4):
         frame = CapturedFrame(sequence, sequence, geometry, b"\xff" * 64)
         result = OcrResult(frame, (TextRegion("猫", bounds),), 10, sequence)
-        window._ocr.snapshot.return_value = OcrSnapshot(OcrState.READY, result)
-        window._visual.poll.return_value = VisualState(
+        window._pipeline.ocr.snapshot.return_value = OcrSnapshot(OcrState.READY, result)
+        window._pipeline.visual.poll.return_value = VisualState(
             frame=frame, request_ocr=True, checked_sequence=sequence
         )
         window._update_ocr(frame)
-        assert window._accepted_ocr is result
-        window._ocr.acknowledge.assert_called_with(sequence)
-        assert window._visual.submit.call_args.args[1] is result
+        assert window._pipeline.accepted is result
+        window._pipeline.ocr.acknowledge.assert_called_with(sequence)
+        assert window._pipeline.visual.submit.call_args.args[1] is result
         if sequence == 1:
             assert window.inspector.result is None
             window.advanced.setChecked(True)
@@ -1114,14 +1119,14 @@ def test_live_reconciliation_and_ocr_ack_continue_while_inspector_is_hidden_or_p
         else:
             assert window.inspector.result is frozen
             window.advanced.setChecked(False)
-    window._tracker.reset.assert_not_called()
-    window._ocr.invalidate.assert_not_called()
-    assert window._ocr.submit.call_count == 3
+    window._pipeline._tracker.reset.assert_not_called()
+    window._pipeline.ocr.invalidate.assert_not_called()
+    assert window._pipeline.ocr.submit.call_count == 3
     window.inspector.pause.setChecked(False)
     assert window.inspector.result is None  # Still collapsed: no hidden image conversion.
     window.advanced.setChecked(True)
-    assert window.inspector.result is window._accepted_ocr
-    window._ocr = window._visual = None
+    assert window.inspector.result is window._pipeline.accepted
+    window._pipeline.ocr = window._pipeline.visual = None
     window.close()
     window.deleteLater()
 
@@ -1138,23 +1143,23 @@ def test_translation_off_leaves_game_unobscured_until_ocr_boxes_are_requested(ap
     windows.is_foreground.return_value = True
     window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
     window.translate_check.setChecked(False)
-    window._session = Mock(finished=False, target=WindowTarget(1, 1, "Fixture"))
-    window._session.snapshot.return_value = CaptureSnapshot(CaptureState.RUNNING, frame)
-    window._valid_size = bounds.size
+    window._pipeline.capture = Mock(finished=False, target=WindowTarget(1, 1, "Fixture"))
+    window._pipeline.capture.snapshot.return_value = CaptureSnapshot(CaptureState.RUNNING, frame)
+    window._pipeline.valid_size = bounds.size
     window._update_ocr = Mock()
-    window._tracker = Mock()
+    window._pipeline._tracker = Mock()
     track = TextTrack(1, "猫", Rect(20, 20, 40, 20))
-    window._tracker.visible.return_value = (track,)
-    window._tracker.translation_tracks.return_value = (track,)
-    window._tracker.translation_activity.return_value = ()
+    window._pipeline._tracker.visible.return_value = (track,)
+    window._pipeline._tracker.translation_tracks.return_value = (track,)
+    window._pipeline._tracker.translation_activity.return_value = ()
     window._overlay.align = Mock()
     window._tick()
     window._overlay.align.assert_not_called()
     window.raw_boxes_check.setChecked(True)
     window._overlay.align.assert_called_with(bounds)
     window.overlay_check.setChecked(False)
-    window._tracker.reset.assert_not_called()
-    window._session = None
+    window._pipeline._tracker.reset.assert_not_called()
+    window._pipeline.capture = None
     window.close()
     window.deleteLater()
 

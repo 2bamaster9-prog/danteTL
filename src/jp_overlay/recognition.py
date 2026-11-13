@@ -73,6 +73,7 @@ class OcrSnapshot:
 
 class Recognizer(Protocol):
     def recognize(self, frame: CapturedFrame, /) -> tuple[TextRegion, ...]: ...
+    def close(self) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,7 +88,7 @@ class OcrSession:
     """Own models on a worker thread. No Qt, Windows calls, or unbounded job queues.
 
     A new capture gets a new session. Invalidation discards in-flight results after
-    resize/minimize/pause; shutdown waits asynchronously for native inference to return.
+    resize/minimize; inspection pause is independent. Shutdown drains inference and cleanup.
     """
 
     def __init__(self, factory: Callable[[], Recognizer], *, require_ack: bool = False) -> None:
@@ -160,7 +161,7 @@ class OcrSession:
 
     @property
     def finished(self) -> bool:
-        return self._done.is_set()
+        return self._done.is_set() and not self._thread.is_alive()
 
     def snapshot(self) -> OcrSnapshot:
         with self._condition:
@@ -184,6 +185,7 @@ class OcrSession:
         )
 
     def _run(self) -> None:
+        engine: Recognizer | None = None
         try:
             with self._condition:
                 if self._stop:
@@ -233,6 +235,15 @@ class OcrSession:
             with self._condition:
                 self._snapshot = OcrSnapshot(OcrState.FAILED, message=str(error))
         finally:
+            if engine is not None:
+                try:
+                    engine.close()
+                except Exception as error:
+                    logger.exception("OCR cleanup failed")
+                    with self._condition:
+                        self._snapshot = OcrSnapshot(OcrState.FAILED, message=str(error))
+                finally:
+                    engine = None
             with self._condition:
                 self._pending = None
                 self._processing_since = None

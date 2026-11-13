@@ -12,6 +12,7 @@ from jp_overlay import app, gguf_backend, gguf_models, gguf_probe, llama_runtime
 from jp_overlay.dialogue_context import DialogueTurn
 from jp_overlay.model_store import Cancelled
 from jp_overlay.preferences import decode_preferences
+from jp_overlay.translation_backend import RequestRejected
 
 
 def gguf_file(tmp_path, *, architecture="qwen3", template="{{ messages[0].content }}", split=1):
@@ -185,7 +186,7 @@ def test_imported_context_is_bounded_and_source_is_never_truncated(tmp_path, fak
     ],
 )
 def test_non_answers_never_publish(text, reason):
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RequestRejected):
         gguf_backend.completed_answer({"choices": [{"text": text, "finish_reason": reason}]})
     assert (
         gguf_backend.completed_answer(

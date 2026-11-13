@@ -61,6 +61,9 @@ def main() -> int:
             time.sleep(args.ocr_delay_ms / 1000)
             return self.engine.recognize(frame)
 
+        def close(self) -> None:
+            self.engine.close()
+
     windows = Windows()
     windows.enable_dpi_awareness()
     app = QApplication([])
@@ -141,14 +144,14 @@ def main() -> int:
             if now - started > timeout:
                 raise RuntimeError(f"Live OCR verification timed out at stage {stage}")
             if stage == 99:
-                if window._session is None:
+                if window._pipeline.capture is None:
                     window.close()
                     demo.close()
                     timer.stop()
                     app.quit()
                 return
-            if window._ocr and window._ocr.snapshot().state == OcrState.FAILED:
-                raise RuntimeError(window._ocr.snapshot().message)
+            if window._pipeline.ocr and window._pipeline.ocr.snapshot().state == OcrState.FAILED:
+                raise RuntimeError(window._pipeline.ocr.snapshot().message)
             if (
                 window._translation
                 and window._translation.snapshot().state == TranslationState.FAILED
@@ -180,10 +183,10 @@ def main() -> int:
                     reveal_finished = now
                 if not all(line in [r.text for r in result.regions] for line in DIALOGUE_LINES):
                     return
-            if stage == 8 and phrase_id and window._session:
-                latest = window._session.snapshot().frame
+            if stage == 8 and phrase_id and window._pipeline.capture:
+                latest = window._pipeline.capture.snapshot().frame
                 if latest:
-                    current = window._tracker.visible(latest, now)
+                    current = window._pipeline._tracker.visible(latest, now)
                     assert any(t.track_id == phrase_id for t in current), (
                         "Track blinked between OCR passes"
                     )
@@ -202,7 +205,8 @@ def main() -> int:
                 if args.dialogue:
                     assert DIALOGUE_LINES[1] in text, text
                     assert any(
-                        t.text == "旅人" for t in window._tracker.visible(result.frame, now)
+                        t.text == "旅人"
+                        for t in window._pipeline._tracker.visible(result.frame, now)
                     ), "Unscanned speaker disappeared"
                 assert window.inspector.table.rowCount() == len(result.regions)
                 evidence["live_japanese_recognized"] = True
@@ -212,11 +216,14 @@ def main() -> int:
                     provider = (
                         "CUDAExecutionProvider" if args.device == "cuda" else "DmlExecutionProvider"
                     )
-                    assert window._ocr and window._ocr.snapshot().provider == provider
-                    evidence["actual_gpu_provider"] = window._ocr.snapshot().provider
+                    assert (
+                        window._pipeline.ocr
+                        and window._pipeline.ocr.snapshot().provider == provider
+                    )
+                    evidence["actual_gpu_provider"] = window._pipeline.ocr.snapshot().provider
                 initial_size = result.frame.geometry.client.size
                 frozen = result
-                tracks = window._tracker.visible(result.frame, now)
+                tracks = window._pipeline._tracker.visible(result.frame, now)
                 phrase = next((t for t in tracks if t.text == expected), None)
                 if phrase is None:
                     return  # Raw OCR can complete before its source-matched track commits.
@@ -228,7 +235,7 @@ def main() -> int:
                 and frozen
                 and result.frame.sequence >= frozen.frame.sequence + 3
             ):
-                tracks = window._tracker.visible(result.frame, now)
+                tracks = window._pipeline._tracker.visible(result.frame, now)
                 phrase = next(t for t in tracks if t.track_id == phrase_id)
                 assert phrase.bounds == phrase_bounds, "Stationary dialogue box changed bounds"
                 if args.translation:
@@ -363,7 +370,9 @@ def main() -> int:
                 evidence["panel_restore_seconds"] = round(now - stage_started, 3)
                 assert result is not None
                 restored = next(
-                    t for t in window._tracker.visible(result.frame, now) if t.text == expected
+                    t
+                    for t in window._pipeline._tracker.visible(result.frame, now)
+                    if t.text == expected
                 )
                 evidence["closed_panel_identity_retired"] = restored.track_id != phrase_id
                 phrase_id, phrase_bounds = restored.track_id, restored.bounds
@@ -376,7 +385,12 @@ def main() -> int:
                 with patch.object(windows, "is_foreground", return_value=True):
                     window._tick()
                     assert window._overlay.isVisible(), "Inspector pause hid the live overlay"
-                    workers = (window._session, window._ocr, window._visual, window._translation)
+                    workers = (
+                        window._pipeline.capture,
+                        window._pipeline.ocr,
+                        window._pipeline.visual,
+                        window._translation,
+                    )
                     english = window._overlay._translations
                     window._original_changed(True)
                     assert not window._overlay.isVisible()
@@ -388,9 +402,9 @@ def main() -> int:
                     )
                     assert window._overlay._translations == english
                     assert workers == (
-                        window._session,
-                        window._ocr,
-                        window._visual,
+                        window._pipeline.capture,
+                        window._pipeline.ocr,
+                        window._pipeline.visual,
                         window._translation,
                     ), "Original hold replaced processing workers"
                     window.overlay_check.setChecked(False)
@@ -399,8 +413,8 @@ def main() -> int:
                     assert not window._overlay.isVisible(), "Release overrode the visibility switch"
                     window.overlay_check.setChecked(True)
                     evidence["original_hold_restores_english_without_worker_restart"] = True
-                assert window._session is not None
-                captured = window._session.snapshot().frame
+                assert window._pipeline.capture is not None
+                captured = window._pipeline.capture.snapshot().frame
                 assert captured and frozen and captured.sequence > frozen.frame.sequence
                 evidence["pause_freezes_result_while_capture_continues"] = True
                 evidence["pause_preserves_live_overlay"] = True
@@ -424,10 +438,10 @@ def main() -> int:
                 evidence["restore_resumes_ocr"] = True
                 window.start_button.click()
                 stage = 5
-            elif stage == 5 and window._session is None:
-                assert window._ocr is None
+            elif stage == 5 and window._pipeline.capture is None:
+                assert window._pipeline.ocr is None
                 assert window._translation is None
-                assert window._visual is None
+                assert window._pipeline.visual is None
                 assert window.inspector.result is None
                 if args.device != "cpu":
                     window.ocr_device.setCurrentIndex(1)
@@ -435,15 +449,18 @@ def main() -> int:
                 stage = 6
             elif stage == 6 and result:
                 if args.device != "cpu":
-                    assert window._ocr and window._ocr.snapshot().provider == "CPUExecutionProvider"
+                    assert (
+                        window._pipeline.ocr
+                        and window._pipeline.ocr.snapshot().provider == "CPUExecutionProvider"
+                    )
                     evidence["cpu_selection_after_gpu_session"] = True
                 evidence["restart_receives_new_result"] = True
                 window.close()
                 stage = 7
-            elif stage == 7 and window._session is None:
-                assert window._ocr is None
+            elif stage == 7 and window._pipeline.capture is None:
+                assert window._pipeline.ocr is None
                 assert window._translation is None
-                assert window._visual is None
+                assert window._pipeline.visual is None
                 assert not window.isVisible()
                 evidence["close_finishes_all_workers"] = True
                 evidence["elapsed_seconds"] = round(now - started, 2)
@@ -454,11 +471,11 @@ def main() -> int:
             evidence["failure_state"] = {
                 "stage": stage,
                 "revealed": demo.revealed,
-                "visual_source": window._visual_state.ocr_sequence,
-                "visual_blocked": sorted(window._visual_state.blocked),
+                "visual_source": window._pipeline.visual_state.ocr_sequence,
+                "visual_blocked": sorted(window._pipeline.visual_state.blocked),
                 "readings": [
                     {"text": a.observation.text, "pending": a.pending, "growing": a.growing}
-                    for a in window._tracker.translation_activity()
+                    for a in window._pipeline._tracker.translation_activity()
                 ],
             }
             traceback.print_exc()

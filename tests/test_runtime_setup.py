@@ -108,6 +108,7 @@ def test_repair_creates_replacement_without_modifying_running_environment(projec
     setup.install_runtime(root, setup.PROFILES[0], lambda p: None, threading.Event())
     old = setup.ready_runtime(root, "nvidia")
     assert old
+    setup.select_runtime(root, old)
     (old / "keep").write_text("loaded dll")
 
     def fail_old(args, *a, **kw):
@@ -119,6 +120,8 @@ def test_repair_creates_replacement_without_modifying_running_environment(projec
     setup.install_runtime(root, setup.PROFILES[0], lambda p: None, threading.Event())
     assert setup.ready_runtime(root, "nvidia") != old
     assert (old / "keep").read_text() == "loaded dll"
+    assert setup.selected_runtime(root) == old
+    setup.select_runtime(root, old)  # Rollback accepts the old verified receipt too.
 
 
 @pytest.mark.parametrize("name", ["../.venv", "cpu-../../elsewhere", "C:/Python", ".venv"])
@@ -138,13 +141,46 @@ def test_restart_commits_only_after_new_window_acknowledges(project, monkeypatch
     assert target
     process = Mock()
     process.poll.return_value = None
-    monkeypatch.setattr(runtime_restart.subprocess, "Popen", lambda *a, **kw: process)
-    monkeypatch.setattr(runtime_restart, "ProcessTree", Mock())
+    monkeypatch.setattr(runtime_restart, "OwnedProcess", lambda *a, **kw: process)
     restart = runtime_restart.RuntimeRestart(root, target)
     assert not restart.poll() and not setup.selected_runtime(root)
     restart.receipt.parent.mkdir(parents=True)
     restart.receipt.write_text("12345")
     assert restart.poll() and setup.selected_runtime(root) == target
+
+
+@pytest.mark.parametrize("failure", ["start", "handoff"])
+def test_repaired_profile_keeps_previous_selection_on_activation_failure(
+    project, monkeypatch, failure
+):
+    root, _, run = project
+    profile = setup.PROFILES[0]
+    setup.install_runtime(root, profile, lambda p: None, threading.Event())
+    previous = setup.ready_runtime(root, profile.key)
+    assert previous
+    setup.select_runtime(root, previous)
+
+    def replace_old(args, *a, **kw):
+        if args[0] == str(previous / "Scripts/python.exe"):
+            raise RuntimeError("Repair fixture")
+        run(args, *a, **kw)
+
+    monkeypatch.setattr(setup, "run_setup_command", replace_old)
+    setup.install_runtime(root, profile, lambda p: None, threading.Event())
+    target = setup.ready_runtime(root, profile.key)
+    assert target and target != previous
+    assert setup.selected_runtime(root) == previous
+    process = Mock()
+    process.poll.return_value = 1 if failure == "start" else None
+    process.release.side_effect = OSError("handoff failed")
+    monkeypatch.setattr(runtime_restart, "OwnedProcess", lambda *a, **kw: process)
+    restart = runtime_restart.RuntimeRestart(root, target)
+    if failure == "handoff":
+        restart.receipt.parent.mkdir(parents=True)
+        restart.receipt.write_text("12345")
+    with pytest.raises((RuntimeError, OSError)):
+        restart.poll()
+    assert setup.selected_runtime(root) == previous
 
 
 def test_failed_restart_preserves_previous_selection(project, monkeypatch):
@@ -158,8 +194,7 @@ def test_failed_restart_preserves_previous_selection(project, monkeypatch):
     assert target
     process = Mock()
     process.poll.return_value = 1
-    monkeypatch.setattr(runtime_restart.subprocess, "Popen", lambda *a, **kw: process)
-    monkeypatch.setattr(runtime_restart, "ProcessTree", Mock())
+    monkeypatch.setattr(runtime_restart, "OwnedProcess", lambda *a, **kw: process)
     restart = runtime_restart.RuntimeRestart(root, target)
     with pytest.raises(RuntimeError, match="could not start"):
         restart.poll()
@@ -230,12 +265,10 @@ def test_restart_timeout_stops_tree_without_activating_runtime(project, monkeypa
     assert target
     process = Mock()
     process.poll.return_value = None
-    tree = Mock()
-    monkeypatch.setattr(runtime_restart.subprocess, "Popen", lambda *a, **kw: process)
-    monkeypatch.setattr(runtime_restart, "ProcessTree", lambda p: tree)
+    monkeypatch.setattr(runtime_restart, "OwnedProcess", lambda *a, **kw: process)
     restart = runtime_restart.RuntimeRestart(root, target)
     restart.deadline = 0
     with pytest.raises(RuntimeError, match="timed out"):
         restart.poll()
-    tree.close.assert_called_once()
+    process.close.assert_called_once()
     assert setup.selected_runtime(root) is None

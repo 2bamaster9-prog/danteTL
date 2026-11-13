@@ -94,16 +94,29 @@ def runtime_path(root: Path, name: str) -> Path:
 
 
 def ready_runtime(root: Path, key: str) -> Path | None:
+    """Latest prepared environment; independent of the committed selection."""
     if key not in {p.key for p in PROFILES}:
         return None
     try:
         receipt = json.loads((root / "data/runtimes" / f"{key}.json").read_text("utf-8"))
-        target = runtime_path(root, receipt["environment"])
+        target = verified_runtime(root, key, receipt["environment"])
+        if target and json.loads((target / "ready.json").read_text("utf-8")) == receipt:
+            return target
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    return None
+
+
+def verified_runtime(root: Path, key: str, name: str) -> Path | None:
+    """Validate an environment's own receipt, never a mutable profile pointer."""
+    try:
+        target = runtime_path(root, name)
+        receipt = json.loads((target / "ready.json").read_text("utf-8"))
         if (
-            target.name.startswith(key + "-")
-            and receipt["fingerprint"] == _fingerprint(root)
+            key in {p.key for p in PROFILES}
+            and target.name.startswith(key + "-")
+            and receipt == {"environment": name, "fingerprint": _fingerprint(root)}
             and (target / "Scripts/pythonw.exe").is_file()
-            and (target / "ready.json").read_text("utf-8") == json.dumps(receipt)
         ):
             return target
     except (OSError, ValueError, KeyError, TypeError):
@@ -114,15 +127,14 @@ def ready_runtime(root: Path, key: str) -> Path | None:
 def selected_runtime(root: Path) -> Path | None:
     try:
         value = json.loads((root / "data/runtime.json").read_text("utf-8"))
-        target = ready_runtime(root, value["profile"])
-        return target if target and target.name == value["environment"] else None
+        return verified_runtime(root, value["profile"], value["environment"])
     except (OSError, ValueError, KeyError, TypeError):
         return None
 
 
 def select_runtime(root: Path, target: Path) -> None:
     key = target.name.split("-", 1)[0]
-    if ready_runtime(root, key) != target.resolve():
+    if verified_runtime(root, key, target.name) != target.resolve():
         raise ValueError("Only a verified runtime can be selected.")
     _atomic_json(root / "data/runtime.json", {"profile": key, "environment": target.name})
 

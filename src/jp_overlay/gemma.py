@@ -9,6 +9,7 @@ from jp_overlay.dialogue_context import DialogueTurn
 from jp_overlay.llama_runtime import load_runtime
 from jp_overlay.models import ModelAsset, validate_asset
 from jp_overlay.paths import state_root
+from jp_overlay.translation_backend import RequestRejected
 
 REVISION = "675cff42a74c774d6cb76f76d8eacb49b48c9b93"
 ASSETS = (
@@ -66,14 +67,14 @@ def translation_prompt(text: str, context: tuple[DialogueTurn, ...] = ()) -> str
 def completed_translation(response: Any) -> str:
     choice = response["choices"][0]
     if choice["finish_reason"] != "stop":
-        raise RuntimeError("Gemma reached its output limit; refusing an incomplete translation.")
+        raise RequestRejected("Gemma reached its output limit; refusing an incomplete translation.")
     text = choice["text"].strip()
     if (
         not text
         or len(text) > 4096
         or any(marker in text for marker in ("<|channel>", "<channel|>", "<|turn>", "<think>"))
     ):
-        raise RuntimeError("Gemma returned empty, oversized, or non-answer text.")
+        raise RequestRejected("Gemma returned empty, oversized, or non-answer text.")
     return text
 
 
@@ -149,7 +150,7 @@ class GemmaBackend:
         if self._model is None:
             raise RuntimeError("Gemma is closed.")
         if not text.strip() or len(text) > 512:
-            raise ValueError("Gemma source must contain 1–512 characters.")
+            raise RequestRejected("Gemma source must contain 1–512 characters.")
         context = context[-2:]
         while sum(len(t.source) + len(t.english) for t in context) > 512:
             context = context[1:]
@@ -162,7 +163,9 @@ class GemmaBackend:
             if context:
                 context = context[1:]
                 continue
-            raise ValueError("Gemma source exceeds its allocated context; refusing truncation.")
+            raise RequestRejected(
+                "Gemma source exceeds its allocated context; refusing truncation."
+            )
         response = self._model.create_completion(
             prompt=tokens,
             max_tokens=OUTPUT_LIMIT,

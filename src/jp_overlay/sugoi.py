@@ -5,6 +5,7 @@ from pathlib import Path
 
 from jp_overlay.models import ModelAsset, validate_asset
 from jp_overlay.paths import state_root
+from jp_overlay.translation_backend import RequestRejected
 
 REVISION = "71d67eb8e73ec2f5aaefc0689e03a4eb843d3a2b"
 ASSETS = tuple(
@@ -50,6 +51,8 @@ def model_directory() -> Path:
 class SugoiBackend:
     """Only this adapter knows model paths, tokenization, and CTranslate2 options."""
 
+    batch_size = 4
+
     def __init__(self, directory: Path, *, threads: int = 2, beam_size: int = 2) -> None:
         for asset in ASSETS:
             validate_asset(directory / asset.filename, asset, "Setup Translation.cmd")
@@ -79,7 +82,7 @@ class SugoiBackend:
     def translate(self, texts: tuple[str, ...]) -> tuple[str, ...]:
         tokens = [self._source.encode(text, out_type=str) for text in texts]
         if any(len(source) > 512 for source in tokens):
-            raise ValueError("A source line exceeds Sugoi's 512-token input limit.")
+            raise RequestRejected("A source line exceeds Sugoi's 512-token input limit.")
         results = self._translator.translate_batch(
             tokens,
             beam_size=self._beam_size,
@@ -92,13 +95,13 @@ class SugoiBackend:
         for result in results:
             hypothesis = result.hypotheses[0]
             if not hypothesis or hypothesis[-1] != "</s>":
-                raise RuntimeError(
+                raise RequestRejected(
                     "Sugoi reached its output limit; refusing an incomplete translation."
                 )
             # Preserve unknown markers for inspection instead of silently deleting source content.
             text = self._target.decode(hypothesis[:-1]).strip()
             if not text:
-                raise RuntimeError("Sugoi returned an empty translation.")
+                raise RequestRejected("Sugoi returned an empty translation.")
             output.append(text)
         return tuple(output)
 

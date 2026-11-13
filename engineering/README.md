@@ -36,7 +36,8 @@ Read these documents as relevant to the task:
 | [First-run decision](decisions/019-first-run-setup.md) | Explicit guided setup and verified download progress |
 | [Bundled OCR decision](decisions/020-bundled-ocr.md) | Required recognition included, writable repairs kept separate |
 | [Imported model decision](decisions/021-imported-models.md) | Local GGUF registration, compatibility tests and prompt profiles |
-| [Current slice](plans/021-imported-models.md) | Local GGUF imports, preserving built-in translators |
+| [Session lifecycle decision](decisions/022-session-lifecycle.md) | Runtime selection, process ownership and request rejection |
+| [Current slice](plans/022-session-lifecycle.md) | Review fixes, live coordinator and Windows CI |
 
 The harness consists of these documents, executable checks, deterministic tests, and live capture
 verification. Add guidance when it resolves a concrete ambiguity; replace stale guidance instead

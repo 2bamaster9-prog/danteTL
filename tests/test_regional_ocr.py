@@ -65,6 +65,9 @@ def test_crops_use_source_pixels_and_translate_line_and_character_coordinates_on
                 ),
             )
 
+        def close(self) -> None:
+            pass
+
     areas = (Rect(100, 200, 100, 60), Rect(600, 300, 120, 70))
     regions, coverage = recognize_regions(Engine(), source, areas)
     assert coverage == areas
@@ -85,6 +88,9 @@ def test_cut_off_detection_retries_full_frame_instead_of_publishing_a_fragment()
             return (
                 TextRegion("完全な文章" if image.width == 1000 else "完全", Rect(0, 10, 80, 20)),
             )
+
+        def close(self) -> None:
+            pass
 
     regions, coverage = recognize_regions(Engine(), frame(), (Rect(100, 100, 200, 100),))
     assert coverage is None and regions[0].text == "完全な文章"
@@ -151,6 +157,9 @@ def test_worker_unions_waiting_coverage_on_latest_frame_and_waits_for_acknowledg
                 entered.set()
                 assert release.wait(4)
             return ()
+
+        def close(self) -> None:
+            pass
 
     session = OcrSession(Engine, require_ack=True)
     session.start()

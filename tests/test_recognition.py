@@ -42,6 +42,32 @@ class BlockingRecognizer:
         assert self.release.wait(3)
         return (TextRegion(str(source.sequence), Rect(0, 0, 10, 10)),)
 
+    def close(self) -> None:
+        pass
+
+
+def test_finished_waits_for_cleanup_and_owner_thread_exit():
+    cleaning, release = threading.Event(), threading.Event()
+
+    class Engine(BlockingRecognizer):
+        def close(self):
+            cleaning.set()
+            assert release.wait(3)
+
+    engine = Engine()
+    session = OcrSession(lambda: engine)
+    session.start()
+    await_condition(lambda: session.snapshot().state == OcrState.READY)
+    session.request_stop()
+    try:
+        assert cleaning.wait(3)
+        assert not session.finished
+        assert session.snapshot().state == OcrState.STOPPING
+    finally:
+        release.set()
+        await_condition(lambda: session.finished)
+    assert not session._thread.is_alive()
+
 
 def test_worker_skips_backlog_and_keeps_exact_source_frame() -> None:
     engine = BlockingRecognizer()
@@ -92,6 +118,9 @@ def test_pause_or_resize_discards_inflight_result_and_pending_work() -> None:
             assert self.second_release.wait(3)
             return (TextRegion("new generation", Rect(0, 0, 10, 10)),)
 
+        def close(self) -> None:
+            pass
+
     engine = StagedRecognizer()
     session = OcrSession(lambda: engine)
     session.start()
@@ -124,6 +153,9 @@ def test_inference_failure_clears_previous_detections() -> None:
             if source.sequence == 2:
                 raise RuntimeError("Inference failed")
             return (TextRegion("old text", Rect(0, 0, 10, 10)),)
+
+        def close(self) -> None:
+            pass
 
     session = OcrSession(FailingRecognizer)
     session.start()

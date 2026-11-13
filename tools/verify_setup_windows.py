@@ -71,16 +71,16 @@ def main() -> int:
         try:
             assert time.monotonic() - started < 90, "Setup verification timed out"
             if stage == 0:
-                if not window._session or not window._session.snapshot().frame:
+                if not window._pipeline.capture or not window._pipeline.capture.snapshot().frame:
                     return
-                assert window._ocr is None and window._translation is None
+                assert window._pipeline.ocr is None and window._translation is None
                 assert not window._overlay._translations
                 window.grab().save(str(output / "capture-only.png"))
                 evidence["capture_without_models"] = True
                 window.start_button.click()
                 stage = 1
             elif stage == 1:
-                if window._session is not None:
+                if window._pipeline.capture is not None:
                     return
                 window._models = bundles
                 # The fixture changes its catalog paths to simulate files arriving.

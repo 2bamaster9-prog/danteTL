@@ -1,4 +1,4 @@
-"""Window picker, clean capture preview, and session coordination on the Qt thread."""
+"""Qt presentation and model/setup lifecycle; live scene policy belongs to LiveSession."""
 
 import logging
 import subprocess
@@ -29,23 +29,21 @@ from jp_overlay.capture import CaptureSession
 from jp_overlay.controls import InfoButton, StatusBanner, Switch
 from jp_overlay.diagnostics import debug_display
 from jp_overlay.domain import CapturedFrame, CaptureState, WindowTarget, overlay_ready
-from jp_overlay.grouping import DialogueGrouper, TextBlock
+from jp_overlay.grouping import TextBlock
 from jp_overlay.hardware import HardwareCheck
 from jp_overlay.hotkeys import HotkeyAction, Hotkeys
 from jp_overlay.inspection import OcrInspector
+from jp_overlay.live_session import LiveSession
 from jp_overlay.model_manager import ModelManager
 from jp_overlay.model_store import ModelBundle, is_prepared, mark_prepared
 from jp_overlay.overlay import OverlayWindow
 from jp_overlay.paths import module_command, state_root
 from jp_overlay.preferences import PreferenceStore
-from jp_overlay.presentation import EnglishPresentation
 from jp_overlay.recognition import (
     OcrChoice,
-    OcrResult,
     OcrSession,
     OcrState,
     Recognizer,
-    overlay_result_ready,
 )
 from jp_overlay.runtime_dialog import RuntimeSetupDialog
 from jp_overlay.runtime_restart import RuntimeRestart
@@ -54,16 +52,15 @@ from jp_overlay.settings_window import SettingsWindow
 from jp_overlay.setup_assistant import SetupAssistant
 from jp_overlay.setup_status import SetupAdvice, acceleration_advice
 from jp_overlay.theme import STYLE
-from jp_overlay.tracking import TextTrack, TextTracker
 from jp_overlay.translation import BackendChoice, TranslationSession, TranslationState
-from jp_overlay.visual import VisualSession, VisualState
+from jp_overlay.visual import VisualSession
 from jp_overlay.windows import Windows, WindowUnavailable
 
 logger = logging.getLogger(__name__)
 
 
 class MainWindow(QMainWindow):
-    """Coordinate one capture session. Slow operations remain owned by the service."""
+    """Present the live session and manage explicit model/setup actions."""
 
     def __init__(
         self,
@@ -85,10 +82,10 @@ class MainWindow(QMainWindow):
         self._hotkeys = hotkeys
         self._notice_destination = "models"
         self._acceleration_advice = SetupAdvice()
-        self._session: CaptureSession | None = None
-        self._ocr: OcrSession | None = None
-        self._visual: VisualSession | None = None
-        self._visual_state = VisualState()
+        self._pipeline = LiveSession(
+            ocr_factory=lambda factory: OcrSession(factory, require_ack=True),
+            visual_factory=lambda: VisualSession(),
+        )
         self._translation: TranslationSession | None = None
         self._backends = backends
         self._models, self._backend_provider = models, backend_provider
@@ -99,7 +96,6 @@ class MainWindow(QMainWindow):
         self._setup_model = self._preferences.initial.setup_model
         self._setup_assistant: SetupAssistant | None = None
         self._saved_model = self._preferences.initial.model
-        self._accepted_ocr: OcrResult | None = None
         self._capture_ocr_choice: OcrChoice | None = None
         self._compact_size = QSize(720, 430)
         self._restart_target: Path | None = None
@@ -110,16 +106,10 @@ class MainWindow(QMainWindow):
         self._previous_backend: BackendChoice | None = None
         self._standby = False
         self._progress_dialog: QProgressDialog | None = None
-        self._context_reset_sequence = 0
         self._prepared_this_run: set[str] = set()
         self._cache_path = cache_path or state_root() / "data/translations.sqlite3"
         self._recognizer_factory = recognizer_factory
         self._ocr_backends = ocr_backends or (OcrChoice("CPU", recognizer_factory),)
-        self._valid_size: tuple[int, int] | None = None
-        self._tracker = TextTracker()
-        self._grouper = DialogueGrouper()
-        self._presentation = EnglishPresentation()
-        self._track_ids: tuple[int | None, ...] = ()
         self._overlay = OverlayWindow(windows)
         self._overlay.set_tracks(())
         self._last_sequence = 0
@@ -381,7 +371,7 @@ class MainWindow(QMainWindow):
                 self._show_setup_assistant()
 
     def _show_setup_assistant(self) -> None:
-        if self._closing or self._session or self._settings.busy or self._preparing:
+        if self._closing or self._pipeline.capture or self._settings.busy or self._preparing:
             return
         if self._setup_assistant and (
             self._setup_assistant.isVisible() or self._setup_assistant.busy
@@ -435,7 +425,10 @@ class MainWindow(QMainWindow):
         if action == HotkeyAction.OVERLAY:
             self.overlay_check.setChecked(not self.overlay_check.isChecked())
         elif action == HotkeyAction.CAPTURE:
-            if self._session is None and self._settings.hotkeys.capture_focused.isChecked():
+            if (
+                self._pipeline.capture is None
+                and self._settings.hotkeys.capture_focused.isChecked()
+            ):
                 try:
                     target = self._windows.foreground_target()
                     # Resolve only on this explicit hotkey action; do not follow focus continuously.
@@ -468,10 +461,10 @@ class MainWindow(QMainWindow):
     def _original_changed(self, held: bool) -> None:
         if held and (
             self._closing
-            or self._session is None
-            or self._session.finished
+            or self._pipeline.capture is None
+            or self._pipeline.capture.finished
             or QApplication.activeModalWidget() is not None
-            or not self._windows.is_foreground(self._session.target)
+            or not self._windows.is_foreground(self._pipeline.capture.target)
         ):
             return
         if self._showing_original == held:
@@ -541,7 +534,7 @@ class MainWindow(QMainWindow):
 
     def _update_notice(self) -> None:
         self._settings.setup_assistant.setEnabled(
-            not self._session and not self._settings.busy and not self._preparing
+            not self._pipeline.capture and not self._settings.busy and not self._preparing
         )
         self.hotkey_notice.set_message(self._settings.hotkeys.problem, action="Hotkeys")
         if self._hotkeys:
@@ -599,9 +592,12 @@ class MainWindow(QMainWindow):
         elif self._preparing:
             message = "Preparing the translation model. Capture can continue."
             action, tone = "", "info"
-        elif self._ocr and self._ocr.snapshot().state in (OcrState.FAILED, OcrState.LOADING):
+        elif self._pipeline.ocr and self._pipeline.ocr.snapshot().state in (
+            OcrState.FAILED,
+            OcrState.LOADING,
+        ):
             message = self.ocr_status.text()
-            tone = "error" if self._ocr.snapshot().state == OcrState.FAILED else "info"
+            tone = "error" if self._pipeline.ocr.snapshot().state == OcrState.FAILED else "info"
             action = ""
         elif self._translation and self._translation.snapshot().state in (
             TranslationState.FAILED,
@@ -615,12 +611,17 @@ class MainWindow(QMainWindow):
         elif self._selected_backend is None:
             message = model_warning
             action, self._notice_destination = "Choose model", "selection"
+        elif self._translation and self._translation.snapshot().rejected:
+            message = self._translation.snapshot().message + " Other text continues translating."
+            action = ""
         elif self._selected_backend.performance_notice:
             message = self._selected_backend.performance_notice
             action, self._notice_destination = "Acceleration options", "runtime"
         self.onboarding.set_message(message, tone=tone, action=action)
-        choice = self._capture_ocr_choice if self._session else self.ocr_device.currentData()
-        ocr = self._ocr.snapshot() if self._ocr else None
+        choice = (
+            self._capture_ocr_choice if self._pipeline.capture else self.ocr_device.currentData()
+        )
+        ocr = self._pipeline.ocr.snapshot() if self._pipeline.ocr else None
         self._acceleration_advice = acceleration_advice(
             self._hardware.snapshot() if self._hardware else None,
             choice.key if isinstance(choice, OcrChoice) else "cpu",
@@ -629,7 +630,7 @@ class MainWindow(QMainWindow):
         )
         pending = self.ocr_device.currentData()
         if (
-            self._session
+            self._pipeline.capture
             and self._acceleration_advice.destination == "recognition"
             and isinstance(pending, OcrChoice)
             and pending != choice
@@ -645,7 +646,7 @@ class MainWindow(QMainWindow):
             )
 
     def refresh_windows(self) -> None:
-        if self._session:
+        if self._pipeline.capture:
             return
         current = self.windows_combo.currentData()
         self.windows_combo.clear()
@@ -674,7 +675,7 @@ class MainWindow(QMainWindow):
     def _toggle_capture(self) -> None:
         if self._closing or not self.start_button.isEnabled():
             return
-        if self._session:
+        if self._pipeline.capture:
             self._stop("Capture stopped.")
             return
         target = self.windows_combo.currentData()
@@ -683,20 +684,18 @@ class MainWindow(QMainWindow):
         if not self._windows.is_target(target):
             self.status.setText("The selected game window closed. Refresh and select it again.")
             return
-        self._session = CaptureSession(target, self._windows, fps=self.capture_rate.value())
+        capture = CaptureSession(target, self._windows, fps=self.capture_rate.value())
         choice = self.ocr_device.currentData()
         self._capture_ocr_choice = choice if isinstance(choice, OcrChoice) else None
-        if self._ocr_models_ready():
-            self._ocr = OcrSession(
-                choice.create if isinstance(choice, OcrChoice) else self._recognizer_factory,
-                require_ack=True,
-            )
-            self._visual = VisualSession()
+        recognizer = (
+            (choice.create if isinstance(choice, OcrChoice) else self._recognizer_factory)
+            if self._ocr_models_ready()
+            else None
+        )
         self._settings.set_capture_active(True)
         self._stopping_message = "The capture source closed. Select a window to restart."
         self._last_sequence = 0
         self._started_at = time.monotonic()
-        self._valid_size = None
         self._clear_tracking()
         self.inspector.clear()
         self.inspector.pause.setChecked(False)
@@ -704,11 +703,7 @@ class MainWindow(QMainWindow):
         self.refresh_button.setEnabled(False)
         self.start_button.setText("Stop capture")
         self.status.setText("Starting window capture…")
-        self._session.start()
-        if self._ocr:
-            self._ocr.start()
-        if self._visual:
-            self._visual.start()
+        self._pipeline.start(capture, recognizer)
 
     def _stop(self, message: str) -> None:
         self._cancel_original()
@@ -717,46 +712,31 @@ class MainWindow(QMainWindow):
         self._overlay.hide()
         self._clear_tracking()
         self.inspector.clear()
-        if self._ocr:
-            self._ocr.request_stop()
-        if self._visual:
-            self._visual.request_stop()
+        self._pipeline.stop()
         if self._translation and not self._preparing:
             self._translation.request_stop()
-        if self._session:
-            self._session.request_stop()
+        if self._pipeline.capture:
             self.start_button.setEnabled(False)
             self.status.setText("Stopping capture, OCR, and translation…")
 
     def _invalidate_ocr(self) -> None:
-        if self._valid_size is not None and self._ocr:
-            self._ocr.invalidate()
-        self._valid_size = None
+        self._pipeline.invalidate(self._translation)
         self._last_sequence = 0
         self.inspector.clear()
-        self._clear_tracking()
+        self._clear_scene_display()
 
-    def _clear_tracking(self) -> None:
-        self._accepted_ocr = None
-        if self._visual:
-            self._visual.invalidate()
-        self._visual_state = VisualState()
-        self._tracker.reset()
-        self._grouper.reset()
-        self._presentation.reset()
-        self._track_ids = ()
+    def _clear_scene_display(self) -> None:
         self._overlay.set_tracks(())
         self._overlay.set_blocks(())
         self._overlay.set_translations(())
         self._overlay.set_debug(None)
-        if self._translation:
-            self._translation.invalidate()
+
+    def _clear_tracking(self) -> None:
+        self._pipeline.reset(self._translation)
+        self._clear_scene_display()
 
     def _grouping_changed(self) -> None:
-        self._grouper.reset()
-        self._presentation.reset()
-        if self._translation:
-            self._translation.invalidate()
+        self._pipeline.change_grouping(self._translation)
         self._overlay.set_blocks(())
         self.inspector.set_translations(())
         self._tick()
@@ -803,7 +783,7 @@ class MainWindow(QMainWindow):
             self._selected_backend = choice if isinstance(choice, BackendChoice) else None
             if self._selected_backend is None:
                 self._remember_model()
-        self._presentation.reset()
+        self._pipeline.clear_english()
         self._standby = isinstance(choice, BackendChoice)
         self._overlay.set_blocks(())
         self._overlay.set_translations((), enabled=self.translate_check.isChecked())
@@ -951,22 +931,17 @@ class MainWindow(QMainWindow):
                     (b for b in self._backends if b.key == self._selected_backend.key),
                     self._selected_backend,
                 )
-        if self._session and self._ocr is None and self._ocr_models_ready():
+        if self._pipeline.capture and self._pipeline.ocr is None and self._ocr_models_ready():
             choice = self._capture_ocr_choice
-            self._ocr = OcrSession(
-                choice.create if choice else self._recognizer_factory, require_ack=True
-            )
-            self._visual = VisualSession()
+            self._pipeline.add_recognition(choice.create if choice else self._recognizer_factory)
             self.inspector.clear()
-            self._ocr.start()
-            self._visual.start()
 
     def _poll_translation(
         self, running: bool, tracks: tuple[TextBlock, ...] = (), retain: tuple[TextBlock, ...] = ()
     ) -> None:
         session = self._translation
         if self._model_manager and self._model_manager.probe_active:
-            self._presentation.reset()
+            self._pipeline.clear_english()
             self._overlay.set_blocks(())
             self._overlay.set_translations(())
             self.inspector.clear_translations()
@@ -1009,7 +984,7 @@ class MainWindow(QMainWindow):
             and self._model_prepared(choice)
         )
         if not enabled:
-            self._presentation.reset()
+            self._pipeline.clear_english()
             if session:
                 session.request_stop()
                 if session.finished:
@@ -1036,31 +1011,12 @@ class MainWindow(QMainWindow):
             session = TranslationSession(choice.create, self._cache_path)
             self._translation = session
             session.start()
-        state = self._visual_state
-        broad_change = bool(
-            state.frame
-            and state.frame.sequence != self._context_reset_sequence
-            and sum(b.width * b.height for b in state.changed_areas)
-            > state.frame.width * state.frame.height * 0.65
-        )
-        if broad_change and state.frame:
-            self._context_reset_sequence = state.frame.sequence
-        session.update(tracks, retain=retain, reset_context=broad_change)
-        snapshot = session.snapshot()
+        published = self._pipeline.publish(session, tracks, retain)
+        snapshot = published.snapshot
         if snapshot.state == TranslationState.READY:
             self._remember_model()
-        published = self._presentation.update(
-            retain,
-            snapshot.results,
-            self._tracker.display_predecessors(),
-            scope=(session, snapshot.backend_generation),
-        )
-        hidden_ids = {t.track_id for t in self._visual_state.hidden}
-        showing = tuple(
-            p for p in published if not any(t.track_id in hidden_ids for t in p.accepted.lines)
-        )
-        self._overlay.set_blocks(tuple(p.painted for p in showing))
-        self._overlay.set_translations(tuple(p.translation for p in showing), enabled=True)
+        self._overlay.set_blocks(published.blocks)
+        self._overlay.set_translations(published.translations, enabled=True)
         self.inspector.set_translations(snapshot.results)
         if snapshot.state == TranslationState.FAILED:
             self.translation_status.setText(
@@ -1082,45 +1038,17 @@ class MainWindow(QMainWindow):
             )
 
     def _update_ocr(self, frame: CapturedFrame) -> None:
-        ocr = self._ocr
+        ocr = self._pipeline.ocr
         if ocr is None:
             self.inspector.set_frame(frame)
             self.ocr_status.setText(
                 "Capture only. Open Settings and download MeikiOCR to recognize text."
             )
             return
-        snapshot = ocr.snapshot()
-        if self._visual and snapshot.state != OcrState.FAILED:
-            state = self._visual.poll()
-            accepted = self._accepted_ocr
-            if snapshot.result and (
-                state.message or state.checked_sequence == snapshot.result.frame.sequence
-            ):
-                self._track_ids = self._tracker.observe(
-                    snapshot.result,
-                    visually_absent=state.absent,
-                    visual_sequence=state.frame.sequence if state.frame else 0,
-                    unchanged=state.unchanged,
-                    visual_checked=state.checked,
-                    checked_sequence=state.checked_sequence,
-                )
-                accepted = snapshot.result
-                self._accepted_ocr = accepted
-                self.inspector.set_result(accepted, self._track_ids)
-                ocr.acknowledge(accepted.frame.sequence)
-            if state.frame is not None:
-                self._visual_state = state
-                if state.request_ocr:
-                    ocr.submit(state.frame, state.scan_areas)
-                self._tracker.confirm_observations(state.stable_tracks, state.frame.captured_at)
-            self._visual.submit(
-                frame,
-                accepted,
-                self._tracker.visible(frame, time.monotonic()),
-                self._track_ids,
-                self._tracker.translation_activity(),
-                snapshot.result,
-            )
+        snapshot = self._pipeline.reconcile(frame, time.monotonic())
+        assert snapshot is not None
+        if self._pipeline.accepted:
+            self.inspector.set_result(self._pipeline.accepted, self._pipeline.assignments)
         if snapshot.state == OcrState.FAILED:
             self._clear_tracking()
             self.ocr_status.setText(
@@ -1148,10 +1076,14 @@ class MainWindow(QMainWindow):
                 f"{snapshot.skipped_frames} waiting frames skipped{busy} · "
                 f"{device.get(snapshot.provider, 'CPU')}"
                 f"{(' · ' + snapshot.message) if snapshot.message else ''}"
-                f" · visual {self._visual_state.duration_ms:.1f} ms · "
-                f"{self._visual_state.avoided} captures skipped for OCR"
-                f" · {len(self._visual_state.unchanged)} unchanged regions held"
-                f"{(' · ' + self._visual_state.message) if self._visual_state.message else ''}"
+                f" · visual {self._pipeline.visual_state.duration_ms:.1f} ms · "
+                f"{self._pipeline.visual_state.avoided} captures skipped for OCR"
+                f" · {len(self._pipeline.visual_state.unchanged)} unchanged regions held"
+                + (
+                    " · " + self._pipeline.visual_state.message
+                    if self._pipeline.visual_state.message
+                    else ""
+                )
             )
             self.ocr_status.setToolTip(
                 f"Average of the last 8 passes: {snapshot.mean_duration_ms:.0f} ms. "
@@ -1176,17 +1108,17 @@ class MainWindow(QMainWindow):
                 )
             )
         # Once OCR arrives, the inspector owns an exact source/result pair.
-        if self._accepted_ocr is None and frame.sequence != self._last_sequence:
+        if self._pipeline.accepted is None and frame.sequence != self._last_sequence:
             self.inspector.set_frame(frame)
         self._last_sequence = frame.sequence
 
     def _tick(self) -> None:
         if self._showing_original and (
             self._closing
-            or self._session is None
-            or self._session.finished
+            or self._pipeline.capture is None
+            or self._pipeline.capture.finished
             or QApplication.activeModalWidget() is not None
-            or not self._windows.is_foreground(self._session.target)
+            or not self._windows.is_foreground(self._pipeline.capture.target)
         ):
             self._cancel_original()
         self._advance_session()
@@ -1194,7 +1126,7 @@ class MainWindow(QMainWindow):
 
     def _advance_session(self) -> None:
         self._advance_preparation()
-        session = self._session
+        session = self._pipeline.capture
         if session is None:
             self._overlay.hide()
             self._poll_translation(False)
@@ -1214,27 +1146,17 @@ class MainWindow(QMainWindow):
             self._clear_tracking()
             self.inspector.clear()
             self._poll_translation(False)
-            if self._visual:
-                self._visual.request_stop()
-                if not self._visual.finished:
-                    return
-                self._visual = None
-            if self._ocr and not self._ocr.finished:
-                self._ocr.request_stop()
             if self._translation is not None and not (self._preparing or self._standby):
                 self.status.setText("Waiting for the current translation operation to finish…")
                 return
-            if self._ocr and not self._ocr.finished:
-                self._ocr.request_stop()
-                self.status.setText("Waiting for the current OCR operation to finish…")
+            if not self._pipeline.drain():
+                self.status.setText("Waiting for OCR and visual workers to finish…")
                 return
             self.status.setText(
                 snapshot.message
                 if snapshot.state == CaptureState.FAILED
                 else self._stopping_message
             )
-            self._session = None
-            self._ocr = None
             self.ocr_status.setText("OCR stopped. Start capture to load the local models again.")
             self.start_button.setText("Start capture")
             self.start_button.setEnabled(True)
@@ -1247,8 +1169,8 @@ class MainWindow(QMainWindow):
         if snapshot.state in (CaptureState.STOPPING, CaptureState.FAILED):
             self._overlay.hide()
             self._clear_tracking()
-            if self._ocr:
-                self._ocr.request_stop()
+            if self._pipeline.ocr:
+                self._pipeline.ocr.request_stop()
             self.inspector.clear()
             self._poll_translation(False)
             return
@@ -1260,9 +1182,10 @@ class MainWindow(QMainWindow):
                 self._invalidate_ocr()
                 self.status.setText("Window minimized. Restore it to resume.")
             elif frame is not None and frame.geometry.client.size == geometry.client.size:
-                if self._valid_size != geometry.client.size:
-                    self._invalidate_ocr()
-                    self._valid_size = geometry.client.size
+                if self._pipeline.accept_size(geometry.client.size, self._translation):
+                    self._last_sequence = 0
+                    self.inspector.clear()
+                    self._clear_scene_display()
                 self._update_ocr(frame)
                 elapsed = max(0.1, time.monotonic() - self._started_at)
                 self.metrics.setText(
@@ -1279,59 +1202,27 @@ class MainWindow(QMainWindow):
             else:
                 self._invalidate_ocr()
                 self.status.setText("Waiting for a frame matching the window size…")
-            result = self._accepted_ocr
-            tracks = self._tracker.visible(frame, time.monotonic()) if frame is not None else ()
-            ready = (
-                self._tracker.translation_tracks(frame, time.monotonic())
-                if frame is not None
-                else ()
-            )
-            grouped = self._grouper.update(
-                tracks,
-                ready,
+            scene = self._pipeline.scene(
+                frame,
                 time.monotonic(),
-                enabled=self.group_dialogue.isChecked(),
-                activity=self._tracker.translation_activity(),
+                grouping=self.group_dialogue.isChecked(),
+                stabilize=self.stabilize_check.isChecked() or self.translate_check.isChecked(),
             )
             if not self.translate_check.isChecked():
-                self._overlay.set_blocks(grouped.blocks)
-            self._poll_translation(
-                True,
-                tuple(
-                    block
-                    for block in grouped.ready
-                    if not any(t.track_id in self._visual_state.blocked for t in block.lines)
-                    and (
-                        self._visual_state.message
-                        or (result and self._visual_state.ocr_sequence == result.frame.sequence)
-                    )
-                ),
-                grouped.blocks,
-            )
-            tracks = tuple(t for t in tracks if t not in self._visual_state.hidden)
+                self._overlay.set_blocks(scene.blocks)
+            self._poll_translation(True, scene.requests, scene.blocks)
+            tracks = scene.tracks
             self._overlay.set_debug(
                 debug_display(
-                    self._visual_state,
-                    self._ocr.snapshot(),
+                    self._pipeline.visual_state,
+                    self._pipeline.ocr.snapshot(),
                     self._translation.snapshot() if self._translation else None,
                     time.monotonic(),
-                    waiting_blocks=len(grouped.blocks) - len(grouped.ready),
+                    waiting_blocks=scene.waiting_blocks,
                 )
-                if self.debug_check.isChecked() and self._ocr
+                if self.debug_check.isChecked() and self._pipeline.ocr
                 else None
             )
-            if not self.stabilize_check.isChecked() and not self.translate_check.isChecked():
-                tracks = (
-                    tuple(
-                        TextTrack(key, region.text, region.bounds, region.vertical)
-                        for key, region in zip(self._track_ids, result.regions, strict=True)
-                        if key is not None
-                    )
-                    if result is not None
-                    and frame is not None
-                    and overlay_result_ready(result, frame, time.monotonic())
-                    else ()
-                )
             if (
                 self.overlay_check.isChecked()
                 and not self._showing_original
@@ -1383,7 +1274,7 @@ class MainWindow(QMainWindow):
             self._standby = False
             if self._translation:
                 self._translation.request_stop()
-            if self._session:
+            if self._pipeline.capture:
                 self._stop("Capture stopped.")
             event.ignore()
             return
@@ -1392,11 +1283,11 @@ class MainWindow(QMainWindow):
             self._standby = False
             if self._translation:
                 self._translation.request_stop()
-            if self._session:
+            if self._pipeline.capture:
                 self._stop("Capture stopped.")
             event.ignore()
             return
-        if self._session is not None:
+        if self._pipeline.capture is not None:
             self._closing = True
             self._stop("Capture stopped.")
             event.ignore()

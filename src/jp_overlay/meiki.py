@@ -149,3 +149,8 @@ class MeikiRecognizer:
             self._fallback(error)
             results = self._engine.run_ocr(bgr, det_threshold=0.5, rec_threshold=0.1)
         return convert_regions(self._engine.detected, results, frame.width, frame.height)
+
+    def close(self) -> None:
+        """Release all native ONNX sessions on their owning worker before it completes."""
+        if hasattr(self, "_engine"):
+            del self._engine

@@ -1,5 +1,36 @@
 # Verification
 
+## Session lifecycle and review fixes (2026-11-14)
+
+402 model-free tests, Ruff and Pyright pass through `uv run python tools/check.py`. New regressions
+cover same-profile repair with postponed/failed activation and rollback, delayed job assignment,
+assignment/resume failure, descendant termination, blocked OCR cleanup, request-local rejection,
+mixed batches, context/backend resets and bounded failure history. Pure `LiveSession` replays cover
+source-matched visual review before acknowledgement, partial coverage, unchanged misses, dialogue
+publication, mask/restore, backend scope, resize and worker draining without constructing a window.
+
+Windows CI now runs the locked CPU/development environment and the same fast check on pushes and
+pull requests. The local entry point passed; the hosted workflow awaits its first GitHub run.
+
+Real dense CPU/CUDA OCR, Sugoi and CPU/CUDA Gemma passed. Native UI, model preparation/missing-runtime,
+first-run guide, CUDA dialogue/typewriter/transitions, delayed CPU OCR (900 ms), stationary retention
+and regional appearance passed. The retention fixture recorded zero publication changes over 358
+unchanged polls; a newly appearing regional label reached English in 0.516 s on this run. These are
+synthetic-fixture observations, not game latency guarantees. Qwen compatibility and native import,
+cancellation, selection, Gemma return and removal also passed with the new process owner.
+
+Native hotkeys passed after activating our owned demo through computer use. Two earlier attempts
+could not acquire foreground focus and sent no input; the successful run allowed 90 s for fixture
+activation, keeping all checks intact. Start/stop, rebind/conflict, held-original, focus loss and
+shutdown passed. UI snapshots were inspected; evidence is under `artifacts/review`.
+
+The rebuilt standalone passed Unicode-path relocation with Python absent from PATH, fresh offline
+bundled OCR and all 6,950 manifest entries, without writes to the app folder or implicit downloads.
+Its bundled CPU interpreter and AppData NVIDIA runtime passed native imports, cancellation, model
+switching and return to Gemma. A malformed probe exited without a startup modal. Packaged CPU runtime
+reuse/restart passed with actual GUI acknowledgement, hotkey handover and clean child exit. These
+checks used disposable extracted files and test AppData; active user runtimes were not changed.
+
 ## Imported GGUF models (2026-11-14)
 
 387 model-free tests, Ruff and Pyright pass. New coverage includes bounded/truncated metadata,

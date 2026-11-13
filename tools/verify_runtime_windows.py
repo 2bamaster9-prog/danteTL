@@ -193,7 +193,7 @@ def main() -> int:
             print(f"FAIL: {error}", flush=True)
             timer.stop()
             if child and child.process.poll() is None:
-                child._tree.close()
+                child.process.close()
             window.close()
             app.quit()
 

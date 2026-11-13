@@ -103,6 +103,9 @@ def main() -> int:
                 changed.append(r)
             return tuple(changed)
 
+        def close(self) -> None:
+            self.engine.close()
+
     windows = Windows()
     windows.enable_dpi_awareness()
     app = QApplication([])
@@ -141,10 +144,10 @@ def main() -> int:
         now = time.monotonic()
         try:
             if finished:
-                if window._session is None:
+                if window._pipeline.capture is None:
                     assert (
-                        window._visual is None
-                        and window._ocr is None
+                        window._pipeline.visual is None
+                        and window._pipeline.ocr is None
                         and window._translation is None
                     )
                     evidence["all_workers_stopped"] = True
@@ -153,9 +156,9 @@ def main() -> int:
                     app.quit()
                 return
             assert now - started < 70, "Stationary retention verification timed out"
-            if window._ocr:
-                assert window._ocr.snapshot().state != OcrState.FAILED, (
-                    window._ocr.snapshot().message
+            if window._pipeline.ocr:
+                assert window._pipeline.ocr.snapshot().state != OcrState.FAILED, (
+                    window._pipeline.ocr.snapshot().message
                 )
             showing = (window._overlay._blocks, window._overlay._translations)
             if appearance_started:
@@ -212,7 +215,7 @@ def main() -> int:
                 if now - stable_since >= 8 and "advanced_resumed" not in evidence:
                     assert window.inspector.result is None
                     window.advanced.setChecked(True)
-                    assert window.inspector.result is window._accepted_ocr
+                    assert window.inspector.result is window._pipeline.accepted
                     evidence["advanced_resumed"] = True
                 if now - stable_since >= 12 and passes >= 6:
                     evidence.update(
@@ -245,8 +248,8 @@ def main() -> int:
             evidence["noisy_ocr_passes"] = passes
             evidence["baseline"] = repr(baseline)
             evidence["showing"] = repr((window._overlay._blocks, window._overlay._translations))
-            evidence["visual"] = repr(replace(window._visual_state, frame=None))
-            evidence["tracks"] = repr(window._tracker.translation_activity())
+            evidence["visual"] = repr(replace(window._pipeline.visual_state, frame=None))
+            evidence["tracks"] = repr(window._pipeline._tracker.translation_activity())
             latest = window.inspector.result
             evidence["last_coverage"] = repr(latest.scanned) if latest else "none"
             evidence["last_source_age"] = now - latest.frame.captured_at if latest else None

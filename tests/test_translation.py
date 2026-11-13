@@ -8,6 +8,7 @@ from jp_overlay.grouping import DialogueGrouper, TextBlock
 from jp_overlay.recognition import OcrResult, TextCharacter, TextRegion
 from jp_overlay.tracking import TextTrack, TextTracker
 from jp_overlay.translation import TranslationRequest, TranslationSession, TranslationState
+from jp_overlay.translation_backend import RequestRejected
 
 
 def track(text="日本語", revision=1, key=1) -> TextTrack:
@@ -22,6 +23,8 @@ def until(predicate) -> None:
 
 
 class Backend:
+    batch_size = 4
+
     def __init__(self, identity="fake-v1") -> None:
         self.cache_identity = identity
         self.calls: list[tuple[str, ...]] = []
@@ -38,6 +41,126 @@ class Backend:
 
     def close(self) -> None:
         self.closed = True
+
+
+def test_request_rejection_preserves_other_results_and_does_not_retry(tmp_path):
+    class Selective(Backend):
+        def translate(self, texts):
+            self.calls.append(texts)
+            if "拒否" in texts:
+                raise RequestRejected("Incomplete answer")
+            return tuple("English " + text for text in texts)
+
+    backend = Selective()
+    session = TranslationSession(lambda: backend, tmp_path / "cache.sqlite3")
+    session.start()
+    try:
+        good = track("設定", key=1)
+        session.update((good,))
+        until(lambda: len(session.snapshot().results) == 1)
+        bad, oversized = track("拒否", key=2), track("語" * 513, key=3)
+        requests = (good, bad, oversized, track("戻る", key=4))
+        session.update(requests)
+        until(lambda: session.snapshot().pending == 0)
+        snapshot = session.snapshot()
+        assert snapshot.state == TranslationState.READY and len(snapshot.results) == 2
+        assert {r.request.track_id for r in snapshot.rejected} == {2, 3}
+        count = len(backend.calls)
+        for _ in range(30):
+            session.update(requests)
+        assert len(backend.calls) == count
+        session.update((good, track("続ける", revision=2, key=2)))
+        until(lambda: session.snapshot().pending == 0)
+        assert not session.snapshot().rejected and len(session.snapshot().results) == 2
+    finally:
+        stop(session)
+
+
+def test_stale_rejection_cannot_block_new_revision_or_backend(tmp_path):
+    class Rejecting(Backend):
+        def translate(self, texts):
+            self.entered.set()
+            assert self.release.wait(3)
+            raise RequestRejected("Fixture rejection")
+
+    backend = Rejecting()
+    backend.release.clear()
+    session = TranslationSession(lambda: backend, tmp_path / "cache.sqlite3")
+    session.start()
+    try:
+        session.update((track(),))
+        assert backend.entered.wait(3)
+        session.switch_backend(Backend)
+        backend.release.set()
+        until(lambda: len(session.snapshot().results) == 1)
+        assert not session.snapshot().rejected
+    finally:
+        backend.release.set()
+        stop(session)
+
+
+def test_native_backend_failure_remains_terminal(tmp_path):
+    class Broken(Backend):
+        def translate(self, texts):
+            raise RuntimeError("Native engine unusable")
+
+    backend = Broken()
+    session = TranslationSession(lambda: backend, tmp_path / "cache.sqlite3")
+    session.start()
+    session.update((track(),))
+    until(lambda: session.finished)
+    assert session.snapshot().state == TranslationState.FAILED and backend.closed
+
+
+def test_rejection_is_context_scoped_and_context_reset_releases_same_request(tmp_path):
+    class Contextual(Backend):
+        batch_size = 1
+
+        def translate_with_context(self, source, context):
+            if context:
+                raise RequestRejected("Cannot answer with this context")
+            return "Standalone English"
+
+    session = TranslationSession(Contextual, tmp_path / "cache.sqlite3")
+    first = TextBlock((track("私の名前はリナです。"),), dialogue=True)
+    second = TextBlock((track("明日は一緒に行きましょう。", key=2),), dialogue=True)
+    session.start()
+    try:
+        session.update((first,))
+        until(lambda: session.snapshot().pending == 0)
+        session.update((second,))
+        until(lambda: session.snapshot().pending == 0)
+        assert session.snapshot().rejected and not session.snapshot().results
+        session.update((second,), reset_context=True)
+        until(lambda: session.snapshot().pending == 0)
+        assert not session.snapshot().rejected and session.snapshot().results
+    finally:
+        stop(session)
+
+
+def test_rejected_history_is_bounded_and_reset_does_not_suppress_new_work(tmp_path):
+    class Rejecting(Backend):
+        def translate(self, texts):
+            self.calls.append(texts)
+            raise RequestRejected("Unusable answer")
+
+    backend = Rejecting()
+    session = TranslationSession(lambda: backend, tmp_path / "cache.sqlite3")
+    session.start()
+    try:
+        for key in range(280):
+            session.update((track(key=key),))
+            until(lambda: session.snapshot().pending == 0)
+        assert len(session._rejections) == 256
+        assert len(backend.calls) == 280
+        session.update((track(key=279),))
+        assert session.snapshot().pending == 0
+        session.invalidate()
+        session.update((track(key=279),))
+        until(lambda: session.snapshot().pending == 0)
+        assert len(backend.calls) == 281
+    finally:
+        stop(session)
 
 
 def stop(session: TranslationSession) -> None:

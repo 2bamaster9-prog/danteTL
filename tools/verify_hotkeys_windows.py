@@ -212,7 +212,7 @@ def main() -> int:
                 chord(0x78)
                 advance()
             elif stage == 2:
-                session = window._session
+                session = window._pipeline.capture
                 if not session or not session.snapshot().frame:
                     return
                 assert session.target == target and window.isMinimized()
@@ -228,7 +228,7 @@ def main() -> int:
                 assert not window.overlay_check.isChecked(), (
                     "Repeat key-down toggled more than once"
                 )
-                assert window._session is session
+                assert window._pipeline.capture is session
                 frame = session.snapshot().frame
                 assert frame
                 frame_sequence = frame.sequence
@@ -240,7 +240,7 @@ def main() -> int:
                 frame = session.snapshot().frame
                 if not frame or frame.sequence <= frame_sequence:
                     return
-                assert window.overlay_check.isChecked() and window._session is session
+                assert window.overlay_check.isChecked() and window._pipeline.capture is session
                 assert windows.is_foreground(target), "Hotkey stole focus"
                 evidence["hide_show_preserves_capture_and_focus"] = True
                 row = window._settings.hotkeys.rows[HotkeyAction.OVERLAY]
@@ -268,18 +268,21 @@ def main() -> int:
                 advance()
             elif stage == 7:
                 assert session
-                if window._session is not None:
+                if window._pipeline.capture is not None:
                     return
                 assert session.finished and window.start_button.isEnabled()
                 evidence["stop_drained_capture"] = True
                 chord(0x78)
                 advance()
             elif stage == 8:
-                if not window._session or not window._session.snapshot().frame:
+                if not window._pipeline.capture or not window._pipeline.capture.snapshot().frame:
                     return
-                assert window._session is not session and window._session.target == target
+                assert (
+                    window._pipeline.capture is not session
+                    and window._pipeline.capture.target == target
+                )
                 evidence["restart_same_selected_source"] = True
-                session = window._session
+                session = window._pipeline.capture
                 frame = session.snapshot().frame
                 assert frame
                 frame_sequence = frame.sequence
@@ -293,7 +296,7 @@ def main() -> int:
                 frame = session.snapshot().frame
                 assert frame and frame.sequence > frame_sequence
                 assert hotkeys.holding_original and window._showing_original
-                assert window._session is session and window.overlay_check.isChecked()
+                assert window._pipeline.capture is session and window.overlay_check.isChecked()
                 assert not window._overlay.isVisible()
                 evidence["hold_keeps_capture_running"] = True
                 send_keys([(17, 2)])  # Release a modifier before the main key.
@@ -303,7 +306,7 @@ def main() -> int:
                 if hotkeys.holding_original or window._showing_original:
                     return
                 evidence["modifier_release_seconds"] = round(time.monotonic() - stage_at, 3)
-                assert window._session is session and window.overlay_check.isChecked()
+                assert window._pipeline.capture is session and window.overlay_check.isChecked()
                 end_hold()
                 begin_hold()
                 advance()
@@ -316,8 +319,10 @@ def main() -> int:
                 if window._showing_original:
                     return
                 assert not native._release_timer.isActive()
-                evidence["key_up_restores_without_capture_restart"] = window._session is session
-                assert window._session is session
+                evidence["key_up_restores_without_capture_restart"] = (
+                    window._pipeline.capture is session
+                )
+                assert window._pipeline.capture is session
                 begin_hold()
                 advance()
             elif stage == 13:
@@ -343,7 +348,7 @@ def main() -> int:
         except Exception as error:
             failure = f"Stage {stage}: {error}"
             evidence["last_status"] = window.status.text()
-            evidence["capture_exists"] = window._session is not None
+            evidence["capture_exists"] = window._pipeline.capture is not None
             print(f"FAIL: {failure}", flush=True)
             stage = 99
             window.close()
