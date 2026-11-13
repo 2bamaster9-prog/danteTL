@@ -1,4 +1,4 @@
-"""Install pinned runtimes beside the running app; publish only validated environments."""
+"""Install pinned runtimes in user state; publish only validated environments."""
 
 import hashlib
 import json
@@ -12,6 +12,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from jp_overlay.model_store import Cancelled, ModelProgress, Progress
+from jp_overlay.paths import is_standalone, module_command, runtime_project, state_root
 from jp_overlay.setup_process import run_setup_command
 
 
@@ -50,13 +51,14 @@ PROFILES = (
 
 
 def project_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+    """Compatibility name for the writable installation/state root."""
+    return state_root()
 
 
 def _fingerprint(root: Path) -> str:
     digest = hashlib.sha256(b"runtime-setup-v1")
     for name in ("uv.lock", "pyproject.toml"):
-        digest.update((root / name).read_bytes())
+        digest.update((runtime_project(root) / name).read_bytes())
     return digest.hexdigest()
 
 
@@ -131,7 +133,7 @@ def install_runtime(
     # Exclusive across app copies sharing this project. A crash releases the OS lock.
     import msvcrt
 
-    (root / "data").mkdir(exist_ok=True)
+    (root / "data").mkdir(parents=True, exist_ok=True)
     with (root / "data/runtime-install.lock").open("a+b") as lock:
         lock.seek(0)
         if not lock.read(1):
@@ -167,12 +169,17 @@ def _install(
         PYTHONUTF8="1",
         UV_NO_PROGRESS="1",
     )
+    project = runtime_project(root)
+    if is_standalone():
+        # Never bind an AppData runtime to an app folder which may be moved or replaced.
+        environment["UV_PYTHON_PREFERENCE"] = "only-managed"
+        environment["DANTEJP_DATA_DIR"] = str(root)
 
     def command(args: list[str], stage: str, timeout: float = 1800) -> None:
         progress(ModelProgress(stage))
         run_setup_command(
             args,
-            root,
+            project,
             environment,
             cancel,
             lambda detail: progress(ModelProgress(f"{stage}\n{detail}")),
@@ -182,7 +189,9 @@ def _install(
     if ready := ready_runtime(root, profile.key):
         try:
             command(
-                [str(ready / "Scripts/python.exe"), "-m", "jp_overlay.runtime_probe", profile.key],
+                module_command(
+                    ready / "Scripts/python.exe", "jp_overlay.runtime_probe", profile.key
+                ),
                 "Checking the installed runtime…",
                 timeout=180,
             )
@@ -194,7 +203,9 @@ def _install(
             progress(ModelProgress("Installed runtime checks passed. Restart to use it."))
             return
 
-    uv = root / ".bootstrap/Scripts/uv.exe"
+    uv = project.parent / "uv.exe" if is_standalone() else root / ".bootstrap/Scripts/uv.exe"
+    if is_standalone() and not uv.is_file():
+        raise RuntimeError("The bundled installer is missing. Extract the complete DanteJP ZIP.")
     if not uv.is_file():
         located = shutil.which("uv")
         if located:
@@ -210,13 +221,15 @@ def _install(
             )
             uv = bootstrap / "Scripts/uv.exe"
     args = [str(uv), "sync", "--locked", "--no-default-groups", "--python", "3.12"]
+    if is_standalone():
+        args.append("--no-install-project")
     for group in profile.groups:
         args.extend(("--group", group))
     # Keep the final path: Windows venv entry points must not be renamed after installation.
     try:
         command(args, "2/3 · Downloading and installing dependencies…")
         command(
-            [str(target / "Scripts/python.exe"), "-m", "jp_overlay.runtime_probe", profile.key],
+            module_command(target / "Scripts/python.exe", "jp_overlay.runtime_probe", profile.key),
             "3/3 · Checking installed libraries and GPU support…",
             timeout=180,
         )

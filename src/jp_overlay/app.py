@@ -10,6 +10,7 @@ from types import TracebackType
 
 from jp_overlay.models import model_directory
 from jp_overlay.ocr_runtime import gpu_runtime_installed
+from jp_overlay.paths import is_standalone, state_root
 from jp_overlay.recognition import OcrChoice, Recognizer
 from jp_overlay.translation import BackendChoice, TranslationBackend
 
@@ -94,7 +95,11 @@ def create_gemma_translator() -> TranslationBackend:
 
 
 def configure_logging() -> None:
-    directory = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "DanteJP" / "logs"
+    directory = (
+        state_root()
+        if is_standalone()
+        else Path(os.environ.get("LOCALAPPDATA", Path.home())) / "DanteJP"
+    ) / "logs"
     directory.mkdir(parents=True, exist_ok=True)
     handler = RotatingFileHandler(
         directory / "app.log", maxBytes=500_000, backupCount=2, encoding="utf-8"

@@ -26,7 +26,7 @@ def main() -> None:
         files.extend(
             p
             for p in (root / folder).rglob("*")
-            if p.is_file() and p.suffix in (".py", ".ps1", ".md", ".json")
+            if p.is_file() and p.suffix in (".py", ".ps1", ".md", ".json", ".c", ".txt")
         )
     manifest = {}
     with ZipFile(output, "w", ZIP_DEFLATED) as archive:

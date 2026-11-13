@@ -2,8 +2,8 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/015-global-hotkeys.md`. Global shortcuts now include focused-window capture
-and a transient hold to show the original text.
+`engineering/plans/016-standalone-windows.md`. Standalone releases bundle a private CPU runtime;
+models, preferences and optional GPU environments live in per-user AppData.
 
 The public app name is DanteJP. Preserve the legacy Python package/CLI IDs and `JP_OVERLAY_*`
 variables for installed-runtime compatibility; the branding rename must not invalidate dependencies.
@@ -93,6 +93,12 @@ variables for installed-runtime compatibility; the branding rename must not inva
   launcher PID). The normal launcher must honor the persisted selection and retain CPU fallback.
   AMD's in-app profile uses Vulkan Gemma + CPU OCR, without experimental DirectML. Run
   `tools/verify_runtime_windows.py` in a disposable extracted distribution for setup/launcher changes.
+- Standalone app resources are read-only. Use `paths.state_root()` for writable files; source mode
+  keeps project-local paths. Never bind AppData runtimes to the movable bundled interpreter or an
+  editable source install. Use the bundled uv and an AppData-managed Python; launch current source
+  through `module_command`. Test the real EXE after Unicode-path relocation with Python absent
+  from PATH (`verify_standalone_windows.py`), plus packaged setup/restart. Do not bundle weights,
+  caches, personal preferences or dev/GPU environments. Preserve dependency licenses and manifests.
 - Dialogue history is two turns/512 characters, scoped to one unambiguous panel. Freeze context
   per request, include it in cache identity, reject outdated context, and never seed history from
   stale replies. Menus stay independent; layout/session/scene/age resets clear conversational state.
@@ -129,4 +135,4 @@ variables for installed-runtime compatibility; the branding rename must not inva
 - Do not implement later milestones without a user request. Capture, OCR, tracking, local Sugoi
   translation, bounded caching, English layout, icon cleanup, and dialogue grouping are implemented.
   Gemma is an optional quality backend with bounded recent-dialogue context. Glossaries,
-  profiles, and a frozen executable installer remain separate work; a source sharing kit is available.
+  profiles and an installer remain separate work; portable standalone and source sharing ZIPs exist.

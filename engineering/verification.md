@@ -554,3 +554,45 @@ The new `dantejp-windows.zip` contains a `DanteJP/` root and all three Run Dante
 of source files in the existing disposable distribution reused the exact installed NVIDIA runtime
 offline, restarted the renamed app, transferred all three hotkeys and exited cleanly. Project
 metadata, dependency lock, model/settings paths and runtime fingerprints remain unchanged.
+
+## Standalone Windows package (2026-11-14)
+
+`tools/build_standalone.py --offline` builds a native GUI launcher, private CPython and locked CPU
+dependencies. `tools/verify_standalone_windows.py --output artifacts/<new-directory>` extracts the
+release, verifies all 6,784 manifest entries and the Windows GUI subsystem, removes Python/tools from
+PATH, launches the actual EXE from a path containing spaces/Japanese, observes Qt startup and closes
+only the owned app. `--bundle artifacts/<extracted>/DanteJP` rechecks an existing extraction using a
+new isolated AppData profile. Native library imports, AppData receipt/logs, no implicit downloads,
+no writes inside the app folder and clean shutdown passed (`artifacts/standalone-launch`). Untouched
+defaults need not create a preferences file; the native UI check separately verifies saved edits.
+
+329 tests, Ruff formatting/lint and Pyright passed. New cases cover source compatibility, AppData
+model paths, absolute state overrides, packaged installer/managed Python selection, current source
+after relocation and dependency invalidation. A preparation test now polls the GUI while waiting for
+the previous worker to drain, avoiding an assumption that one tick is sufficient under build load.
+Some host Windows Temp runs stalled in background file/SQLite operations. The final complete check
+used `PYTEST_ADDOPTS=--basetemp=artifacts/standalone-check-final` and passed all 329 tests in 3.55 s;
+the isolated translation suite also passed with workspace temp files. No app timeouts were relaxed.
+
+The extracted private CPU interpreter passed native UI/Settings/persistence and capture/alignment/
+click-through checks, plus downloaded-Gemma-without-runtime handling. A real Models download-button
+test downloaded all 45,970,040 Meiki bytes, verified them and displayed the downloaded badge in test
+AppData (`artifacts/standalone-download`); other inference weights were read-only links to existing
+test models, never part of the ZIP. Screenshots contain only our own fixtures.
+
+In-app NVIDIA and AMD installation/probe/restart passed from the packaged CPU interpreter. These
+tests reused cached wheels and seeded managed Python for offline verification; the resulting venv
+base is in test AppData, not the bundle or a system Python. Restart transferred all three hotkeys
+and clean exit released them. The AMD profile checked Vulkan on the RTX 5080, not a discrete Radeon.
+Gemma consent/preparation/worker reuse and live CUDA OCR + Gemma/Sugoi switching passed in the new
+AppData NVIDIA environment. The live fixture reported CUDAExecutionProvider and full dialogue
+English 0.75 seconds after the last character; this is not a Honkai latency guarantee.
+
+After moving the extracted folder, the real EXE selected the saved AppData GPU runtime with Python
+absent from PATH. Temporarily invalidating only the fixture's ready receipt selected bundled CPU
+instead and preserved the saved selection (`artifacts/standalone-moved`). Bootstrap exposes the
+active runtime's app-local VC libraries before native imports, including fresh child probes.
+
+This is host-side isolated verification, not a clean Windows VM, Radeon, game or anti-cheat test.
+The release is unsigned. Cold dependency internet downloads were not repeated; the model download
+used the actual pinned network URLs. No personal models/preferences, screenshots or GPU caches ship.

@@ -5,6 +5,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from jp_overlay.paths import is_standalone, state_root
+
 
 @dataclass(frozen=True, slots=True)
 class ModelAsset:
@@ -46,12 +48,12 @@ ASSETS = (
 
 def model_directory() -> Path:
     override = os.environ.get("JP_OVERLAY_MODEL_DIR")
-    return Path(override) if override else Path(__file__).resolve().parents[2] / "models" / "meiki"
+    return Path(override) if override else state_root() / "models" / "meiki"
 
 
 def validate_asset(path: Path, asset: ModelAsset, setup: str | None = "Setup OCR.cmd") -> None:
     recovery = "Open Models and choose Download or Verify / repair."
-    if setup:
+    if setup and not is_standalone():
         recovery += f" You can also run {setup}."
     if not path.is_file() or path.stat().st_size != asset.size:
         raise RuntimeError(f"Missing or incomplete model asset: {asset.filename}. {recovery}")

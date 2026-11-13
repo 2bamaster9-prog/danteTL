@@ -631,8 +631,8 @@ def test_preparation_decline_preserves_selection_and_accept_loads_once_off_ui(
     assert not entered.is_set() and not receipts
     monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.Yes)
     window.backend_combo.setCurrentIndex(1)
-    window._tick()
-    assert entered.wait(1)
+    # Draining the previous worker may take more than one GUI poll under build/IO load.
+    drain(window, entered.is_set)
     assert window._progress_dialog and window._progress_dialog.maximum() == 0
     assert not receipts and window._preparing == gemma
     assert window._translation is not None

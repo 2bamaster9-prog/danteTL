@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from jp_overlay.models import ModelAsset, validate_asset
+from jp_overlay.paths import state_root
 
 REVISION = "71d67eb8e73ec2f5aaefc0689e03a4eb843d3a2b"
 ASSETS = tuple(
@@ -43,9 +44,7 @@ ASSETS = tuple(
 
 def model_directory() -> Path:
     override = os.environ.get("JP_OVERLAY_SUGOI_DIR")
-    return (
-        Path(override) if override else Path(__file__).resolve().parents[2] / "models" / "sugoi-v4"
-    )
+    return Path(override) if override else state_root() / "models" / "sugoi-v4"
 
 
 class SugoiBackend:

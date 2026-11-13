@@ -17,6 +17,7 @@ from jp_overlay.app import create_recognizer, ocr_backends, translation_backends
 from jp_overlay.hotkeys import HotkeyAction, Hotkeys
 from jp_overlay.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
 from jp_overlay.model_store import model_catalog
+from jp_overlay.paths import is_standalone
 from jp_overlay.preferences import Preferences, PreferenceStore
 from jp_overlay.runtime_restart import RuntimeRestart
 from jp_overlay.ui import MainWindow
@@ -82,7 +83,8 @@ def main() -> int:
     def command(argv, *a, **kw):
         if args.cache_root:
             a[1]["UV_CACHE_DIR"] = str(args.cache_root / ".uv-cache")
-            a[1]["UV_PYTHON_INSTALL_DIR"] = str(args.cache_root / ".python")
+            if not is_standalone():
+                a[1]["UV_PYTHON_INSTALL_DIR"] = str(args.cache_root / ".python")
         if args.offline and "sync" in argv:
             argv = [*argv, "--offline"]
         return original_command(argv, *a, **kw)

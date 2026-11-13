@@ -30,7 +30,8 @@ Read these documents as relevant to the task:
 | [Runtime setup decision](decisions/013-in-app-runtime-setup.md) | Explicit installs, isolated environments, and restart |
 | [UI decision](decisions/014-settings-and-inspection.md) | Settings ownership, persistence, and independent inspection |
 | [Hotkey decision](decisions/015-global-hotkeys.md) | Native global actions, rebinding and lifecycle ownership |
-| [Current slice](plans/015-global-hotkeys.md) | Configurable overlay/capture shortcuts and acceptance |
+| [Standalone decision](decisions/016-standalone-windows.md) | Private Python, AppData and relocatable GPU runtimes |
+| [Current slice](plans/016-standalone-windows.md) | Standalone Windows ZIP and acceptance |
 
 The harness consists of these documents, executable checks, deterministic tests, and live capture
 verification. Add guidance when it resolves a concrete ambiguity; replace stale guidance instead

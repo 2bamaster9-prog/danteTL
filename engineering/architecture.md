@@ -422,10 +422,16 @@ setup and never invents GPU compatibility.
 `runtime_restart` waits for a new Qt startup acknowledgement after the main window drains active
 work. It distinguishes the real GUI PID from the Windows Python launcher PID. `tools/launch.py`
 uses the verified next-launch selection with CPU fallback. Models/cache remain shared at project
-level, while each native runtime environment lives in `.runtimes`. The in-app AMD profile uses
+level in source checkouts, while each native runtime environment lives in `.runtimes`. The in-app AMD profile uses
 Vulkan translation and CPU OCR; the older experimental DirectML package remains isolated.
 See [decision 013](decisions/013-in-app-runtime-setup.md). These views are embedded in Settings;
 closing that window can leave setup running or cancel it. App shutdown always cancels/drains.
 Versioned preferences are automatically saved in `data/preferences.json`, without HWNDs or debug
 state. Model IDs persist only after successful loading; unavailable/unprepared choices never load
 implicitly on startup. See [decision 014](decisions/014-settings-and-inspection.md).
+
+Standalone releases use `paths` to keep those models/data/runtimes in `%LOCALAPPDATA%/DanteJP`.
+The private CPU interpreter and pinned dependency project remain read-only beside the launcher.
+GPU environments use AppData-managed Python and load the current bundle's source through the shared
+bootstrap; neither moving the bundle nor updating UI code binds them to an obsolete app path.
+See [decision 016](decisions/016-standalone-windows.md).

@@ -13,6 +13,7 @@ from pathlib import Path
 from urllib.request import urlopen
 
 from jp_overlay.models import ModelAsset
+from jp_overlay.paths import state_root
 
 GEMMA_RUNTIME_SETUP = (
     "Gemma is downloaded, but its GPU runtime is not installed in this app environment. "
@@ -227,7 +228,7 @@ def preparation_id(bundle: ModelBundle, device: str) -> str:
 
 
 def preparation_file(key: str) -> Path:
-    return Path(__file__).resolve().parents[2] / "data/prepared" / f"{key}.json"
+    return state_root() / "data/prepared" / f"{key}.json"
 
 
 def is_prepared(key: str) -> bool:

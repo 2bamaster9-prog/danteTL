@@ -9,6 +9,7 @@ from typing import Any
 
 from jp_overlay.dialogue_context import DialogueTurn
 from jp_overlay.models import ModelAsset, validate_asset
+from jp_overlay.paths import state_root
 
 REVISION = "675cff42a74c774d6cb76f76d8eacb49b48c9b93"
 ASSETS = (
@@ -51,9 +52,7 @@ def installed_device() -> str | None:
 
 def model_directory() -> Path:
     override = os.environ.get("JP_OVERLAY_GEMMA_DIR")
-    return (
-        Path(override) if override else Path(__file__).resolve().parents[2] / "models/gemma-4-e2b"
-    )
+    return Path(override) if override else state_root() / "models/gemma-4-e2b"
 
 
 def load_runtime(device: str) -> Any:
@@ -123,7 +122,7 @@ class GemmaBackend:
         for asset in ASSETS:
             validate_asset(directory / asset.filename, asset, None)
         try:
-            cache = Path(__file__).resolve().parents[2] / "data/cuda-cache"
+            cache = state_root() / "data/cuda-cache"
             cache = Path(os.environ.get("CUDA_CACHE_PATH", str(cache)))
             cache.mkdir(parents=True, exist_ok=True)
             os.environ.setdefault("CUDA_CACHE_PATH", str(cache))

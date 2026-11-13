@@ -8,7 +8,14 @@ The inspector keeps raw Japanese, bounding boxes, and English together for revie
 
 ## Run
 
-On Windows 11, double-click **Run DanteJP.cmd**, then open **Settings → Models & runtime → Models**. Download **MeikiOCR**
+For the standalone Windows x64 release, extract **DanteJP-windows-x64.zip** and double-click
+**DanteJP.exe**. Keep `_internal` beside the EXE. No Python installation, terminal, setup script or
+administrator rights are needed. This is a portable folder in a ZIP, not an installer or a single-file
+EXE. Models, settings, caches and optional runtimes go to **`%LOCALAPPDATA%\DanteJP`**, shared across
+app updates. Extract updates into a new folder after closing the app; your downloads stay in AppData.
+To uninstall, delete the app folder; delete its AppData folder only if you also want to remove your data.
+
+On Windows 11, open **Settings → Models & runtime → Models**. Download **MeikiOCR**
 (46 MB) for recognition and a translation model: **Sugoi V4** (1.11 GB, CPU) or **Gemma 4 E2B**
 (3.35 GB, GPU). Use the **Acceleration** tab beside Models to install GPU support inside the app.
 The translation dropdown
@@ -17,16 +24,16 @@ missing; selecting that entry opens runtime setup. **No translation** is always 
 Capture works even with no models; English appears only after selecting a translator.
 Downloads show byte progress, support cancellation, and check pinned SHA-256 hashes before files
 become usable. Retry keeps verified files; an interrupted individual file restarts. Processing works
-offline after setup. The older **Setup OCR.cmd** / **Setup Translation.cmd** shortcuts still work.
-Setup requires Python 3.12 or later on PATH to bootstrap uv; uv installs the pinned Python 3.12
-runtime locally if needed. Nothing is installed into your global Python environment.
+offline after setup. Source checkouts still use **Run DanteJP.cmd** and project-local models/data;
+those developer launchers require Python to bootstrap uv. The standalone release bundles its own
+private CPU runtime and installer. GPU setup manages any additional Python privately in AppData.
 
 **Downloaded model but no English / no Automatic OCR?** Model files and GPU runtimes are separate.
 Open **Settings → Models & runtime → Acceleration**. The app detects graphics cards and recommends a runtime;
 you can choose manually. **Install runtime** downloads pinned dependencies into a separate local
 environment, shows stage progress, and checks native libraries. **Restart now** stops capture,
 waits for current work, and opens the new runtime. **Use on next launch** keeps this session running.
-The normal **Run DanteJP.cmd** remembers the choice. No separate GPU setup scripts are needed.
+Both **DanteJP.exe** and the source **Run DanteJP.cmd** remember the choice. No separate GPU setup scripts are needed.
 The Models tab distinguishes downloaded files from runtime readiness and shows their folder.
 It reuses your downloads; reinstalling or redownloading model weights is unnecessary. The CPU
 launcher intentionally uses the CPU OCR environment; it does not inherit packages from the GPU one.
@@ -65,10 +72,14 @@ Context is part of cache identity, so unrelated conversations cannot reuse conte
 Its weights are Apache-2.0; Sugoi retains its separate licensing. See
 [the current slice](engineering/plans/012-model-management-and-context.md) for measurements.
 
-To share, run `python tools/package.py` and send `dist/dantejp-windows.zip`. This is a small
-**source/setup package**, not a frozen executable: unzip into a writable folder and use the launchers.
-It excludes weights, environments, caches, screenshots and logs. Python/uv bootstrapping is still
-needed on the recipient's PC; optional runtimes and models are installed from inside the app.
+To build the standalone release, run `python tools/build_standalone.py` on Windows with this
+checkout's uv 0.13.8, managed CPython 3.12.16 and Zig 0.14.1 available. `--offline` reuses cached
+dependencies. Send **`dist/DanteJP-windows-x64.zip`**. The builder creates a fresh CPU environment
+from `uv.lock`, bundles the interpreter/libraries, compiles the GUI launcher and verifies native
+imports before publishing the ZIP. It excludes model weights, personal data, GPU runtimes and
+development tools. Dependency notices and a SHA-256 file manifest are included. The EXE is unsigned.
+The older `python tools/package.py` still makes `dist/dantejp-windows.zip`, a separate source/setup kit
+for developers; it is not the standalone release.
 
 Alternatively, with uv installed:
 

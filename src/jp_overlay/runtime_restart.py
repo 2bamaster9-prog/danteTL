@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
+from jp_overlay.paths import is_standalone, module_command
 from jp_overlay.runtime_setup import project_root, ready_runtime, select_runtime, selected_runtime
 from jp_overlay.setup_process import ProcessTree
 
@@ -30,8 +31,10 @@ class RuntimeRestart:
         for key in ("VIRTUAL_ENV", "PYTHONHOME", "PYTHONPATH"):
             environment.pop(key, None)
         environment["JP_OVERLAY_RESTART_TOKEN"] = token
+        if is_standalone():
+            environment["DANTEJP_DATA_DIR"] = str(root)
         self.process = subprocess.Popen(
-            [str(target / "Scripts/pythonw.exe"), "-m", "jp_overlay"],
+            module_command(target / "Scripts/pythonw.exe", "jp_overlay"),
             cwd=root,
             env=environment,
             stdin=subprocess.DEVNULL,

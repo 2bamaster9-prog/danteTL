@@ -35,6 +35,7 @@ from jp_overlay.inspection import OcrInspector
 from jp_overlay.model_manager import ModelManager
 from jp_overlay.model_store import ModelBundle, is_prepared, mark_prepared
 from jp_overlay.overlay import OverlayWindow
+from jp_overlay.paths import module_command, state_root
 from jp_overlay.preferences import PreferenceStore
 from jp_overlay.presentation import EnglishPresentation
 from jp_overlay.recognition import (
@@ -106,9 +107,7 @@ class MainWindow(QMainWindow):
         self._progress_dialog: QProgressDialog | None = None
         self._context_reset_sequence = 0
         self._prepared_this_run: set[str] = set()
-        self._cache_path = (
-            cache_path or Path(__file__).resolve().parents[2] / "data/translations.sqlite3"
-        )
+        self._cache_path = cache_path or state_root() / "data/translations.sqlite3"
         self._recognizer_factory = recognizer_factory
         self._ocr_backends = ocr_backends or (OcrChoice("CPU", recognizer_factory),)
         self._valid_size: tuple[int, int] | None = None
@@ -1255,7 +1254,7 @@ class MainWindow(QMainWindow):
     def _open_demo(self) -> None:
         python = Path(sys.executable).with_name("pythonw.exe")
         try:
-            process = subprocess.Popen([str(python), "-m", "jp_overlay.demo", "--dialogue"])
+            process = subprocess.Popen(module_command(python, "jp_overlay.demo", "--dialogue"))
             self._demo_processes.append(process)
             self.status.setText("Demo opened. Refresh the window list and select DanteJP Demo.")
             QTimer.singleShot(1200, self.refresh_windows)
