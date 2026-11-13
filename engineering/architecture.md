@@ -430,6 +430,11 @@ Versioned preferences are automatically saved in `data/preferences.json`, withou
 state. Model IDs persist only after successful loading; unavailable/unprepared choices never load
 implicitly on startup. See [decision 014](decisions/014-settings-and-inspection.md).
 
+The NVIDIA profile now pins ONNX Runtime 1.30 and cuDNN for CUDA 13. OCR and Gemma include the
+same `cuda` dependency group for runtime/cuBLAS libraries. The legacy 1.26 OCR loader still selects
+CUDA 12 libraries when running an older development environment. Validate both initialization
+orders and actual loaded DLLs when changing native dependencies; see [decision 017](decisions/017-shared-cuda.md).
+
 Standalone releases use `paths` to keep those models/data/runtimes in `%LOCALAPPDATA%/DanteJP`.
 The private CPU interpreter and pinned dependency project remain read-only beside the launcher.
 GPU environments use AppData-managed Python and load the current bundle's source through the shared

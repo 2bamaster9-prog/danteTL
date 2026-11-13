@@ -29,7 +29,8 @@ PROFILES = (
         "nvidia",
         "NVIDIA · CUDA OCR + Gemma",
         ("gpu", "gemma"),
-        "Installs CUDA support for MeikiOCR and Gemma. Downloads can total several GB. "
+        "Installs shared CUDA 13 support for MeikiOCR and Gemma. Downloads about 1.3 GB "
+        "of NVIDIA/ONNX libraries, plus app dependencies. Model downloads are separate. "
         "An up-to-date NVIDIA driver is required; system drivers are not changed.",
     ),
     RuntimeProfile(

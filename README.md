@@ -38,7 +38,11 @@ The Models tab distinguishes downloaded files from runtime readiness and shows t
 It reuses your downloads; reinstalling or redownloading model weights is unnecessary. The CPU
 launcher intentionally uses the CPU OCR environment; it does not inherit packages from the GPU one.
 
-The **NVIDIA** option installs CUDA OCR and Gemma support (several GB including dependencies).
+The **NVIDIA** option installs GPU OCR and Gemma using shared CUDA 13 libraries. Its pinned
+NVIDIA/ONNX downloads total about **1.29 GB**, down from 2.26 GB; other app dependencies and model
+weights are additional. OCR stays GPU-accelerated. After updating from the older package, open
+Acceleration and install the new runtime once, then restart. Existing model downloads are reused;
+the old runtime is retained until you choose to remove it.
 The **AMD** option installs Vulkan Gemma and **CPU OCR**. It does not install experimental DirectML:
 that provider produced incorrect Meiki results on the development machine. Vulkan setup and inference
 were checked on the RTX 5080; a discrete Radeon still needs testing. **CPU** provides MeikiOCR/Sugoi.

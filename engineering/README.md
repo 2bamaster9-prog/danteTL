@@ -31,7 +31,8 @@ Read these documents as relevant to the task:
 | [UI decision](decisions/014-settings-and-inspection.md) | Settings ownership, persistence, and independent inspection |
 | [Hotkey decision](decisions/015-global-hotkeys.md) | Native global actions, rebinding and lifecycle ownership |
 | [Standalone decision](decisions/016-standalone-windows.md) | Private Python, AppData and relocatable GPU runtimes |
-| [Current slice](plans/016-standalone-windows.md) | Standalone Windows ZIP and acceptance |
+| [Shared CUDA decision](decisions/017-shared-cuda.md) | One NVIDIA library family for OCR and Gemma |
+| [Current slice](plans/017-shared-cuda.md) | Smaller runtime downloads with GPU OCR preserved |
 
 The harness consists of these documents, executable checks, deterministic tests, and live capture
 verification. Add guidance when it resolves a concrete ambiguity; replace stale guidance instead

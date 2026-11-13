@@ -596,3 +596,47 @@ active runtime's app-local VC libraries before native imports, including fresh c
 This is host-side isolated verification, not a clean Windows VM, Radeon, game or anti-cheat test.
 The release is unsigned. Cold dependency internet downloads were not repeated; the model download
 used the actual pinned network URLs. No personal models/preferences, screenshots or GPU caches ship.
+
+## Shared CUDA 13 (2026-11-14)
+
+An isolated candidate under `artifacts/cuda13/candidate` installed ONNX Runtime 1.30.0,
+cuDNN-cu13 9.13.1.26 and the pinned CUDA 13.0 library set while retaining the same Gemma build.
+The six newly needed wheels were downloaded from their pinned sources; common dependencies were
+cached. Existing `.venv-gpu`, the CPU native packages and actual user AppData were not modified.
+The 1.26 compatibility path remains available for the older development environment.
+
+The before/after Windows wheel inventory in `artifacts/cuda13/download-sizes.json` reports
+2,261,945,327 → 1,285,413,768 bytes for NVIDIA/ONNX packages: 976,531,559 bytes (43.2%) less.
+Model weights, llama.cpp, common dependencies and Python are excluded from those totals.
+
+Strict CUDA dense OCR returned identical text/bounds for all 64 detected regions on the synthetic
+80-label 4K fixture. Warm full-frame medians were 166.2 ms before and 149.8 ms after; cropped-region
+medians were 18.3 ms and 17.4 ms. These are single fixture runs on the RTX 5080, not general speed or
+game-accuracy claims. The missing 16 drawn labels were already missing in the baseline.
+
+`verify_translation.py --backend gemma` passed with Python sockets blocked. Fresh-cache Gemma
+preparation took 44.3 s; warm short translations took 31–157 ms. `verify_shared_cuda.py` passed both
+`--order ocr-first` and `--order gemma-first`: actual OCR and translation succeeded in one process,
+without CUDA 12 packages or CUDA 12 runtime/cuBLAS DLLs. It records the loaded paths for CUDA 13,
+cuDNN, ORT's provider and ggml-cuda in `artifacts/cuda13/*-first.json`.
+
+The live CUDA/Gemma dialogue/typewriter/transitions/debug regression passed grouping, backend swaps,
+pause retention, original hold without worker restart, minimize/restore and shutdown. Complete
+English appeared 0.688 s after the final character in that fixture. Runtime changes did not change
+tracking, grouping, scheduling or translation settings.
+
+The disposable standalone copy installed a fresh shared-CUDA runtime from cached wheels, preserved
+the previous runtime directory, acknowledged Qt restart and transferred/released all three hotkeys.
+Packaged preparation consent/worker reuse and real same-process inference/DLL checks also passed.
+These checks used existing test model links and isolated AppData, not the user's active installation.
+
+332 model-free tests, Ruff formatting/lint and Pyright passed. New coverage checks correct DLL
+families with Gemma alongside legacy OCR, repeated initialization, and failure on missing CUDA 13
+dependencies without silently loading the older family. Workspace test temp files were used to
+avoid the host's intermittent Windows Temp file-I/O stalls. No Radeon or additional GPU was tested.
+
+The rebuilt standalone ZIP contains 27 CPU distributions and no model weights or GPU environments.
+Its 6,784 manifest entries passed verification after fresh extraction to a Unicode path. The real
+EXE launched with Python absent from PATH, wrote only to isolated AppData, made no implicit
+downloads and drained cleanly (`artifacts/cuda13/final-launch`). The ZIP and SHA-256 sidecar were
+refreshed; the download reduction applies to optional runtime setup, not the CPU release ZIP.

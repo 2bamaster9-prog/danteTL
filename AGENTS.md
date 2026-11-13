@@ -2,8 +2,8 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/016-standalone-windows.md`. Standalone releases bundle a private CPU runtime;
-models, preferences and optional GPU environments live in per-user AppData.
+`engineering/plans/017-shared-cuda.md`. NVIDIA OCR and Gemma share pinned CUDA 13 libraries.
+Standalone releases keep models, preferences and optional GPU environments in per-user AppData.
 
 The public app name is DanteJP. Preserve the legacy Python package/CLI IDs and `JP_OVERLAY_*`
 variables for installed-runtime compatibility; the branding rename must not invalidate dependencies.
@@ -50,6 +50,12 @@ variables for installed-runtime compatibility; the branding rename must not inva
   verification must use `--device cuda` and fail on fallback; normal automatic mode reports fallback.
   Use `.venv-gpu/Scripts/python.exe` for GPU checks, and preserve the default CPU environment.
   Treat first-use compilation separately from warm inference; retain the bounded local CUDA cache.
+- NVIDIA setup pins ONNX Runtime 1.30 and CUDA 13.0 libraries shared with Gemma. Preserve the
+  legacy 1.26/CUDA 12 loader path for existing development environments. Never select libraries
+  just because Gemma installed them; they must match the OCR provider build. Dependency changes
+  require an isolated environment and `verify_shared_cuda.py` in both initialization orders,
+  strict real OCR and live Gemma switching. Use an isolated candidate for upgrades before touching
+  a working environment. No CPU/GPU provider mixing or removal of active native libraries.
 - Translation readiness is separate from display retention. Pending growth can reserve a dialogue
   group but cannot become a translation source until committed. Keep revision-valid published
   English while readiness changes; never enqueue retained-only requests. Test typewriter growth,

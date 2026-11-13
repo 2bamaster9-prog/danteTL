@@ -32,15 +32,16 @@ def prepare_cuda(ort: Any) -> None:
     # this bounded, writable cache so later launches reuse the compiled kernels.
     if os.name == "nt" and not _dll_handles:
         directories = set()
-        for name in (
-            "nvidia-cuda-runtime-cu12",
-            "nvidia-cublas-cu12",
-            "nvidia-cudnn-cu12",
-            "nvidia-cuda-nvrtc-cu12",
-            "nvidia-nvjitlink-cu12",
-            "nvidia-cufft-cu12",
-            "nvidia-curand-cu12",
-        ):
+        # Our pinned 1.30 build uses CUDA 13. Keep the earlier 1.26 development/runtime
+        # environment usable; selecting by ORT avoids accidentally loading Gemma's CUDA
+        # 13 libraries into the legacy CUDA 12 OCR provider.
+        current = tuple(int(part) for part in ort.__version__.split(".")[:2]) >= (1, 27)
+        suffix = "" if current else "-cu12"
+        packages = tuple(
+            f"nvidia-{name}{suffix}"
+            for name in ("cuda-runtime", "cublas", "cuda-nvrtc", "nvjitlink", "cufft", "curand")
+        ) + ("nvidia-cudnn-cu13" if current else "nvidia-cudnn-cu12",)
+        for name in packages:
             package = distribution(name)
             directories.update(
                 str(package.locate_file(path).parent)

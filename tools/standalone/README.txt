@@ -10,6 +10,10 @@ DanteJP - Windows x64
    A compatible graphics driver must already be installed.
 
 NVIDIA: CUDA OCR + Gemma. AMD: Vulkan Gemma + CPU OCR; Radeon testing is pending.
+NVIDIA OCR and Gemma share CUDA 13 libraries: about 1.29 GB of NVIDIA/ONNX downloads,
+plus other app dependencies. Model downloads are separate. If upgrading from the
+older dual-CUDA package, install the new runtime in Acceleration and restart once;
+your existing models are reused.
 Capture works without models. Recognition/translation need their respective downloads.
 Gemma asks before first-use preparation. Inference is local after setup.
 
