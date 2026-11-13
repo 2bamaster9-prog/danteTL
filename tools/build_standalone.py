@@ -68,6 +68,8 @@ def main() -> None:
             "--no-default-groups",
             "--group",
             "cpu",
+            "--group",
+            "llm-cpu",
             "--no-install-project",
             "--python",
             str(python / "python.exe"),

@@ -59,7 +59,8 @@ class RuntimeSetupDialog(QDialog):
         header.addWidget(
             InfoButton(
                 "Runtime",
-                "Installs local libraries for your graphics hardware. "
+                "Installs local inference engines with CPU or GPU support. "
+                "Compatible models share these engines. "
                 "Does not download model weights or update system drivers. "
                 "You can override the recommendation or choose CPU.",
             )
@@ -79,7 +80,8 @@ class RuntimeSetupDialog(QDialog):
         layout.addWidget(self.description)
         note = QLabel(
             "Needs internet access and free disk space. Your model files are kept. "
-            "Restart applies the new runtime; selecting Gemma then offers first-use preparation."
+            "Restart applies the new runtime. Models are selected separately "
+            "and may need first-use preparation."
         )
         note.setWordWrap(True)
         layout.addWidget(note)

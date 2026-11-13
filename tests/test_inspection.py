@@ -370,7 +370,7 @@ def test_download_completion_reports_missing_runtime_instead_of_false_readiness(
     asset = ModelAsset("fixture", "revision", "weights", hashlib.sha256(b"good").hexdigest(), 4)
     bundle = ModelBundle("gemma", "Gemma", tmp_path, (asset,), "")
     monkeypatch.setattr("jp_overlay.model_store.urlopen", lambda *a, **k: io.BytesIO(b"good"))
-    monkeypatch.setattr("jp_overlay.gemma.installed_device", lambda: None)
+    monkeypatch.setattr("jp_overlay.llama_runtime.installed_device", lambda: None)
     manager = ModelManager((bundle,))
     manager._download()
     assert manager.operation is not None
@@ -442,7 +442,7 @@ def test_model_download_badges_and_missing_selection_warnings_are_distinct(
     windows.list_targets.return_value = []
     hardware = Mock(finished=True)
     hardware.snapshot.return_value = HardwareStatus((Adapter("RTX fixture", 0x10DE),))
-    monkeypatch.setattr("jp_overlay.gemma.installed_device", lambda: None)
+    monkeypatch.setattr("jp_overlay.llama_runtime.installed_device", lambda: None)
     window = MainWindow(windows, Mock(), models=(bundle,), hardware=hardware)
     manager = window._settings.models
     assert "Download required" in manager.download_badge.text()
@@ -454,7 +454,7 @@ def test_model_download_badges_and_missing_selection_warnings_are_distinct(
     assert manager.download_badge.text() == "✓  Downloaded"
     assert manager.download_badge.property("tone") == "success"
     assert manager.choice.itemText(0).startswith("✓")
-    assert not manager.runtime_badge.isHidden() and "Acceleration" in manager.runtime_badge.text()
+    assert not manager.runtime_badge.isHidden() and "Engine setup" in manager.runtime_badge.text()
     choice = BackendChoice("Gemma", Mock(), "gemma", unavailable_reason="Missing runtime")
     window._backends = (choice,)
     window._update_notice()
@@ -463,6 +463,28 @@ def test_model_download_badges_and_missing_selection_warnings_are_distinct(
     assert "selected" in window._settings.model_notice.label.text()
     window.close()
     assert not window._settings.isVisible()
+    window.deleteLater()
+
+
+def test_cpu_model_selection_is_usable_and_notice_does_not_request_setup(app, monkeypatch):
+    windows = Mock()
+    windows.list_targets.return_value = []
+    factory = Mock()
+    choice = BackendChoice(
+        "Gemma · CPU", factory, "gemma-cpu", performance_notice="CPU translation may be slower."
+    )
+    window = MainWindow(windows, Mock(), (choice,))
+    setup = Mock(side_effect=AssertionError("CPU selection must not require GPU installation"))
+    monkeypatch.setattr(window, "_manage_runtime", setup)
+    window.backend_combo.setCurrentIndex(window.backend_combo.count() - 1)
+    window.backend_combo.setCurrentIndex(0)
+    window._update_notice()
+    assert window._selected_backend == choice and window.translate_check.isEnabled()
+    assert choice.performance_notice in window.notice.text()
+    assert window.models_button.text() == "Acceleration options"
+    setup.assert_not_called()
+    factory.assert_not_called()  # No capture/worker until requested.
+    window.close()
     window.deleteLater()
 
 

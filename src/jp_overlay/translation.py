@@ -33,6 +33,7 @@ class BackendChoice:
     key: str = ""
     preparation_id: str = ""
     unavailable_reason: str = ""
+    performance_notice: str = ""
 
 
 @dataclass(frozen=True, slots=True)

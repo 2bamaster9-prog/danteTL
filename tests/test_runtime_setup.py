@@ -69,6 +69,8 @@ def test_install_validates_before_publishing_and_selection_is_explicit(project, 
     assert len([c for c in calls if "sync" in c]) == 1
     if profile.key == "amd":
         assert "cpu" in calls[0] and "gemma-vulkan" in calls[0] and "amd" not in calls[0]
+    if profile.key == "cpu":
+        assert "llm-cpu" in calls[0] and "gemma" not in calls[0] and "gpu" not in calls[0]
     (root / "uv.lock").write_text("updated dependencies")
     assert (
         setup.selected_runtime(root) is None

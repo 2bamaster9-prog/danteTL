@@ -226,7 +226,7 @@ class MainWindow(QMainWindow):
             InfoButton(
                 "Translation model",
                 "Choose a downloaded local translator. Sugoi is compact and CPU friendly; "
-                "Gemma uses a supported GPU and requires preparation. "
+                "Gemma runs on CPU or a supported GPU and requires first-use preparation. "
                 "Switching unloads the previous model.",
             )
         )
@@ -547,6 +547,9 @@ class MainWindow(QMainWindow):
         elif self._selected_backend is None:
             message = model_warning
             action, self._notice_destination = "Choose model", "selection"
+        elif self._selected_backend.performance_notice:
+            message = self._selected_backend.performance_notice
+            action, self._notice_destination = "Acceleration options", "runtime"
         self.onboarding.set_message(message, tone=tone, action=action)
         choice = self._capture_ocr_choice if self._session else self.ocr_device.currentData()
         ocr = self._ocr.snapshot() if self._ocr else None
@@ -704,10 +707,11 @@ class MainWindow(QMainWindow):
         if isinstance(choice, BackendChoice) and not self._model_prepared(choice):
             answer = QMessageBox.question(
                 self,
-                "Prepare Gemma for this PC?",
-                "Gemma needs first-use GPU preparation before translating. "
-                "This may take about a minute. Capture can continue while it prepares.\n\n"
-                "Prepare now? Choosing No keeps your previous model.",
+                "Prepare translation model for this PC?",
+                "The model files will be checked and a short test translation will run. "
+                "First GPU use may take about a minute. Capture can continue while it prepares.\n\n"
+                + (choice.performance_notice + "\n\n" if choice.performance_notice else "")
+                + "Prepare now? Choosing No keeps your previous model.",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
@@ -790,8 +794,8 @@ class MainWindow(QMainWindow):
             self._preparation_started = True
             self._translation.start()
             self._show_preparation(
-                "Checking model files and preparing the GPU…\n"
-                "First use may take about a minute. The app stays responsive."
+                "Checking model files and running a test translation…\n"
+                "First use can take longer. The app stays responsive."
             )
             return
         elif session:
@@ -964,8 +968,7 @@ class MainWindow(QMainWindow):
         elif snapshot.state == TranslationState.LOADING:
             self.translation_status.setText(
                 f"Loading/preparing {choice.name if choice else 'the translation model'}… "
-                "Gemma's first GPU use may take about a minute; "
-                "later launches reuse the CUDA cache."
+                "First use can take longer. Processing stays local."
             )
         elif snapshot.state == TranslationState.STOPPING:
             self.translation_status.setText("Waiting for translation to finish unloading…")

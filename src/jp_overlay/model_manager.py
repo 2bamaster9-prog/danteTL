@@ -138,11 +138,17 @@ class ModelManager(QDialog):
         self.download_badge.setToolTip("Model files are present. Integrity is checked before use.")
         set_tone(self.download_badge, "success" if downloaded else "warning")
         self.download_badge.show()
-        from jp_overlay.gemma import installed_device
+        from jp_overlay.llama_runtime import installed_device
 
-        missing_runtime = downloaded and bundle.key == "gemma" and installed_device() is None
-        self.runtime_badge.setText("⚠  Acceleration setup required — model files are downloaded")
-        self.runtime_badge.setVisible(missing_runtime)
+        device = installed_device() if downloaded and bundle.key == "gemma" else None
+        self.runtime_badge.setText(
+            "⚠  CPU ready — translations may be slower; GPU optional"
+            if device == "cpu"
+            else "⚠  Engine setup required — choose CPU or GPU"
+        )
+        self.runtime_badge.setVisible(
+            downloaded and bundle.key == "gemma" and device in (None, "cpu")
+        )
 
     def _download(self) -> None:
         bundle = self.choice.currentData()

@@ -53,7 +53,7 @@ def test_hardware_check_is_once_off_thread_and_failure_is_reported(monkeypatch):
         return (NVIDIA,)
 
     monkeypatch.setattr("jp_overlay.hardware.detect_adapters", detect)
-    monkeypatch.setattr("jp_overlay.gemma.installed_device", lambda: "cuda")
+    monkeypatch.setattr("jp_overlay.llama_runtime.installed_device", lambda: "cuda")
     monkeypatch.setattr("jp_overlay.ocr_runtime.gpu_runtime_installed", lambda: True)
     check = HardwareCheck()
     check.start()

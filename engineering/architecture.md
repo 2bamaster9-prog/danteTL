@@ -440,3 +440,8 @@ The private CPU interpreter and pinned dependency project remain read-only besid
 GPU environments use AppData-managed Python and load the current bundle's source through the shared
 bootstrap; neither moving the bundle nor updating UI code binds them to an obsolete app path.
 See [decision 016](decisions/016-standalone-windows.md).
+
+The private runtime also includes CPU llama.cpp. `llama_runtime` owns shared engine discovery and
+native loading; Gemma retains model-specific prompts and inference policy. CPU selection works
+without GPU setup and carries a performance notice. GPU profiles remain optional, explicitly
+installed and shared by compatible models. See [decision 018](decisions/018-cpu-llm-runtime.md).

@@ -1,13 +1,12 @@
 """Optional, embedded llama.cpp adapter for Google's pinned Gemma 4 E2B QAT weights."""
 
 import hashlib
-import importlib
 import os
-from importlib.metadata import PackageNotFoundError, distribution
 from pathlib import Path
 from typing import Any
 
 from jp_overlay.dialogue_context import DialogueTurn
+from jp_overlay.llama_runtime import load_runtime
 from jp_overlay.models import ModelAsset, validate_asset
 from jp_overlay.paths import state_root
 
@@ -30,7 +29,6 @@ ASSETS = (
 )
 CONTEXT = 2048
 OUTPUT_LIMIT = 384
-_dll_handles: list[Any] = []
 INSTRUCTION = (
     "Translate Japanese video game text into natural, concise English. "
     "Preserve meaning, names, numbers, and tone. Use standard game UI terminology for labels. "
@@ -39,39 +37,9 @@ INSTRUCTION = (
 )
 
 
-def installed_device() -> str | None:
-    """Inspect the installed wheel without loading a native runtime on the GUI thread."""
-    try:
-        names = {Path(str(p)).name for p in distribution("llama-cpp-python").files or ()}
-    except PackageNotFoundError:
-        return None
-    if "ggml-vulkan.dll" in names:
-        return "vulkan"
-    return "cuda" if "ggml-cuda.dll" in names else None
-
-
 def model_directory() -> Path:
     override = os.environ.get("JP_OVERLAY_GEMMA_DIR")
     return Path(override) if override else state_root() / "models/gemma-4-e2b"
-
-
-def load_runtime(device: str) -> Any:
-    """Load native libraries on a worker or in the isolated setup probe only."""
-    if os.name == "nt" and not _dll_handles:
-        paths = set()
-        packages = ("llama-cpp-python",)
-        if device == "cuda":
-            packages += ("nvidia-cuda-runtime", "nvidia-cublas")
-        for name in packages:
-            package = distribution(name)
-            paths.update(
-                str(package.locate_file(path).parent)
-                for path in package.files or ()
-                if str(path).endswith(".dll")
-            )
-        _dll_handles.extend(os.add_dll_directory(path) for path in sorted(paths))
-        os.environ["PATH"] = os.pathsep.join((*sorted(paths), os.environ.get("PATH", "")))
-    return importlib.import_module("llama_cpp")
 
 
 def translation_prompt(text: str, context: tuple[DialogueTurn, ...] = ()) -> str:
@@ -122,11 +90,12 @@ class GemmaBackend:
         for asset in ASSETS:
             validate_asset(directory / asset.filename, asset, None)
         try:
-            cache = state_root() / "data/cuda-cache"
-            cache = Path(os.environ.get("CUDA_CACHE_PATH", str(cache)))
-            cache.mkdir(parents=True, exist_ok=True)
-            os.environ.setdefault("CUDA_CACHE_PATH", str(cache))
-            os.environ.setdefault("CUDA_CACHE_MAXSIZE", "536870912")
+            if device == "cuda":
+                cache = state_root() / "data/cuda-cache"
+                cache = Path(os.environ.get("CUDA_CACHE_PATH", str(cache)))
+                cache.mkdir(parents=True, exist_ok=True)
+                os.environ.setdefault("CUDA_CACHE_PATH", str(cache))
+                os.environ.setdefault("CUDA_CACHE_MAXSIZE", "536870912")
             runtime = load_runtime(device)
         except (ImportError, OSError, RuntimeError) as error:
             raise RuntimeError(
@@ -135,6 +104,9 @@ class GemmaBackend:
             ) from error
         if device != "cpu" and not runtime.llama_supports_gpu_offload():
             raise RuntimeError("Gemma GPU runtime unavailable. Open Settings or select Sugoi.")
+        # CPU prompt evaluation benefits from batching; keep GPU's tested kernel shape.
+        batch = 128 if device == "cpu" else 1
+        threads = min(4, max(1, (os.cpu_count() or 2) // 2)) if device == "cpu" else 2
         self._model: Any = None
         self._model = runtime.Llama(
             model_path=str(directory / ASSETS[0].filename),
@@ -142,10 +114,10 @@ class GemmaBackend:
             # Short, changing prompts otherwise repeatedly compile shape-specific
             # CUDA kernels on Blackwell with this wheel. Single-token prefill keeps
             # one shape and bounded scratch memory; prefix reuse amortizes instructions.
-            n_batch=1,
-            n_ubatch=1,
-            n_threads=2,
-            n_threads_batch=2,
+            n_batch=batch,
+            n_ubatch=batch,
+            n_threads=threads,
+            n_threads_batch=threads,
             n_gpu_layers=0 if device == "cpu" else -1,
             # Keep one model on one adapter, including PCs with a discrete GPU + iGPU.
             split_mode=0,  # LLAMA_SPLIT_MODE_NONE
@@ -158,7 +130,7 @@ class GemmaBackend:
         ).hexdigest()
         self.cache_identity = (
             f"gemma-4-e2b:{ASSETS[0].sha256}:llama-cpp-python-{runtime.__version__}:"
-            f"{device}:ja-en:ctx{CONTEXT}:prefill1:max{OUTPUT_LIMIT}:greedy:repeat1:"
+            f"{device}:ja-en:ctx{CONTEXT}:prefill{batch}:max{OUTPUT_LIMIT}:greedy:repeat1:"
             f"prompt-{prompt_hash}:no-think:history2-512chars-v1"
         )
         try:

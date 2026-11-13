@@ -31,7 +31,7 @@ def main() -> int:
     parser.add_argument(
         "--missing-runtime",
         action="store_true",
-        help="Verify downloaded Gemma in a fresh CPU-only environment",
+        help="Simulate an absent language-model engine with downloaded Gemma",
     )
     parser.add_argument("--output", type=Path, default=Path("artifacts/setup"))
     args = parser.parse_args()
@@ -106,6 +106,14 @@ def main() -> int:
                     and b.key.startswith("gemma")
                 )
                 original = window.backend_combo.itemData(index)
+                if original.key == "gemma-cpu":
+                    assert not original.unavailable_reason and original.performance_notice
+                    window._model_manager.choice.setCurrentIndex(
+                        next(i for i, b in enumerate(bundles) if b.key == "gemma")
+                    )
+                    assert "CPU ready" in window._model_manager.runtime_badge.text()
+                    window._settings.grab().save(str(output / "cpu-ready.png"))
+                    evidence["cpu_model_usable_without_gpu_setup"] = True
                 if args.missing_runtime:
                     assert original.unavailable_reason
                     assert "Acceleration" in original.unavailable_reason
@@ -156,6 +164,10 @@ def main() -> int:
                 )
                 evidence["responsive_preparation_ui_polls"] = preparation_ticks
                 evidence["prepared_worker_reused"] = True
+                if window._selected_backend and window._selected_backend.key == "gemma-cpu":
+                    window._update_notice()
+                    assert "CPU translation" in window.notice.text()
+                    evidence["cpu_performance_notice"] = True
                 window.start_button.click()
                 stage = 4
             elif stage == 4:
@@ -191,7 +203,14 @@ def main() -> int:
     timer.setInterval(50)
     timer.timeout.connect(tick)
     timer.start()
-    with patch("jp_overlay.ui.mark_prepared", receipts.append):
+    from contextlib import nullcontext
+
+    runtime_check = (
+        patch("jp_overlay.llama_runtime.installed_device", return_value=None)
+        if args.missing_runtime
+        else nullcontext()
+    )
+    with patch("jp_overlay.ui.mark_prepared", receipts.append), runtime_check:
         app.exec()
     timer.stop()
     (output / "result.json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")

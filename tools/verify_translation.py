@@ -58,6 +58,9 @@ def process_memory() -> dict[str, float]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--backend", choices=("sugoi", "gemma"), default="sugoi")
+    parser.add_argument(
+        "--device", choices=("cpu", "cuda", "vulkan"), help="Require this Gemma engine"
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     samples = (
@@ -88,10 +91,14 @@ def main() -> None:
         started = time.monotonic()
         backend: TranslationBackend
         if args.backend == "gemma":
-            from jp_overlay.gemma import GemmaBackend, installed_device
+            from jp_overlay.gemma import GemmaBackend
             from jp_overlay.gemma import model_directory as gemma_directory
+            from jp_overlay.llama_runtime import installed_device
 
-            backend = GemmaBackend(gemma_directory(), device=installed_device() or "cuda")
+            device = installed_device()
+            assert device is not None, "Language-model engine is missing"
+            assert not args.device or device == args.device, "Unexpected engine; no silent fallback"
+            backend = GemmaBackend(gemma_directory(), device=device)
         else:
             backend = SugoiBackend(model_directory())
         load_ms = (time.monotonic() - started) * 1000

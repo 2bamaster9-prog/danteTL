@@ -3,13 +3,17 @@ DanteJP - Windows x64
 1. Extract this entire ZIP to a folder. Do not run it inside the ZIP preview.
 2. Double-click DanteJP.exe. Keep the _internal folder beside the EXE.
 3. Open Settings > Models & runtime > Models. Download MeikiOCR and Sugoi V4
-   (CPU) or Gemma 4 E2B (GPU). No models download until you ask.
-4. For Gemma/GPU OCR, use the Acceleration tab to install the recommended
-   NVIDIA or AMD runtime, then use Restart now. No Python installation,
+   (CPU) or Gemma 4 E2B (CPU or GPU). No models download until you ask.
+4. CPU support is included: Gemma works without installing a GPU runtime.
+   For faster processing, optionally use the Acceleration tab to install
+   NVIDIA GPU - CUDA or GPU - Vulkan, then use Restart now. No Python installation,
    setup scripts, system CUDA toolkit or administrator rights are required.
    A compatible graphics driver must already be installed.
 
-NVIDIA: CUDA OCR + Gemma. AMD: Vulkan Gemma + CPU OCR; Radeon testing is pending.
+CPU: recognition and translation; larger language models may be slower.
+NVIDIA GPU - CUDA: accelerates supported recognition and translation engines.
+GPU - Vulkan: accelerates supported translation engines; OCR stays on CPU.
+Vulkan inference on Radeon still needs testing. Models are selected separately.
 NVIDIA OCR and Gemma share CUDA 13 libraries: about 1.29 GB of NVIDIA/ONNX downloads,
 plus other app dependencies. Model downloads are separate. If upgrading from the
 older dual-CUDA package, install the new runtime in Acceleration and restart once;

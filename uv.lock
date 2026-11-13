@@ -11,6 +11,7 @@ conflicts = [[
 ], [
     { package = "jp-overlay", group = "gemma" },
     { package = "jp-overlay", group = "gemma-vulkan" },
+    { package = "jp-overlay", group = "llm-cpu" },
 ]]
 
 [manifest]
@@ -257,7 +258,7 @@ dependencies = [
 
 [package.dev-dependencies]
 amd = [
-    { name = "onnxruntime-directml", marker = "sys_platform == 'win32' or (extra == 'group-10-jp-overlay-gemma' and extra == 'group-10-jp-overlay-gemma-vulkan')" },
+    { name = "onnxruntime-directml", marker = "sys_platform == 'win32' or (extra == 'group-10-jp-overlay-gemma' and extra == 'group-10-jp-overlay-gemma-vulkan') or (extra == 'group-10-jp-overlay-gemma' and extra == 'group-10-jp-overlay-llm-cpu') or (extra == 'group-10-jp-overlay-gemma-vulkan' and extra == 'group-10-jp-overlay-llm-cpu')" },
 ]
 cpu = [
     { name = "onnxruntime" },
@@ -287,7 +288,10 @@ gpu = [
     { name = "nvidia-cufft" },
     { name = "nvidia-curand" },
     { name = "nvidia-nvjitlink" },
-    { name = "onnxruntime-gpu", extra = ["cuda", "cudnn"], marker = "extra == 'group-10-jp-overlay-gpu' or (extra == 'group-10-jp-overlay-amd' and extra == 'group-10-jp-overlay-cpu') or (extra == 'group-10-jp-overlay-gemma' and extra == 'group-10-jp-overlay-gemma-vulkan')" },
+    { name = "onnxruntime-gpu", extra = ["cuda", "cudnn"], marker = "extra == 'group-10-jp-overlay-gpu' or (extra == 'group-10-jp-overlay-amd' and extra == 'group-10-jp-overlay-cpu') or (extra == 'group-10-jp-overlay-gemma' and extra == 'group-10-jp-overlay-gemma-vulkan') or (extra == 'group-10-jp-overlay-gemma' and extra == 'group-10-jp-overlay-llm-cpu') or (extra == 'group-10-jp-overlay-gemma-vulkan' and extra == 'group-10-jp-overlay-llm-cpu')" },
+]
+llm-cpu = [
+    { name = "llama-cpp-python", version = "0.3.36", source = { url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.36/llama_cpp_python-0.3.36-py3-none-win_amd64.whl" }, marker = "(platform_machine == 'AMD64' and sys_platform == 'win32') or (extra == 'group-10-jp-overlay-amd' and extra == 'group-10-jp-overlay-cpu') or (extra == 'group-10-jp-overlay-amd' and extra == 'group-10-jp-overlay-gpu') or (extra == 'group-10-jp-overlay-cpu' and extra == 'group-10-jp-overlay-gpu')" },
 ]
 
 [package.metadata]
@@ -329,6 +333,7 @@ gpu = [
     { name = "nvidia-nvjitlink", specifier = "==13.0.88" },
     { name = "onnxruntime-gpu", extras = ["cuda", "cudnn"], specifier = "==1.30.0" },
 ]
+llm-cpu = [{ name = "llama-cpp-python", marker = "platform_machine == 'AMD64' and sys_platform == 'win32'", url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.36/llama_cpp_python-0.3.36-py3-none-win_amd64.whl" }]
 
 [[package]]
 name = "llama-cpp-python"
@@ -387,6 +392,51 @@ dependencies = [
 ]
 wheels = [
     { url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.36-vulkan/llama_cpp_python-0.3.36-py3-none-win_amd64.whl", hash = "sha256:b3d58d70e9fa6216f3d1919bb6141a98eb22eb889e14a44d080dd250e969fab4" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "diskcache", specifier = ">=5.6.1" },
+    { name = "fastapi", marker = "extra == 'server'", specifier = ">=0.100.0" },
+    { name = "fastapi", marker = "extra == 'test'", specifier = ">=0.100.0" },
+    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.24.1" },
+    { name = "httpx", marker = "extra == 'test'", specifier = ">=0.24.1" },
+    { name = "huggingface-hub", marker = "extra == 'test'", specifier = ">=0.23.0" },
+    { name = "jinja2", specifier = ">=2.11.3" },
+    { name = "llama-cpp-python", extras = ["dev", "server", "test"], marker = "extra == 'all'" },
+    { name = "mkdocs", marker = "extra == 'dev'", specifier = ">=1.4.3" },
+    { name = "mkdocs-material", marker = "extra == 'dev'", specifier = ">=9.1.18" },
+    { name = "mkdocstrings", extras = ["python"], marker = "extra == 'dev'", specifier = ">=0.22.0" },
+    { name = "numpy", specifier = ">=1.20.0" },
+    { name = "pydantic-settings", marker = "extra == 'server'", specifier = ">=2.0.1" },
+    { name = "pydantic-settings", marker = "extra == 'test'", specifier = ">=2.0.1" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4.0" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=7.4.0" },
+    { name = "pyyaml", marker = "extra == 'server'", specifier = ">=5.1" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.7" },
+    { name = "scipy", marker = "extra == 'test'", specifier = ">=1.10" },
+    { name = "sse-starlette", marker = "extra == 'server'", specifier = ">=1.6.1" },
+    { name = "sse-starlette", marker = "extra == 'test'", specifier = ">=1.6.1" },
+    { name = "starlette-context", marker = "extra == 'server'", specifier = ">=0.3.6,<0.4" },
+    { name = "starlette-context", marker = "extra == 'test'", specifier = ">=0.3.6,<0.4" },
+    { name = "twine", marker = "extra == 'dev'", specifier = ">=4.0.2" },
+    { name = "typing-extensions", specifier = ">=4.5.0" },
+    { name = "uvicorn", marker = "extra == 'server'", specifier = ">=0.22.0" },
+]
+provides-extras = ["server", "test", "dev", "all"]
+
+[[package]]
+name = "llama-cpp-python"
+version = "0.3.36"
+source = { url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.36/llama_cpp_python-0.3.36-py3-none-win_amd64.whl" }
+dependencies = [
+    { name = "diskcache" },
+    { name = "jinja2" },
+    { name = "numpy" },
+    { name = "typing-extensions" },
+]
+wheels = [
+    { url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.36/llama_cpp_python-0.3.36-py3-none-win_amd64.whl", hash = "sha256:ae5e88a2cf464e5a2dde7c8898c2d5c71cc24d03cac6396bf7509456bde0b9fb" },
 ]
 
 [package.metadata]

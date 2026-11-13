@@ -16,8 +16,8 @@ from jp_overlay.models import ModelAsset
 from jp_overlay.paths import state_root
 
 GEMMA_RUNTIME_SETUP = (
-    "Gemma is downloaded, but its GPU runtime is not installed in this app environment. "
-    "Open Settings → Models & runtime → Acceleration to install support, then restart. "
+    "Gemma is downloaded, but its language-model engine is not installed in this app environment. "
+    "Open Settings → Models & runtime → Acceleration and choose CPU or GPU, then restart. "
     "Your model files are already present; no model download is needed."
 )
 
@@ -62,10 +62,10 @@ def model_catalog() -> tuple[ModelBundle, ...]:
         ),
         ModelBundle(
             "gemma",
-            "Gemma 4 E2B · local GPU translation",
+            "Gemma 4 E2B · local translation",
             gemma.model_directory(),
             gemma.ASSETS,
-            "Google QAT Q4_0 · Apache-2.0. Use Acceleration to install NVIDIA or AMD support. "
+            "Google QAT Q4_0 · Apache-2.0. Runs on CPU; optional GPU acceleration is faster. "
             "Select the downloaded model to prepare it for this PC.",
         ),
     )
@@ -76,10 +76,15 @@ def model_status(bundle: ModelBundle) -> str:
     if not bundle.present():
         return "Not downloaded. Choose Download to install this model's files."
     if bundle.key == "gemma":
-        from jp_overlay.gemma import installed_device
+        from jp_overlay.llama_runtime import installed_device
 
         if installed_device() is None:
             return GEMMA_RUNTIME_SETUP
+        if installed_device() == "cpu":
+            return (
+                "Downloaded. Runtime available on CPU; translations may be slower. "
+                "GPU acceleration is optional. Integrity is checked before use."
+            )
     if bundle.key == "ocr":
         from jp_overlay.ocr_runtime import gpu_runtime_installed
 

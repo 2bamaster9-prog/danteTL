@@ -32,7 +32,8 @@ Read these documents as relevant to the task:
 | [Hotkey decision](decisions/015-global-hotkeys.md) | Native global actions, rebinding and lifecycle ownership |
 | [Standalone decision](decisions/016-standalone-windows.md) | Private Python, AppData and relocatable GPU runtimes |
 | [Shared CUDA decision](decisions/017-shared-cuda.md) | One NVIDIA library family for OCR and Gemma |
-| [Current slice](plans/017-shared-cuda.md) | Smaller runtime downloads with GPU OCR preserved |
+| [CPU language-model decision](decisions/018-cpu-llm-runtime.md) | Bundled CPU translation and model-independent runtimes |
+| [Current slice](plans/018-cpu-llm-runtime.md) | CPU Gemma, optional acceleration, standalone verification |
 
 The harness consists of these documents, executable checks, deterministic tests, and live capture
 verification. Add guidance when it resolves a concrete ambiguity; replace stale guidance instead

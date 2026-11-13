@@ -53,7 +53,7 @@ def create_translator(*, beam_size: int = 2) -> TranslationBackend:
 
 
 def translation_backends() -> tuple[BackendChoice, ...]:
-    from jp_overlay.gemma import installed_device
+    from jp_overlay.llama_runtime import installed_device
     from jp_overlay.model_store import GEMMA_RUNTIME_SETUP, model_catalog, preparation_id
 
     bundles = {bundle.key: bundle for bundle in model_catalog()}
@@ -69,12 +69,8 @@ def translation_backends() -> tuple[BackendChoice, ...]:
         )
     device = installed_device()
     if bundles["gemma"].present():
-        label = (
-            "Vulkan GPU"
-            if device == "vulkan"
-            else "NVIDIA GPU"
-            if device
-            else "runtime setup needed"
+        label = {"vulkan": "Vulkan GPU", "cuda": "NVIDIA GPU", "cpu": "CPU · slower"}.get(
+            device or "", "runtime setup needed"
         )
         choices.append(
             BackendChoice(
@@ -83,15 +79,23 @@ def translation_backends() -> tuple[BackendChoice, ...]:
                 f"gemma-{device or 'unavailable'}",
                 preparation_id(bundles["gemma"], device) if device else "",
                 GEMMA_RUNTIME_SETUP if device is None else "",
+                "CPU translation is available. Gemma may be slower, especially on busy screens. "
+                "GPU acceleration is optional."
+                if device == "cpu"
+                else "",
             )
         )
     return tuple(choices)
 
 
 def create_gemma_translator() -> TranslationBackend:
-    from jp_overlay.gemma import GemmaBackend, installed_device, model_directory
+    from jp_overlay.gemma import GemmaBackend, model_directory
+    from jp_overlay.llama_runtime import installed_device
 
-    return GemmaBackend(model_directory(), device=installed_device() or "cuda")
+    device = installed_device()
+    if device is None:
+        raise RuntimeError("Local language-model engine is not installed. Open runtime setup.")
+    return GemmaBackend(model_directory(), device=device)
 
 
 def configure_logging() -> None:

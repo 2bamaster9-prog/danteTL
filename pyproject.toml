@@ -24,6 +24,7 @@ jp-overlay = "jp_overlay.app:main"
 [dependency-groups]
 dev = ["pytest>=8,<10", "pyright>=1.1.400", "ruff>=0.12"]
 cpu = ["onnxruntime>=1.20,<2"]
+llm-cpu = ["llama-cpp-python @ https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.36/llama_cpp_python-0.3.36-py3-none-win_amd64.whl ; sys_platform == 'win32' and platform_machine == 'AMD64'"]
 amd = ["onnxruntime-directml==1.24.4; sys_platform == 'win32'"]
 gemma-vulkan = ["llama-cpp-python @ https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.36-vulkan/llama_cpp_python-0.3.36-py3-none-win_amd64.whl ; sys_platform == 'win32' and platform_machine == 'AMD64'"]
 cuda = ["nvidia-cuda-runtime==13.0.96", "nvidia-cublas==13.0.2.14"]
@@ -46,7 +47,7 @@ default-groups = ["dev", "cpu"]
 required-environments = ["sys_platform == 'win32' and platform_machine == 'AMD64'"]
 conflicts = [
   [{ group = "cpu" }, { group = "gpu" }, { group = "amd" }],
-  [{ group = "gemma" }, { group = "gemma-vulkan" }],
+  [{ group = "llm-cpu" }, { group = "gemma" }, { group = "gemma-vulkan" }],
 ]
 # windows-capture already needs opencv-python, which provides the same cv2 API.
 # Installing both OpenCV distributions would overwrite shared package files.

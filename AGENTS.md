@@ -2,8 +2,9 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/017-shared-cuda.md`. NVIDIA OCR and Gemma share pinned CUDA 13 libraries.
-Standalone releases keep models, preferences and optional GPU environments in per-user AppData.
+`engineering/plans/018-cpu-llm-runtime.md`. NVIDIA OCR and Gemma share pinned CUDA 13 libraries.
+Standalone releases bundle CPU ONNX and llama.cpp; models, preferences and optional GPU
+environments live in per-user AppData. Runtime names describe hardware, not model brands.
 
 The public app name is DanteJP. Preserve the legacy Python package/CLI IDs and `JP_OVERLAY_*`
 variables for installed-runtime compatibility; the branding rename must not invalidate dependencies.
@@ -83,7 +84,7 @@ variables for installed-runtime compatibility; the branding rename must not inva
   Gemma first-use consent must retain the committed selection until accepted; declined/failed
   preparation restores the previous choice. Reuse the prepared translation worker. Capture must
   work without models. Run `tools/verify_setup_windows.py` for native setup lifecycle changes.
-  Test a clean CPU-only distribution with downloaded Gemma but no llama runtime: keep the model
+  Test a missing-engine environment with downloaded Gemma: keep the model
   visible with setup instructions, never load it, and never equate downloaded weights with GPU
   availability. Use `verify_setup_windows.py --missing-runtime` for that regression. OCR device
   choices reflect runtime packages, not the presence of Meiki weights.

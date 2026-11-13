@@ -33,7 +33,10 @@ saves the test app's own widget rendering. This runs on an unlocked desktop like
 
 ## Local translation checks
 
-Optional Gemma: `Setup Gemma.cmd`, or `uv sync --locked --group gemma` followed by
+CPU Gemma: `uv sync --locked --group llm-cpu`; the standalone release includes this engine.
+Verify with `tools/verify_translation.py --backend gemma --device cpu`. Device assertions reject
+an unexpected engine; CPU, CUDA and Vulkan llama distributions must remain isolated.
+Optional CUDA Gemma: `Setup Gemma.cmd`, or `uv sync --locked --group gemma` followed by
 `uv run --group gemma python tools/setup_models.py --gemma`. Use the isolated GPU environment with
 `--no-default-groups --group gpu --group dev --group gemma` when retaining CUDA OCR.
 Run `tools/verify_translation.py --backend gemma --output artifacts/gemma/translation-final.json`
@@ -640,3 +643,37 @@ Its 6,784 manifest entries passed verification after fresh extraction to a Unico
 EXE launched with Python absent from PATH, wrote only to isolated AppData, made no implicit
 downloads and drained cleanly (`artifacts/cuda13/final-launch`). The ZIP and SHA-256 sidecar were
 refreshed; the download reduction applies to optional runtime setup, not the CPU release ZIP.
+
+## CPU language-model runtime (2026-11-14)
+
+The isolated CPU environment and bundled interpreter use the official llama-cpp-python 0.3.36
+CPU wheel, with no CUDA/Vulkan engine or NVIDIA packages. The wheel adds about 7.8 MB; the complete
+release grew from 217,046,511 to 225,030,685 bytes with its supporting Python libraries.
+
+Offline CPU Gemma passed the original nine phrases and bounded dialogue-context checks, with
+Python socket connections blocked. On the 9800X3D, load plus warm-up took 3.3 s, sample inference
+took 109–734 ms, and a process snapshot showed 2,611 MiB working set / 2,076 MiB private memory.
+The packaged run took 3.5 s to load and 93–750 ms per sample. These are short fixture measurements,
+not lower-end PC or game frame-time guarantees. No other CPU or discrete Radeon was tested.
+
+CPU setup passed capture without models, downloaded/usable CPU badges, the performance notice,
+declined preparation without loading, responsive accepted preparation, worker reuse and unloading.
+Live CPU OCR/Gemma passed typewriter readiness, grouping, Sugoi swaps, debug/inspection pause,
+original hold, panel transitions, resize/minimize, restart and shutdown. Complete grouped English
+appeared 1.125 s after the final character. Native layout checks and simulated absent-engine recovery
+also passed. Screenshots and timings are under `artifacts/cpu-llm`.
+
+CUDA OCR/Gemma still passed actual inference in both startup orders, shared CUDA 13 DLL inspection,
+and live model swapping/dialogue/pause checks. GPU code paths retain their tested decoding/prefill
+settings; these runs validate functionality, not a new performance comparison.
+
+The final ZIP contains 31 CPU distributions and no model weights or GPU engines. All 6,928 manifest
+entries passed after Unicode-path relocation. The real EXE ran with Python absent from PATH,
+wrote only isolated AppData, made no implicit downloads and drained on close. Packaged CPU
+preparation/inference and CPU → NVIDIA → CPU setup/restart passed with cached dependencies;
+returning to CPU reused its verified environment, preserved both runtimes and transferred/released
+hotkeys. Actual user AppData, model files and development GPU environments were not changed.
+
+342 model-free tests, Ruff and Pyright passed. Coverage includes CPU engine discovery without
+native imports, missing/incomplete engines, CPU loading without NVIDIA packages, bounded CPU
+threads/no offload, CPU selection without forced setup, and CPU/GPU-specific model/cache readiness.

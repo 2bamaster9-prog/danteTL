@@ -19,7 +19,7 @@ class Adapter:
 class HardwareStatus:
     adapters: tuple[Adapter, ...] = ()
     cuda_ocr: bool = False
-    gemma_device: str | None = None
+    llama_device: str | None = None
     error: str = ""
 
 
@@ -43,7 +43,7 @@ class HardwareCheck:
 
     def _run(self) -> None:
         try:
-            from jp_overlay.gemma import installed_device
+            from jp_overlay.llama_runtime import installed_device
             from jp_overlay.ocr_runtime import gpu_runtime_installed
 
             self._result = HardwareStatus(

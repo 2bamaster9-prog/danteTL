@@ -17,16 +17,17 @@ To uninstall, delete the app folder; delete its AppData folder only if you also 
 
 On Windows 11, open **Settings → Models & runtime → Models**. Download **MeikiOCR**
 (46 MB) for recognition and a translation model: **Sugoi V4** (1.11 GB, CPU) or **Gemma 4 E2B**
-(3.35 GB, GPU). Use the **Acceleration** tab beside Models to install GPU support inside the app.
-The translation dropdown
-lists downloaded models. Gemma stays visible as **runtime setup needed** if its GPU runtime is
-missing; selecting that entry opens runtime setup. **No translation** is always available.
+(3.35 GB, CPU or GPU). The standalone app includes the CPU language-model engine: Gemma needs
+no GPU setup after its model download. CPU translation can be slower, so the app labels it clearly.
+The optional **Acceleration** tab installs GPU support for compatible engines, independently of
+model selection. If an older/source environment lacks the engine, Gemma stays visible as
+**runtime setup needed**; choose CPU or GPU in setup. **No translation** is always available.
 Capture works even with no models; English appears only after selecting a translator.
 Downloads show byte progress, support cancellation, and check pinned SHA-256 hashes before files
 become usable. Retry keeps verified files; an interrupted individual file restarts. Processing works
 offline after setup. Source checkouts still use **Run DanteJP.cmd** and project-local models/data;
 those developer launchers require Python to bootstrap uv. The standalone release bundles its own
-private CPU runtime and installer. GPU setup manages any additional Python privately in AppData.
+private CPU runtime, including llama.cpp, and dependency installer. GPU setup manages any additional Python privately in AppData.
 
 **Downloaded model but no English / no Automatic OCR?** Model files and GPU runtimes are separate.
 Open **Settings → Models & runtime → Acceleration**. The app detects graphics cards and recommends a runtime;
@@ -38,14 +39,15 @@ The Models tab distinguishes downloaded files from runtime readiness and shows t
 It reuses your downloads; reinstalling or redownloading model weights is unnecessary. The CPU
 launcher intentionally uses the CPU OCR environment; it does not inherit packages from the GPU one.
 
-The **NVIDIA** option installs GPU OCR and Gemma using shared CUDA 13 libraries. Its pinned
+The **NVIDIA GPU — CUDA** option accelerates supported OCR and translation engines using shared CUDA 13 libraries. Its pinned
 NVIDIA/ONNX downloads total about **1.29 GB**, down from 2.26 GB; other app dependencies and model
 weights are additional. OCR stays GPU-accelerated. After updating from the older package, open
 Acceleration and install the new runtime once, then restart. Existing model downloads are reused;
 the old runtime is retained until you choose to remove it.
-The **AMD** option installs Vulkan Gemma and **CPU OCR**. It does not install experimental DirectML:
+The **GPU — Vulkan** option accelerates supported translation engines and keeps **CPU OCR**. It does not install experimental DirectML:
 that provider produced incorrect Meiki results on the development machine. Vulkan setup and inference
-were checked on the RTX 5080; a discrete Radeon still needs testing. **CPU** provides MeikiOCR/Sugoi.
+were checked on the RTX 5080; a discrete Radeon still needs testing. **CPU** provides MeikiOCR, Sugoi and llama.cpp for Gemma.
+Runtime libraries can be shared by compatible future models; installing them does not add models.
 No system CUDA toolkit or server is needed. Graphics drivers must already support the chosen runtime;
 setup never installs or updates drivers. Hardware detection is a recommendation, not a compatibility
 guarantee. Multi-GPU users can override it.
@@ -63,8 +65,8 @@ its loading status stays visible. Gemma has the preparation flow below. A bounde
 remain available for development but are not required by the in-app acceleration flow.
 
 Selecting an unprepared Gemma model asks **Prepare now?** Choosing No restores the previous model
-or No translation. Yes shows a responsive progress dialog while checking weights and warming the
-GPU. It uses an indeterminate bar because the runtime cannot report a reliable percentage. The
+or No translation. Yes shows a responsive progress dialog while checking weights and running a
+short test translation on the selected device. It uses an indeterminate bar because the runtime cannot report a reliable percentage. The
 prepared worker stays loaded for capture. Preparation receipts are local to the machine/runtime;
 driver changes can still require warm-up, shown as loading. Nothing downloads during preparation.
 

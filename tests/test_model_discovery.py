@@ -2,7 +2,7 @@ import hashlib
 
 import pytest
 
-from jp_overlay import app, gemma, model_store, ocr_runtime
+from jp_overlay import app, llama_runtime, model_store, ocr_runtime
 from jp_overlay.models import ModelAsset
 
 
@@ -17,10 +17,8 @@ def catalog(tmp_path, monkeypatch):
     return {bundle.key: bundle for bundle in bundles}
 
 
-def test_fresh_cpu_distribution_keeps_downloaded_gemma_visible_with_setup_reason(
-    catalog, monkeypatch
-):
-    monkeypatch.setattr(gemma, "installed_device", lambda: None)
+def test_missing_engine_keeps_downloaded_gemma_visible_with_setup_reason(catalog, monkeypatch):
+    monkeypatch.setattr(llama_runtime, "installed_device", lambda: None)
     assert not app.translation_backends()
     for key in ("ocr", "gemma"):
         catalog[key].directory.mkdir()
@@ -33,21 +31,24 @@ def test_fresh_cpu_distribution_keeps_downloaded_gemma_visible_with_setup_reason
     assert not choices[0].preparation_id
 
 
-@pytest.mark.parametrize("device", ["cuda", "vulkan"])
+@pytest.mark.parametrize("device", ["cpu", "cuda", "vulkan"])
 def test_available_runtime_makes_existing_weights_usable_without_download(
     catalog, monkeypatch, device
 ):
     catalog["gemma"].directory.mkdir()
     (catalog["gemma"].directory / "weights").write_bytes(b"good")
-    monkeypatch.setattr(gemma, "installed_device", lambda: device)
+    monkeypatch.setattr(llama_runtime, "installed_device", lambda: device)
     choice = app.translation_backends()[0]
     assert choice.key == f"gemma-{device}" and choice.preparation_id
     assert not choice.unavailable_reason
+    assert bool(choice.performance_notice) == (device == "cpu")
+    if device == "cpu":
+        assert "CPU" in choice.name and "GPU" not in choice.name
     assert "Runtime available" in model_store.model_status(catalog["gemma"])
 
 
 def test_sugoi_needs_no_gemma_runtime_and_incomplete_models_stay_absent(catalog, monkeypatch):
-    monkeypatch.setattr(gemma, "installed_device", lambda: None)
+    monkeypatch.setattr(llama_runtime, "installed_device", lambda: None)
     for key, data in (("sugoi", b"good"), ("gemma", b"bad")):
         catalog[key].directory.mkdir()
         (catalog[key].directory / "weights").write_bytes(data)

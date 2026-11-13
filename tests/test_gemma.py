@@ -20,8 +20,7 @@ def runtime(monkeypatch):
         llama_supports_gpu_offload=lambda: True,
     )
     monkeypatch.setattr(gemma, "validate_asset", lambda *a: None)
-    monkeypatch.setattr(gemma, "_dll_handles", [object()])
-    monkeypatch.setattr(gemma.importlib, "import_module", lambda name: runtime)
+    monkeypatch.setattr(gemma, "load_runtime", lambda device: runtime)
     return runtime
 
 
@@ -88,6 +87,20 @@ def test_gpu_request_fails_visibly_when_runtime_has_no_gpu(runtime, tmp_path):
     with pytest.raises(RuntimeError, match="GPU runtime"):
         gemma.GemmaBackend(tmp_path)
     runtime.Llama.assert_not_called()
+
+
+def test_cpu_translates_without_gpu_support_or_cuda_cache(runtime, tmp_path, monkeypatch):
+    runtime.llama_supports_gpu_offload = Mock(side_effect=AssertionError("CPU needs no GPU"))
+    monkeypatch.delenv("CUDA_CACHE_PATH", raising=False)
+    monkeypatch.setattr(gemma.os, "cpu_count", lambda: 16)
+    backend = gemma.GemmaBackend(tmp_path, device="cpu")
+    assert backend.translate(("設定",)) == ("Settings",)
+    kwargs = runtime.Llama.call_args.kwargs
+    assert kwargs["n_gpu_layers"] == 0 and not kwargs["flash_attn"]
+    assert kwargs["n_threads"] <= 4 and kwargs["n_threads_batch"] <= 4
+    assert kwargs["n_batch"] > 1
+    assert "CUDA_CACHE_PATH" not in gemma.os.environ
+    backend.close()
 
 
 def test_warmup_failure_releases_model(runtime, tmp_path):

@@ -44,9 +44,9 @@ def acceleration_advice(
         return SetupAdvice(
             "GPU OCR fell back to CPU. " + (fallback or "Check the acceleration setup."),
         )
-    if amd and not nvidia and hardware.gemma_device != "vulkan":
+    if amd and not nvidia and hardware.llama_device != "vulkan":
         return SetupAdvice(
             "AMD GPU detected · GPU translation is not enabled in this runtime. "
-            "Set up AMD acceleration to use Gemma. OCR remains on CPU."
+            "Vulkan acceleration is optional; translation and OCR can run on CPU."
         )
     return SetupAdvice()

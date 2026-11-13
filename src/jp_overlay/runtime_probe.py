@@ -30,21 +30,20 @@ def verify(profile: str) -> None:
         prepare_cuda(ort)
         if CUDA not in ort.get_available_providers():
             raise RuntimeError("The installed OCR runtime does not provide CUDA.")
-    if profile != "cpu":
-        from jp_overlay.gemma import installed_device, load_runtime
+    from jp_overlay.llama_runtime import installed_device, load_runtime
 
-        device = "cuda" if profile == "nvidia" else "vulkan"
-        if installed_device() != device:
-            raise RuntimeError(f"The installed Gemma runtime does not provide {device}.")
-        runtime = load_runtime(device)
-        runtime.llama_backend_init()
-        try:
-            if not runtime.llama_supports_gpu_offload():
-                raise RuntimeError(
-                    "GPU offload is unavailable. Update your graphics driver or use CPU."
-                )
-        finally:
-            runtime.llama_backend_free()
+    device = {"nvidia": "cuda", "amd": "vulkan", "cpu": "cpu"}[profile]
+    if installed_device() != device:
+        raise RuntimeError(f"The installed language-model engine does not provide {device}.")
+    runtime = load_runtime(device)
+    runtime.llama_backend_init()
+    try:
+        if device != "cpu" and not runtime.llama_supports_gpu_offload():
+            raise RuntimeError(
+                "GPU offload is unavailable. Update your graphics driver or use CPU."
+            )
+    finally:
+        runtime.llama_backend_free()
     print("Library checks passed. Model preparation happens after restart.", flush=True)
 
 
