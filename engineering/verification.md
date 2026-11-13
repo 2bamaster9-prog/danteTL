@@ -498,3 +498,29 @@ consent/worker reuse. Retention held six blocks unchanged across 344 polls/16.12
 passes, including Advanced collapse/reopen; a new regional label appeared in English after 0.562 s.
 The extracted downloaded-Gemma/no-runtime regression and NVIDIA runtime reuse/restart passed with
 the new startup hardware check. These measurements use our synthetic windows, not Honkai or Radeon.
+
+## Global hotkeys (2026-11-13)
+
+`tools/verify_hotkeys_windows.py --output artifacts/hotkeys` runs real RegisterHotKey/WM_HOTKEY
+delivery with JP Overlay minimized and a separate owned demo process in the foreground. It verifies
+capture frames arrive, hiding/showing preserves capture and focus, repeated key-downs toggle once,
+another process's conflicting shortcut preserves the old binding, rebinding releases the old key,
+stop drains, restart uses the same selected source, and shutdown releases all registrations.
+Only its own foreground HWND/PID may receive synthetic input; it aborts rather than typing into
+another app. The fixture requires no models, records only its own widgets, and closes its child.
+Settings → Hotkeys was visually reviewed at DPI 168. This is not mixed-DPI or game-input testing.
+
+316 model-free tests, Ruff formatting/lint and Pyright passed. Coverage includes old-preference
+defaults, disabled/rebound persistence, drafts not being saved, native and duplicate conflicts,
+stale messages, both Qt Windows routes, rollback on failed release, modal/stop/close guards, no
+substitution of a closed selected window, and failed-runtime-restart reacquisition.
+
+Native UI and model setup/preparation regressions passed. The CUDA/Gemma dialogue/typewriter/debug
+regression passed with grouped English, model switching, pause retention, resize/minimize/restart
+and drained shutdown (0.687 s after final character in this fixture; not a speed claim for hotkeys).
+In the disposable extracted CPU distribution, the NVIDIA runtime reuse/restart check now also
+registers saved shortcuts in the parent, proves they are released before launching the child,
+proves the child owns those exact shortcuts, and verifies release after its clean exit.
+
+No Honkai, exclusive-fullscreen, elevated-game or anti-cheat compatibility is inferred from these
+fixtures. A game's input handling may reserve a chosen chord; users can select a different one.

@@ -39,6 +39,141 @@ def app():
     shiboken6.delete(application)
 
 
+def test_hotkey_settings_apply_conflict_disable_and_persistence(app, tmp_path):
+    from jp_overlay.hotkeys import HotkeyAction, Hotkeys
+    from jp_overlay.preferences import PreferenceStore
+
+    windows = Mock()
+    windows.list_targets.return_value = []
+    hotkeys = Hotkeys(Mock())
+    path = tmp_path / "preferences.json"
+    window = MainWindow(windows, Mock(), hotkeys=hotkeys, preferences_path=path)
+    panel = window._settings.hotkeys
+    overlay, capture = panel.rows[HotkeyAction.OVERLAY], panel.rows[HotkeyAction.CAPTURE]
+    overlay.modifiers.setCurrentText("Ctrl+Shift")
+    overlay.key.setCurrentIndex(overlay.key.findData("F7"))
+    # Drafts do not change the registered or persisted shortcut.
+    window._save_preferences()
+    drain(window, lambda: window._preferences.idle)
+    assert PreferenceStore(path).initial.overlay_hotkey == "Ctrl+Alt+F8"
+    overlay.apply.click()
+    assert hotkeys.shortcut(HotkeyAction.OVERLAY) == "Ctrl+Shift+F7"
+    capture.modifiers.setCurrentText("Ctrl+Shift")
+    capture.key.setCurrentIndex(capture.key.findData("F7"))
+    capture.apply.click()
+    assert "other action" in capture.status.label.text()
+    assert capture.committed == "Ctrl+Alt+F9"
+    assert "Still active" in capture.status.label.text()
+    capture.key.setCurrentIndex(0)
+    capture.apply.click()
+    drain(window, lambda: window._preferences.idle)
+    saved = PreferenceStore(path).initial
+    assert saved.overlay_hotkey == "Ctrl+Shift+F7" and saved.capture_hotkey == ""
+    window.close()
+    assert not hotkeys.shortcut(HotkeyAction.OVERLAY)
+    window.deleteLater()
+    restored = MainWindow(windows, Mock(), hotkeys=hotkeys, preferences_path=path)
+    assert hotkeys.shortcut(HotkeyAction.OVERLAY) == "Ctrl+Shift+F7"
+    assert not hotkeys.shortcut(HotkeyAction.CAPTURE)
+    restored.close()
+    restored.deleteLater()
+
+
+def test_startup_shortcut_conflict_is_visible_and_retryable(app, tmp_path):
+    from jp_overlay.hotkeys import HotkeyAction, Hotkeys
+
+    native = Mock()
+    native.register.side_effect = OSError("Another app uses this shortcut")
+    windows = Mock()
+    windows.list_targets.return_value = []
+    window = MainWindow(windows, Mock(), hotkeys=Hotkeys(native), cache_path=tmp_path / "cache")
+    assert "unavailable" in window.hotkey_notice.label.text()
+    row = window._settings.hotkeys.rows[HotkeyAction.OVERLAY]
+    assert "Another app" in row.status.label.text()
+    assert row.committed == "Ctrl+Alt+F8"
+    native.register.side_effect = None
+    for row in window._settings.hotkeys.rows.values():
+        row.apply.click()
+    assert not window._settings.hotkeys.problem
+    assert window.hotkey_notice.isHidden()
+    window.close()
+    window.deleteLater()
+
+
+def test_hotkeys_keep_selected_window_and_respect_stop_close_and_modal_guards(
+    app, tmp_path, monkeypatch
+):
+    from PySide6.QtWidgets import QDialog
+
+    from jp_overlay.domain import WindowTarget
+    from jp_overlay.hotkeys import HotkeyAction, Hotkeys
+
+    target = WindowTarget(101, 202, "Our fixture")
+    windows = Mock()
+    windows.list_targets.return_value = [target]
+    capture = Mock()
+    monkeypatch.setattr("jp_overlay.ui.CaptureSession", capture)
+    window = MainWindow(windows, Mock(), hotkeys=Hotkeys(Mock()), cache_path=tmp_path / "cache")
+    window._timer.stop()
+    window._tick = Mock()
+    window._ocr_models_ready = Mock(return_value=False)
+    window._hotkey_activated(HotkeyAction.CAPTURE)
+    capture.assert_called_once_with(target, windows, fps=8)
+    active = window._session
+    clear = Mock()
+    window._clear_tracking = clear
+    window._hotkey_activated(HotkeyAction.OVERLAY)
+    assert not window.overlay_check.isChecked() and window._session is active
+    clear.assert_not_called()
+    window._hotkey_activated(HotkeyAction.CAPTURE)
+    assert not window.start_button.isEnabled()
+    capture.return_value.request_stop.assert_called_once()
+    window._hotkey_activated(HotkeyAction.CAPTURE)
+    capture.return_value.request_stop.assert_called_once()
+    window._session = None
+    window.start_button.setEnabled(True)
+    windows.is_target.return_value = False
+    window._hotkey_activated(HotkeyAction.CAPTURE)
+    assert "closed" in window.status.text()
+    assert capture.call_count == 1  # Never substitute a foreground or recycled HWND.
+    dialog = QDialog(window)
+    dialog.setModal(True)
+    dialog.show()
+    window._hotkey_activated(HotkeyAction.OVERLAY)
+    assert not window.overlay_check.isChecked()
+    dialog.close()
+    window._closing = True
+    window._hotkey_activated(HotkeyAction.OVERLAY)
+    window._hotkey_activated(HotkeyAction.CAPTURE)
+    assert not window.overlay_check.isChecked() and capture.call_count == 1
+    window.close()
+    window.deleteLater()
+
+
+def test_native_hotkey_filter_accepts_both_qt_routes_and_rejects_stale_messages(app):
+    import ctypes
+    from ctypes import wintypes
+
+    from jp_overlay.hotkeys import HotkeyAction, Hotkeys
+    from jp_overlay.hotkeys_windows import WindowsHotkeyEvents
+
+    registrar = Mock()
+    hotkeys = Hotkeys(registrar)
+    hotkeys.activated = Mock()
+    hotkeys.bind(HotkeyAction.OVERLAY, "Ctrl+Alt+F8")
+    identifier = registrar.register.call_args.args[0]
+    events = WindowsHotkeyEvents(app, hotkeys)
+    message = wintypes.MSG(message=0x0312, wParam=identifier, lParam=(0x77 << 16) | 3)
+    pointer = ctypes.addressof(message)
+    assert events.nativeEventFilter(b"windows_dispatcher_MSG", pointer) == (True, 0)
+    assert events.nativeEventFilter(b"windows_generic_MSG", pointer) == (True, 0)
+    assert hotkeys.activated.call_count == 2
+    hotkeys.release()
+    assert events.nativeEventFilter(b"windows_generic_MSG", pointer) == (False, 0)
+    assert hotkeys.activated.call_count == 2
+    events.close()
+
+
 def cell(panel: OcrInspector, row: int, column: int):
     item = panel.table.item(row, column)
     assert item is not None
@@ -315,12 +450,22 @@ def test_app_shutdown_drains_startup_hardware_check(app, tmp_path):
 def test_runtime_restart_waits_for_translation_and_recovers_if_launch_fails(
     app, tmp_path, monkeypatch
 ):
+    from jp_overlay.hotkeys import HotkeyAction, Hotkeys
+
     windows = Mock()
     windows.list_targets.return_value = []
-    window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
+    native = Mock()
+    hotkeys = Hotkeys(native)
+    window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache", hotkeys=hotkeys)
     worker = Mock(finished=False)
     window._translation = worker
-    restart = Mock(side_effect=OSError("Could not launch"))
+
+    def fail_restart(*args):
+        assert not hotkeys.shortcut(HotkeyAction.OVERLAY)
+        assert not hotkeys.shortcut(HotkeyAction.CAPTURE)
+        raise OSError("Could not launch")
+
+    restart = Mock(side_effect=fail_restart)
     monkeypatch.setattr("jp_overlay.ui.RuntimeRestart", restart)
     warnings = []
     monkeypatch.setattr(QMessageBox, "warning", lambda *a: warnings.append(a[-1]))
@@ -333,6 +478,8 @@ def test_runtime_restart_waits_for_translation_and_recovers_if_launch_fails(
     restart.assert_called_once()
     assert not window._closing and window._restart_target is None
     assert warnings == ["Could not launch"]
+    assert hotkeys.shortcut(HotkeyAction.OVERLAY) == "Ctrl+Alt+F8"
+    assert hotkeys.shortcut(HotkeyAction.CAPTURE) == "Ctrl+Alt+F9"
     central = window.centralWidget()
     assert central and central.isEnabled() and window._timer.isActive()
     window.close()

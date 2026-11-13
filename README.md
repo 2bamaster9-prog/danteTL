@@ -93,6 +93,22 @@ detailed diagnostics. Setup errors and model loading remain visible even with Ad
 The main controls stay together at the top left, with a bounded width even when maximized. Advanced
 uses the extra space without changing the window's maximized state.
 
+Global shortcuts work while the game has focus or JP Overlay is minimized:
+
+| Shortcut | Action |
+| --- | --- |
+| **Ctrl+Alt+F8** | Show / hide the game overlay; capture and translation continue |
+| **Ctrl+Alt+F9** | Start / stop capture of the selected game window |
+
+Change either under **Settings → Hotkeys**: choose modifiers and a key, then **Apply**. Choose
+**Disabled** to turn that shortcut off. Successful changes are saved; a conflict leaves the previous
+shortcut active and explains what happened. Close another JP Overlay instance if it owns the same
+keys. Select your game before using capture shortcuts; the app never switches to another foreground
+window automatically. Holding a shortcut does not repeat its action. Shortcuts pause during modal
+prompts and shutdown; capture also waits for an earlier stop to finish. Games that reserve keys or
+intercept system input may require a different combination. There are no keyboard hooks or injection
+into the game; only native Windows shortcut registration.
+
 Amber banners identify missing OCR/translation downloads, no selected translator, or unused GPU
 acceleration, with a direct setup/settings action. A green **✓ Downloaded** badge and checkmarks in
 the Models list identify files already present. Gemma can show both **Downloaded** and **Acceleration

@@ -7,6 +7,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from uuid import uuid4
 
+from jp_overlay.hotkeys import DEFAULT_CAPTURE, DEFAULT_OVERLAY, parse_shortcut
+
 
 @dataclass(frozen=True, slots=True)
 class Preferences:
@@ -20,6 +22,8 @@ class Preferences:
     ocr_device: str = "auto"
     capture_rate: int = 8
     model: str = "auto"
+    overlay_hotkey: str = DEFAULT_OVERLAY
+    capture_hotkey: str = DEFAULT_CAPTURE
 
 
 def decode_preferences(value: object) -> Preferences:
@@ -39,6 +43,11 @@ def decode_preferences(value: object) -> Preferences:
             continue
         if key in choices and candidate not in choices[key]:
             continue
+        if key in ("overlay_hotkey", "capture_hotkey"):
+            try:
+                parse_shortcut(candidate)
+            except ValueError:
+                continue
         defaults[key] = candidate
     return Preferences(**defaults)
 

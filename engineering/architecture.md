@@ -6,6 +6,12 @@
 `ui` owns coordination for one capture/OCR/translation session and the compact main window.
 `settings_window` owns nonmodal configuration/setup views; `preferences` owns validated settings
 and coalesced atomic persistence. `controls` and `theme` provide shared Qt presentation.
+`hotkeys` owns two registrations and transactional replacement behind a small registrar protocol.
+`hotkeys_windows` bridges RegisterHotKey/WM_HOTKEY to Qt, without polling or keyboard hooks.
+`hotkey_settings` owns drafts, active/conflict feedback and committed preference values. Composition
+in `app` installs one native event filter; MainWindow maps actions to its ordinary controls. Startup
+conflicts do not block capture. Shutdown releases bindings before runtime restart; a failed restart
+reacquires them and reports any new conflicts. See [decision 015](decisions/015-global-hotkeys.md).
 Main controls occupy a width-bounded top-left column. Advanced alone consumes surplus space;
 its disclosure does not resize a maximized window. Model badges separate download presence from
 runtime availability, and actionable warning banners remain outside Advanced.

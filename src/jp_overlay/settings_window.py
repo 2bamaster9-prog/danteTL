@@ -18,6 +18,8 @@ from PySide6.QtWidgets import (
 )
 
 from jp_overlay.controls import InfoButton, StatusBanner, Switch
+from jp_overlay.hotkey_settings import HotkeySettings
+from jp_overlay.hotkeys import HotkeyAction, Hotkeys
 from jp_overlay.model_manager import ModelManager
 from jp_overlay.model_store import ModelBundle
 from jp_overlay.preferences import Preferences
@@ -37,6 +39,8 @@ class SettingsWindow(QDialog):
         ocr_choices: tuple[OcrChoice, ...],
         models: tuple[ModelBundle, ...],
         parent: QWidget,
+        *,
+        hotkeys: Hotkeys | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("JP Overlay · Settings")
@@ -155,9 +159,15 @@ class SettingsWindow(QDialog):
         self.setup_tabs.currentChanged.connect(self._setup_tab_changed)
         setup.addWidget(self.setup_tabs)
         setup.addStretch()
+        shortcuts = self._page("Hotkeys")
+        self.hotkeys = HotkeySettings(
+            preferences.overlay_hotkey, preferences.capture_hotkey, hotkeys
+        )
+        self.hotkeys.changed.connect(self.changed.emit)
+        shortcuts.addWidget(self.hotkeys)
         footer = QHBoxLayout()
         self.save_note = QLabel(
-            "Changes save automatically. Models and runtimes install only on request."
+            "Changes save automatically; hotkeys save when applied. Downloads require your action."
         )
         self.save_note.setWordWrap(True)
         self.save_note.setObjectName("muted")
@@ -222,17 +232,24 @@ class SettingsWindow(QDialog):
 
     def values(self, *, show_overlay: bool, translation: bool, model: str) -> Preferences:
         return Preferences(
-            show_overlay,
-            translation,
-            self.stabilize.isChecked(),
-            self.opacity.value(),
-            self.automatic_size.isChecked(),
-            self.text_size.value(),
-            self.group_dialogue.isChecked(),
-            self._ocr_key,
-            self.capture_rate.value(),
-            model,
+            show_overlay=show_overlay,
+            translation=translation,
+            stabilize=self.stabilize.isChecked(),
+            opacity=self.opacity.value(),
+            automatic_size=self.automatic_size.isChecked(),
+            text_size=self.text_size.value(),
+            group_dialogue=self.group_dialogue.isChecked(),
+            ocr_device=self._ocr_key,
+            capture_rate=self.capture_rate.value(),
+            model=model,
+            overlay_hotkey=self.hotkeys.rows[HotkeyAction.OVERLAY].committed,
+            capture_hotkey=self.hotkeys.rows[HotkeyAction.CAPTURE].committed,
         )
+
+    def show_hotkeys(self) -> None:
+        self.tabs.setCurrentIndex(3)
+        self.show()
+        self.raise_()
 
     def set_capture_active(self, active: bool) -> None:
         self.capture_note.setText(

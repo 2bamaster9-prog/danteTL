@@ -29,7 +29,8 @@ Read these documents as relevant to the task:
 | [Models/context decision](decisions/012-model-management-and-context.md) | Explicit setup, AMD boundaries, and bounded conversation memory |
 | [Runtime setup decision](decisions/013-in-app-runtime-setup.md) | Explicit installs, isolated environments, and restart |
 | [UI decision](decisions/014-settings-and-inspection.md) | Settings ownership, persistence, and independent inspection |
-| [Current slice](plans/014-ui-proposal.md) | Implemented main/Settings/Advanced split and acceptance |
+| [Hotkey decision](decisions/015-global-hotkeys.md) | Native global actions, rebinding and lifecycle ownership |
+| [Current slice](plans/015-global-hotkeys.md) | Configurable overlay/capture shortcuts and acceptance |
 
 The harness consists of these documents, executable checks, deterministic tests, and live capture
 verification. Add guidance when it resolves a concrete ambiguity; replace stale guidance instead

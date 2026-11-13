@@ -164,6 +164,10 @@ installation, progress, repair and restart. [Slice fourteen](plans/014-ui-propos
 the approved compact main window, separate Settings, persistent preferences and optional Advanced
 inspector. Hidden or paused inspection does not interrupt the live translation pipeline.
 
+[Slice fifteen](plans/015-global-hotkeys.md) adds configurable global overlay and capture toggles,
+with native registration, conflict recovery and persisted choices. Holding to show original text,
+per-game shortcuts and profiles remain separate future work.
+
 ## Technical references
 
 - [Windows capture](https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/screen-capture)

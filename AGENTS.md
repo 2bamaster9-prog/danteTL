@@ -2,7 +2,7 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/014-ui-proposal.md`. The user approved this UI slice; it is implemented.
+`engineering/plans/015-global-hotkeys.md`. The user requested configurable global shortcuts.
 
 - Use Python with deep modules: small public interfaces that own meaningful complexity.
 - Keep Windows, Qt, capture-library, and model details at their respective boundaries.
@@ -112,7 +112,12 @@ Read `engineering/README.md` first. The agreed product plan is in
   Model switches revoke painted and paused-inspector English. Scope presentation retention to the
   translation worker/backend generation; preserve model-keyed disk caches and reject late replies.
 - Do not claim game, mixed-DPI, HDR, or anti-cheat compatibility based solely on a demo window.
+- Global shortcuts use RegisterHotKey on the Qt thread, never keyboard hooks or polling. Preserve
+  working bindings if registration fails; reject stale messages after rebinding. Reuse the existing
+  capture/overlay actions and selected HWND/PID, honor stop/close/modal guards, and release shortcuts
+  before runtime restart. Test native delivery with `tools/verify_hotkeys_windows.py`; synthetic
+  inputs must target only our foreground fixture, never a game or unrelated application.
 - Do not implement later milestones without a user request. Capture, OCR, tracking, local Sugoi
   translation, bounded caching, English layout, icon cleanup, and dialogue grouping are implemented.
-  Gemma is an optional quality backend with bounded recent-dialogue context. Glossaries, hotkeys,
+  Gemma is an optional quality backend with bounded recent-dialogue context. Glossaries,
   profiles, and a frozen executable installer remain separate work; a source sharing kit is available.

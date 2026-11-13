@@ -46,6 +46,8 @@ def test_preferences_roundtrip_with_no_handles_paths_or_session_debug_state(tmp_
         capture_rate=5,
         model="gemma",
         translation=False,
+        overlay_hotkey="Ctrl+Shift+F7",
+        capture_hotkey="",
     )
     store.save(desired)
     wait_idle(store)
@@ -54,6 +56,12 @@ def test_preferences_roundtrip_with_no_handles_paths_or_session_debug_state(tmp_
     assert written["version"] == 1 and written["model"] == "gemma"
     assert not any(key in written for key in ("hwnd", "debug", "paused", "advanced", "model_path"))
     assert not tuple(tmp_path.glob("*.tmp"))
+
+
+def test_hotkeys_upgrade_old_settings_and_validate_each_field():
+    assert decode_preferences({"version": 1}).overlay_hotkey == "Ctrl+Alt+F8"
+    value = decode_preferences({"version": 1, "overlay_hotkey": "Win+F12", "capture_hotkey": ""})
+    assert value.overlay_hotkey == "Ctrl+Alt+F8" and value.capture_hotkey == ""
 
 
 def test_unknown_version_and_corrupt_file_are_not_silently_overwritten(tmp_path):

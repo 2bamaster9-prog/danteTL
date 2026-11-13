@@ -14,7 +14,10 @@ from PySide6.QtWidgets import QApplication
 
 from jp_overlay import runtime_setup, ui
 from jp_overlay.app import create_recognizer, ocr_backends, translation_backends
+from jp_overlay.hotkeys import HotkeyAction, Hotkeys
+from jp_overlay.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
 from jp_overlay.model_store import model_catalog
+from jp_overlay.preferences import Preferences, PreferenceStore
 from jp_overlay.runtime_restart import RuntimeRestart
 from jp_overlay.ui import MainWindow
 from jp_overlay.windows import Windows
@@ -41,6 +44,13 @@ def main() -> int:
     windows.enable_dpi_awareness()
     app = QApplication([])
     app.setQuitOnLastWindowClosed(False)
+    preferences = root / "data/preferences.json"
+    preferences.parent.mkdir(exist_ok=True)
+    PreferenceStore(preferences)._write(
+        Preferences(overlay_hotkey="Ctrl+Alt+Shift+F6", capture_hotkey="Ctrl+Alt+Shift+F7")
+    )
+    hotkeys = Hotkeys(WindowsHotkeyRegistrar())
+    native = WindowsHotkeyEvents(app, hotkeys)
     window = MainWindow(
         windows,
         create_recognizer,
@@ -48,7 +58,10 @@ def main() -> int:
         ocr_backends=ocr_backends(),
         models=model_catalog(),
         backend_provider=translation_backends,
+        preferences_path=preferences,
+        hotkeys=hotkeys,
     )
+    assert not window._settings.hotkeys.problem, window._settings.hotkeys.problem
     window.show()
     window._manage_models()
     assert window._model_manager
@@ -72,6 +85,8 @@ def main() -> int:
 
     def restart(*a, **kw):
         nonlocal child
+        assert not any(hotkeys.shortcut(action) for action in HotkeyAction)
+        evidence["hotkeys_released_before_restart"] = True
         child = RuntimeRestart(*a, **kw)
         return child
 
@@ -118,6 +133,16 @@ def main() -> int:
                 assert runtime_setup.selected_runtime(root) == child.target
                 evidence["restarted_pid"] = child.started_pid
                 evidence["selected_environment"] = str(runtime_setup.selected_runtime(root))
+                probe = WindowsHotkeyRegistrar()
+                for key in (0x75, 0x76):
+                    try:
+                        probe.register(0x1500, 7, key)
+                    except OSError as error:
+                        assert "already uses" in str(error)
+                    else:
+                        probe.unregister(0x1500)
+                        raise AssertionError("Replacement app did not register its saved hotkeys")
+                evidence["replacement_owns_saved_hotkeys"] = True
                 # Close only the child app started by this verification, through its window.
                 targets = [t for t in windows.list_targets() if t.process_id == child.started_pid]
                 if not targets:
@@ -133,6 +158,11 @@ def main() -> int:
                     return
                 assert child.process.returncode == 0
                 evidence["clean_child_exit"] = True
+                probe = WindowsHotkeyRegistrar()
+                for key in (0x75, 0x76):
+                    probe.register(0x1500, 7, key)
+                    probe.unregister(0x1500)
+                evidence["child_exit_released_hotkeys"] = True
                 evidence["seconds"] = round(time.monotonic() - started, 2)
                 (args.output / "results.json").write_text(json.dumps(evidence, indent=2), "utf-8")
                 print(json.dumps(evidence), flush=True)
@@ -156,6 +186,7 @@ def main() -> int:
         patch.object(ui, "RuntimeRestart", restart),
     ):
         app.exec()
+    native.close()
     shiboken6.delete(app)
     return int(failed)
 

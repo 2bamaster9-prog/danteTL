@@ -115,6 +115,8 @@ def main() -> None:
     from PySide6.QtWidgets import QApplication, QMessageBox
 
     from jp_overlay.hardware import HardwareCheck
+    from jp_overlay.hotkeys import Hotkeys
+    from jp_overlay.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
     from jp_overlay.model_store import model_catalog
     from jp_overlay.runtime_setup import project_root
     from jp_overlay.ui import MainWindow
@@ -142,6 +144,8 @@ def main() -> None:
     sys.excepthook = report_exception
     hardware = HardwareCheck()
     hardware.start()
+    hotkeys = Hotkeys(WindowsHotkeyRegistrar())
+    hotkey_events = WindowsHotkeyEvents(app, hotkeys)
     window = MainWindow(
         windows,
         create_recognizer,
@@ -151,6 +155,7 @@ def main() -> None:
         backend_provider=translation_backends,
         preferences_path=project_root() / "data/preferences.json",
         hardware=hardware,
+        hotkeys=hotkeys,
     )
     window.show()
     from jp_overlay.runtime_restart import acknowledge_startup
@@ -160,6 +165,7 @@ def main() -> None:
     if notice:
         window.status.setText(notice)
     exit_code = app.exec()
+    hotkey_events.close()
     # Tear down Qt while its native dependencies are still loaded, before Python finalization.
     shiboken6.delete(app)
     sys.exit(exit_code)

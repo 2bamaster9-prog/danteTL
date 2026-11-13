@@ -10,6 +10,7 @@ from pathlib import Path
 from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
     QHBoxLayout,
     QLabel,
@@ -29,6 +30,7 @@ from jp_overlay.diagnostics import debug_display
 from jp_overlay.domain import CapturedFrame, CaptureState, WindowTarget, overlay_ready
 from jp_overlay.grouping import DialogueGrouper, TextBlock
 from jp_overlay.hardware import HardwareCheck
+from jp_overlay.hotkeys import HotkeyAction, Hotkeys
 from jp_overlay.inspection import OcrInspector
 from jp_overlay.model_manager import ModelManager
 from jp_overlay.model_store import ModelBundle, is_prepared, mark_prepared
@@ -72,10 +74,12 @@ class MainWindow(QMainWindow):
         backend_provider: Callable[[], tuple[BackendChoice, ...]] | None = None,
         preferences_path: Path | None = None,
         hardware: HardwareCheck | None = None,
+        hotkeys: Hotkeys | None = None,
     ) -> None:
         super().__init__()
         self._windows = windows
         self._hardware = hardware
+        self._hotkeys = hotkeys
         self._notice_destination = "models"
         self._acceleration_advice = SetupAdvice()
         self._session: CaptureSession | None = None
@@ -127,10 +131,16 @@ class MainWindow(QMainWindow):
         self._timer.timeout.connect(self._tick)
         self._timer.start()
         self.refresh_windows()
+        if self._hotkeys:
+            self._hotkeys.activated = self._hotkey_activated
+        self._settings.hotkeys.activate()
+        self._update_notice()
 
     def _build_ui(self) -> None:
         preferences = self._preferences.initial
-        self._settings = SettingsWindow(preferences, self._ocr_backends, self._models, self)
+        self._settings = SettingsWindow(
+            preferences, self._ocr_backends, self._models, self, hotkeys=self._hotkeys
+        )
         self._model_manager = self._settings.models
         self._model_manager.models_changed.connect(self._refresh_models)
         self._settings.restart_requested.connect(self._request_restart)
@@ -250,6 +260,9 @@ class MainWindow(QMainWindow):
         self.acceleration_notice = StatusBanner()
         self.acceleration_notice.action.clicked.connect(self._show_acceleration_advice)
         layout.addWidget(self.acceleration_notice)
+        self.hotkey_notice = StatusBanner()
+        self.hotkey_notice.action.clicked.connect(self._settings.show_hotkeys)
+        layout.addWidget(self.hotkey_notice)
         self.advanced = QToolButton()
         self.advanced.setText("Advanced")
         self.advanced.setCheckable(True)
@@ -350,6 +363,15 @@ class MainWindow(QMainWindow):
             self._settings.show()
             self._settings.raise_()
 
+    def _hotkey_activated(self, action: HotkeyAction) -> None:
+        if self._closing or QApplication.activeModalWidget() is not None:
+            return
+        if action == HotkeyAction.OVERLAY:
+            self.overlay_check.setChecked(not self.overlay_check.isChecked())
+        elif action == HotkeyAction.CAPTURE:
+            # Use the button's existing lifecycle guard, including asynchronous stop/drain.
+            self.start_button.click()
+
     def _advanced_changed(self, expanded: bool) -> None:
         maximized = self.isMaximized() or self.isFullScreen()
         if expanded and not maximized:
@@ -402,6 +424,17 @@ class MainWindow(QMainWindow):
             self._manage_models()
 
     def _update_notice(self) -> None:
+        self.hotkey_notice.set_message(self._settings.hotkeys.problem, action="Hotkeys")
+        if self._hotkeys:
+            capture_key = self._hotkeys.shortcut(HotkeyAction.CAPTURE) or "disabled"
+            overlay_key = self._hotkeys.shortcut(HotkeyAction.OVERLAY) or "disabled"
+            self.start_button.setToolTip(
+                f"Start / stop the selected game window. Hotkey: {capture_key}"
+            )
+            self.overlay_check.setToolTip(
+                "Show or hide game rendering. Capture and translation keep their state. "
+                f"Hotkey: {overlay_key}"
+            )
         message = ""
         action = "Open settings"
         tone = "warning"
@@ -425,7 +458,7 @@ class MainWindow(QMainWindow):
             "Settings could not be saved. Changes still apply to this session. "
             + self._preferences.error
             if self._preferences.error
-            else "Changes save automatically. Models and runtimes install only on request."
+            else "Changes save automatically; apply hotkeys to save. Downloads require your action."
         )
         if self._preferences.error:
             message = self._preferences.error
@@ -511,11 +544,16 @@ class MainWindow(QMainWindow):
             self.start_button.setEnabled(False)
 
     def _toggle_capture(self) -> None:
+        if self._closing or not self.start_button.isEnabled():
+            return
         if self._session:
             self._stop("Capture stopped.")
             return
         target = self.windows_combo.currentData()
         if not isinstance(target, WindowTarget):
+            return
+        if not self._windows.is_target(target):
+            self.status.setText("The selected game window closed. Refresh and select it again.")
             return
         self._session = CaptureSession(target, self._windows, fps=self.capture_rate.value())
         choice = self.ocr_device.currentData()
@@ -1196,6 +1234,8 @@ class MainWindow(QMainWindow):
             return
         if self._restart_target:
             try:
+                if self._hotkeys:
+                    self._hotkeys.release()
                 if self._restart is None:
                     self._restart = RuntimeRestart(project_root(), self._restart_target)
                 if not self._restart.poll():
@@ -1206,6 +1246,7 @@ class MainWindow(QMainWindow):
                 self._restart_target = None
                 self._restart = None
                 self._closing = False
+                self._settings.hotkeys.activate()
                 if central := self.centralWidget():
                     central.setEnabled(True)
                 self.status.setText(str(error))
@@ -1215,6 +1256,9 @@ class MainWindow(QMainWindow):
             self._restart_target = None
             self._restart = None
         self._timer.stop()
+        self._closing = True
+        if self._hotkeys:
+            self._hotkeys.release()
         self._settings.hide()
         self._overlay.close()
         super().closeEvent(event)
