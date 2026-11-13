@@ -167,6 +167,11 @@ class SettingsWindow(QDialog):
         shortcuts.addWidget(self.hotkeys)
         self.tabs.currentChanged.connect(self._tab_changed)
         footer = QHBoxLayout()
+        self.setup_assistant = QPushButton("Setup assistant…")
+        self.setup_assistant.setToolTip(
+            "Guided model downloads and optional GPU setup. Stop capture first."
+        )
+        footer.addWidget(self.setup_assistant)
         self.save_note = QLabel(
             "Changes save automatically; hotkeys save when applied. Downloads require your action."
         )
@@ -263,8 +268,7 @@ class SettingsWindow(QDialog):
         )
 
     def show_models(self) -> None:
-        if self.models.operation is None:
-            self.models._selected()
+        self.models.refresh()
         self.models.show()
         self.tabs.setCurrentWidget(self._pages["Models"])
         self.show()
@@ -283,6 +287,8 @@ class SettingsWindow(QDialog):
         self.raise_()
 
     def _tab_changed(self, index: int) -> None:
+        if self.tabs.widget(index) is self._pages["Models"]:
+            self.models.refresh()
         if self.tabs.widget(index) is self._pages["Acceleration"] and self.runtime is None:
             self.runtime = RuntimeSetupDialog(self, embedded=True)
             self.runtime.restart_requested.connect(self.restart_requested.emit)

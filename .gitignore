@@ -4,6 +4,7 @@
 .venv-amd/
 .runtimes/
 .runtime-bootstrap/
+.runtime-downloads/
 .python/
 .uv-cache/
 __pycache__/

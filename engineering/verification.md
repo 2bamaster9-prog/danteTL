@@ -1,5 +1,35 @@
 # Verification
 
+## First-run setup and file progress (2026-11-14)
+
+358 model-free tests, Ruff and Pyright pass. New cases cover explicit setup, CPU overrides during
+delayed detection, skip persistence, cancel/drain, post-restart model consent, wheel compatibility,
+pinned hashes/sizes, unknown totals, partial-file cleanup, cache reuse and byte snapshots.
+
+`verify_first_run_windows.py` uses synthetic bytes through the real model installer and an owned
+native window. Welcome/model/review/progress/completion screenshots were inspected under
+`artifacts/first-run/welcome`. It checks two bars, cancel/retry, chosen-model-only downloads, saved
+completion, reopening Settings and immediate downloaded badges. No real models are downloaded by
+this fixture. Native layout, preparation/decline/worker reuse and absent-engine recovery also pass.
+
+The extracted standalone app downloaded real pinned NVIDIA and CPU wheels into the test cache,
+verified them, installed fresh isolated environments and acknowledged Qt restart. Native snapshots
+record intermediate current-file bytes, including CUDA/cuDNN/ONNX and llama.cpp wheels. These runs
+took 44.6 s (NVIDIA) and 5.1 s (CPU, shared files already cached) on this connection; they are not
+download-speed guarantees. Managed Python was already present in test AppData; its cold bootstrap
+still uses uv's activity/status reporting without invented byte percentages. Previous runtimes and
+test model files remained intact. Restart transferred and released all fixture hotkeys.
+
+Actual CUDA OCR and Gemma passed in both initialization orders in the new runtime, including DLL
+family inspection. Live translation/grouping/typewriter, model swaps, inspection pause, transitions
+and teardown passed; complete dialogue reached English in 0.625 s on the synthetic fixture.
+These are integration checks on the RTX 5080, not Honkai latency or Radeon compatibility claims.
+
+The standalone manifest contains 31 CPU distributions and no weights/GPU environments. The fresh
+EXE showed the welcome after Unicode-path relocation with Python absent from PATH, used isolated
+AppData, performed no implicit downloads and closed cleanly. Closing the modal welcome precedes
+closing the parent window in the native harness. No actual user AppData was modified.
+
 ## Fast checks
 
 Run `uv run python tools/check.py` from the repository root. It checks Ruff formatting and lint,

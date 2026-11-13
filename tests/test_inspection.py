@@ -39,6 +39,142 @@ def app():
     shiboken6.delete(application)
 
 
+def test_first_run_is_explicit_skippable_and_does_not_change_manual_cpu_choice(app, tmp_path):
+    from jp_overlay.hardware import Adapter, HardwareStatus
+    from jp_overlay.model_store import model_catalog
+    from jp_overlay.setup_assistant import SetupAssistant
+
+    hardware = Mock()
+    hardware.snapshot.return_value = None
+    models = tuple(replace(b, directory=tmp_path / b.key) for b in model_catalog())
+    windows = Mock()
+    windows.list_targets.return_value = []
+    parent = MainWindow(windows, Mock(), models=models)
+    guide = SetupAssistant(models, hardware, parent, root=tmp_path)
+    guide.show()
+    guide.next.click()
+    guide.next.click()
+    assert not guide.operation and not guide.next.isEnabled()
+    guide.runtime.activated.emit(0)  # Choosing the already-selected CPU is still a manual choice.
+    hardware.snapshot.return_value = HardwareStatus(
+        adapters=(Adapter("RTX", 0x10DE, 16 * 2**30),), llama_device="cpu"
+    )
+    guide._poll()
+    assert guide.runtime.currentData().key == "cpu"
+    guide.next.click()
+    assert guide.pages.currentIndex() == 3 and guide._plan and guide._plan.runtime is None
+    assert not guide.operation and not list(tmp_path.iterdir())
+    guide.skip.click()
+    assert not guide.isVisible() and not guide._timer.isActive()
+    parent.close()
+    guide.deleteLater()
+    parent.deleteLater()
+
+
+def test_first_run_close_drains_worker_and_progress_reports_actual_download(
+    app, tmp_path, monkeypatch
+):
+    from jp_overlay import setup_assistant
+    from jp_overlay.hardware import HardwareStatus
+    from jp_overlay.model_store import Cancelled, DownloadProgress, ModelProgress, model_catalog
+
+    entered = threading.Event()
+
+    def setup(plan, root, report, cancel):
+        report(
+            ModelProgress(
+                "Downloading", stage=1, stages=3, download=DownloadProgress("fixture.whl", 20, 100)
+            )
+        )
+        entered.set()
+        cancel.wait(2)
+        raise Cancelled()
+
+    monkeypatch.setattr(setup_assistant, "run_setup", setup)
+    hardware = Mock()
+    hardware.snapshot.return_value = HardwareStatus(llama_device="cpu")
+    windows = Mock()
+    windows.list_targets.return_value = []
+    models = tuple(replace(b, directory=tmp_path / b.key) for b in model_catalog())
+    parent = MainWindow(windows, Mock(), models=models, hardware=hardware)
+    parent.offer_first_run()
+    guide = parent._setup_assistant
+    assert guide
+    guide._poll()
+    for _ in range(4):
+        guide.next.click()
+    assert entered.wait(2) and guide.busy
+    guide._poll()
+    assert guide.progress_view.download.value() == 200
+    assert guide.progress_view.download.maximum() == 1000
+    parent.close()
+    assert parent._closing  # Parent cannot abandon its setup worker.
+    deadline = time.monotonic() + 3
+    while guide.busy and time.monotonic() < deadline:
+        app.processEvents()
+        time.sleep(0.01)
+    assert not guide.busy
+    assert guide.progress_view.overall.maximum() == 1
+    parent.close()
+    parent.deleteLater()
+
+
+def test_first_run_skip_persists_and_settings_can_reopen_it(app, tmp_path):
+    from jp_overlay.hardware import HardwareStatus
+    from jp_overlay.model_store import model_catalog
+    from jp_overlay.preferences import PreferenceStore
+
+    windows, hardware = Mock(), Mock()
+    windows.list_targets.return_value = []
+    hardware.snapshot.return_value = HardwareStatus(llama_device="cpu")
+    path = tmp_path / "preferences.json"
+    models = tuple(replace(b, directory=tmp_path / b.key) for b in model_catalog())
+    window = MainWindow(windows, Mock(), models=models, hardware=hardware, preferences_path=path)
+    window.offer_first_run()
+    assert window._setup_assistant
+    window._setup_assistant.skip.click()
+    drain(window, lambda: window._preferences.idle)
+    assert PreferenceStore(path).initial.setup_seen
+    window.offer_first_run()
+    assert not window._setup_assistant.isVisible()
+    window._settings.setup_assistant.click()
+    assert window._setup_assistant
+    assert window._setup_assistant.isVisible()
+    window._setup_assistant.close()
+    window.close()
+    window.deleteLater()
+
+
+def test_first_run_resumes_model_intent_after_restart_but_still_requires_consent(
+    app, tmp_path, monkeypatch
+):
+    from jp_overlay.preferences import Preferences, PreferenceStore
+
+    path = tmp_path / "preferences.json"
+    PreferenceStore(path)._write(
+        Preferences(model="sugoi-fast", setup_seen=True, setup_model="gemma")
+    )
+    windows, factory = Mock(), Mock()
+    windows.list_targets.return_value = []
+    base = BackendChoice("Sugoi", factory, "sugoi-fast")
+    gemma = BackendChoice("Gemma", factory, "gemma", "new-device")
+    monkeypatch.setattr("jp_overlay.ui.is_prepared", lambda key: not key)
+    consent = Mock(return_value=QMessageBox.StandardButton.No)
+    monkeypatch.setattr(QMessageBox, "question", consent)
+    window = MainWindow(windows, Mock(), (base, gemma), preferences_path=path)
+    window.offer_first_run()
+    consent.assert_called_once()
+    assert window.backend_combo.currentData() == base
+    factory.assert_not_called()
+    drain(window, lambda: window._preferences.idle)
+    saved = PreferenceStore(path).initial
+    assert saved.setup_model == "" and saved.model == "sugoi-fast"
+    window.offer_first_run()
+    consent.assert_called_once()  # Decline is not re-prompted on the next startup.
+    window.close()
+    window.deleteLater()
+
+
 def test_hotkey_settings_apply_conflict_disable_and_persistence(app, tmp_path):
     from jp_overlay.hotkeys import HotkeyAction, Hotkeys
     from jp_overlay.preferences import PreferenceStore

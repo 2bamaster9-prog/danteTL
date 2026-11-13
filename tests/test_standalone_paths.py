@@ -66,18 +66,22 @@ def test_packaged_runtime_uses_appdata_python_and_current_resources_after_move(
         assert environment["UV_PYTHON_INSTALL_DIR"] == str(state / ".python")
         assert environment["UV_PYTHON_PREFERENCE"] == "only-managed"
         calls.append(argv)
-        if "sync" in argv:
+        if "venv" in argv:
             target = Path(environment["UV_PROJECT_ENVIRONMENT"])
             (target / "Scripts").mkdir(parents=True)
             (target / "Scripts/pythonw.exe").touch()
 
     monkeypatch.setattr(runtime_setup, "run_setup_command", command)
+    monkeypatch.setattr(
+        runtime_setup, "prepare_wheels", lambda export, *args: export.with_suffix(".txt")
+    )
     runtime_setup.install_runtime(
         state, runtime_setup.PROFILES[0], lambda p: None, threading.Event()
     )
-    assert "--no-install-project" in calls[0]
+    assert all("--editable" not in call for call in calls)
+    assert "--no-emit-project" in calls[1]
     assert calls[0][0] == str(package.parent / "uv.exe")
-    assert calls[1][1:5] == ["-I", "-B", str(package / "bootstrap.py"), "--module"]
+    assert calls[-1][1:5] == ["-I", "-B", str(package / "bootstrap.py"), "--module"]
     ready = runtime_setup.ready_runtime(state, "nvidia")
     assert ready
     runtime_setup.select_runtime(state, ready)

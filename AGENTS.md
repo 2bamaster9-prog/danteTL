@@ -2,7 +2,7 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/018-cpu-llm-runtime.md`. NVIDIA OCR and Gemma share pinned CUDA 13 libraries.
+`engineering/plans/019-first-run-setup.md`. NVIDIA OCR and Gemma share pinned CUDA 13 libraries.
 Standalone releases bundle CPU ONNX and llama.cpp; models, preferences and optional GPU
 environments live in per-user AppData. Runtime names describe hardware, not model brands.
 
@@ -93,6 +93,12 @@ variables for installed-runtime compatibility; the branding rename must not inva
   `auto-directml` reports CPU fallback. DirectML initialized but miscomputed our pinned models:
   preserve the numerical compatibility probe, and do not call it validated Radeon acceleration.
 - In-app runtime setup uses isolated `.runtimes` environments; never install into a loaded venv.
+  The first-run guide is skippable; a review/confirm action starts its single bounded setup worker.
+  Reuse the existing installers and preparation consent. Pending post-restart model intent is
+  separate from committed selection. Runtime wheels come from uv's locked Windows export, with
+  pinned hashes and atomic cache publication; install the verified local files without resolution.
+  Report actual current-file bytes, never fabricated percentages. Keep cancellation/draining intact.
+  Run `tools/verify_first_run_windows.py` and the packaged runtime check for this flow.
   Downloads require an explicit action. Keep detection, installation, probing and subprocess output
   off the GUI thread. Only validated, contained environments may be activated. Cancel/timeout must
   stop owned child processes before cleanup; preserve model files and the active runtime. Restart

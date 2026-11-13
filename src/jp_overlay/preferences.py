@@ -26,6 +26,8 @@ class Preferences:
     capture_hotkey: str = DEFAULT_CAPTURE
     original_hotkey: str = DEFAULT_ORIGINAL
     capture_focused_window: bool = True
+    setup_seen: bool = False
+    setup_model: str = ""
 
 
 def decode_preferences(value: object) -> Preferences:
@@ -36,6 +38,7 @@ def decode_preferences(value: object) -> Preferences:
     choices = {
         "ocr_device": {"auto", "cpu", "auto-directml"},
         "model": {"auto", "none", "sugoi-fast", "sugoi-wide", "gemma"},
+        "setup_model": {"", "sugoi-fast", "gemma"},
     }
     for key, default in defaults.items():
         candidate = value.get(key, default)

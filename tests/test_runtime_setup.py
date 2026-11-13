@@ -30,13 +30,14 @@ def project(tmp_path, monkeypatch):
         assert "UV_PROJECT_ENVIRONMENT" in environment
         target = Path(environment["UV_PROJECT_ENVIRONMENT"])
         assert target != Path(sys.prefix)
-        if "sync" in args:
+        if "venv" in args:
             (target / "Scripts").mkdir(parents=True)
             (target / "Scripts/python.exe").touch()
             (target / "Scripts/pythonw.exe").touch()
         report("Fixture process complete")
 
     monkeypatch.setattr(setup, "run_setup_command", run)
+    monkeypatch.setattr(setup, "prepare_wheels", lambda export, *args: export.with_suffix(".txt"))
     monkeypatch.setenv("VIRTUAL_ENV", "another-project")
     monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", "another-project")
     return tmp_path, calls, run
@@ -57,20 +58,21 @@ def test_install_validates_before_publishing_and_selection_is_explicit(project, 
     root, calls, _ = project
     setup.install_runtime(root, profile, lambda p: None, threading.Event())
     ready = setup.ready_runtime(root, profile.key)
-    assert ready and "sync" in calls[0] and "--locked" in calls[0]
-    assert "--no-default-groups" in calls[0]
-    assert calls[1][1:] == ["-m", "jp_overlay.runtime_probe", profile.key]
+    assert ready and "venv" in calls[0]
+    assert "--locked" in calls[1] and "--no-default-groups" in calls[1]
+    assert all(flag in calls[2] for flag in ("--offline", "--no-index", "--require-hashes"))
+    assert calls[-1][1:] == ["-m", "jp_overlay.runtime_probe", profile.key]
     assert not setup.selected_runtime(root)
     setup.select_runtime(root, ready)
     assert setup.selected_runtime(root) == ready
     before = set((root / ".runtimes").iterdir())
     setup.install_runtime(root, profile, lambda p: None, threading.Event())
     assert set((root / ".runtimes").iterdir()) == before  # Checks/reuses, never resyncs a live env.
-    assert len([c for c in calls if "sync" in c]) == 1
+    assert len([c for c in calls if "venv" in c]) == 1
     if profile.key == "amd":
-        assert "cpu" in calls[0] and "gemma-vulkan" in calls[0] and "amd" not in calls[0]
+        assert "cpu" in calls[1] and "gemma-vulkan" in calls[1] and "amd" not in calls[1]
     if profile.key == "cpu":
-        assert "llm-cpu" in calls[0] and "gemma" not in calls[0] and "gpu" not in calls[0]
+        assert "llm-cpu" in calls[1] and "gemma" not in calls[1] and "gpu" not in calls[1]
     (root / "uv.lock").write_text("updated dependencies")
     assert (
         setup.selected_runtime(root) is None

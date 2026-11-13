@@ -5,6 +5,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt, QTimer
@@ -50,6 +51,7 @@ from jp_overlay.runtime_dialog import RuntimeSetupDialog
 from jp_overlay.runtime_restart import RuntimeRestart
 from jp_overlay.runtime_setup import project_root
 from jp_overlay.settings_window import SettingsWindow
+from jp_overlay.setup_assistant import SetupAssistant
 from jp_overlay.setup_status import SetupAdvice, acceleration_advice
 from jp_overlay.theme import STYLE
 from jp_overlay.tracking import TextTrack, TextTracker
@@ -93,6 +95,9 @@ class MainWindow(QMainWindow):
         self._model_manager: ModelManager | None = None
         self._runtime_dialog: RuntimeSetupDialog | None = None
         self._preferences = PreferenceStore(preferences_path)
+        self._setup_seen = self._preferences.initial.setup_seen
+        self._setup_model = self._preferences.initial.setup_model
+        self._setup_assistant: SetupAssistant | None = None
         self._saved_model = self._preferences.initial.model
         self._accepted_ocr: OcrResult | None = None
         self._capture_ocr_choice: OcrChoice | None = None
@@ -148,6 +153,7 @@ class MainWindow(QMainWindow):
         self._settings.runtime_created.connect(self._runtime_created)
         self._settings.model_notice.action.clicked.connect(self._choose_or_download_model)
         self._settings.acceleration_notice.action.clicked.connect(self._show_acceleration_advice)
+        self._settings.setup_assistant.clicked.connect(self._show_setup_assistant)
         # Session coordination uses the same controls owned by the Settings window.
         self.stabilize_check = self._settings.stabilize
         self.ocr_device = self._settings.ocr_device
@@ -348,12 +354,71 @@ class MainWindow(QMainWindow):
 
     def _save_preferences(self) -> None:
         self._preferences.save(
-            self._settings.values(
-                show_overlay=self.overlay_check.isChecked(),
-                translation=self.translate_check.isChecked(),
-                model=self._saved_model,
+            replace(
+                self._settings.values(
+                    show_overlay=self.overlay_check.isChecked(),
+                    translation=self.translate_check.isChecked(),
+                    model=self._saved_model,
+                ),
+                setup_seen=self._setup_seen,
+                setup_model=self._setup_model,
             )
         )
+
+    def offer_first_run(self) -> None:
+        """Called after normal app startup; fixtures may opt in explicitly."""
+        if self._closing:
+            return
+        if self._setup_model:
+            self._activate_setup_model()
+        elif not self._setup_seen:
+            ready = self._ocr_models_ready() and any(
+                model.present() for model in self._models if model.key in ("gemma", "sugoi")
+            )
+            if ready:
+                self._setup_skipped()  # Existing installations do not need a welcome interruption.
+            else:
+                self._show_setup_assistant()
+
+    def _show_setup_assistant(self) -> None:
+        if self._closing or self._session or self._settings.busy or self._preparing:
+            return
+        if self._setup_assistant and (
+            self._setup_assistant.isVisible() or self._setup_assistant.busy
+        ):
+            self._setup_assistant.show()
+            self._setup_assistant.raise_()
+            return
+        if self._setup_assistant:
+            self._setup_assistant.deleteLater()
+        self._settings.hide()
+        self._setup_assistant = SetupAssistant(self._models, self._hardware, self)
+        self._setup_assistant.skipped.connect(self._setup_skipped)
+        self._setup_assistant.completed.connect(self._setup_completed)
+        self._setup_assistant.show()
+
+    def _setup_skipped(self) -> None:
+        self._setup_seen = True
+        self._save_preferences()
+        self._refresh_models()
+
+    def _setup_completed(self, model: str, target: Path | None) -> None:
+        self._setup_seen, self._setup_model = True, model
+        self._save_preferences()
+        self._refresh_models()
+        if target:
+            self._request_restart(target)
+        else:
+            QTimer.singleShot(0, self._activate_setup_model)
+
+    def _activate_setup_model(self) -> None:
+        model, self._setup_model = self._setup_model, ""
+        self._save_preferences()
+        for index in range(self.backend_combo.count()):
+            choice = self.backend_combo.itemData(index)
+            if isinstance(choice, BackendChoice) and self._model_key(choice) == model:
+                self.backend_combo.setCurrentIndex(index)  # Existing consent / worker-reuse path.
+                break
 
     def _settings_changed(self) -> None:
         self._save_preferences()
@@ -475,6 +540,9 @@ class MainWindow(QMainWindow):
             self._manage_models()
 
     def _update_notice(self) -> None:
+        self._settings.setup_assistant.setEnabled(
+            not self._session and not self._settings.busy and not self._preparing
+        )
         self.hotkey_notice.set_message(self._settings.hotkeys.problem, action="Hotkeys")
         if self._hotkeys:
             capture_key = self._hotkeys.shortcut(HotkeyAction.CAPTURE) or "disabled"
@@ -855,6 +923,7 @@ class MainWindow(QMainWindow):
     def _refresh_models(self) -> None:
         if self._closing:
             return
+        self._settings.models.refresh()
         if self._backend_provider:
             choice = self.backend_combo.currentData()
             self._backends = self._backend_provider()
@@ -1266,6 +1335,11 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self._cancel_original()
+        if self._setup_assistant and self._setup_assistant.busy:
+            self._setup_assistant.cancel()
+            self._closing = True
+            event.ignore()
+            return
         setup_dialogs = (self._model_manager, self._runtime_dialog)
         if self._settings.busy or any(dialog and dialog.operation for dialog in setup_dialogs):
             self._settings.cancel_operations()
@@ -1331,5 +1405,7 @@ class MainWindow(QMainWindow):
         if self._hotkeys:
             self._hotkeys.release()
         self._settings.hide()
+        if self._setup_assistant:
+            self._setup_assistant.hide()
         self._overlay.close()
         super().closeEvent(event)

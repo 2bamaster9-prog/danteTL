@@ -33,7 +33,8 @@ Read these documents as relevant to the task:
 | [Standalone decision](decisions/016-standalone-windows.md) | Private Python, AppData and relocatable GPU runtimes |
 | [Shared CUDA decision](decisions/017-shared-cuda.md) | One NVIDIA library family for OCR and Gemma |
 | [CPU language-model decision](decisions/018-cpu-llm-runtime.md) | Bundled CPU translation and model-independent runtimes |
-| [Current slice](plans/018-cpu-llm-runtime.md) | CPU Gemma, optional acceleration, standalone verification |
+| [First-run decision](decisions/019-first-run-setup.md) | Explicit guided setup and verified download progress |
+| [Current slice](plans/019-first-run-setup.md) | First-run models/runtime guide and current-file download progress |
 
 The harness consists of these documents, executable checks, deterministic tests, and live capture
 verification. Add guidance when it resolves a concrete ambiguity; replace stale guidance instead

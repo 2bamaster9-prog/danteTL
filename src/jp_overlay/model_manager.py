@@ -103,6 +103,11 @@ class ModelManager(QDialog):
         self._timer.timeout.connect(self._poll)
         self._timer.start()
 
+    def refresh(self) -> None:
+        """Refresh files installed by another setup view without disturbing active downloads."""
+        if self.operation is None:
+            self._selected()
+
     def _selected(self) -> None:
         self._refresh_badges()
         bundle = self.choice.currentData()

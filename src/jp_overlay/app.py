@@ -170,6 +170,7 @@ def main() -> None:
     from jp_overlay.runtime_restart import acknowledge_startup
 
     QTimer.singleShot(0, acknowledge_startup)
+    QTimer.singleShot(0, window.offer_first_run)
     notice = os.environ.pop("JP_OVERLAY_STARTUP_NOTICE", "")
     if notice:
         window.status.setText(notice)

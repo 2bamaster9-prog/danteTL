@@ -445,3 +445,16 @@ The private runtime also includes CPU llama.cpp. `llama_runtime` owns shared eng
 native loading; Gemma retains model-specific prompts and inference policy. CPU selection works
 without GPU setup and carries a performance notice. GPU profiles remain optional, explicitly
 installed and shared by compatible models. See [decision 018](decisions/018-cpu-llm-runtime.md).
+
+`setup_assistant` presents a skippable first-run review and consumes the same one-shot hardware
+snapshot as the main view. `first_run` runs the confirmed model/runtime plan on one `ModelOperation`;
+it does not load inference engines. Settings can reopen the guide while idle. `setup_seen` persists
+skip/completion, while `setup_model` is pending selection intent across restart, never a committed
+translation backend. The existing model selection/preparation path applies that intent.
+
+`runtime_downloads` selects Windows CPython 3.12 binary wheels from uv's locked PEP 751 export,
+streams them with pinned SHA-256 validation into `.runtime-downloads/wheels`, and writes hashed
+local-file requirements. uv installs these offline into the new environment before the existing
+native probe/receipt. No dependency versions are resolved in application code. `SetupProgressView`
+renders setup stages and an independent immutable current-download byte snapshot. Python bootstrap
+remains installer-managed/indeterminate. See [decision 019](decisions/019-first-run-setup.md).

@@ -15,7 +15,13 @@ EXE. Models, settings, caches and optional runtimes go to **`%LOCALAPPDATA%\Dant
 app updates. Extract updates into a new folder after closing the app; your downloads stay in AppData.
 To uninstall, delete the app folder; delete its AppData folder only if you also want to remove your data.
 
-On Windows 11, open **Settings → Models**. Download **MeikiOCR**
+First launch opens a skippable **Setup assistant**: choose a translation model, review the detected
+GPU recommendation (or keep CPU), then confirm the downloads. Nothing downloads before you choose
+**Download and set up**. It offers restart after runtime setup and retains Gemma's separate first-use
+preparation consent. Reopen it with **Settings → Setup assistant…** while capture is stopped.
+Existing installations with OCR and a translation model already downloaded skip the welcome.
+
+You can also use **Settings → Models** directly. Download **MeikiOCR**
 (46 MB) for recognition and a translation model: **Sugoi V4** (1.11 GB, CPU) or **Gemma 4 E2B**
 (3.35 GB, CPU or GPU). The standalone app includes the CPU language-model engine: Gemma needs
 no GPU setup after its model download. CPU translation can be slower, so the app labels it clearly.
@@ -52,8 +58,11 @@ No system CUDA toolkit or server is needed. Graphics drivers must already suppor
 setup never installs or updates drivers. Hardware detection is a recommendation, not a compatibility
 guarantee. Multi-GPU users can override it.
 
-Runtime installation uses an indeterminate bar with actual stage/package updates; it does not invent
-a download percentage. Cancel/failure keeps the running environment and model files. A failed install
+Runtime installation shows the setup stage and a second bar for the **current file**, with downloaded
+MB and a percentage when its size is known. Unknown-size downloads show received bytes; the private
+Python installer and native checks use activity indicators when byte progress is unavailable.
+Verified wheels are cached in `.runtime-downloads` for retry/reuse; an interrupted file restarts.
+Cancel/failure keeps the running environment and model files. A failed install
 can be retried; **Verify / repair runtime** checks an existing install and creates a separate replacement
 if needed. A failed restart leaves the old app available. CPU fallback remains accessible through
 **Run DanteJP CPU.cmd**. Replaced runtimes are retained in `.runtimes` for recovery, so repeated

@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QLabel,
-    QProgressBar,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -29,6 +28,7 @@ from jp_overlay.runtime_setup import (
     ready_runtime,
     select_runtime,
 )
+from jp_overlay.setup_progress import SetupProgressView
 
 
 class RuntimeSetupDialog(QDialog):
@@ -85,12 +85,10 @@ class RuntimeSetupDialog(QDialog):
         )
         note.setWordWrap(True)
         layout.addWidget(note)
-        self.status = QLabel()
-        self.status.setWordWrap(True)
-        layout.addWidget(self.status)
-        self.progress = QProgressBar()
-        self.progress.setRange(0, 0)
-        layout.addWidget(self.progress)
+        self.progress_view = SetupProgressView()
+        self.status = self.progress_view.status
+        self.progress = self.progress_view.overall
+        layout.addWidget(self.progress_view)
         self.install = QPushButton("Install runtime")
         self.install.setEnabled(False)
         self.install.clicked.connect(self._install)
@@ -138,6 +136,9 @@ class RuntimeSetupDialog(QDialog):
         self.restart.setVisible(self.restart.isEnabled())
         self.later.setVisible(self.later.isEnabled())
         self.progress.setVisible(not idle)
+        if idle:
+            self.progress_view.download.hide()
+            self.progress_view.download_label.hide()
         if self._embedded:
             self.cancel_button.setEnabled(not idle)
             self.cancel_button.setVisible(not idle and not self._detecting)
@@ -171,6 +172,7 @@ class RuntimeSetupDialog(QDialog):
         if self.operation is None:
             return
         value = self.operation.snapshot()
+        self.progress_view.update_progress(value)
         self.status.setText(
             "Cancelling… waiting for installer processes to exit."
             if self._cancelling and not value.done

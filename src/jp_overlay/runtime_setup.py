@@ -7,12 +7,13 @@ import re
 import shutil
 import sys
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from uuid import uuid4
 
 from jp_overlay.model_store import Cancelled, ModelProgress, Progress
 from jp_overlay.paths import is_standalone, module_command, runtime_project, state_root
+from jp_overlay.runtime_downloads import prepare_wheels
 from jp_overlay.setup_process import run_setup_command
 
 
@@ -178,14 +179,16 @@ def _install(
         environment["UV_PYTHON_PREFERENCE"] = "only-managed"
         environment["DANTEJP_DATA_DIR"] = str(root)
 
-    def command(args: list[str], stage: str, timeout: float = 1800) -> None:
-        progress(ModelProgress(stage))
+    def command(args: list[str], stage: str, timeout: float = 1800, step: int = 0) -> None:
+        progress(ModelProgress(stage, stage=step, stages=4 if step else 0))
         run_setup_command(
             args,
             project,
             environment,
             cancel,
-            lambda detail: progress(ModelProgress(f"{stage}\n{detail}")),
+            lambda detail: progress(
+                ModelProgress(f"{stage}\n{detail}", stage=step, stages=4 if step else 0)
+            ),
             timeout=timeout,
         )
 
@@ -223,18 +226,73 @@ def _install(
                 "1/3 · Downloading the installer…",
             )
             uv = bootstrap / "Scripts/uv.exe"
-    args = [str(uv), "sync", "--locked", "--no-default-groups", "--python", "3.12"]
-    if is_standalone():
-        args.append("--no-install-project")
+    export = target / "pylock.toml"
+    args = [
+        str(uv),
+        "export",
+        "--locked",
+        "--offline",
+        "--quiet",
+        "--no-default-groups",
+        "--no-emit-project",
+        "--format",
+        "pylock.toml",
+        "--output-file",
+        str(export),
+    ]
     for group in profile.groups:
         args.extend(("--group", group))
     # Keep the final path: Windows venv entry points must not be renamed after installation.
     try:
-        command(args, "2/3 · Downloading and installing dependencies…")
+        command(
+            [str(uv), "venv", "--python", "3.12.16", str(target)],
+            "Preparing private Python… (installer-managed; byte progress unavailable)",
+            step=1,
+        )
+        command(args, "Reading locked dependencies…", step=2)
+        requirements = prepare_wheels(
+            export,
+            root / ".runtime-downloads/wheels",
+            lambda value: progress(replace(value, stage=2, stages=4)),
+            cancel,
+        )
+        command(
+            [
+                str(uv),
+                "pip",
+                "install",
+                "--offline",
+                "--no-index",
+                "--no-deps",
+                "--require-hashes",
+                "--python",
+                str(target / "Scripts/python.exe"),
+                "--requirements",
+                str(requirements),
+            ],
+            "Installing verified dependencies…",
+            step=3,
+        )
+        if not is_standalone():
+            command(
+                [
+                    str(uv),
+                    "pip",
+                    "install",
+                    "--no-deps",
+                    "--python",
+                    str(target / "Scripts/python.exe"),
+                    "--editable",
+                    str(project),
+                ],
+                "Connecting the source application…",
+                step=3,
+            )
         command(
             module_command(target / "Scripts/python.exe", "jp_overlay.runtime_probe", profile.key),
-            "3/3 · Checking installed libraries and GPU support…",
+            "Checking installed libraries and GPU support…",
             timeout=180,
+            step=4,
         )
         if cancel.is_set():
             raise Cancelled()

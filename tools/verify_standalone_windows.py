@@ -81,8 +81,9 @@ def main() -> None:
     assert receipt.is_file(), "Native EXE did not acknowledge Qt startup"
     pid = int(receipt.read_text("ascii"))
     windows = Windows()
-    targets = [t for t in windows.list_targets() if t.process_id == pid]
-    assert len(targets) == 1 and targets[0].title == "DanteJP", targets
+    owned = [t for t in windows.list_targets() if t.process_id == pid]
+    targets = [target for target in owned if target.title == "DanteJP"]
+    assert len(targets) == 1, targets  # The first-run assistant is an owned child window.
     user = ctypes.WinDLL("user32")
     user.PostMessageW.argtypes = (ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t)
     kernel = ctypes.WinDLL("kernel32")
@@ -93,6 +94,19 @@ def main() -> None:
     handle = kernel.OpenProcess(0x100000, False, pid)
     assert handle
     try:
+        # The welcome is modal; close that owned window first, as a user would.
+        for target in owned:
+            if target.title == "DanteJP · Welcome":
+                user.PostMessageW(target.hwnd, 0x0010, 0, 0)
+        deadline = time.monotonic() + 5
+        while (
+            any(
+                t.process_id == pid and t.title == "DanteJP · Welcome"
+                for t in windows.list_targets()
+            )
+            and time.monotonic() < deadline
+        ):
+            time.sleep(0.05)
         user.PostMessageW(targets[0].hwnd, 0x0010, 0, 0)
         assert kernel.WaitForSingleObject(handle, 15000) == 0, "App did not drain on close"
     finally:
@@ -113,6 +127,7 @@ def main() -> None:
         "unicode_path": any(ord(char) > 127 for char in str(bundle)),
         "appdata_receipt_and_logs": True,
         "no_implicit_downloads": True,
+        "welcome_shown": any(t.title == "DanteJP · Welcome" for t in owned),
         "no_files_written_in_app_folder": True,
         "clean_shutdown": True,
         "verified_files": len(manifest["files"]),

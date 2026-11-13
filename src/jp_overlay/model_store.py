@@ -7,7 +7,7 @@ import platform
 import tempfile
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from urllib.request import urlopen
@@ -102,6 +102,13 @@ class Cancelled(Exception):
 
 
 @dataclass(frozen=True, slots=True)
+class DownloadProgress:
+    name: str
+    received: int = 0
+    total: int = 0
+
+
+@dataclass(frozen=True, slots=True)
 class ModelProgress:
     message: str = "Starting…"
     received: int = 0
@@ -109,6 +116,9 @@ class ModelProgress:
     done: bool = False
     cancelled: bool = False
     error: str = ""
+    download: DownloadProgress | None = None
+    stage: int = 0
+    stages: int = 0
 
 
 Progress = Callable[[ModelProgress], None]
@@ -160,7 +170,10 @@ def install_model(bundle: ModelBundle, progress: Progress, cancel: threading.Eve
                         out.write(chunk)
                         progress(
                             ModelProgress(
-                                f"Downloading {asset.filename}", completed + received, bundle.size
+                                f"Downloading {asset.filename}",
+                                completed + received,
+                                bundle.size,
+                                download=DownloadProgress(asset.filename, received, asset.size),
                             )
                         )
             _check_cancel(cancel)
@@ -205,7 +218,7 @@ class ModelOperation:
         try:
             action(self._progress, self._cancel)
             value = self.snapshot()
-            self._progress(ModelProgress(value.message, value.received, value.total, done=True))
+            self._progress(replace(value, done=True))
         except Cancelled:
             self._progress(
                 ModelProgress(

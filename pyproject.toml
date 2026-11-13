@@ -13,6 +13,7 @@ dependencies = [
   "sentencepiece>=0.2,<0.3",
   "meikiocr==0.3.5",
   "numpy>=2,<3",
+  "packaging>=24,<27",
   "opencv-python>=4.10,<6",
   "PySide6-Essentials>=6.8,<7",
   "windows-capture>=2.0.0,<3; sys_platform == 'win32'",

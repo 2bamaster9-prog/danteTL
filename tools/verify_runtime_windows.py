@@ -5,6 +5,7 @@ import ctypes
 import json
 import sys
 import time
+from contextlib import nullcontext
 from pathlib import Path
 from unittest.mock import patch
 
@@ -12,7 +13,7 @@ import shiboken6
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
-from jp_overlay import runtime_setup, ui
+from jp_overlay import runtime_downloads, runtime_setup, ui
 from jp_overlay.app import create_recognizer, ocr_backends, translation_backends
 from jp_overlay.hotkeys import HotkeyAction, Hotkeys
 from jp_overlay.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
@@ -79,13 +80,20 @@ def main() -> int:
     evidence = {"profile": args.profile, "initial_environment": sys.prefix}
     failed = False
     original_command = runtime_setup.run_setup_command
+    original_prepare = runtime_setup.prepare_wheels
+    download_samples = {}
+
+    def prepare(export, cache, progress, cancel):
+        if args.cache_root:
+            cache = args.cache_root / ".runtime-downloads/wheels"
+        return original_prepare(export, cache, progress, cancel)
 
     def command(argv, *a, **kw):
         if args.cache_root:
             a[1]["UV_CACHE_DIR"] = str(args.cache_root / ".uv-cache")
             if not is_standalone():
                 a[1]["UV_PYTHON_INSTALL_DIR"] = str(args.cache_root / ".python")
-        if args.offline and "sync" in argv:
+        if args.offline and "--offline" not in argv:
             argv = [*argv, "--offline"]
         return original_command(argv, *a, **kw)
 
@@ -119,6 +127,11 @@ def main() -> int:
             elif stage == 1:
                 if dialog.operation:
                     busy_ticks += 1
+                    sample = dialog.operation.snapshot().download
+                    if sample and sample.total and 0 < sample.received < sample.total:
+                        download_samples[sample.name] = [sample.received, sample.total]
+                        if len(download_samples) == 1:
+                            dialog.grab().save(str(args.output / "download.png"))
                     if busy_ticks == 5:
                         dialog.grab().save(str(args.output / "progress.png"))
                     assert not dialog.restart.isEnabled()
@@ -128,6 +141,7 @@ def main() -> int:
                 assert ready
                 evidence["installed_environment"] = str(ready)
                 evidence["responsive_polls"] = busy_ticks
+                evidence["intermediate_download_bytes"] = download_samples
                 dialog.grab().save(str(args.output / "installed.png"))
                 dialog.restart.click()
                 stage = 2
@@ -189,6 +203,10 @@ def main() -> int:
     timer.start()
     with (
         patch.object(runtime_setup, "run_setup_command", command),
+        patch.object(runtime_setup, "prepare_wheels", prepare),
+        patch.object(runtime_downloads, "urlopen", side_effect=RuntimeError("Offline cache miss"))
+        if args.offline
+        else nullcontext(),
         patch.object(ui, "RuntimeRestart", restart),
     ):
         app.exec()
