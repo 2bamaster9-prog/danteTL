@@ -35,7 +35,8 @@ Read these documents as relevant to the task:
 | [CPU language-model decision](decisions/018-cpu-llm-runtime.md) | Bundled CPU translation and model-independent runtimes |
 | [First-run decision](decisions/019-first-run-setup.md) | Explicit guided setup and verified download progress |
 | [Bundled OCR decision](decisions/020-bundled-ocr.md) | Required recognition included, writable repairs kept separate |
-| [Current slice](plans/020-bundled-ocr.md) | Bundled MeikiOCR and first-run translation-only downloads |
+| [Imported model decision](decisions/021-imported-models.md) | Local GGUF registration, compatibility tests and prompt profiles |
+| [Current slice](plans/021-imported-models.md) | Local GGUF imports, preserving built-in translators |
 
 The harness consists of these documents, executable checks, deterministic tests, and live capture
 verification. Add guidance when it resolves a concrete ambiguity; replace stale guidance instead

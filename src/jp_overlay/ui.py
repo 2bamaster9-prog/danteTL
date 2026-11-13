@@ -767,10 +767,16 @@ class MainWindow(QMainWindow):
         self._overlay.set_text_style(automatic, self.font_size.value())
 
     def _backend_changed(self) -> None:
+        if self._model_manager and self._model_manager.probe_active:
+            self._select_backend(self._selected_backend)
+            return
         choice = self.backend_combo.currentData()
         if isinstance(choice, BackendChoice) and choice.unavailable_reason:
             self._select_backend(self._selected_backend)
-            self._manage_runtime()
+            if choice.key.startswith("imported-"):
+                self._manage_models()
+            else:
+                self._manage_runtime()
             return
         if isinstance(choice, BackendChoice) and not self._model_prepared(choice):
             answer = QMessageBox.question(
@@ -934,6 +940,17 @@ class MainWindow(QMainWindow):
             self.backend_combo.addItem("No translation", None)
             self._select_backend(choice)
             self.backend_combo.setEnabled(not self._preparing)
+            if isinstance(choice, BackendChoice) and not any(
+                b.key == choice.key for b in self._backends
+            ):
+                self._backend_changed()
+            elif self._selected_backend:
+                # Locate can update a file reference without changing model identity.
+                # Keep the live worker, but use the refreshed factory on the next load.
+                self._selected_backend = next(
+                    (b for b in self._backends if b.key == self._selected_backend.key),
+                    self._selected_backend,
+                )
         if self._session and self._ocr is None and self._ocr_models_ready():
             choice = self._capture_ocr_choice
             self._ocr = OcrSession(
@@ -948,8 +965,24 @@ class MainWindow(QMainWindow):
         self, running: bool, tracks: tuple[TextBlock, ...] = (), retain: tuple[TextBlock, ...] = ()
     ) -> None:
         session = self._translation
+        if self._model_manager and self._model_manager.probe_active:
+            self._presentation.reset()
+            self._overlay.set_blocks(())
+            self._overlay.set_translations(())
+            self.inspector.clear_translations()
+            if not self._preparing:
+                if session:
+                    session.request_stop()
+                    if session.finished:
+                        self._translation = None
+                if self._translation is None:
+                    self._model_manager.allow_probe()
+            self.translation_status.setText(
+                "Testing imported model; previous translation selection resumes afterward."
+            )
+            return
         if self._preparing:
-            self.translation_status.setText("Preparing Gemma for this PC…")
+            self.translation_status.setText("Preparing translation model for this PC…")
             return
         # QMessageBox runs a nested event loop. Until consent is resolved, keep
         # using the committed selection, including the already displayed English.

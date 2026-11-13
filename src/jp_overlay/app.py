@@ -8,6 +8,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from types import TracebackType
 
+from jp_overlay.gguf_models import ImportedModel
 from jp_overlay.models import model_directory
 from jp_overlay.ocr_runtime import gpu_runtime_installed
 from jp_overlay.paths import is_standalone, state_root
@@ -85,7 +86,58 @@ def translation_backends() -> tuple[BackendChoice, ...]:
                 else "",
             )
         )
+    from jp_overlay.gguf_models import read_registry
+
+    try:
+        imported = read_registry()
+    except (OSError, ValueError) as error:
+        logging.getLogger(__name__).warning("Cannot read imported models: %s", error)
+        imported = ()
+    for model in imported:
+        reason = (
+            "Imported model file is missing or changed size. Open Models → Locate file."
+            if not model.available()
+            else "Language-model engine is missing. Open Settings → Acceleration."
+            if not device
+            else ""
+        )
+        choices.append(
+            BackendChoice(
+                f"{model.name} · Imported · {device or 'engine needed'}",
+                partial(create_imported_translator, model),
+                model.key,
+                imported_preparation_id(model, device) if device and not reason else "",
+                reason,
+                "CPU translation may be slower; GPU acceleration is optional."
+                if device == "cpu"
+                else "",
+            )
+        )
     return tuple(choices)
+
+
+def imported_preparation_id(model: ImportedModel, device: str) -> str:
+    from jp_overlay.model_store import ModelBundle, preparation_id
+    from jp_overlay.models import ModelAsset
+
+    asset = ModelAsset("", "", model.key, model.sha256, model.size)
+    return (
+        preparation_id(
+            ModelBundle(model.key, model.name, Path(model.path).parent, (asset,), ""), device
+        )
+        + "-"
+        + model.key
+    )
+
+
+def create_imported_translator(model: ImportedModel) -> TranslationBackend:
+    from jp_overlay.gguf_backend import GgufBackend
+    from jp_overlay.llama_runtime import installed_device
+
+    device = installed_device()
+    if device is None:
+        raise RuntimeError("Language-model engine is missing. Open Acceleration.")
+    return GgufBackend(model, device=device)
 
 
 def create_gemma_translator() -> TranslationBackend:

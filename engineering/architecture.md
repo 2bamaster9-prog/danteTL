@@ -467,3 +467,12 @@ directory from the selected read directory and exposes included availability to 
 Explicit repair verifies the bundled files in place, or atomically restores AppData files using
 valid bundled bytes before fetching missing/damaged assets. It never writes to app resources.
 The guide omits included OCR from its download plan. See [decision 020](decisions/020-bundled-ocr.md).
+
+`gguf_models` owns bounded metadata inspection, content identity and atomic registrations of
+user-owned local files. `gguf_probe` uses the existing cancellable process owner to test a model in
+the installed runtime. `model_import_dialog` presents progress/sample outputs and an explicit Add
+action through Models. Main drains its translator before releasing the probe gate; capture/OCR
+continue and the committed model choice remains unchanged. Settings/app close include probe drain.
+`gguf_backend` implements the existing translator contract with bounded prompt profiles/context.
+Built-in Gemma/Sugoi and runtime dependency versions are independent of imports. See
+[decision 021](decisions/021-imported-models.md).

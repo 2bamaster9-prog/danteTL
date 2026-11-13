@@ -2,7 +2,7 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/020-bundled-ocr.md`. NVIDIA OCR and Gemma share pinned CUDA 13 libraries.
+`engineering/plans/021-imported-models.md`. NVIDIA OCR and Gemma share pinned CUDA 13 libraries.
 Standalone releases bundle MeikiOCR weights, CPU ONNX and llama.cpp; translation models, preferences and optional GPU
 environments live in per-user AppData. Runtime names describe hardware, not model brands.
 
@@ -79,6 +79,14 @@ variables for installed-runtime compatibility; the branding rename must not inva
   inference and swapping with `verify_ocr_windows.py --translation --dialogue --gemma --debug`.
   Diagnostics only observe worker snapshots; distinguish visual changes, proposed scans and actual
   OCR coverage. Do not change scheduling, retention or translation sources when toggling debug.
+- Imported GGUF models use a separate adapter; preserve built-in Gemma prompts/settings and pinned
+  runtimes. Inspect/hash on a worker, test in an owned cancellable child, and require actual GPU
+  offload for a GPU test. Drain the active translator before probing; retain selection and resume
+  after testing. Register only after review. User-owned model files are referenced, never deleted.
+  Bound metadata, registrations, prompts and output; reject missing templates, incomplete answers
+  and nonempty reasoning. Include weights/profile/template/device/decoding in cache identity and
+  recheck content on load. Run `verify_import_models.py` and `verify_import_windows.py` with local
+  GGUFs, plus built-in Gemma and packaged lifecycle checks. Other languages remain out of scope.
 - Model downloads require an explicit UI/CLI action. Keep hashing/downloads on a bounded worker,
   verify pinned sizes/hashes, atomically publish files, and preserve valid files on cancel/failure.
   Gemma first-use consent must retain the committed selection until accepted; declined/failed

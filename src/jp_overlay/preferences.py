@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import threading
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -46,7 +47,11 @@ def decode_preferences(value: object) -> Preferences:
             continue
         if key in ranges and not ranges[key][0] <= candidate <= ranges[key][1]:
             continue
-        if key in choices and candidate not in choices[key]:
+        if (
+            key in choices
+            and candidate not in choices[key]
+            and not (key == "model" and re.fullmatch(r"imported-[0-9a-f]{64}", candidate))
+        ):
             continue
         if key in ("overlay_hotkey", "capture_hotkey", "original_hotkey"):
             try:

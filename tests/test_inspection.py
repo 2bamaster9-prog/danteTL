@@ -1418,3 +1418,70 @@ def test_raw_icon_evidence_is_visible_beside_cleaned_translation(app) -> None:
     assert panel.preview._regions == (raw,)
     panel.close()
     panel.deleteLater()
+
+
+def test_import_probe_waits_for_unload_and_preserves_selection(app, tmp_path):
+    windows = Mock()
+    windows.list_targets.return_value = []
+    choice = BackendChoice("Gemma", Mock(), "gemma")
+    window = MainWindow(windows, Mock(), (choice,), cache_path=tmp_path / "cache")
+    window._timer.stop()
+    manager = window._settings.models
+    manager._import()
+    dialog = manager.import_dialog
+    assert dialog
+    dialog.testing = True
+    old = Mock()
+    old.finished = False
+    window._translation = old
+    window._poll_translation(True)
+    old.request_stop.assert_called_once()
+    assert not dialog.gate.is_set() and window._selected_backend == choice
+    window.backend_combo.setCurrentIndex(1)
+    assert window.backend_combo.currentData() == choice
+    old.finished = True
+    window._poll_translation(True)
+    assert dialog.gate.is_set() and window._translation is None
+    assert window._selected_backend == choice
+    dialog.testing = False
+    window.close()
+    window.deleteLater()
+
+
+def test_removing_active_import_revokes_english_and_stops_worker(app, tmp_path):
+    windows = Mock()
+    windows.list_targets.return_value = []
+    choice = BackendChoice("Imported", Mock(), "imported-" + "a" * 64)
+    window = MainWindow(
+        windows, Mock(), (choice,), backend_provider=lambda: (), cache_path=tmp_path / "cache"
+    )
+    window._timer.stop()
+    old = Mock()
+    old.finished = False
+    window._translation = old
+    window._overlay.set_translations((TranslatedText(TranslationRequest(1, 1, "猫"), "Cat"),))
+    window._refresh_models()
+    assert window._selected_backend is None and not window._overlay._translations
+    old.request_stop.assert_called_once()
+    window._translation = None
+    window.close()
+    window.deleteLater()
+
+
+def test_locating_same_model_refreshes_next_load_without_restarting_current_worker(app, tmp_path):
+    windows = Mock()
+    windows.list_targets.return_value = []
+    old = BackendChoice("Imported", Mock(), "imported-" + "b" * 64)
+    moved = replace(old, create=Mock())
+    window = MainWindow(
+        windows, Mock(), (old,), backend_provider=lambda: (moved,), cache_path=tmp_path / "cache"
+    )
+    window._timer.stop()
+    session = Mock()
+    window._translation = session
+    window._refresh_models()
+    assert window._selected_backend == moved and window._translation is session
+    session.request_stop.assert_not_called()
+    window._translation = None
+    window.close()
+    window.deleteLater()

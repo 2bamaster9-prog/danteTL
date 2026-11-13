@@ -86,6 +86,7 @@ def main() -> int:
                 # The fixture changes its catalog paths to simulate files arriving.
                 # Settings is now persistent, so update its test catalog too.
                 assert window._model_manager
+                window._model_manager._bundles = bundles
                 for i, bundle in enumerate(bundles):
                     window._model_manager.choice.setItemData(i, bundle)
                 window._model_manager._selected()

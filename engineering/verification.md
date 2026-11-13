@@ -1,5 +1,41 @@
 # Verification
 
+## Imported GGUF models (2026-11-14)
+
+387 model-free tests, Ruff and Pyright pass. New coverage includes bounded/truncated metadata,
+unsupported formats, cancelled hashing/probing, same-size weight changes, registry corruption,
+relocation/removal, cache/profile/device identity, bounded context, incomplete/reasoning answers,
+missing engines/files, waiting for the previous worker to unload and revoking an active removal.
+
+`verify_import_models.py <local.gguf> --device cpu|cuda|vulkan --output <report.json>` runs the
+same explicit offline child probe as the UI without registering a model. Official Qwen3 4B Q4_K_M
+and Gemma 4 E4B QAT Q4_0 passed CPU, CUDA and Vulkan tests. GPU logs confirm 37 and 43 offloaded
+layers respectively. Short fixture phrases took roughly 0.1–1.0 s on CPU and below 0.4 s on GPU,
+after loading/warm-up. These are a few original samples on the 9800X3D/RTX 5080, not quality rankings
+or game latency guarantees. Vulkan used the NVIDIA card; Radeon is not validated by these runs.
+
+`verify_import_windows.py <local.gguf> --output <fresh-directory>` checks real native import review,
+in-flight test cancellation, unchanged selection, unloading before probing, registration, Qwen
+overlay translation, return to built-in Gemma, and registration-only removal. CPU and CUDA checks
+passed; reviewed screenshots show samples/timings and the local-file badge/path. Reports and test
+registrations are under `artifacts/model-import`; actual user AppData is not modified.
+
+Built-in Sugoi and CPU/CUDA Gemma smoke checks, Settings layout and missing-engine recovery pass.
+Live CUDA OCR/Gemma dialogue, typewriter/transitions, model swaps, paused inspection, original hold
+and teardown pass. Built-in adapters and native dependency versions are unchanged. The setup
+fixture now updates its stored catalog as well as its picker when simulating newly arrived files.
+
+The final standalone ZIP passed Unicode-path relocation with Python absent from PATH, fresh
+offline bundled OCR, and all 6,947 manifest entries. Its bundled CPU interpreter and AppData NVIDIA
+runtime passed the native import/cancel/select/return checks against the packaged source. An invalid
+model returned its error without an unattended startup dialog. Packaged CPU runtime reuse/restart
+also passed, including hotkey handover and clean shutdown. Evidence is under
+`artifacts/model-import/standalone-final` and `artifacts/model-import/packaged-*`.
+
+For imports, add a wrong-format or missing file to check visible recovery, and cancel while the
+probe loads. A passing test confirms executable text generation only; review translation quality.
+Models stay by reference, and no model registration or file is added to the release package.
+
 ## Bundled MeikiOCR (2026-11-14)
 
 365 model-free tests, Ruff and Pyright pass. Coverage includes fresh bundled availability without

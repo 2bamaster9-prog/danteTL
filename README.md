@@ -91,6 +91,25 @@ Context is part of cache identity, so unrelated conversations cannot reuse conte
 Its weights are Apache-2.0; Sugoi retains its separate licensing. See
 [the current slice](engineering/plans/012-model-management-and-context.md) for measurements.
 
+**Settings → Models → Import GGUF…** adds a local single-file chat model by reference, without
+copying it or downloading anything. Choose a file, optionally name it, then **Test compatibility**.
+The app checks the file, temporarily unloads the current translator, and tests menu/dialogue samples
+in a cancellable child process using the installed CPU, CUDA or Vulkan engine. Capture continues;
+translation resumes with the previous selection afterward. Review the sample English and timings,
+then **Add model**. Select the imported model on the main screen to use it.
+
+Automatic format uses Gemma 4's native prompt or the embedded GGUF chat template. Explicit ChatML
+and Llama 3 formats are available for models whose documentation requires them. Passing the test
+confirms local execution, not translation quality. Split files, embedding/projector-only models,
+and TranslateGemma's specialized input format are not supported in this first version. Translation
+remains Japanese → English. Imported models receive the same bounded dialogue history as Gemma;
+menu labels stay independent. Built-in Gemma/Sugoi adapters and runtime versions are unchanged.
+
+Registrations live in `data/imported-models.json` under the app's writable state (AppData in the
+standalone app). If a file moves, use **Locate file…**; changed contents need a new import/test.
+**Remove from list** never deletes your model file. Each model/profile has a separate translation
+cache identity. Only one language model is loaded at a time.
+
 To build the standalone release, run `python tools/build_standalone.py` on Windows with this
 checkout's uv 0.13.8, managed CPython 3.12.16 and Zig 0.14.1 available. `--offline` reuses cached
 dependencies. Send **`dist/DanteJP-windows-x64.zip`**. The builder creates a fresh CPU environment
