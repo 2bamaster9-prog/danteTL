@@ -2,7 +2,8 @@ DanteJP - Windows x64
 
 1. Extract this entire ZIP to a folder. Do not run it inside the ZIP preview.
 2. Double-click DanteJP.exe. Keep the _internal folder beside the EXE.
-3. Follow the first-run Setup assistant to choose MeikiOCR and Sugoi V4
+3. MeikiOCR is included; Japanese text recognition works immediately on CPU.
+   Follow the first-run Setup assistant to choose Sugoi V4
    (CPU) or Gemma 4 E2B (CPU or GPU), and review optional GPU support.
    Nothing downloads until you confirm. You can skip it and reopen
    Settings > Setup assistant, or use the Models and Acceleration tabs directly.
@@ -24,12 +25,14 @@ NVIDIA OCR and Gemma share CUDA 13 libraries: about 1.29 GB of NVIDIA/ONNX downl
 plus other app dependencies. Model downloads are separate. If upgrading from the
 older dual-CUDA package, install the new runtime in Acceleration and restart once;
 your existing models are reused.
-Capture works without models. Recognition/translation need their respective downloads.
+Capture and recognition work without model downloads. Translation needs a chosen translator.
+Settings > Models shows MeikiOCR as Included with app. Verify / repair restores
+damaged or missing OCR files into AppData, reusing bundled files where possible.
 Gemma asks before first-use preparation. Inference is local after setup.
 
 Downloads and settings are kept per Windows user at:
   %LOCALAPPDATA%\DanteJP
-  models\       OCR and translation weights
+  models\       translation weights and any repaired/downloaded OCR files
   data\         preferences, translation cache, preparation/runtime receipts
   .runtimes\    optional CPU/GPU environments
   .python\      private Python used by those optional environments
@@ -45,4 +48,5 @@ AppData\Local\DanteJP folder too if you want to remove all models and settings.
 This is a portable folder, not an installer or a single self-contained EXE.
 The executable is unsigned. Only run a package obtained from a source you trust.
 Use a borderless/windowed game. Compatibility with a specific game/anti-cheat is not guaranteed.
-See THIRD-PARTY.txt for bundled library notices. No model weights are bundled.
+See THIRD-PARTY.txt and third-party/meiki for library/model notices and source references.
+MeikiOCR's three pinned models are bundled; translation weights are not bundled.

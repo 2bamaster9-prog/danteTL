@@ -1,0 +1,144 @@
+import cv2
+import numpy as np
+from PIL import Image  # Still needed to handle image conversion if necessary
+import onnxruntime as ort
+import json
+import os
+
+# --- CONFIGURATION ---
+MODEL_PATH = "meiki.text.rec.v0.960x32.onnx"
+INPUT_IMAGE_PATH = "input.jpg"
+CONFIDENCE_THRESHOLD = 0.1
+INPUT_REC_HEIGHT = 32
+INPUT_REC_WIDTH = 960
+X_OVERLAP_THRESHOLD = 0.3
+EPSILON = 1e-6
+
+def preprocess_line_image(image):
+    """
+    Preprocess a single text line image for recognition:
+    - Resize to height=32, preserving aspect ratio.
+    - If width > 960, scale down to fit.
+    - Pad right to exactly 960×32 with black (0).
+    Returns:
+        input_tensor: numpy array of shape [1, 3, 32, 960]
+        effective_w: width of the resized (non-padded) content
+    """
+    h, w = image.shape[:2]
+    if h == 0 or w == 0:
+        raise ValueError("Input image is empty")
+
+    # Resize to height = 32, keep aspect ratio
+    new_h = INPUT_REC_HEIGHT
+    new_w = int(round(w * (new_h / h)))
+
+    # If too wide, scale down to max 960
+    if new_w > INPUT_REC_WIDTH:
+        scale = INPUT_REC_WIDTH / new_w
+        new_w = INPUT_REC_WIDTH
+        new_h = int(round(new_h * scale))
+
+    resized = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+
+    # Pad to 960x32
+    pad_width = INPUT_REC_WIDTH - new_w
+    pad_height = INPUT_REC_HEIGHT - new_h
+    if len(resized.shape) == 2:
+        padded = np.pad(resized, ((0, pad_height), (0, pad_width)), constant_values=0)
+        padded = cv2.cvtColor(padded, cv2.COLOR_GRAY2RGB)
+    else:
+        padded = np.pad(resized, ((0, pad_height), (0, pad_width), (0, 0)), constant_values=0)
+
+    # Convert HWC to CHW, normalize to [0,1], and add batch dimension
+    input_tensor = (np.transpose(padded, (2, 0, 1)).astype(np.float32)) / 255.0  # [C, H, W] in [0,1]
+    input_tensor = np.expand_dims(input_tensor, axis=0)  # [1, C, 32, 960]
+
+    return input_tensor, new_w, w, h  # return effective_w, orig_w, orig_h
+
+def postprocess_recognition_output(labels, boxes, scores, orig_w, orig_h, effective_w):
+    """
+    Convert raw model outputs to character-level results with global bounding boxes.
+    Assumes input image corresponds to a single text line at global coords (0,0) to (orig_w, orig_h).
+    """
+    candidates = []
+    for lbl, box, scr in zip(labels, boxes, scores):
+        if scr < CONFIDENCE_THRESHOLD:
+            continue
+        char = chr(lbl)
+
+        rx1, ry1, rx2, ry2 = box
+        # Clamp to effective content region (ignore padding)
+        rx1 = min(rx1, effective_w)
+        rx2 = min(rx2, effective_w)
+
+        # Map recognition space → original crop space
+        cx1 = (rx1 / effective_w) * orig_w
+        cx2 = (rx2 / effective_w) * orig_w
+        cy1 = (ry1 / INPUT_REC_HEIGHT) * orig_h
+        cy2 = (ry2 / INPUT_REC_HEIGHT) * orig_h
+
+        # Since we assume this crop starts at (0,0) in its own space,
+        # bbox in "global" for this line is just (cx1, cy1, cx2, cy2)
+        bbox = [int(cx1), int(cy1), int(cx2), int(cy2)]
+
+        candidates.append({
+            'char': char,
+            'bbox': bbox,
+            'conf': float(scr),  # Keep temporarily for sorting/deduplication
+            'x_interval': (cx1, cx2)
+        })
+
+    # Deduplicate by x-overlap (using conf for sorting)
+    candidates.sort(key=lambda c: c['conf'], reverse=True)
+    accepted = []
+    for cand in candidates:
+        x1_c, x2_c = cand['x_interval']
+        width_c = x2_c - x1_c + EPSILON
+        keep = True
+        for acc in accepted:
+            x1_a, x2_a = acc['x_interval']
+            overlap = max(0, min(x2_c, x2_a) - max(x1_c, x1_a))
+            if overlap / width_c > X_OVERLAP_THRESHOLD:
+                keep = False
+                break
+        if keep:
+            accepted.append(cand)
+
+    # Sort by x for reading order
+    accepted.sort(key=lambda c: c['x_interval'][0])
+    text = ''.join(c['char'] for c in accepted)
+    # Strip 'conf' for final output
+    chars = [{'char': c['char'], 'bbox': c['bbox']} for c in accepted]
+
+    return {'text': text, 'chars': chars}
+
+def main():
+    # Load image
+    image = cv2.imread(INPUT_IMAGE_PATH)
+    if image is None:
+        raise FileNotFoundError(f"Input image not found: {INPUT_IMAGE_PATH}")
+
+    # Load model
+    session = ort.InferenceSession(MODEL_PATH, providers=['CUDAExecutionProvider','CPUExecutionProvider'])
+
+    # Preprocess
+    input_tensor, effective_w, orig_w, orig_h = preprocess_line_image(image)
+
+    # Run inference
+    orig_size = np.array([[INPUT_REC_WIDTH, INPUT_REC_HEIGHT]], dtype=np.int64)
+    outputs = session.run(None, {
+        "images": input_tensor,
+        "orig_target_sizes": orig_size
+    })
+    labels_batch, boxes_batch, scores_batch = outputs
+
+    # Post-process
+    result = postprocess_recognition_output(labels_batch[0], boxes_batch[0], scores_batch[0], orig_w, orig_h, effective_w)
+
+    print("--- JSON result ---")
+    print(json.dumps(result, ensure_ascii=False, separators=(',', ':')))
+    print("\n--- Text result ---")
+    print(result['text'])
+
+if __name__ == "__main__":
+    main()

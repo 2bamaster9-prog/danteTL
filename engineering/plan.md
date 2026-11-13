@@ -169,6 +169,10 @@ with native registration, conflict recovery and persisted choices. The follow-up
 window selection when starting by hotkey, plus holding to show original text without interrupting
 processing. Per-game shortcuts and profiles remain separate future work.
 
+[Slice twenty](plans/020-bundled-ocr.md) includes the required MeikiOCR files in the standalone
+release. Recognition works without model downloads; first-run setup focuses on translation and
+optional acceleration. Verify / repair keeps packaged resources unchanged and restores into AppData.
+
 ## Technical references
 
 - [Windows capture](https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/screen-capture)

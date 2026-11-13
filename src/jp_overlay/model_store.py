@@ -12,8 +12,9 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from urllib.request import urlopen
 
-from jp_overlay.models import ModelAsset
-from jp_overlay.paths import state_root
+from jp_overlay import paths
+from jp_overlay.models import ModelAsset, asset_directory, assets_present
+from jp_overlay.paths import is_standalone, state_root
 
 GEMMA_RUNTIME_SETUP = (
     "Gemma is downloaded, but its language-model engine is not installed in this app environment. "
@@ -29,17 +30,22 @@ class ModelBundle:
     directory: Path
     assets: tuple[ModelAsset, ...]
     description: str
+    bundled_directory: Path | None = None
 
     @property
     def size(self) -> int:
         return sum(a.size for a in self.assets)
 
     def present(self) -> bool:
-        # Availability only. Integrity checks run on workers before model use.
-        try:
-            return all((self.directory / a.filename).stat().st_size == a.size for a in self.assets)
-        except OSError:
-            return False
+        return assets_present(self.local_directory, self.assets)
+
+    @property
+    def local_directory(self) -> Path:
+        return asset_directory(self.directory, self.assets, self.bundled_directory)
+
+    @property
+    def included(self) -> bool:
+        return bool(self.bundled_directory and assets_present(self.bundled_directory, self.assets))
 
 
 def model_catalog() -> tuple[ModelBundle, ...]:
@@ -49,9 +55,11 @@ def model_catalog() -> tuple[ModelBundle, ...]:
         ModelBundle(
             "ocr",
             "MeikiOCR · Japanese text recognition",
-            models.model_directory(),
+            models.download_directory(),
             models.ASSETS,
-            "Required for text recognition; download once for any OCR device.",
+            "Required for text recognition. Included in the standalone app for any OCR device. "
+            "Verify / repair restores missing or damaged files when needed.",
+            models.bundled_model_directory(),
         ),
         ModelBundle(
             "sugoi",
@@ -75,6 +83,7 @@ def model_status(bundle: ModelBundle) -> str:
     """Distinguish downloaded weights from the runtime available to this process."""
     if not bundle.present():
         return "Not downloaded. Choose Download to install this model's files."
+    origin = "Included with app." if bundle.included else "Downloaded."
     if bundle.key == "gemma":
         from jp_overlay.llama_runtime import installed_device
 
@@ -90,11 +99,11 @@ def model_status(bundle: ModelBundle) -> str:
 
         if not (gpu_runtime_installed() or gpu_runtime_installed("onnxruntime-directml")):
             return (
-                "Downloaded. CPU OCR is ready. The Automatic NVIDIA OCR option needs a separate "
+                f"{origin} CPU OCR is ready. The Automatic NVIDIA OCR option needs a separate "
                 "runtime: open Acceleration, install NVIDIA support, then restart. "
-                "Downloading Meiki does not install GPU support."
+                "OCR model files do not install GPU support."
             )
-    return "Downloaded. Runtime available; integrity is checked before use."
+    return f"{origin} Runtime available; integrity is checked before use."
 
 
 class Cancelled(Exception):
@@ -142,6 +151,18 @@ def _valid(path: Path, asset: ModelAsset, cancel: threading.Event) -> bool:
 
 def install_model(bundle: ModelBundle, progress: Progress, cancel: threading.Event) -> None:
     """Called only by an explicit UI/CLI download action. Atomic verified files."""
+    _check_cancel(cancel)
+    if bundle.bundled_directory and bundle.local_directory == bundle.bundled_directory:
+        progress(ModelProgress("Checking included OCR files…", 0, bundle.size))
+        if all(_valid(bundle.bundled_directory / a.filename, a, cancel) for a in bundle.assets):
+            progress(ModelProgress("Included OCR files verified.", bundle.size, bundle.size))
+            return
+    if is_standalone() and bundle.directory.resolve().is_relative_to(
+        paths.resource_root().resolve()
+    ):
+        raise RuntimeError(
+            "App resources are read-only. Repair models in AppData or a user folder."
+        )
     bundle.directory.mkdir(parents=True, exist_ok=True)
     completed = 0
     for asset in bundle.assets:
@@ -160,7 +181,12 @@ def install_model(bundle: ModelBundle, progress: Progress, cancel: threading.Eve
                 temporary = Path(out.name)
                 received = 0
                 digest = hashlib.sha256()
-                with urlopen(asset.url, timeout=15) as response:
+                local = (
+                    bundle.bundled_directory / asset.filename if bundle.bundled_directory else None
+                )
+                if local and not _valid(local, asset, cancel):
+                    local = None
+                with local.open("rb") if local else urlopen(asset.url, timeout=15) as response:
                     while chunk := response.read(1024 * 1024):
                         _check_cancel(cancel)
                         received += len(chunk)
@@ -170,7 +196,7 @@ def install_model(bundle: ModelBundle, progress: Progress, cancel: threading.Eve
                         out.write(chunk)
                         progress(
                             ModelProgress(
-                                f"Downloading {asset.filename}",
+                                f"{'Restoring' if local else 'Downloading'} {asset.filename}",
                                 completed + received,
                                 bundle.size,
                                 download=DownloadProgress(asset.filename, received, asset.size),
@@ -186,7 +212,7 @@ def install_model(bundle: ModelBundle, progress: Progress, cancel: threading.Eve
         finally:
             if temporary is not None:
                 temporary.unlink(missing_ok=True)
-    progress(ModelProgress("Model files downloaded and verified.", bundle.size, bundle.size))
+    progress(ModelProgress("Model files ready and verified.", bundle.size, bundle.size))
 
 
 class ModelOperation:

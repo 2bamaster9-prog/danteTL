@@ -16,6 +16,8 @@ from pathlib import Path
 from uuid import uuid4
 from zipfile import ZIP_DEFLATED, ZipFile
 
+from jp_overlay.models import ASSETS, local_model_paths
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -27,10 +29,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--offline", action="store_true")
     parser.add_argument("--zig", default="zig")
+    parser.add_argument("--ocr-models", type=Path, default=ROOT / "models/meiki")
     parser.add_argument("--output", type=Path, default=ROOT / "dist/DanteJP-windows-x64.zip")
     args = parser.parse_args()
     if os.name != "nt":
         raise SystemExit("Build on Windows x64.")
+    # Required assets must already be present; builds never implicitly download weights.
+    ocr_files = local_model_paths(args.ocr_models)
     uv = ROOT / ".bootstrap/Scripts/uv.exe"
     python = ROOT / ".python/cpython-3.12-windows-x86_64-none"
     if subprocess.check_output([str(uv), "--version"], text=True).split()[:2] != ["uv", "0.13.8"]:
@@ -97,6 +102,12 @@ def main() -> None:
         shutil.copy2(ROOT / name, project / name)
     shutil.copy2(ROOT / "tools/standalone/bootstrap.py", project / "bootstrap.py")
     (project / "standalone.json").write_text(json.dumps({"format": 1}), encoding="utf-8")
+    ocr_directory = project / "models/meiki"
+    ocr_directory.mkdir(parents=True)
+    for source in ocr_files:
+        shutil.copyfile(source, ocr_directory / source.name)
+    local_model_paths(ocr_directory)
+    shutil.copytree(ROOT / "tools/standalone/notices/meiki", bundle / "third-party/meiki")
     shutil.copy2(uv, internal / "uv.exe")
     shutil.copytree(
         ROOT / ".bootstrap/Lib/site-packages/uv-0.13.8.dist-info", internal / "uv-notices"
@@ -134,7 +145,9 @@ def main() -> None:
         "Qt/PySide are dynamically loaded and replaceable; no restriction on debugging changes.\n"
         "Qt/PySide sources and licenses: https://code.qt.io/cgit/pyside/pyside-setup.git/\n"
         "https://code.qt.io/cgit/qt/ and https://doc.qt.io/qtforpython-6/licenses.html\n"
-        "No OCR or translation weights are included. Model downloads retain their own licenses.\n\n"
+        "MeikiOCR detection/recognition ONNX models are included unmodified under LGPL-3.0.\n"
+        "Model notices, license texts and upstream sources: third-party/meiki.\n"
+        "Translation weights are not included; their downloads retain their own licenses.\n\n"
         + "\n".join(f"{d['name']} {d['version']}" for d in installed)
         + "\n",
         encoding="utf-8",
@@ -159,6 +172,17 @@ def main() -> None:
         "python": version,
         "uv": "0.13.8",
         "packages": installed,
+        "ocr_models": [
+            {
+                "repo": asset.repo,
+                "revision": asset.revision,
+                "filename": asset.filename,
+                "sha256": asset.sha256,
+                "size": asset.size,
+                "license": "LGPL-3.0",
+            }
+            for asset in ASSETS
+        ],
         "files": {
             p.relative_to(bundle).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in files

@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import time
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import Mock, patch
 from uuid import uuid4
@@ -39,6 +40,10 @@ def main() -> int:
         ModelBundle(k, name, state / k, (asset,), "Synthetic verification bytes")
         for k, name in (("ocr", "MeikiOCR"), ("gemma", "Gemma"), ("sugoi", "Sugoi"))
     )
+    bundled = state / "bundled"
+    bundled.mkdir()
+    (bundled / asset.filename).write_bytes(data)
+    models = (replace(models[0], bundled_directory=bundled), *models[1:])
     hardware = Mock()
     hardware.snapshot.return_value = HardwareStatus(
         adapters=(Adapter("NVIDIA test adapter", 0x10DE, 16 * 2**30),), llama_device="cpu"
@@ -79,7 +84,8 @@ def main() -> int:
             if stage == 0:
                 if guide.hardware_status is None:
                     return
-                assert not guide.operation and not any(b.present() for b in models)
+                assert not guide.operation and models[0].included
+                assert not any(b.present() for b in models[1:])
                 screenshot("welcome.png")
                 guide.next.click()
                 screenshot("models.png")
@@ -89,6 +95,7 @@ def main() -> int:
                 guide.runtime.setCurrentIndex(0)  # Explicit CPU avoids runtime/network install.
                 guide.next.click()
                 assert guide._plan and guide._plan.runtime is None
+                assert [b.key for b in guide._plan.models] == ["gemma"]
                 screenshot("review.png")
                 guide.next.click()
                 stage = 1
@@ -119,7 +126,8 @@ def main() -> int:
                 if not window._preferences.idle:
                     return
                 assert PreferenceStore(state / "preferences.json").initial.setup_seen
-                assert "Downloaded" in window._settings.models.download_badge.text()
+                assert "Included with app" in window._settings.models.download_badge.text()
+                assert not models[0].directory.exists()
                 window.offer_first_run()
                 assert not guide.isVisible()
                 window._show_setup_assistant()

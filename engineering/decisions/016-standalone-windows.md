@@ -8,7 +8,8 @@ PATH changes, installer, administrator rights or one-file extraction on each lau
 This keeps ordinary Python/native package loading for Qt, ONNX, CTranslate2 and optional llama.cpp.
 Avoiding a frozen import environment makes in-app runtime installation and child probing simpler.
 Build using uv 0.13.8 and Zig 0.14.1; users need neither. CPU base excludes development tools, GPU
-dependencies and all model weights. Preserve package license metadata, CPython/uv notices and
+dependencies and translation weights. [Decision 020](020-bundled-ocr.md) adds required OCR weights.
+Preserve package license metadata, CPython/uv/model notices and
 generate a file manifest. The launcher is unsigned; signing/installer delivery are later work.
 
 `paths` separates current read-only app resources from writable state. A bundled marker selects

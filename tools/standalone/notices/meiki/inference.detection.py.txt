@@ -1,0 +1,125 @@
+import torch
+import cv2
+import numpy as np
+import onnxruntime as ort
+import time
+
+# --- CONFIGURATION ---
+INPUT_WIDTH = 960
+INPUT_HEIGHT = 544
+MODEL_PATH = f"meiki.text.detect.v0.1.{INPUT_WIDTH}x{INPUT_HEIGHT}.onnx"
+INPUT_IMAGE_PATH = f"input.jpg"
+OUTPUT_IMAGE_PATH = f"output.{INPUT_WIDTH}x{INPUT_HEIGHT}.jpg"
+
+# A threshold to filter out weak detections.
+# You can adjust this value (e.g., lower to 0.3 for more boxes,
+# or raise to 0.5 for fewer, more confident boxes).
+CONFIDENCE_THRESHOLD = 0.4
+
+def resize(image: np.ndarray, w, h):
+    original_height, original_width, _ = image.shape
+
+    # Calculate the ratio to resize the image.
+    ratio_w = w / original_width
+    ratio_h = h / original_height
+
+    # Resize the image
+    resized_image = cv2.resize(image, (w, h), interpolation=cv2.INTER_LINEAR)
+
+    return resized_image, ratio_w, ratio_h
+
+def main():
+    """
+    Main function to run the inference process.
+    """
+    # --- 1. Load the Model ---
+    try:
+        # Create an inference session with the ONNX model.
+        session = ort.InferenceSession(MODEL_PATH, providers=['CUDAExecutionProvider'])
+        print("Session providers:", session.get_providers())
+        print(f"Successfully loaded model: {MODEL_PATH}")
+    except Exception as e:
+        print(f"Error: Failed to load the ONNX model. Make sure '{MODEL_PATH}' exists.")
+        print(f"Details: {e}")
+        return
+
+    # --- 2. Load and Pre-process the Input Image ---
+    try:
+        # Read the input image from the file. It will be in BGR format by default.
+        original_image = cv2.imread(INPUT_IMAGE_PATH)
+        if original_image is None:
+            raise FileNotFoundError(f"Image not found at '{INPUT_IMAGE_PATH}'")
+        print(f"Successfully loaded image: {INPUT_IMAGE_PATH}")
+    except Exception as e:
+        print(f"Error: {e}")
+        return
+
+    resized_image, ratio_w, ratio_h = resize(original_image, INPUT_WIDTH,INPUT_HEIGHT)
+
+    # Normalize the image data to be between 0 and 1.
+    img_normalized = resized_image.astype(np.float32) / 255.0
+
+    # The model expects the channel dimension to be first (Channels, Height, Width).
+    # OpenCV loads images as (Height, Width, Channels), so we transpose the axes.
+    img_transposed = np.transpose(img_normalized, (2, 0, 1))
+
+    image_input_tensor = np.expand_dims(img_transposed, axis=0)
+
+    # --- 3. Run Inference ---
+    # The model requires a second input specifying the image size
+    sizes_input_tensor = np.array([[INPUT_WIDTH, INPUT_HEIGHT]], dtype=np.int64)
+
+    # Get the names of the model's input nodes.
+    input_names = [inp.name for inp in session.get_inputs()]
+
+    # Prepare the dictionary of inputs for the model.
+    inputs = {
+        input_names[0]: image_input_tensor,
+        input_names[1]: sizes_input_tensor
+    }
+
+    # Run the model.
+    # This model returns three separate outputs: labels, boxes, and confidence scores.
+    for i in range(10):
+        start = time.perf_counter()
+        outputs = session.run(None, inputs)
+        print(f"runtime {time.perf_counter() - start}")
+    labels, boxes, scores = outputs
+
+    # --- 4. Post-process and Draw Bounding Boxes ---
+    # The outputs have an extra batch dimension, so we remove it.
+    boxes = boxes[0]
+    scores = scores[0]
+
+    print(f"Model returned {len(boxes)} boxes. Filtering with confidence > {CONFIDENCE_THRESHOLD}...")
+
+    # Create a copy of the original image to draw on.
+    output_image = original_image.copy()
+
+    # Iterate through the boxes and their corresponding scores.
+    confident_boxes_count = 0
+    for box, score in zip(boxes, scores):
+        # Only process boxes with a confidence score above our threshold.
+        if score > CONFIDENCE_THRESHOLD:
+            confident_boxes_count += 1
+            # The coordinates from the model are relative to the 640x640 padded image.
+            # We need to scale them back to the original image's coordinate space.
+            x_min, y_min, x_max, y_max = box
+
+            final_x_min = int(x_min / ratio_w)
+            final_y_min = int(y_min / ratio_h)
+            final_x_max = int(x_max / ratio_w)
+            final_y_max = int(y_max / ratio_h)
+
+            # Draw a green rectangle on the output image.
+            cv2.rectangle(output_image, (final_x_min, final_y_min), (final_x_max, final_y_max), (0, 255, 0), 2)
+
+    print(f"Found {confident_boxes_count} confident boxes.")
+
+    # --- 5. Save the Final Image ---
+    cv2.imwrite(OUTPUT_IMAGE_PATH, output_image)
+    print(f"Successfully saved result to: {OUTPUT_IMAGE_PATH}")
+
+
+if __name__ == "__main__":
+    main()

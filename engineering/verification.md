@@ -1,5 +1,30 @@
 # Verification
 
+## Bundled MeikiOCR (2026-11-14)
+
+365 model-free tests, Ruff and Pyright pass. Coverage includes fresh bundled availability without
+copy/network activity, explicit overrides, complete AppData precedence, partial AppData fallback,
+read-only package protection, checksum failures, local repair reuse and cancellation. Included OCR
+has a ready badge and is excluded from the first-run download plan. The native guide fixture passed
+translation-only setup, cancel/retry, saved completion and reopening Settings.
+
+The standalone ZIP is about 266.6 MB (previously 225.0 MB). It includes exactly the three pinned
+Meiki ONNX assets (45,970,040 uncompressed bytes), model cards/license/source notices, and the same
+31 CPU distributions. Translation weights and GPU environments remain excluded. All 6,943 manifest
+entries passed after Unicode-path relocation.
+
+`verify_standalone_windows.py` now runs actual bundled CPU OCR with sockets blocked, Python absent
+from PATH and fresh AppData. All three expected Japanese phrases were recognized; no AppData models
+were created, no app-folder files changed and the EXE showed its welcome/drained cleanly. The real
+Japanese fixture uses Qt's Windows font renderer; the offscreen renderer produced no recognizable
+text and is not used for this native check. Evidence is under `artifacts/bundled-ocr/standalone-recheck`.
+
+Packaged native UI checks passed and screenshots show Included with app plus the read/repair
+locations. CPU model preparation/decline/reuse, missing-engine recovery, live Sugoi translation and
+dialogue/pause/lifecycle checks, and verified CPU runtime reuse/restart passed using test AppData.
+Original Meiki weights and all native dependency versions are unchanged. This verifies bundling and
+path/lifecycle behavior, not new game, Radeon, DPI/HDR or anti-cheat compatibility.
+
 ## First-run setup and file progress (2026-11-14)
 
 358 model-free tests, Ruff and Pyright pass. New cases cover explicit setup, CPU overrides during

@@ -24,7 +24,7 @@ def main() -> None:
             previous = message
 
     install_model(bundle, progress, threading.Event())
-    print(f"Models verified in {bundle.directory}. Inference works offline.", flush=True)
+    print(f"Models verified in {bundle.local_directory}. Inference works offline.", flush=True)
 
 
 if __name__ == "__main__":

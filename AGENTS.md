@@ -2,8 +2,8 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/019-first-run-setup.md`. NVIDIA OCR and Gemma share pinned CUDA 13 libraries.
-Standalone releases bundle CPU ONNX and llama.cpp; models, preferences and optional GPU
+`engineering/plans/020-bundled-ocr.md`. NVIDIA OCR and Gemma share pinned CUDA 13 libraries.
+Standalone releases bundle MeikiOCR weights, CPU ONNX and llama.cpp; translation models, preferences and optional GPU
 environments live in per-user AppData. Runtime names describe hardware, not model brands.
 
 The public app name is DanteJP. Preserve the legacy Python package/CLI IDs and `JP_OVERLAY_*`
@@ -110,8 +110,12 @@ variables for installed-runtime compatibility; the branding rename must not inva
   keeps project-local paths. Never bind AppData runtimes to the movable bundled interpreter or an
   editable source install. Use the bundled uv and an AppData-managed Python; launch current source
   through `module_command`. Test the real EXE after Unicode-path relocation with Python absent
-  from PATH (`verify_standalone_windows.py`), plus packaged setup/restart. Do not bundle weights,
-  caches, personal preferences or dev/GPU environments. Preserve dependency licenses and manifests.
+  from PATH (`verify_standalone_windows.py`), plus packaged setup/restart. Bundle only the three
+  pinned MeikiOCR assets, with verified hashes and upstream license/source notices. Never bundle
+  translation weights, caches, personal preferences or dev/GPU environments. Read bundled OCR
+  directly; prefer complete AppData repairs and honor explicit model paths. Repair must never
+  modify packaged resources or publish unverified files. First-run setup skips included OCR;
+  source checkouts retain explicit model setup. Verify fresh offline OCR without AppData models.
 - Dialogue history is two turns/512 characters, scoped to one unambiguous panel. Freeze context
   per request, include it in cache identity, reject outdated context, and never seed history from
   stale replies. Menus stay independent; layout/session/scene/age resets clear conversational state.

@@ -37,7 +37,10 @@ def main() -> int:
     hardware.start()
     models = model_catalog()
     if args.missing_models:
-        models = tuple(replace(b, directory=args.output / "not-installed" / b.key) for b in models)
+        models = tuple(
+            replace(b, directory=args.output / "not-installed" / b.key, bundled_directory=None)
+            for b in models
+        )
     window = MainWindow(
         windows,
         create_recognizer,
@@ -105,9 +108,14 @@ def main() -> int:
                 stage = 3
             elif stage == 3:
                 assert settings.tabs.tabText(settings.tabs.currentIndex()) == "Models"
-                assert ("Download required" if args.missing_models else "Downloaded") in (
-                    settings.models.download_badge.text()
+                expected = (
+                    "Download required"
+                    if args.missing_models
+                    else "Included with app"
+                    if settings.models.choice.currentData().included
+                    else "Downloaded"
                 )
+                assert expected in settings.models.download_badge.text()
                 settings.grab().save(str(args.output / "models.png"))
                 gemma = next(
                     (

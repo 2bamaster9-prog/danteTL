@@ -118,7 +118,10 @@ class ModelManager(QDialog):
             "Processing stays offline after setup."
         )
         self.status.setText(model_status(bundle))
-        self.location.setText(f"Model folder: {bundle.directory}")
+        self.location.setText(
+            f"Model folder: {bundle.local_directory}"
+            + (f"\nRepairs folder: {bundle.directory}" if bundle.bundled_directory else "")
+        )
         self.download.setText("Verify / repair" if bundle.present() else "Download")
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
@@ -138,7 +141,13 @@ class ModelManager(QDialog):
             self.runtime_badge.hide()
             return
         downloaded = bundle.present()
-        self.download_badge.setText("✓  Downloaded" if downloaded else "↓  Download required")
+        self.download_badge.setText(
+            "✓  Included with app"
+            if bundle.included
+            else "✓  Downloaded"
+            if downloaded
+            else "↓  Download required"
+        )
         self.download_badge.setAccessibleName(self.download_badge.text())
         self.download_badge.setToolTip("Model files are present. Integrity is checked before use.")
         set_tone(self.download_badge, "success" if downloaded else "warning")

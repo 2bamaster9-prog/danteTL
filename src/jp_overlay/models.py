@@ -5,6 +5,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from jp_overlay import paths
 from jp_overlay.paths import is_standalone, state_root
 
 
@@ -46,9 +47,33 @@ ASSETS = (
 )
 
 
-def model_directory() -> Path:
+def download_directory() -> Path:
     override = os.environ.get("JP_OVERLAY_MODEL_DIR")
     return Path(override) if override else state_root() / "models" / "meiki"
+
+
+def bundled_model_directory() -> Path | None:
+    if is_standalone() and not os.environ.get("JP_OVERLAY_MODEL_DIR"):
+        return paths.resource_root() / "models" / "meiki"
+    return None
+
+
+def assets_present(directory: Path, assets: tuple[ModelAsset, ...]) -> bool:
+    """Cheap availability only; workers verify hashes before loading or repairing."""
+    try:
+        return all((directory / asset.filename).stat().st_size == asset.size for asset in assets)
+    except OSError:
+        return False
+
+
+def asset_directory(primary: Path, assets: tuple[ModelAsset, ...], bundled: Path | None) -> Path:
+    if not assets_present(primary, assets) and bundled and assets_present(bundled, assets):
+        return bundled
+    return primary
+
+
+def model_directory() -> Path:
+    return asset_directory(download_directory(), ASSETS, bundled_model_directory())
 
 
 def validate_asset(path: Path, asset: ModelAsset, setup: str | None = "Setup OCR.cmd") -> None:

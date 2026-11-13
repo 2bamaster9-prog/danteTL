@@ -44,7 +44,10 @@ def main() -> int:
     demo = DemoWindow(dialogue=True)
     demo.show()
     bundles = model_catalog()
-    missing = tuple(replace(b, directory=output / "not-installed" / b.key) for b in bundles)
+    missing = tuple(
+        replace(b, directory=output / "not-installed" / b.key, bundled_directory=None)
+        for b in bundles
+    )
     window = MainWindow(
         windows,
         create_recognizer,

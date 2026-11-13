@@ -58,9 +58,14 @@ class SetupAssistant(QDialog):
         page = self._page()
         page.addWidget(
             self._label(
-                "Translate Japanese games locally. This guide helps you download text recognition "
-                "and a translation model, then offers optional GPU acceleration.\n\n"
-                "You choose what to download before anything starts. "
+                (
+                    "Text recognition is included with DanteJP. This guide helps you choose "
+                    "a translation model and optional GPU acceleration.\n\n"
+                    if self.models["ocr"].included
+                    else "Translate Japanese games locally. This guide sets up text recognition, "
+                    "a translation model and optional GPU acceleration.\n\n"
+                )
+                + "You choose what to download before anything starts. "
                 "CPU support works without a GPU. "
                 "Processing stays on your PC after setup.\n\n"
                 "You can skip this and reopen Setup assistant from Settings."
@@ -69,7 +74,11 @@ class SetupAssistant(QDialog):
         page.addStretch()
         page = self._page()
         page.addWidget(
-            self._label("MeikiOCR reads the Japanese text (46 MB). Choose a translator:")
+            self._label(
+                "✓ MeikiOCR is included with the app. Choose a translation model:"
+                if self.models["ocr"].included
+                else "MeikiOCR reads the Japanese text (46 MB). Choose a translator:"
+            )
         )
         self.model = QComboBox()
         for key in ("gemma", "sugoi"):
@@ -176,13 +185,15 @@ class SetupAssistant(QDialog):
         if page == 3:
             assert self.hardware_status is not None
             profile: RuntimeProfile = self.runtime.currentData()
+            ocr = self.models["ocr"]
             self._plan = SetupPlan(
-                (self.models["ocr"], self.models[self.model.currentData()]),
+                (() if ocr.included else (ocr,)) + (self.models[self.model.currentData()],),
                 profile if needs_runtime(profile, self.hardware_status) else None,
             )
             pending = sum(m.size for m in self._plan.models if not m.present())
             self.review.setText(
-                f"Recognition: MeikiOCR\nTranslation: {self.model.currentText()}\n"
+                f"Recognition: MeikiOCR{' · included, no download' if ocr.included else ''}\n"
+                f"Translation: {self.model.currentText()}\n"
                 f"Runtime: {profile.name}\n\n"
                 f"Model downloads: up to {pending / 1e9:.2f} GB; "
                 "existing files are verified and reused.\n"

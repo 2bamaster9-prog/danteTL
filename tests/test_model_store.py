@@ -1,6 +1,7 @@
 import hashlib
 import io
 import threading
+from dataclasses import replace
 from unittest.mock import Mock
 
 import pytest
@@ -51,6 +52,59 @@ def test_cancelled_download_removes_partial_without_publishing(tmp_path, monkeyp
     with pytest.raises(store.Cancelled):
         store.install_model(bundle(tmp_path), progress, cancel)
     assert not tuple(tmp_path.iterdir())
+
+
+def test_ocr_repair_uses_bundled_files_offline_and_preserves_app_resources(tmp_path, monkeypatch):
+    bundled = tmp_path / "app/models"
+    bundled.mkdir(parents=True)
+    (bundled / "weights").write_bytes(b"good")
+    primary = tmp_path / "AppData/models"
+    primary.mkdir(parents=True)
+    (primary / "weights").write_bytes(b"evil")  # Same size, incorrect checksum.
+    model = replace(bundle(primary), key="ocr", bundled_directory=bundled)
+    network = Mock(side_effect=AssertionError("Repair should use local bundled bytes"))
+    monkeypatch.setattr(store, "urlopen", network)
+    progress = []
+    store.install_model(model, progress.append, threading.Event())
+    assert (primary / "weights").read_bytes() == b"good"
+    assert (bundled / "weights").read_bytes() == b"good"
+    assert any("Restoring" in p.message for p in progress)
+    assert model.local_directory == primary
+    network.assert_not_called()
+
+
+def test_damaged_bundle_repairs_to_appdata_and_downloads_only_bad_asset(tmp_path, monkeypatch):
+    bundled = tmp_path / "app/models"
+    bundled.mkdir(parents=True)
+    (bundled / "weights").write_bytes(b"evil")
+    (bundled / "second").write_bytes(b"good")
+    primary = tmp_path / "AppData/models"
+    model = replace(bundle(primary), key="ocr", bundled_directory=bundled)
+    model = replace(model, assets=(*model.assets, replace(model.assets[0], filename="second")))
+    network = Mock(side_effect=lambda *a, **kw: io.BytesIO(b"good"))
+    monkeypatch.setattr(store, "urlopen", network)
+    store.install_model(model, lambda p: None, threading.Event())
+    network.assert_called_once()
+    assert (primary / "weights").read_bytes() == (primary / "second").read_bytes() == b"good"
+    assert model.local_directory == primary and model.present()
+    assert (bundled / "weights").read_bytes() == b"evil"
+
+
+def test_cancelled_local_repair_never_publishes_a_partial_file(tmp_path, monkeypatch):
+    bundled = tmp_path / "app/models"
+    bundled.mkdir(parents=True)
+    (bundled / "weights").write_bytes(b"good")
+    primary = tmp_path / "AppData/models"
+    primary.mkdir(parents=True)
+    (primary / "weights").write_bytes(b"evil")
+    model = replace(bundle(primary), bundled_directory=bundled)
+    cancel = threading.Event()
+    monkeypatch.setattr(store, "urlopen", lambda *a, **kw: pytest.fail("No network allowed"))
+    with pytest.raises(store.Cancelled):
+        store.install_model(model, lambda p: cancel.set() if p.received else None, cancel)
+    assert (primary / "weights").read_bytes() == b"evil"
+    assert (bundled / "weights").read_bytes() == b"good"
+    assert not tuple(primary.glob("*.part"))
 
 
 def test_worker_reports_failure_and_cancellation():

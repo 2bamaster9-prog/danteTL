@@ -69,6 +69,35 @@ def main() -> None:
         check=True,
         timeout=60,
     )
+    # Exercise actual OCR with bundled weights and fresh AppData, with sockets blocked
+    # by verify_ocr.py. No model copies, inference downloads, or system Python allowed.
+    verify_code = (
+        "import sys,runpy; from pathlib import Path; "
+        "source=Path(sys.argv.pop(1)); sys.path.insert(0,str(source)); "
+        "from jp_overlay.models import model_directory; "
+        "assert model_directory()==source.parent/'models/meiki'; "
+        "script=sys.argv.pop(1); sys.argv[0]=script; runpy.run_path(script,run_name='__main__')"
+    )
+    with (output / "ocr-check.log").open("w", encoding="utf-8") as log:
+        subprocess.run(
+            [
+                str(python),
+                "-I",
+                "-B",
+                "-c",
+                verify_code,
+                str(bundle / "_internal/app/src"),
+                str(ROOT / "tools/verify_ocr.py"),
+                "--output",
+                str(output / "ocr"),
+            ],
+            env=environment | {"QT_QPA_PLATFORM": "windows"},
+            cwd=output,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            check=True,
+            timeout=180,
+        )
     token = uuid4().hex
     environment["JP_OVERLAY_RESTART_TOKEN"] = token
     subprocess.run(
@@ -127,6 +156,7 @@ def main() -> None:
         "unicode_path": any(ord(char) > 127 for char in str(bundle)),
         "appdata_receipt_and_logs": True,
         "no_implicit_downloads": True,
+        "bundled_ocr_worked_offline_without_appdata_models": True,
         "welcome_shown": any(t.title == "DanteJP · Welcome" for t in owned),
         "no_files_written_in_app_folder": True,
         "clean_shutdown": True,

@@ -1,10 +1,11 @@
+import hashlib
 import json
 import threading
 from pathlib import Path
 
 import pytest
 
-from jp_overlay import gemma, models, paths, runtime_setup, sugoi
+from jp_overlay import gemma, model_store, models, paths, runtime_setup, sugoi
 
 
 @pytest.fixture
@@ -44,6 +45,62 @@ def test_source_checkout_preserves_existing_model_paths(package, monkeypatch):
         "-m",
         "jp_overlay",
     ]
+
+
+def test_bundled_ocr_is_available_offline_without_installing_or_copying(package, monkeypatch):
+    asset = models.ModelAsset(
+        "fixture", "pinned", "ocr.onnx", hashlib.sha256(b"good").hexdigest(), 4
+    )
+    monkeypatch.setattr(models, "ASSETS", (asset,))
+    bundled = package / "models/meiki"
+    bundled.mkdir(parents=True)
+    (bundled / asset.filename).write_bytes(b"good")
+    monkeypatch.setattr(model_store, "urlopen", lambda *a, **kw: pytest.fail("No network allowed"))
+    catalog = model_store.model_catalog()[0]
+    assert catalog.directory == paths.state_root() / "models/meiki"
+    assert catalog.included and catalog.present() and catalog.local_directory == bundled
+    assert models.model_directory() == bundled
+    assert models.local_model_paths(models.model_directory()) == (bundled / asset.filename,)
+    model_store.install_model(catalog, lambda p: None, threading.Event())
+    assert not paths.state_root().exists()
+    assert "Included" in model_store.model_status(catalog)
+
+    # Relocation follows the current package, not the old install folder.
+    moved = package.with_name("relocated 日本語")
+    package.rename(moved)
+    monkeypatch.setattr(paths, "resource_root", lambda: moved)
+    assert models.model_directory() == moved / "models/meiki"
+    explicit = moved.parent / "explicit models"
+    monkeypatch.setenv("JP_OVERLAY_MODEL_DIR", str(explicit))
+    assert models.model_directory() == explicit
+    assert not model_store.model_catalog()[0].present()  # No silent override of an explicit path.
+
+
+def test_complete_appdata_models_take_precedence_but_partial_files_do_not_mask_bundle(
+    package, monkeypatch
+):
+    asset = models.ModelAsset(
+        "fixture", "pinned", "ocr.onnx", hashlib.sha256(b"good").hexdigest(), 4
+    )
+    monkeypatch.setattr(models, "ASSETS", (asset,))
+    bundled = package / "models/meiki"
+    bundled.mkdir(parents=True)
+    (bundled / asset.filename).write_bytes(b"good")
+    primary = models.download_directory()
+    primary.mkdir(parents=True)
+    (primary / asset.filename).write_bytes(b"bad")
+    assert models.model_directory() == bundled
+    (primary / asset.filename).write_bytes(b"good")
+    assert models.model_directory() == primary
+
+
+def test_repair_cannot_write_to_standalone_resources(package):
+    directory = package / "custom"
+    asset = models.ModelAsset("fixture", "pinned", "ocr.onnx", "a" * 64, 4)
+    bundle = model_store.ModelBundle("ocr", "OCR", directory, (asset,), "")
+    with pytest.raises(RuntimeError, match="read-only"):
+        model_store.install_model(bundle, lambda p: None, threading.Event())
+    assert not directory.exists()
 
 
 def test_explicit_state_override_requires_absolute_path(package, monkeypatch, tmp_path):

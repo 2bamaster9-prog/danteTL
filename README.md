@@ -11,7 +11,9 @@ The inspector keeps raw Japanese, bounding boxes, and English together for revie
 For the standalone Windows x64 release, extract **DanteJP-windows-x64.zip** and double-click
 **DanteJP.exe**. Keep `_internal` beside the EXE. No Python installation, terminal, setup script or
 administrator rights are needed. This is a portable folder in a ZIP, not an installer or a single-file
-EXE. Models, settings, caches and optional runtimes go to **`%LOCALAPPDATA%\DanteJP`**, shared across
+EXE. **MeikiOCR is included**, so Japanese text recognition works immediately on CPU without
+downloading a model. Translation models, OCR repairs, settings, caches and optional runtimes go to
+**`%LOCALAPPDATA%\DanteJP`**, shared across
 app updates. Extract updates into a new folder after closing the app; your downloads stay in AppData.
 To uninstall, delete the app folder; delete its AppData folder only if you also want to remove your data.
 
@@ -21,8 +23,10 @@ GPU recommendation (or keep CPU), then confirm the downloads. Nothing downloads 
 preparation consent. Reopen it with **Settings → Setup assistant…** while capture is stopped.
 Existing installations with OCR and a translation model already downloaded skip the welcome.
 
-You can also use **Settings → Models** directly. Download **MeikiOCR**
-(46 MB) for recognition and a translation model: **Sugoi V4** (1.11 GB, CPU) or **Gemma 4 E2B**
+You can also use **Settings → Models** directly. MeikiOCR shows **Included with app**; its three
+pinned ONNX files total 46 MB before compression. **Verify / repair** checks them and restores
+damaged/missing files into AppData, reusing valid bundled files before downloading anything.
+Choose a translation model: **Sugoi V4** (1.11 GB, CPU) or **Gemma 4 E2B**
 (3.35 GB, CPU or GPU). The standalone app includes the CPU language-model engine: Gemma needs
 no GPU setup after its model download. CPU translation can be slower, so the app labels it clearly.
 The optional **Acceleration** tab installs GPU support for compatible engines, independently of
@@ -291,14 +295,14 @@ Read the [agreed plan](engineering/plan.md), [engineering guide](engineering/REA
 [milestone status](engineering/plans/010-regional-ocr.md). The application runs locally;
 only explicit setup downloads require a network connection.
 
-Models are kept in ignored `models/meiki` and `models/sugoi-v4`; set `JP_OVERLAY_MODEL_DIR` or
+Source checkouts keep models in ignored `models/meiki` and `models/sugoi-v4`; set `JP_OVERLAY_MODEL_DIR` or
 `JP_OVERLAY_SUGOI_DIR` to use other directories. English cache entries persist in ignored
 `data/translations.sqlite3`; close the app before removing that cache if you want a fresh evaluation.
 Use uv/the bundled setup: it resolves the two upstream OpenCV dependency names to a single `cv2`
 installation. No model weights or captured game screenshots belong in Git.
 
 The pinned Sugoi repository supplies [research-use, noncommercial model terms](https://huggingface.co/entai2965/sugoi-v4-ja-en-ctranslate2/blob/71d67eb8e73ec2f5aaefc0689e03a4eb843d3a2b/LICENSE).
-Setup preserves that license with the weights. Code and model distribution remain separate;
+Setup preserves that license with the weights. Translation weights remain separate downloads;
 private use does not automatically resolve the model's use restrictions.
 
 ## Current limits

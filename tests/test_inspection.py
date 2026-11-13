@@ -145,6 +145,39 @@ def test_first_run_skip_persists_and_settings_can_reopen_it(app, tmp_path):
     window.deleteLater()
 
 
+def test_included_ocr_has_ready_badge_and_is_not_in_first_run_download_plan(app, tmp_path):
+    import hashlib
+
+    from jp_overlay.hardware import HardwareStatus
+    from jp_overlay.model_store import ModelBundle, model_catalog
+    from jp_overlay.models import ModelAsset
+
+    bundled = tmp_path / "app"
+    bundled.mkdir()
+    (bundled / "ocr").write_bytes(b"good")
+    asset = ModelAsset("fixture", "pinned", "ocr", hashlib.sha256(b"good").hexdigest(), 4)
+    ocr = ModelBundle("ocr", "MeikiOCR", tmp_path / "AppData", (asset,), "", bundled)
+    models = (ocr, *model_catalog()[1:])
+    windows, hardware = Mock(), Mock()
+    windows.list_targets.return_value = []
+    hardware.snapshot.return_value = HardwareStatus(llama_device="cpu")
+    window = MainWindow(windows, Mock(), models=models, hardware=hardware)
+    window._show_setup_assistant()
+    guide = window._setup_assistant
+    assert guide and window._ocr_models_ready()
+    assert "Included with app" in window._settings.models.download_badge.text()
+    assert window._settings.models.download.text() == "Verify / repair"
+    guide._poll()
+    for _ in range(3):
+        guide.next.click()
+    assert guide._plan and [b.key for b in guide._plan.models] == ["gemma"]
+    assert "included, no download" in guide.review.text()
+    assert not guide.operation and not ocr.directory.exists()
+    guide.close()
+    window.close()
+    window.deleteLater()
+
+
 def test_first_run_resumes_model_intent_after_restart_but_still_requires_consent(
     app, tmp_path, monkeypatch
 ):

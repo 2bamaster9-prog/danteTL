@@ -435,7 +435,7 @@ same `cuda` dependency group for runtime/cuBLAS libraries. The legacy 1.26 OCR l
 CUDA 12 libraries when running an older development environment. Validate both initialization
 orders and actual loaded DLLs when changing native dependencies; see [decision 017](decisions/017-shared-cuda.md).
 
-Standalone releases use `paths` to keep those models/data/runtimes in `%LOCALAPPDATA%/DanteJP`.
+Standalone releases use `paths` to keep translation models/data/runtimes in `%LOCALAPPDATA%/DanteJP`.
 The private CPU interpreter and pinned dependency project remain read-only beside the launcher.
 GPU environments use AppData-managed Python and load the current bundle's source through the shared
 bootstrap; neither moving the bundle nor updating UI code binds them to an obsolete app path.
@@ -458,3 +458,12 @@ local-file requirements. uv installs these offline into the new environment befo
 native probe/receipt. No dependency versions are resolved in application code. `SetupProgressView`
 renders setup stages and an independent immutable current-download byte snapshot. Python bootstrap
 remains installer-managed/indeterminate. See [decision 019](decisions/019-first-run-setup.md).
+
+The three pinned MeikiOCR files ship under `_internal/app/models/meiki`, validated by the builder
+and recorded in the manifest. `models` resolves explicit overrides first, then complete AppData
+models, then the current bundle. Availability uses file sizes; the OCR worker still hashes before
+loading. No startup copying/download is required. `ModelBundle` separates the writable repair
+directory from the selected read directory and exposes included availability to Settings/the guide.
+Explicit repair verifies the bundled files in place, or atomically restores AppData files using
+valid bundled bytes before fetching missing/damaged assets. It never writes to app resources.
+The guide omits included OCR from its download plan. See [decision 020](decisions/020-bundled-ocr.md).
