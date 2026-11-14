@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 from jp_overlay.sugoi import SugoiBackend, model_directory
 from jp_overlay.translation import TranslationBackend
+from jp_overlay.translation_backend import ContextualBackend
 
 
 def process_memory() -> dict[str, float]:
@@ -57,9 +58,11 @@ def process_memory() -> dict[str, float]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--backend", choices=("sugoi", "gemma"), default="sugoi")
     parser.add_argument(
-        "--device", choices=("cpu", "cuda", "vulkan"), help="Require this Gemma engine"
+        "--backend", choices=("sugoi", "gemma", "gemma-e4b", "qwen35-4b"), default="sugoi"
+    )
+    parser.add_argument(
+        "--device", choices=("cpu", "cuda", "vulkan"), help="Require this language-model engine"
     )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
@@ -90,7 +93,8 @@ def main() -> None:
     with patch.object(socket.socket, "connect", side_effect=AssertionError("Unexpected network")):
         started = time.monotonic()
         backend: TranslationBackend
-        if args.backend == "gemma":
+        if args.backend != "sugoi":
+            from jp_overlay.app import create_curated_translator
             from jp_overlay.gemma import GemmaBackend
             from jp_overlay.gemma import model_directory as gemma_directory
             from jp_overlay.llama_runtime import installed_device
@@ -98,7 +102,11 @@ def main() -> None:
             device = installed_device()
             assert device is not None, "Language-model engine is missing"
             assert not args.device or device == args.device, "Unexpected engine; no silent fallback"
-            backend = GemmaBackend(gemma_directory(), device=device)
+            backend = (
+                GemmaBackend(gemma_directory(), device=device)
+                if args.backend == "gemma"
+                else create_curated_translator(args.backend)
+            )
         else:
             backend = SugoiBackend(model_directory())
         load_ms = (time.monotonic() - started) * 1000
@@ -116,11 +124,9 @@ def main() -> None:
             assert "adventure" in english[0].lower(), english
             assert any(word in english[2].lower() for word in ("setting", "config")), english
             dialogue = []
-            if args.backend == "gemma":
+            if isinstance(backend, ContextualBackend):
                 from jp_overlay.dialogue_context import DialogueTurn
-                from jp_overlay.gemma import GemmaBackend
 
-                assert isinstance(backend, GemmaBackend)
                 context = (
                     DialogueTurn("私はリナ。これからよろしくね。", "I'm Rina. Nice to meet you."),
                 )

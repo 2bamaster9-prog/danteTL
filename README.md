@@ -3,7 +3,8 @@
 A local Windows game translation overlay, being built in small milestones.
 
 **Current milestone:** capture a game window, recognize Japanese with MeikiOCR, translate stable
-text locally with Sugoi V4 or optional Gemma 4 E2B, and draw English in an aligned click-through overlay.
+text locally with Sugoi V4, Gemma 4 E2B/E4B or Qwen3.5 4B, and draw English in an aligned
+click-through overlay.
 The inspector keeps raw Japanese, bounding boxes, and English together for review.
 
 ## Run
@@ -19,18 +20,29 @@ To uninstall, delete the app folder; delete its AppData folder only if you also 
 
 First launch opens a skippable **Setup assistant**: choose a translation model, review the detected
 GPU recommendation (or keep CPU), then confirm the downloads. Nothing downloads before you choose
-**Download and set up**. It offers restart after runtime setup and retains Gemma's separate first-use
+**Download and set up**. It offers restart after runtime setup and retains separate first-use
 preparation consent. Reopen it with **Settings → Setup assistant…** while capture is stopped.
 Existing installations with OCR and a translation model already downloaded skip the welcome.
 
 You can also use **Settings → Models** directly. MeikiOCR shows **Included with app**; its three
 pinned ONNX files total 46 MB before compression. **Verify / repair** checks them and restores
 damaged/missing files into AppData, reusing valid bundled files before downloading anything.
-Choose a translation model: **Sugoi V4** (1.11 GB, CPU) or **Gemma 4 E2B**
-(3.35 GB, CPU or GPU). The standalone app includes the CPU language-model engine: Gemma needs
-no GPU setup after its model download. CPU translation can be slower, so the app labels it clearly.
+Choose a translation model:
+
+| Model | Download | Intended tradeoff |
+| --- | --- | --- |
+| Sugoi V4 | 1.11 GB | Lowest resource use, fast CPU-only translation; dialogue can be literal or miss meaning. |
+| Gemma 4 E2B | 3.35 GB | Our balanced starting point for dialogue, speed and resources. |
+| Qwen3.5 4B | 2.74 GB | Alternative dialogue model to compare against Gemma; Unsloth Q4_K_M conversion. |
+| Gemma 4 E4B | 5.15 GB | Larger Gemma option for users willing to spend more memory; Google QAT Q4_0. |
+
+These are download sizes, **not RAM/VRAM requirements**; inference needs additional working memory.
+Quality depends on the text and no general Japanese-game translation ranking is established.
+Gemma's E4B name denotes effective parameters, not a four-gigabyte memory limit.
+The standalone CPU engine supports all three language models without GPU setup. Optional NVIDIA
+CUDA or Vulkan acceleration improves responsiveness. CPU translation can be slower and is labelled.
 The optional **Acceleration** tab installs GPU support for compatible engines, independently of
-model selection. If an older/source environment lacks the engine, Gemma stays visible as
+model selection. If an older/source environment lacks the engine, downloaded models stay visible as
 **runtime setup needed**; choose CPU or GPU in setup. **No translation** is always available.
 Capture works even with no models; English appears only after selecting a translator.
 Downloads show byte progress, support cancellation, and check pinned SHA-256 hashes before files
@@ -77,19 +89,19 @@ its loading status stays visible. Gemma has the preparation flow below. A bounde
 `data/cuda-cache` is reused; driver/kernel changes may require another warm-up. Legacy setup scripts
 remain available for development but are not required by the in-app acceleration flow.
 
-Selecting an unprepared Gemma model asks **Prepare now?** Choosing No restores the previous model
+Selecting an unprepared language model asks **Prepare now?** Choosing No restores the previous model
 or No translation. Yes shows a responsive progress dialog while checking weights and running a
 short test translation on the selected device. It uses an indeterminate bar because the runtime cannot report a reliable percentage. The
 prepared worker stays loaded for capture. Preparation receipts are local to the machine/runtime;
 driver changes can still require warm-up, shown as loading. Nothing downloads during preparation.
 
-Gemma keeps at most **two recent dialogue exchanges / 512 characters** within its existing
+Gemma and Qwen keep at most **two recent dialogue exchanges / 512 characters** within their
 2,048-token allocation. Only one likely dialogue panel owns history; short menu labels remain
 independent. History expires after 30 seconds, prolonged panel absence, panel relocation, broad
 scene changes, or session reset. It is a conservative heuristic, not a speaker/name glossary.
 Context is part of cache identity, so unrelated conversations cannot reuse contextual answers.
-Its weights are Apache-2.0; Sugoi retains its separate licensing. See
-[the current slice](engineering/plans/012-model-management-and-context.md) for measurements.
+The offered Gemma/Qwen weights are Apache-2.0; Sugoi retains its separate licensing. See
+[the catalog decision](engineering/decisions/023-curated-models.md) for pinned sources and limits.
 
 **Settings → Models → Import GGUF…** adds a local single-file chat model by reference, without
 copying it or downloading anything. Choose a file, optionally name it, then **Test compatibility**.

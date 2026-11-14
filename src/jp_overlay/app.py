@@ -54,8 +54,9 @@ def create_translator(*, beam_size: int = 2) -> TranslationBackend:
 
 
 def translation_backends() -> tuple[BackendChoice, ...]:
+    from jp_overlay.curated_models import MODELS
     from jp_overlay.llama_runtime import installed_device
-    from jp_overlay.model_store import GEMMA_RUNTIME_SETUP, model_catalog, preparation_id
+    from jp_overlay.model_store import LANGUAGE_RUNTIME_SETUP, model_catalog, preparation_id
 
     bundles = {bundle.key: bundle for bundle in model_catalog()}
     choices = []
@@ -69,21 +70,32 @@ def translation_backends() -> tuple[BackendChoice, ...]:
             )
         )
     device = installed_device()
-    if bundles["gemma"].present():
+    factories = {
+        "gemma": ("Gemma 4 E2B", create_gemma_translator),
+        **{
+            model.key: (model.name.split(" · ")[0], partial(create_curated_translator, model.key))
+            for model in MODELS
+        },
+    }
+    for key, (name, factory) in factories.items():
+        bundle = bundles.get(key)
+        if bundle is None or not bundle.present():
+            continue
         label = {"vulkan": "Vulkan GPU", "cuda": "NVIDIA GPU", "cpu": "CPU · slower"}.get(
             device or "", "runtime setup needed"
         )
         choices.append(
             BackendChoice(
-                f"Gemma 4 E2B · {label}",
-                create_gemma_translator,
-                f"gemma-{device or 'unavailable'}",
-                preparation_id(bundles["gemma"], device) if device else "",
-                GEMMA_RUNTIME_SETUP if device is None else "",
-                "CPU translation is available. Gemma may be slower, especially on busy screens. "
+                f"{name} · {label}",
+                factory,
+                f"{key}-{device or 'unavailable'}",
+                preparation_id(bundle, device) if device else "",
+                LANGUAGE_RUNTIME_SETUP if device is None else "",
+                "CPU translation is available. It may be slower, especially on busy screens. "
                 "GPU acceleration is optional."
                 if device == "cpu"
                 else "",
+                selection_id=key,
             )
         )
     from jp_overlay.gguf_models import read_registry
@@ -138,6 +150,17 @@ def create_imported_translator(model: ImportedModel) -> TranslationBackend:
     if device is None:
         raise RuntimeError("Language-model engine is missing. Open Acceleration.")
     return GgufBackend(model, device=device)
+
+
+def create_curated_translator(key: str) -> TranslationBackend:
+    from jp_overlay.curated_models import MODELS
+    from jp_overlay.llama_runtime import installed_device
+
+    device = installed_device()
+    if device is None:
+        raise RuntimeError("Language-model engine is missing. Open Acceleration.")
+    model = next(model for model in MODELS if model.key == key)
+    return model.load(device)
 
 
 def create_gemma_translator() -> TranslationBackend:

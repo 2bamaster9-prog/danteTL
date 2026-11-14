@@ -37,7 +37,8 @@ Read these documents as relevant to the task:
 | [Bundled OCR decision](decisions/020-bundled-ocr.md) | Required recognition included, writable repairs kept separate |
 | [Imported model decision](decisions/021-imported-models.md) | Local GGUF registration, compatibility tests and prompt profiles |
 | [Session lifecycle decision](decisions/022-session-lifecycle.md) | Runtime selection, process ownership and request rejection |
-| [Current slice](plans/022-session-lifecycle.md) | Review fixes, live coordinator and Windows CI |
+| [Curated model decision](decisions/023-curated-models.md) | Downloadable E4B/Qwen3.5 and honest model comparisons |
+| [Current slice](plans/023-curated-models.md) | Additional downloadable models and lifecycle verification |
 
 The harness consists of these documents, executable checks, deterministic tests, and live capture
 verification. Add guidance when it resolves a concrete ambiguity; replace stale guidance instead

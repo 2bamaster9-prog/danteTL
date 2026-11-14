@@ -1,3 +1,4 @@
+import hashlib
 import json
 import struct
 import sys
@@ -113,6 +114,54 @@ def test_hashing_cancel_and_same_size_changes_are_detected(tmp_path):
     assert model.available()  # Cheap discovery isn't a full integrity check.
     with pytest.raises(ValueError, match="changed"):
         gguf_backend.GgufBackend(model, device="cpu")
+
+
+@pytest.mark.parametrize("architecture", ["qwen35", "gemma4"])
+def test_curated_models_use_pinned_hash_without_registering_or_loading_corrupt_weights(
+    tmp_path, monkeypatch, architecture, fake_runtime
+):
+    from jp_overlay.curated_models import CuratedModel
+    from jp_overlay.model_store import ModelBundle
+    from jp_overlay.models import ModelAsset
+
+    path = gguf_file(tmp_path, architecture=architecture)
+    asset = ModelAsset(
+        "fixture",
+        "pin",
+        path.name,
+        hashlib.sha256(path.read_bytes()).hexdigest(),
+        path.stat().st_size,
+    )
+    model = CuratedModel(
+        "fixture",
+        "Fixture",
+        "",
+        architecture,
+        "gemma4" if architecture == "gemma4" else "embedded",
+        (asset,),
+    )
+    monkeypatch.setattr(
+        CuratedModel,
+        "bundle",
+        lambda self: ModelBundle(
+            self.key,
+            self.name,
+            tmp_path,
+            self.assets,
+            "",
+            language_model=True,
+        ),
+    )
+    monkeypatch.setattr(gguf_models, "save_registration", lambda *a: pytest.fail("No registration"))
+    backend = model.load("cpu")
+    assert backend.registration.sha256 == asset.sha256
+    assert backend.translate(("設定",)) == ("Settings",)
+    backend.close()
+    fake_runtime.Llama.reset_mock()
+    path.write_bytes(path.read_bytes()[:-1] + b"X")
+    with pytest.raises(ValueError, match="changed"):
+        model.load("cpu")
+    fake_runtime.Llama.assert_not_called()
 
 
 @pytest.fixture

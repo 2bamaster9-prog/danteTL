@@ -110,7 +110,15 @@ def main() -> None:
     assert receipt.is_file(), "Native EXE did not acknowledge Qt startup"
     pid = int(receipt.read_text("ascii"))
     windows = Windows()
-    owned = [t for t in windows.list_targets() if t.process_id == pid]
+    # The startup acknowledgement precedes the queued first-run callback. On a fresh
+    # install, wait for that modal before attempting to close the main window.
+    deadline = time.monotonic() + 10
+    while True:
+        owned = [t for t in windows.list_targets() if t.process_id == pid]
+        if any(t.title == "DanteJP · Welcome" for t in owned):
+            break
+        assert time.monotonic() < deadline, "Fresh standalone did not show its welcome"
+        time.sleep(0.05)
     targets = [target for target in owned if target.title == "DanteJP"]
     assert len(targets) == 1, targets  # The first-run assistant is an owned child window.
     user = ctypes.WinDLL("user32")

@@ -2,7 +2,7 @@
 
 Read `engineering/README.md` first. The agreed product plan is in
 `engineering/plan.md`; current implementation scope is in
-`engineering/plans/022-session-lifecycle.md`. NVIDIA OCR and Gemma share pinned CUDA 13 libraries.
+`engineering/plans/023-curated-models.md`. NVIDIA OCR and Gemma share pinned CUDA 13 libraries.
 Standalone releases bundle MeikiOCR weights, CPU ONNX and llama.cpp; translation models, preferences and optional GPU
 environments live in per-user AppData. Runtime names describe hardware, not model brands.
 
@@ -93,6 +93,10 @@ variables for installed-runtime compatibility; the branding rename must not inva
   and nonempty reasoning. Include weights/profile/template/device/decoding in cache identity and
   recheck content on load. Run `verify_import_models.py` and `verify_import_windows.py` with local
   GGUFs, plus built-in Gemma and packaged lifecycle checks. Other languages remain out of scope.
+- Curated E4B/Qwen3.5 downloads reuse the GGUF adapter without import registration. Pin weights and
+  cards; keep E2B settings unchanged and selection IDs distinct across runtime changes. Verify each
+  offered model on CPU/CUDA/Vulkan, setup consent/missing engines and live dialogue/model switching.
+  Descriptions distinguish download sizes from working memory; do not imply an untested ranking.
 - Model downloads require an explicit UI/CLI action. Keep hashing/downloads on a bounded worker,
   verify pinned sizes/hashes, atomically publish files, and preserve valid files on cancel/failure.
   Gemma first-use consent must retain the committed selection until accepted; declined/failed

@@ -38,8 +38,8 @@ def decode_preferences(value: object) -> Preferences:
     ranges = {"opacity": (20, 100), "text_size": (10, 60), "capture_rate": (2, 12)}
     choices = {
         "ocr_device": {"auto", "cpu", "auto-directml"},
-        "model": {"auto", "none", "sugoi-fast", "sugoi-wide", "gemma"},
-        "setup_model": {"", "sugoi-fast", "gemma"},
+        "model": {"auto", "none", "sugoi-fast", "sugoi-wide", "gemma", "gemma-e4b", "qwen35-4b"},
+        "setup_model": {"", "sugoi-fast", "gemma", "gemma-e4b", "qwen35-4b"},
     }
     for key, default in defaults.items():
         candidate = value.get(key, default)

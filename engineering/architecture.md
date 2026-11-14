@@ -488,3 +488,8 @@ continue and the committed model choice remains unchanged. Settings/app close in
 `gguf_backend` implements the existing translator contract with bounded prompt profiles/context.
 Built-in Gemma/Sugoi and runtime dependency versions are independent of imports. See
 [decision 021](decisions/021-imported-models.md).
+
+`curated_models` supplies pinned E4B/Qwen3.5 assets to the same downloader and uses `GgufBackend`
+without import registration. Catalog metadata declares language-engine requirements; explicit
+backend selection IDs survive device changes without conflating E2B and E4B. Existing preparation,
+history, cache and publication ownership apply unchanged. See [decision 023](decisions/023-curated-models.md).

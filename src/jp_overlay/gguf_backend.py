@@ -1,4 +1,4 @@
-"""Imported GGUF text generation. Built-in Gemma and Sugoi keep their own adapters."""
+"""Curated/imported GGUF generation. Built-in Gemma E2B and Sugoi keep their own adapters."""
 
 import hashlib
 import json
@@ -89,7 +89,7 @@ class GgufBackend:
             or hashlib.sha256(info.template.encode()).hexdigest() != registration.template_hash
         ):
             raise ValueError(
-                "Imported model changed. Import and test the new file before using it."
+                "Model file changed. Open Models to verify / repair, or import the changed file."
             )
         if device == "cuda":
             cache = Path(os.environ.get("CUDA_CACHE_PATH", str(state_root() / "data/cuda-cache")))

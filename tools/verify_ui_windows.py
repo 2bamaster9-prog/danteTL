@@ -133,7 +133,29 @@ def main() -> int:
                 assert description.height() >= description.heightForWidth(description.width()), (
                     "Model description is clipped after changing selection"
                 )
-                settings.grab().save(str(args.output / "gemma-status.png"))
+                key = settings.models.choice.currentData().key
+                settings.grab().save(str(args.output / f"{key}-status.png"))
+                following = {"gemma": "qwen35-4b", "qwen35-4b": "gemma-e4b"}.get(key)
+                index = next(
+                    (
+                        i
+                        for i in range(settings.models.choice.count())
+                        if settings.models.choice.itemData(i).key == following
+                    ),
+                    -1,
+                )
+                if index >= 0:
+                    settings.models.choice.setCurrentIndex(index)
+                    return
+                settings.resize(550, 470)
+                stage = 32
+            elif stage == 32:
+                description = settings.models.description
+                assert description.height() >= description.heightForWidth(description.width()), (
+                    "Model description is clipped in compact Settings"
+                )
+                settings.grab().save(str(args.output / "model-small.png"))
+                settings.resize(680, 620)
                 settings.models.runtime_button.click()
                 stage = 4
             elif stage == 4:

@@ -10,8 +10,10 @@ from jp_overlay.models import ModelAsset
 def catalog(tmp_path, monkeypatch):
     asset = ModelAsset("fixture", "pinned", "weights", hashlib.sha256(b"good").hexdigest(), 4)
     bundles = tuple(
-        model_store.ModelBundle(key, key, tmp_path / key, (asset,), "")
-        for key in ("ocr", "sugoi", "gemma")
+        model_store.ModelBundle(
+            key, key, tmp_path / key, (asset,), "", language_model=key not in ("ocr", "sugoi")
+        )
+        for key in ("ocr", "sugoi", "gemma", "gemma-e4b", "qwen35-4b")
     )
     monkeypatch.setattr(model_store, "model_catalog", lambda: bundles)
     return {bundle.key: bundle for bundle in bundles}
@@ -68,3 +70,26 @@ def test_automatic_ocr_depends_on_runtime_not_downloaded_meiki(catalog, monkeypa
         app, "gpu_runtime_installed", lambda name="onnxruntime-gpu": name == "onnxruntime-gpu"
     )
     assert app.ocr_backends()[0].name.startswith("Automatic")
+
+
+@pytest.mark.parametrize("device", [None, "cpu", "cuda", "vulkan"])
+def test_curated_choices_keep_identity_across_runtime_changes(catalog, monkeypatch, device):
+    from jp_overlay.preferences import decode_preferences
+
+    monkeypatch.setattr(llama_runtime, "installed_device", lambda: device)
+    for key in ("gemma", "gemma-e4b", "qwen35-4b"):
+        catalog[key].directory.mkdir()
+        (catalog[key].directory / "weights").write_bytes(b"good")
+    choices = app.translation_backends()
+    assert {b.preference_key for b in choices} == {"gemma", "gemma-e4b", "qwen35-4b"}
+    for choice in choices:
+        assert bool(choice.unavailable_reason) == (device is None)
+        assert bool(choice.preparation_id) == (device is not None)
+        saved = decode_preferences(
+            {
+                "version": 1,
+                "model": choice.preference_key,
+                "setup_model": choice.preference_key,
+            }
+        )
+        assert saved.model == saved.setup_model == choice.preference_key

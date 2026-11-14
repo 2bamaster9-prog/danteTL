@@ -81,7 +81,7 @@ class SetupAssistant(QDialog):
             )
         )
         self.model = QComboBox()
-        for key in ("gemma", "sugoi"):
+        for key in ("gemma", *(key for key in self.models if key not in ("ocr", "gemma"))):
             if key in self.models:
                 bundle = self.models[key]
                 suffix = " · downloaded" if bundle.present() else f" · {bundle.size / 1e9:.2f} GB"
@@ -155,13 +155,8 @@ class SetupAssistant(QDialog):
         return layout
 
     def _model_changed(self) -> None:
-        self.model_help.setText(
-            "Gemma offers more natural dialogue and recent conversation context. "
-            "It works on CPU; a GPU usually makes it faster."
-            if self.model.currentData() == "gemma"
-            else "Sugoi is fast and compact on CPU. Translation quality can be less natural. "
-            "Review its upstream license before redistributing model files."
-        )
+        bundle = self.models.get(self.model.currentData())
+        self.model_help.setText(bundle.description if bundle else "Choose a translation model.")
 
     def _runtime_changed(self) -> None:
         self._runtime_chosen = True
@@ -291,7 +286,7 @@ class SetupAssistant(QDialog):
         )
         self.back.setVisible(not self._finished)
         self.result_note.setText(
-            "Your chosen model will be selected next. Gemma asks before first-use preparation."
+            "Your chosen model will be selected next. Language models ask before preparation."
             if self._finished
             else "Verified files and your previous runtime were kept."
         )
@@ -302,7 +297,7 @@ class SetupAssistant(QDialog):
         self._reported = True
         self._timer.stop()
         self.hide()
-        key = "gemma" if self.model.currentData() == "gemma" else "sugoi-fast"
+        key = self.models[self.model.currentData()].selection_id
         self.completed.emit(key, target)
         self.accept()
 
@@ -327,7 +322,7 @@ class SetupAssistant(QDialog):
         if not self._reported:
             self._reported = True
             if self._finished:
-                key = "gemma" if self.model.currentData() == "gemma" else "sugoi-fast"
+                key = self.models[self.model.currentData()].selection_id
                 self.completed.emit(key, None)
             else:
                 self.skipped.emit()

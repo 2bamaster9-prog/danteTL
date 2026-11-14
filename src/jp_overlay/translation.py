@@ -28,6 +28,18 @@ class BackendChoice:
     preparation_id: str = ""
     unavailable_reason: str = ""
     performance_notice: str = ""
+    selection_id: str = ""
+
+    @property
+    def preference_key(self) -> str:
+        if self.selection_id:
+            return self.selection_id
+        # Retain legacy E2B preferences without conflating larger Gemma models.
+        return (
+            "gemma"
+            if self.key in ("gemma", "gemma-cpu", "gemma-cuda", "gemma-vulkan", "gemma-unavailable")
+            else self.key
+        )
 
 
 @dataclass(frozen=True, slots=True)

@@ -34,6 +34,7 @@ def main() -> int:
         help="Simulate an absent language-model engine with downloaded Gemma",
     )
     parser.add_argument("--output", type=Path, default=Path("artifacts/setup"))
+    parser.add_argument("--model", choices=("gemma", "gemma-e4b", "qwen35-4b"), default="gemma")
     args = parser.parse_args()
     output = args.output
     output.mkdir(parents=True, exist_ok=True)
@@ -96,7 +97,7 @@ def main() -> int:
                 if args.missing_runtime:
                     assert window._model_manager
                     window._model_manager.choice.setCurrentIndex(
-                        next(i for i, b in enumerate(bundles) if b.key == "gemma")
+                        next(i for i, b in enumerate(bundles) if b.key == args.model)
                     )
                 stage = 2
             elif stage == 2:
@@ -107,13 +108,13 @@ def main() -> int:
                     i
                     for i in range(window.backend_combo.count())
                     if isinstance(b := window.backend_combo.itemData(i), BackendChoice)
-                    and b.key.startswith("gemma")
+                    and b.preference_key == args.model
                 )
                 original = window.backend_combo.itemData(index)
-                if original.key == "gemma-cpu":
+                if original.key == f"{args.model}-cpu":
                     assert not original.unavailable_reason and original.performance_notice
                     window._model_manager.choice.setCurrentIndex(
-                        next(i for i, b in enumerate(bundles) if b.key == "gemma")
+                        next(i for i, b in enumerate(bundles) if b.key == args.model)
                     )
                     assert "CPU ready" in window._model_manager.runtime_badge.text()
                     window._settings.grab().save(str(output / "cpu-ready.png"))

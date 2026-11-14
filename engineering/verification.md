@@ -1,5 +1,35 @@
 # Verification
 
+## Curated model catalog (2026-11-14)
+
+418 model-free tests, Ruff and Pyright pass. Added regressions cover pinned curated weights,
+same-size corruption before native loading, distinct E2B/E4B/Qwen selection IDs across runtime
+changes, missing-engine badges, first-run download plans and post-restart preparation consent.
+
+Real Gemma 4 E4B QAT Q4_0 and Qwen3.5 4B Q4_K_M passed CPU, CUDA and Vulkan translation checks
+with networking blocked. Vulkan probes confirmed 43 and 33 offloaded layers; Qwen's CUDA probe
+confirmed 33. The native runtime versions did not change. Sugoi and built-in E2B passed again.
+Short original fixture phrases took 47–219 ms for E4B and 375–516 ms for Qwen on warm CUDA;
+CPU ranges were 141–1,109 ms and 500–1,390 ms respectively. These are sample timings on the
+9800X3D/RTX 5080, not quality rankings, sustained game latency or general PC memory budgets.
+E4B preserved “Go ahead” where Qwen gave “Take care” in one sample; broader comparison remains open.
+Vulkan also used the RTX 5080, so Radeon compatibility is not established by these checks.
+
+Native setup/decline/prepared-worker reuse and missing-engine recovery passed for both additions.
+Live CUDA dialogue/typewriter/transitions, swaps through Sugoi, inspection pause and shutdown passed
+for E2B, E4B and Qwen. The first-run guide and native layout checks passed. Evidence is under
+`artifacts/catalog`. `verify_translation.py --backend gemma-e4b|qwen35-4b` and the native setup/live
+tools' `--model` option exercise the actual curated factories.
+
+The relocated standalone passed fresh offline OCR, no Python on PATH, all 6,951 manifest files,
+no implicit downloads and no app-folder writes. Its first attempt exposed a verifier timing race:
+the GUI startup receipt can precede the queued Welcome dialog. The harness now waits for that
+expected modal before closing it and the main window; the repeated check passed cleanly.
+The packaged downloader then streamed both already-verified local test files through the normal
+installer into isolated AppData and checked all pinned hashes. Discovery, CPU Qwen preparation,
+CUDA E4B preparation, decline/reuse/unload, and expanded/compact model descriptions passed using
+the packaged source. No real user AppData, active runtime or imported registration was changed.
+
 ## Session lifecycle and review fixes (2026-11-14)
 
 402 model-free tests, Ruff and Pyright pass through `uv run python tools/check.py`. New regressions

@@ -16,8 +16,8 @@ from jp_overlay import paths
 from jp_overlay.models import ModelAsset, asset_directory, assets_present
 from jp_overlay.paths import is_standalone, state_root
 
-GEMMA_RUNTIME_SETUP = (
-    "Gemma is downloaded, but its language-model engine is not installed in this app environment. "
+LANGUAGE_RUNTIME_SETUP = (
+    "The model is downloaded, but its language-model engine is not installed in this environment. "
     "Open Settings → Acceleration and choose CPU or GPU, then restart. "
     "Your model files are already present; no model download is needed."
 )
@@ -31,6 +31,11 @@ class ModelBundle:
     assets: tuple[ModelAsset, ...]
     description: str
     bundled_directory: Path | None = None
+    language_model: bool = False
+
+    @property
+    def selection_id(self) -> str:
+        return "sugoi-fast" if self.key == "sugoi" else self.key
 
     @property
     def size(self) -> int:
@@ -50,6 +55,7 @@ class ModelBundle:
 
 def model_catalog() -> tuple[ModelBundle, ...]:
     from jp_overlay import gemma, models, sugoi
+    from jp_overlay.curated_models import MODELS
 
     return (
         ModelBundle(
@@ -66,16 +72,21 @@ def model_catalog() -> tuple[ModelBundle, ...]:
             "Sugoi V4 · compact CPU translation",
             sugoi.model_directory(),
             sugoi.ASSETS,
-            "Fast Japanese → English. Review the upstream Sugoi license before redistribution.",
+            "Lowest resource use and fast CPU-only translation. A good fit for modest PCs, "
+            "but dialogue can sound literal or miss meaning. "
+            "Review the upstream Sugoi license before redistribution.",
         ),
         ModelBundle(
             "gemma",
-            "Gemma 4 E2B · local translation",
+            "Gemma 4 E2B · balanced starting point",
             gemma.model_directory(),
             gemma.ASSETS,
-            "Google QAT Q4_0 · Apache-2.0. Runs on CPU; optional GPU acceleration is faster. "
-            "Select the downloaded model to prepare it for this PC.",
+            "Our balanced starting point for natural dialogue, speed and resource use. "
+            "3.35 GB download, plus working memory. CPU works; GPU acceleration is optional. "
+            "Google QAT Q4_0 · Apache-2.0. Quality depends on the text being translated.",
+            language_model=True,
         ),
+        *(model.bundle() for model in MODELS),
     )
 
 
@@ -84,11 +95,11 @@ def model_status(bundle: ModelBundle) -> str:
     if not bundle.present():
         return "Not downloaded. Choose Download to install this model's files."
     origin = "Included with app." if bundle.included else "Downloaded."
-    if bundle.key == "gemma":
+    if bundle.language_model:
         from jp_overlay.llama_runtime import installed_device
 
         if installed_device() is None:
-            return GEMMA_RUNTIME_SETUP
+            return LANGUAGE_RUNTIME_SETUP
         if installed_device() == "cpu":
             return (
                 "Downloaded. Runtime available on CPU; translations may be slower. "

@@ -145,7 +145,8 @@ def test_first_run_skip_persists_and_settings_can_reopen_it(app, tmp_path):
     window.deleteLater()
 
 
-def test_included_ocr_has_ready_badge_and_is_not_in_first_run_download_plan(app, tmp_path):
+@pytest.mark.parametrize("model", ["gemma", "gemma-e4b", "qwen35-4b"])
+def test_included_ocr_has_ready_badge_and_is_not_in_first_run_download_plan(app, tmp_path, model):
     import hashlib
 
     from jp_overlay.hardware import HardwareStatus
@@ -165,12 +166,14 @@ def test_included_ocr_has_ready_badge_and_is_not_in_first_run_download_plan(app,
     window._show_setup_assistant()
     guide = window._setup_assistant
     assert guide and window._ocr_models_ready()
+    guide.model.setCurrentIndex(guide.model.findData(model))
     assert "Included with app" in window._settings.models.download_badge.text()
     assert window._settings.models.download.text() == "Verify / repair"
     guide._poll()
     for _ in range(3):
         guide.next.click()
-    assert guide._plan and [b.key for b in guide._plan.models] == ["gemma"]
+    assert guide._plan and [b.key for b in guide._plan.models] == [model]
+    assert guide.model_help.text() == next(b.description for b in models if b.key == model)
     assert "included, no download" in guide.review.text()
     assert not guide.operation and not ocr.directory.exists()
     guide.close()
@@ -178,19 +181,18 @@ def test_included_ocr_has_ready_badge_and_is_not_in_first_run_download_plan(app,
     window.deleteLater()
 
 
+@pytest.mark.parametrize("key", ["gemma", "gemma-e4b", "qwen35-4b"])
 def test_first_run_resumes_model_intent_after_restart_but_still_requires_consent(
-    app, tmp_path, monkeypatch
+    app, tmp_path, monkeypatch, key
 ):
     from jp_overlay.preferences import Preferences, PreferenceStore
 
     path = tmp_path / "preferences.json"
-    PreferenceStore(path)._write(
-        Preferences(model="sugoi-fast", setup_seen=True, setup_model="gemma")
-    )
+    PreferenceStore(path)._write(Preferences(model="sugoi-fast", setup_seen=True, setup_model=key))
     windows, factory = Mock(), Mock()
     windows.list_targets.return_value = []
     base = BackendChoice("Sugoi", factory, "sugoi-fast")
-    gemma = BackendChoice("Gemma", factory, "gemma", "new-device")
+    gemma = BackendChoice("Language model", factory, f"{key}-cuda", "new-device", selection_id=key)
     monkeypatch.setattr("jp_overlay.ui.is_prepared", lambda key: not key)
     consent = Mock(return_value=QMessageBox.StandardButton.No)
     monkeypatch.setattr(QMessageBox, "question", consent)
@@ -526,8 +528,9 @@ def test_downloaded_model_without_runtime_stays_visible_and_explains_setup(
     window.deleteLater()
 
 
+@pytest.mark.parametrize("key", ["gemma", "gemma-e4b", "qwen35-4b"])
 def test_download_completion_reports_missing_runtime_instead_of_false_readiness(
-    app, tmp_path, monkeypatch
+    app, tmp_path, monkeypatch, key
 ):
     import hashlib
     import io
@@ -537,7 +540,7 @@ def test_download_completion_reports_missing_runtime_instead_of_false_readiness(
     from jp_overlay.models import ModelAsset
 
     asset = ModelAsset("fixture", "revision", "weights", hashlib.sha256(b"good").hexdigest(), 4)
-    bundle = ModelBundle("gemma", "Gemma", tmp_path, (asset,), "")
+    bundle = ModelBundle(key, key, tmp_path, (asset,), "", language_model=True)
     monkeypatch.setattr("jp_overlay.model_store.urlopen", lambda *a, **k: io.BytesIO(b"good"))
     monkeypatch.setattr("jp_overlay.llama_runtime.installed_device", lambda: None)
     manager = ModelManager((bundle,))
@@ -606,7 +609,7 @@ def test_model_download_badges_and_missing_selection_warnings_are_distinct(
     from jp_overlay.models import ModelAsset
 
     asset = ModelAsset("test", "revision", "weights", "", 4)
-    bundle = ModelBundle("gemma", "Gemma", tmp_path, (asset,), "Fixture")
+    bundle = ModelBundle("gemma", "Gemma", tmp_path, (asset,), "Fixture", language_model=True)
     windows = Mock()
     windows.list_targets.return_value = []
     hardware = Mock(finished=True)
@@ -1042,19 +1045,22 @@ def test_device_and_rate_edits_wait_for_next_capture_even_when_models_arrive_mid
 
 
 @pytest.mark.parametrize("prepared", [False, True])
-def test_saved_gemma_choice_survives_runtime_change_without_implicit_preparation(
-    app, tmp_path, monkeypatch, prepared
+@pytest.mark.parametrize("key", ["gemma", "gemma-e4b", "qwen35-4b"])
+def test_saved_model_choice_survives_runtime_change_without_implicit_preparation(
+    app, tmp_path, monkeypatch, prepared, key
 ):
     from jp_overlay.preferences import Preferences, PreferenceStore
 
     path = tmp_path / "preferences.json"
     store = PreferenceStore(path)
-    store._write(Preferences(model="gemma"))
+    store._write(Preferences(model=key))
     windows = Mock()
     windows.list_targets.return_value = []
     factory = Mock()
     sugoi = BackendChoice("Sugoi", factory, "sugoi-fast")
-    gemma = BackendChoice("Gemma Vulkan", factory, "gemma-vulkan", "vulkan-receipt")
+    gemma = BackendChoice(
+        "Language model", factory, f"{key}-vulkan", "vulkan-receipt", selection_id=key
+    )
     monkeypatch.setattr("jp_overlay.ui.is_prepared", lambda key: prepared or not key)
     consent = Mock(return_value=QMessageBox.StandardButton.No)
     monkeypatch.setattr(QMessageBox, "question", consent)
@@ -1068,7 +1074,7 @@ def test_saved_gemma_choice_survives_runtime_change_without_implicit_preparation
         assert window.backend_combo.currentData() is None
     window._settings.opacity.setValue(63)
     drain(window, lambda: window._preferences.idle)
-    assert PreferenceStore(path).initial.model == "gemma"
+    assert PreferenceStore(path).initial.model == key
     # Explicit No translation is a successful user choice and persists immediately.
     if window.backend_combo.currentData() is None:
         window.backend_combo.setCurrentIndex(0)

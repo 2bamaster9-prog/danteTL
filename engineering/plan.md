@@ -173,6 +173,10 @@ processing. Per-game shortcuts and profiles remain separate future work.
 release. Recognition works without model downloads; first-run setup focuses on translation and
 optional acceleration. Verify / repair keeps packaged resources unchanged and restores into AppData.
 
+[Slice twenty-three](plans/023-curated-models.md) adds downloadable Gemma 4 E4B and Qwen3.5 4B,
+using the existing local GGUF adapter and hardware runtimes. Model descriptions state tradeoffs;
+small compatibility samples do not establish a translation-quality ranking.
+
 ## Technical references
 
 - [Windows capture](https://learn.microsoft.com/en-us/windows/apps/develop/media-authoring-processing/screen-capture)

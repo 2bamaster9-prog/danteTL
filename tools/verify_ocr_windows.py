@@ -36,12 +36,19 @@ def main() -> int:
         "--device", choices=("cpu", "auto", "cuda", "directml", "auto-directml"), default="cpu"
     )
     parser.add_argument("--gemma", action="store_true", help="Start Gemma, swap to Sugoi and back")
+    parser.add_argument(
+        "--model",
+        choices=("gemma-e4b", "qwen35-4b"),
+        help="Start a curated model, swap to Sugoi and back",
+    )
     parser.add_argument("--debug", action="store_true", help="Verify diagnostic overlay rendering")
     parser.add_argument("--transitions", action="store_true", help="Close/reopen the text panel")
     parser.add_argument(
         "--typewriter", action="store_true", help="Check gradual dialogue readiness"
     )
     args = parser.parse_args()
+    selected_model = args.model or ("gemma" if args.gemma else "")
+    args.gemma = bool(selected_model)
     if args.gemma and not args.translation:
         parser.error("--gemma requires --translation")
     if args.dialogue and not args.translation:
@@ -103,8 +110,17 @@ def main() -> int:
         ocr_backends=choices,
     )
     window.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+    model_index = next(
+        (
+            i
+            for i in range(window.backend_combo.count())
+            if (b := window.backend_combo.itemData(i)) and b.preference_key == selected_model
+        ),
+        -1,
+    )
     if args.gemma:
-        window.backend_combo.setCurrentIndex(2)
+        assert model_index >= 0, "Requested model is not downloaded"
+        window.backend_combo.setCurrentIndex(model_index)
     window.debug_check.setChecked(args.debug)
     window.show()
     window.advanced.setChecked(True)
@@ -265,7 +281,7 @@ def main() -> int:
                         evidence["sugoi_between_gemma_loads"] = [
                             t.english for t in translated.results
                         ]
-                        window.backend_combo.setCurrentIndex(2)
+                        window.backend_combo.setCurrentIndex(model_index)
                         swapped = 2
                         return
                     if args.dialogue and grouping_stage == 1:

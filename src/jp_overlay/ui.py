@@ -222,7 +222,7 @@ class MainWindow(QMainWindow):
             InfoButton(
                 "Translation model",
                 "Choose a downloaded local translator. Sugoi is compact and CPU friendly; "
-                "Gemma runs on CPU or a supported GPU and requires first-use preparation. "
+                "Language models run on CPU or a supported GPU and need first-use preparation. "
                 "Switching unloads the previous model.",
             )
         )
@@ -328,13 +328,7 @@ class MainWindow(QMainWindow):
 
     @staticmethod
     def _model_key(choice: BackendChoice | None) -> str:
-        return (
-            "gemma"
-            if choice and choice.key.startswith("gemma")
-            else choice.key
-            if choice
-            else "none"
-        )
+        return choice.preference_key if choice else "none"
 
     def _remember_model(self) -> None:
         key = self._model_key(self._selected_backend)
@@ -363,7 +357,7 @@ class MainWindow(QMainWindow):
             self._activate_setup_model()
         elif not self._setup_seen:
             ready = self._ocr_models_ready() and any(
-                model.present() for model in self._models if model.key in ("gemma", "sugoi")
+                model.present() for model in self._models if model.key != "ocr"
             )
             if ready:
                 self._setup_skipped()  # Existing installations do not need a welcome interruption.
@@ -994,7 +988,7 @@ class MainWindow(QMainWindow):
             self.translation_status.setText(
                 "Unloading translation model…"
                 if session and not session.finished
-                else "Gemma needs runtime setup. Select Gemma for instructions."
+                else "Translation needs runtime setup. Select a model for instructions."
                 if self._backends and all(b.unavailable_reason for b in self._backends)
                 else "English translation is off."
                 if running

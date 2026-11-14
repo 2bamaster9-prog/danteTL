@@ -53,7 +53,7 @@ class ModelManager(QDialog):
             InfoButton(
                 "Model downloads",
                 "Choose a model to download or verify. "
-                "MeikiOCR reads Japanese text; Sugoi and Gemma translate it. "
+                "MeikiOCR reads Japanese text; translation models turn it into English. "
                 "Downloads need internet access; recognition and translation stay local.",
             )
         )
@@ -267,14 +267,14 @@ class ModelManager(QDialog):
         self.download_badge.show()
         from jp_overlay.llama_runtime import installed_device
 
-        device = installed_device() if downloaded and bundle.key == "gemma" else None
+        device = installed_device() if downloaded and bundle.language_model else None
         self.runtime_badge.setText(
             "⚠  CPU ready — translations may be slower; GPU optional"
             if device == "cpu"
             else "⚠  Engine setup required — choose CPU or GPU"
         )
         self.runtime_badge.setVisible(
-            downloaded and bundle.key == "gemma" and device in (None, "cpu")
+            downloaded and bundle.language_model and device in (None, "cpu")
         )
 
     def _download(self) -> None:
