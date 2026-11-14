@@ -1,10 +1,13 @@
 """Replay the real scene policy without Qt, native capture, or inference threads."""
 
+import threading
+import time
 from dataclasses import replace
 from unittest.mock import Mock
 
 import pytest
 
+from jp_overlay.dialogue_classifier import Classification
 from jp_overlay.domain import (
     CapturedFrame,
     CaptureSnapshot,
@@ -14,7 +17,7 @@ from jp_overlay.domain import (
     WindowTarget,
 )
 from jp_overlay.live_session import LiveSession
-from jp_overlay.recognition import OcrResult, OcrSnapshot, OcrState, TextRegion
+from jp_overlay.recognition import OcrResult, OcrSnapshot, OcrState, TextCharacter, TextRegion
 from jp_overlay.translation import (
     TranslatedText,
     TranslationRequest,
@@ -47,6 +50,9 @@ class Worker:
 
 
 class Capture(Worker):
+    def set_border(self, enabled):
+        self.show_border = enabled
+
     target = WindowTarget(1, 2, "Fixture")
     current = CaptureSnapshot(CaptureState.RUNNING)
 
@@ -124,6 +130,23 @@ def test_reconcile_waits_for_source_evidence_then_preserves_unscanned_tracks():
     assert len(scene.tracks) == 2
 
 
+def test_completion_bursts_do_not_count_as_new_observations_or_change_english():
+    replay = Replay()
+    source = frame(1)
+    regions = (TextRegion("設定", Rect(50, 40, 100, 30)),)
+    scene = replay.observe(source, regions)
+    backend = Mock()
+    result = TranslatedText(TranslationRequest.from_block(scene.blocks[0]), "Settings")
+    backend.snapshot.return_value = TranslationSnapshot(TranslationState.READY, (result,))
+    english = replay.live.publish(backend, scene.requests, scene.blocks)
+    for _ in range(100):
+        replay.live.reconcile(source, 1.6)
+        assert replay.live.scene(source, 1.6, grouping=True) == scene
+        assert replay.live.publish(backend, scene.requests, scene.blocks) == english
+    assert replay.live.accepted is not None and replay.live.accepted.frame is source
+    assert replay.live._tracker._sequence == 1
+
+
 def test_dialogue_publication_mask_restore_and_backend_scope_without_window():
     replay = Replay()
     regions = (
@@ -150,6 +173,106 @@ def test_dialogue_publication_mask_restore_and_backend_scope_without_window():
     )
     assert not replay.live.publish(backend, scene.requests, scene.blocks).translations
     assert replay.live.accepted and replay.live.accepted.regions == regions
+
+
+def test_history_observes_complete_publications_without_changing_model_work():
+    replay = Replay()
+    replay.live.configure_history(True, "layout", layout_only=True)
+    speaker = Rect(100, 605, 60, 27)
+    regions = (
+        TextRegion("旅人", speaker, (TextCharacter("旅人", speaker, 0.98),)),
+        TextRegion("ここから先は危険だから、", Rect(100, 650, 380, 35)),
+        TextRegion("私と一緒に進んでください。", Rect(100, 695, 380, 35)),
+    )
+    replay.observe(frame(1), regions)
+    scene = replay.observe(frame(2, 1.5), regions)
+    backend = Mock()
+    results = tuple(
+        TranslatedText(
+            TranslationRequest.from_block(b), "Traveler" if b.text == "旅人" else "Fixture English"
+        )
+        for b in scene.requests
+    )
+    backend.snapshot.return_value = TranslationSnapshot(TranslationState.READY, results)
+    replay.live.publish(backend, scene.requests, scene.blocks)
+    replay.live.scene(frame(2, 1.5), 2.7, grouping=True)
+    published = replay.live.publish(backend, scene.requests, scene.blocks)
+    assert len(replay.live.history.turns) == 1
+    turn = replay.live.history.turns[0]
+    assert turn.speaker == "旅人" and turn.source == regions[1].text + regions[2].text
+    assert turn.speaker_english == "Traveler"
+    expected = backend.update.call_args
+    replay.live.history.clear()
+    assert replay.live.publish(backend, scene.requests, scene.blocks) == published
+    assert backend.update.call_args == expected  # No extra sources or prompt-context reset.
+    assert replay.live.history.turns == ()
+    replay.live.stop(backend)
+    assert replay.live.history.turns == ()
+
+
+def test_classifier_never_holds_translation_and_swap_disable_drain_the_owner():
+    replay = Replay()
+    entered, release = threading.Event(), threading.Event()
+    events = []
+
+    class Engine:
+        def __init__(self, key):
+            self.key = key
+            events.append((key, "load"))
+
+        def classify(self, value, cancelled):
+            if self.key == "old":
+                entered.set()
+                assert release.wait(3)
+                assert cancelled.is_set()
+            return Classification("dialogue", "no")
+
+        def close(self):
+            events.append((self.key, "close"))
+
+    regions = (
+        TextRegion("ここから先は危険です。私と一緒に進んでください。", Rect(100, 650, 700, 35)),
+    )
+    replay.observe(frame(1), regions)
+    scene = replay.observe(frame(2, 1.5), regions)
+    backend = Mock()
+    english = TranslatedText(TranslationRequest.from_block(scene.blocks[0]), "Come with me.")
+    backend.snapshot.return_value = TranslationSnapshot(TranslationState.READY, (english,))
+    assert replay.live.publish(backend, scene.requests, scene.blocks).translations == (english,)
+    assert not replay.live.history.turns and not events  # default-off really does no work
+    replay.live.configure_history(True, "old", lambda: Engine("old"))
+    replay.live.scene(frame(2, 1.5), 2.1, grouping=True)
+    replay.live.scene(frame(2, 1.5), 2.7, grouping=True)
+    assert entered.wait(2)
+    try:
+        for _ in range(30):
+            assert replay.live.publish(backend, scene.requests, scene.blocks).translations == (
+                english,
+            )
+        assert not replay.live.history.turns
+        replay.live.configure_history(True, "new", lambda: Engine("new"))
+        replay.live.scene(frame(2, 1.5), 2.8, grouping=True)
+        assert events == [("old", "load")]
+        release.set()
+        deadline = time.monotonic() + 3
+        while not replay.live.history.turns:
+            assert time.monotonic() < deadline
+            replay.live.scene(frame(2, 1.5), 3.5, grouping=True)
+            replay.live.publish(backend, scene.requests, scene.blocks)
+            time.sleep(0.005)
+        assert events[:3] == [("old", "load"), ("old", "close"), ("new", "load")]
+        replay.live.configure_history(False, "new", lambda: Engine("new"))
+        assert replay.live.history_status.startswith("Disabled")
+    finally:
+        release.set()
+        replay.live.stop()
+        replay.capture.finished = replay.ocr.finished = replay.visual.finished = True
+        deadline = time.monotonic() + 3
+        while not replay.live.drain():
+            assert time.monotonic() < deadline
+            time.sleep(0.005)
+    assert events[-1] == ("new", "close")
+    assert len(replay.live.history.turns) == 1  # Disabling keeps the readable transcript.
 
 
 def test_resize_reset_and_stop_wait_for_workers_before_another_capture():

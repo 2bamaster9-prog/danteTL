@@ -2,6 +2,8 @@ import threading
 import time
 from dataclasses import replace
 
+import pytest
+
 from jp_overlay.dialogue_context import DialogueTurn
 from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
 from jp_overlay.grouping import DialogueGrouper, TextBlock
@@ -9,6 +11,7 @@ from jp_overlay.recognition import OcrResult, TextCharacter, TextRegion
 from jp_overlay.tracking import TextTrack, TextTracker
 from jp_overlay.translation import TranslationRequest, TranslationSession, TranslationState
 from jp_overlay.translation_backend import RequestRejected
+from jp_overlay.translation_cache import TranslationCache
 
 
 def track(text="日本語", revision=1, key=1) -> TextTrack:
@@ -41,6 +44,75 @@ class Backend:
 
     def close(self) -> None:
         self.closed = True
+
+
+def test_worker_serves_stable_text_while_earlier_box_keeps_changing(tmp_path):
+    stable = track("ここで待っています。", key=2)
+
+    class Changing(Backend):
+        batch_size = 1
+        revision = 0
+
+        def translate(self, texts):
+            self.calls.append(texts)
+            if texts[0] != stable.text and self.revision < 20:
+                self.revision += 1
+                # A fresh OCR revision arrives during each inference. The stale
+                # answer may fill cache, but cannot publish or jump the waiting line.
+                session.update((track(f"現在の値は{self.revision}です。", self.revision), stable))
+            return tuple("English " + source for source in texts)
+
+    backend = Changing()
+    session = TranslationSession(lambda: backend, tmp_path / "cache.sqlite3")
+    session.start()
+    try:
+        session.update((track("現在の値は0です。", 0), stable))
+        until(lambda: session.snapshot().pending == 0)
+        assert backend.calls[1] == (stable.text,)
+        assert backend.calls.count((stable.text,)) == 1
+        assert {r.request.source for r in session.snapshot().results} == {
+            "現在の値は20です。",
+            stable.text,
+        }
+    finally:
+        session.request_stop()
+        until(lambda: session.finished)
+
+
+def test_worker_context_preserves_negation_and_forwards_exact_correction_lineage(tmp_path):
+    class Contextual(Backend):
+        batch_size = 1
+
+        def __init__(self):
+            super().__init__()
+            self.contexts = []
+
+        def translate_with_context(self, source, context):
+            self.contexts.append((source, context))
+            return "English " + source
+
+    backend = Contextual()
+    session = TranslationSession(lambda: backend, tmp_path / "cache.sqlite3")
+    first = TextBlock((track("私は彼を信じている。"),), dialogue=True)
+    second = TextBlock((track("私は彼を信じていない。", 2),), dialogue=True)
+    corrected = TextBlock((track("私は彼女を信じていない。", 3),), dialogue=True)
+    session.start()
+    try:
+        session.update((first,))
+        until(lambda: session.snapshot().pending == 0)
+        expected = (DialogueTurn(first.text, "English " + first.text),)
+        session.update((second,))
+        until(lambda: session.snapshot().pending == 0)
+        assert backend.contexts[-1] == (second.text, expected)
+        session.update((corrected,), corrections=((corrected.lines[0], second.lines[0]),))
+        until(lambda: session.snapshot().pending == 0)
+        assert backend.contexts[-1] == (corrected.text, expected)
+        for _ in range(10):
+            session.update((corrected,))
+        assert len(backend.contexts) == 3
+    finally:
+        session.request_stop()
+        until(lambda: session.finished)
 
 
 def test_request_rejection_preserves_other_results_and_does_not_retry(tmp_path):
@@ -274,6 +346,142 @@ def test_serial_llm_publishes_first_label_before_waiting_for_second(tmp_path):
         assert session.snapshot().last_inference_ms == inference
     finally:
         backend.release.set()
+        stop(session)
+
+
+@pytest.mark.parametrize("restart", [False, True])
+def test_all_cached_labels_publish_before_first_uncached_call(tmp_path, restart):
+    backend = Backend()
+    backend.batch_size = 1
+    path = tmp_path / "cache.sqlite3"
+    notices = []
+    session = TranslationSession(
+        lambda: backend, path, on_change=lambda: notices.append(session.snapshot())
+    )
+    session.start()
+    try:
+        labels = tuple(track(f"設定{i}", key=i) for i in range(6))
+        session.update(labels)
+        until(lambda: session.snapshot().pending == 0)
+        if restart:
+            stop(session)
+            backend = Backend()
+            backend.batch_size = 1
+            session = TranslationSession(
+                lambda: backend, path, on_change=lambda: notices.append(session.snapshot())
+            )
+            session.start()
+        else:
+            session.invalidate()
+        backend.calls.clear()
+        backend.entered.clear()
+        backend.release.clear()
+        cached = tuple(replace(t, track_id=t.track_id + 10) for t in labels)
+        duplicate = replace(cached[0], track_id=20)
+        session.update((track("長い新しい説明文", key=30), *cached, duplicate))
+        assert backend.entered.wait(3)
+        snapshot = session.snapshot()
+        assert any(len(n.results) == 7 and n.cache_hits == 6 for n in notices)
+        assert {t.request.track_id for t in snapshot.results} == {10, 11, 12, 13, 14, 15, 20}
+        assert snapshot.cache_hits == 6 and snapshot.translated_sources == 0
+        assert snapshot.pending == 1 and snapshot.processing_since is not None
+        stable = snapshot.results
+        for _ in range(20):
+            session.update((track("長い新しい説明文", key=30), *cached, duplicate))
+            assert session.snapshot().results == stable
+        assert backend.calls == [("長い新しい説明文",)]
+        backend.release.set()
+        until(lambda: session.snapshot().pending == 0)
+        assert all(t in session.snapshot().results for t in stable)
+    finally:
+        backend.release.set()
+        stop(session)
+
+
+@pytest.mark.parametrize("change", ["revision", "retain", "stop", "backend"])
+def test_cache_sweep_cannot_publish_obsolete_work(tmp_path, monkeypatch, change):
+    backend, replacement = Backend("old"), Backend("new")
+    session = TranslationSession(lambda: backend, tmp_path / "cache.sqlite3")
+    entered, release = threading.Event(), threading.Event()
+    session.start()
+    try:
+        item = track("設定")
+        session.update((item,))
+        until(lambda: session.snapshot().pending == 0)
+        session.invalidate()
+        original_get = TranslationCache.get
+
+        def delayed_get(cache, key):
+            answer = original_get(cache, key)
+            if not entered.is_set():
+                entered.set()
+                assert release.wait(3)
+            return answer
+
+        monkeypatch.setattr(TranslationCache, "get", delayed_get)
+        session.update((item,))
+        assert entered.wait(3)
+        if change == "revision":
+            session.update((track("戻る", revision=2),))
+        elif change == "retain":
+            session.update((), retain=(TextBlock((item,)),))
+        elif change == "stop":
+            session.request_stop()
+        else:
+            session.switch_backend(lambda: replacement)
+        assert not session.snapshot().results
+        release.set()
+        until(lambda: session.snapshot().pending == 0)
+        if change in ("retain", "stop"):
+            stop(session)
+            assert not session.snapshot().results
+        else:
+            result = session.snapshot().results[0]
+            assert result.english == ("old: 戻る" if change == "revision" else "new: 設定")
+    finally:
+        release.set()
+        stop(session)
+
+
+def test_cache_sweep_revalidates_frozen_dialogue_context(tmp_path, monkeypatch):
+    class Contextual(Backend):
+        batch_size = 1
+
+        def translate_with_context(self, source, context):
+            return f"{source}: {'context' if context else 'standalone'}"
+
+    session = TranslationSession(Contextual, tmp_path / "cache.sqlite3")
+    first = TextBlock((track("私の名前はリナです。"),), dialogue=True)
+    second = TextBlock((track("明日は一緒に行きましょう。", key=2),), dialogue=True)
+    entered, release = threading.Event(), threading.Event()
+    session.start()
+    try:
+        for block in (first, second):
+            session.update((block,))
+            until(lambda: session.snapshot().pending == 0)
+        assert session.snapshot().results[0].english.endswith("context")
+        session.invalidate()
+        session.update((first,))
+        until(lambda: session.snapshot().pending == 0)
+        original_get = TranslationCache.get
+
+        def delayed_get(cache, key):
+            answer = original_get(cache, key)
+            if not entered.is_set():
+                assert answer is not None and answer.endswith("context")
+                entered.set()
+                assert release.wait(3)
+            return answer
+
+        monkeypatch.setattr(TranslationCache, "get", delayed_get)
+        session.update((second,))
+        assert entered.wait(3)
+        session.update((second,), reset_context=True)
+        release.set()
+        until(lambda: session.snapshot().pending == 0)
+        assert session.snapshot().results[0].english.endswith("standalone")
+    finally:
+        release.set()
         stop(session)
 
 

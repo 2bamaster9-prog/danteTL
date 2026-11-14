@@ -4,11 +4,14 @@ import hashlib
 import json
 import logging
 import sqlite3
+import threading
 import time
 from collections import OrderedDict
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+# WAL/schema initialization must not race when two category owners start together.
+_schema_lock = threading.Lock()
 
 
 def translation_key(identity: str, source: str) -> str:
@@ -25,16 +28,19 @@ class TranslationCache:
         self._db: sqlite3.Connection | None = None
         self.warning = ""
         try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            self._db = sqlite3.connect(path, timeout=1)
-            self._db.execute("PRAGMA journal_mode=WAL")
-            self._db.execute("PRAGMA synchronous=NORMAL")
-            self._db.execute(
-                "CREATE TABLE IF NOT EXISTS translations "
-                "(key TEXT PRIMARY KEY, english TEXT NOT NULL, used INTEGER NOT NULL)"
-            )
-            self._db.execute("CREATE INDEX IF NOT EXISTS recent_translation ON translations(used)")
-            self._db.commit()
+            with _schema_lock:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                self._db = sqlite3.connect(path, timeout=1)
+                self._db.execute("PRAGMA journal_mode=WAL")
+                self._db.execute("PRAGMA synchronous=NORMAL")
+                self._db.execute(
+                    "CREATE TABLE IF NOT EXISTS translations "
+                    "(key TEXT PRIMARY KEY, english TEXT NOT NULL, used INTEGER NOT NULL)"
+                )
+                self._db.execute(
+                    "CREATE INDEX IF NOT EXISTS recent_translation ON translations(used)"
+                )
+                self._db.commit()
         except (OSError, sqlite3.Error) as error:
             self._disable_disk(error)
 

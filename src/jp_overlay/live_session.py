@@ -8,20 +8,19 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
+from jp_overlay.application_values import Scene as Scene
+from jp_overlay.dialogue_classifier import ClassifierSession
+from jp_overlay.dialogue_history import DialogueHistory
 from jp_overlay.domain import CapturedFrame, CaptureSnapshot, CaptureState, Rect, WindowTarget
 from jp_overlay.grouping import DialogueGrouper, TextBlock
+from jp_overlay.ocr_values import OcrResult, OcrSnapshot, OcrState
 from jp_overlay.presentation import EnglishPresentation
-from jp_overlay.recognition import (
-    OcrResult,
-    OcrSession,
-    OcrSnapshot,
-    OcrState,
-    Recognizer,
-    overlay_result_ready,
-)
+from jp_overlay.recognition import OcrSession, Recognizer, overlay_result_ready
 from jp_overlay.tracking import TextActivity, TextTrack, TextTracker
-from jp_overlay.translation import TranslatedText, TranslationSession, TranslationSnapshot
-from jp_overlay.visual import VisualSession, VisualState
+from jp_overlay.translation_routing import TranslationWorker
+from jp_overlay.translation_values import TranslatedText, TranslationSnapshot
+from jp_overlay.visual import VisualSession
+from jp_overlay.visual_values import VisualState
 
 
 class CaptureWorker(Protocol):
@@ -31,6 +30,7 @@ class CaptureWorker(Protocol):
     def finished(self) -> bool: ...
     def start(self) -> None: ...
     def request_stop(self) -> None: ...
+    def set_border(self, enabled: bool) -> None: ...
     def snapshot(self) -> CaptureSnapshot: ...
 
 
@@ -64,14 +64,6 @@ class VisualWorker(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
-class Scene:
-    tracks: tuple[TextTrack, ...] = ()
-    blocks: tuple[TextBlock, ...] = ()
-    requests: tuple[TextBlock, ...] = ()
-    waiting_blocks: int = 0
-
-
-@dataclass(frozen=True, slots=True)
 class EnglishScene:
     snapshot: TranslationSnapshot
     blocks: tuple[TextBlock, ...]
@@ -100,11 +92,80 @@ class LiveSession:
         self._grouper = DialogueGrouper()
         self._presentation = EnglishPresentation()
         self._context_reset_sequence = 0
+        self.history = DialogueHistory()
+        self.history_enabled = False
+        self._history_key: object = None
+        self._history_factory: Callable[[], object] | None = None
+        self._classifier: ClassifierSession | None = None
+        self._classifier_retiring = False
+        self._history_layout_only = False
+        self._history_suspended = False
+
+    def suspend_history(self, suspended: bool) -> bool:
+        self._history_suspended = suspended
+        if suspended and self._classifier:
+            self._classifier.request_stop()
+            self._classifier_retiring = True
+        self._advance_history()
+        return self._classifier is None
+
+    def configure_history(
+        self,
+        enabled: bool,
+        key: object = "",
+        factory: Callable[[], object] | None = None,
+        *,
+        layout_only: bool = False,
+    ) -> None:
+        if (enabled, key, layout_only) == (
+            self.history_enabled,
+            self._history_key,
+            self._history_layout_only,
+        ):
+            return
+        self.history_enabled, self._history_key = enabled, key
+        self._history_factory, self._history_layout_only = factory, layout_only
+        self.history.reset_scene()
+        if self._classifier:
+            self._classifier.request_stop()
+            self._classifier_retiring = True
+
+    @property
+    def history_status(self) -> str:
+        if not self.history_enabled:
+            return "Disabled · No history collection or classification."
+        if self._classifier_retiring:
+            return "Finishing the previous classifier…"
+        if self._history_layout_only:
+            return "Layout heuristics only · No classifier calls."
+        if not self._history_factory:
+            return (
+                "Choose an available classifier model. For first use, select the local model "
+                "once in a main-screen translation selector to prepare it."
+            )
+        if self._classifier:
+            state = self._classifier.snapshot()
+            return state.message + (f" · {state.pending} pending" if state.pending else "")
+        return "Ready · Start capture with translation enabled."
+
+    def _advance_history(self) -> None:
+        if self._classifier_retiring and self._classifier and self._classifier.finished:
+            self._classifier = None
+            self._classifier_retiring = False
+        if (
+            self.history_enabled
+            and self._history_factory
+            and self.capture
+            and not self._classifier
+            and not self._history_suspended
+        ):
+            self._classifier = ClassifierSession(self._history_factory)
 
     def start(self, capture: CaptureWorker, recognizer: Callable[[], Recognizer] | None) -> None:
         if self.capture is not None:
             raise RuntimeError("The previous capture must finish before starting another.")
         self.reset()
+        self.history.start()
         self.valid_size = None
         self.capture = capture
         capture.start()
@@ -124,9 +185,9 @@ class LiveSession:
         self.ocr.start()
         self.visual.start()
 
-    def stop(self, translation: TranslationSession | None = None) -> None:
+    def stop(self, translation: TranslationWorker | None = None) -> None:
         self.reset(translation)
-        for worker in (self.ocr, self.visual, self.capture):
+        for worker in (self.ocr, self.visual, self.capture, self._classifier):
             if worker:
                 worker.request_stop()
 
@@ -134,30 +195,34 @@ class LiveSession:
         """A stopped source cannot be replaced while its workers still own resources."""
         if self.capture and not self.capture.finished:
             return False
-        for worker in (self.visual, self.ocr):
+        for worker in (self.visual, self.ocr, self._classifier):
             if worker:
                 worker.request_stop()
-        if any(worker and not worker.finished for worker in (self.visual, self.ocr)):
+        if any(
+            worker and not worker.finished for worker in (self.visual, self.ocr, self._classifier)
+        ):
             return False
         self.capture = self.ocr = self.visual = None
+        self._classifier = None
+        self._classifier_retiring = False
         self.valid_size = None
         self.reset()
         return True
 
-    def invalidate(self, translation: TranslationSession | None = None) -> None:
+    def invalidate(self, translation: TranslationWorker | None = None) -> None:
         if self.valid_size is not None and self.ocr:
             self.ocr.invalidate()
         self.valid_size = None
         self.reset(translation)
 
-    def accept_size(self, size: tuple[int, int], translation: TranslationSession | None) -> bool:
+    def accept_size(self, size: tuple[int, int], translation: TranslationWorker | None) -> bool:
         if self.valid_size == size:
             return False
         self.invalidate(translation)
         self.valid_size = size
         return True
 
-    def reset(self, translation: TranslationSession | None = None) -> None:
+    def reset(self, translation: TranslationWorker | None = None) -> None:
         self.accepted = None
         self.assignments = ()
         if self.visual:
@@ -167,10 +232,13 @@ class LiveSession:
         self._grouper.reset()
         self._presentation.reset()
         self._context_reset_sequence = 0
+        self.history.reset_scene()
+        if self._classifier:
+            self._classifier.invalidate()
         if translation:
             translation.invalidate()
 
-    def change_grouping(self, translation: TranslationSession | None) -> None:
+    def change_grouping(self, translation: TranslationWorker | None) -> None:
         self._grouper.reset()
         self.clear_english()
         if translation:
@@ -236,6 +304,38 @@ class LiveSession:
             )
         )
         tracks = tuple(t for t in tracks if t not in self.visual_state.hidden)
+        history_blocks = tuple(
+            block
+            for block in grouped.blocks
+            if not any(t in self.visual_state.hidden for t in block.lines)
+        )
+        # Exact current names may gain confidence from partial observations. Unscanned
+        # names retain their evidence only while the identical live track remains.
+        scores = {}
+        if self.accepted:
+            by_id = {t.track_id: t for block in history_blocks for t in block.lines}
+            for key, region in zip(self.assignments, self.accepted.regions, strict=True):
+                track = by_id.get(key) if key is not None else None
+                if (
+                    track
+                    and region.text.strip() == track.text.strip()
+                    and region.confidence is not None
+                ):
+                    scores[track] = region.confidence
+        self._advance_history()
+        if self.history_enabled and (self._history_layout_only or self._history_factory):
+            self.history.observe(
+                history_blocks,
+                requests,
+                (frame.width, frame.height) if frame else (0, 0),
+                now,
+                scores=scores,
+                corrections=self._tracker.display_predecessors(),
+                assisted=not self._history_layout_only,
+            )
+            if self._classifier and not self._classifier_retiring and not self._history_suspended:
+                self._classifier.update(self.history.classification_requests())
+                self.history.accept_classifications(self._classifier.snapshot().results)
         if not stabilize:
             tracks = (
                 tuple(
@@ -250,7 +350,7 @@ class LiveSession:
 
     def publish(
         self,
-        session: TranslationSession,
+        session: TranslationWorker,
         requests: tuple[TextBlock, ...],
         retained: tuple[TextBlock, ...],
     ) -> EnglishScene:
@@ -263,7 +363,12 @@ class LiveSession:
         )
         if broad_change and state.frame:
             self._context_reset_sequence = state.frame.sequence
-        session.update(requests, retain=retained, reset_context=broad_change)
+        session.update(
+            requests,
+            retain=retained,
+            reset_context=broad_change,
+            corrections=self._tracker.display_predecessors(),
+        )
         snapshot = session.snapshot()
         published = self._presentation.update(
             retained,
@@ -275,6 +380,8 @@ class LiveSession:
         showing = tuple(
             p for p in published if not any(t.track_id in hidden for t in p.accepted.lines)
         )
+        if self.history_enabled:
+            self.history.published(tuple(p.translation for p in showing))
         return EnglishScene(
             snapshot, tuple(p.painted for p in showing), tuple(p.translation for p in showing)
         )

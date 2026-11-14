@@ -4,31 +4,12 @@ import json
 import os
 import re
 import threading
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 from uuid import uuid4
 
-from jp_overlay.hotkeys import DEFAULT_CAPTURE, DEFAULT_ORIGINAL, DEFAULT_OVERLAY, parse_shortcut
-
-
-@dataclass(frozen=True, slots=True)
-class Preferences:
-    show_overlay: bool = True
-    translation: bool = True
-    stabilize: bool = True
-    opacity: int = 85
-    automatic_size: bool = True
-    text_size: int = 20
-    group_dialogue: bool = True
-    ocr_device: str = "auto"
-    capture_rate: int = 8
-    model: str = "auto"
-    overlay_hotkey: str = DEFAULT_OVERLAY
-    capture_hotkey: str = DEFAULT_CAPTURE
-    original_hotkey: str = DEFAULT_ORIGINAL
-    capture_focused_window: bool = True
-    setup_seen: bool = False
-    setup_model: str = ""
+from jp_overlay.hotkeys import parse_shortcut
+from jp_overlay.preference_values import Preferences as Preferences
 
 
 def decode_preferences(value: object) -> Preferences:
@@ -37,9 +18,28 @@ def decode_preferences(value: object) -> Preferences:
     defaults = asdict(Preferences())
     ranges = {"opacity": (20, 100), "text_size": (10, 60), "capture_rate": (2, 12)}
     choices = {
+        "translation_route": {"local", "cloud", "long", "short"},
         "ocr_device": {"auto", "cpu", "auto-directml"},
-        "model": {"auto", "none", "sugoi-fast", "sugoi-wide", "gemma", "gemma-e4b", "qwen35-4b"},
-        "setup_model": {"", "sugoi-fast", "gemma", "gemma-e4b", "qwen35-4b"},
+        "model": {
+            "auto",
+            "none",
+            "sugoi-fast",
+            "sugoi-wide",
+            "gemma",
+            "gemma-e4b",
+            "qwen35-4b",
+            "plamo-2b",
+            "plamo-0.8b",
+        },
+        "setup_model": {
+            "",
+            "sugoi-fast",
+            "gemma",
+            "gemma-e4b",
+            "qwen35-4b",
+            "plamo-2b",
+            "plamo-0.8b",
+        },
     }
     for key, default in defaults.items():
         candidate = value.get(key, default)
@@ -58,7 +58,25 @@ def decode_preferences(value: object) -> Preferences:
                 parse_shortcut(candidate)
             except ValueError:
                 continue
+        if (
+            key == "cloud_model"
+            and candidate
+            and not re.fullmatch(r"cloud-[0-9a-f]{32}", candidate)
+        ):
+            continue
+        if key == "game_hint" and (len(candidate) > 120 or any(ord(c) < 32 for c in candidate)):
+            continue
+        if (
+            key in ("short_model", "long_model", "history_model")
+            and candidate not in ("", "legacy" if key != "history_model" else "layout")
+            and not re.fullmatch(
+                r"(?:local:[a-z0-9._-]{1,100}|cloud:cloud-[0-9a-f]{32})", candidate
+            )
+        ):
+            continue
         defaults[key] = candidate
+    if "game_from_window" not in value and defaults["game_hint"]:
+        defaults["game_from_window"] = False
     return Preferences(**defaults)
 
 

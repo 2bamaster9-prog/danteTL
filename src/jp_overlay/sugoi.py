@@ -55,7 +55,7 @@ class SugoiBackend:
 
     def __init__(self, directory: Path, *, threads: int = 2, beam_size: int = 2) -> None:
         for asset in ASSETS:
-            validate_asset(directory / asset.filename, asset, "Setup Translation.cmd")
+            validate_asset(directory / asset.filename, asset)
         import ctranslate2
         import sentencepiece
 

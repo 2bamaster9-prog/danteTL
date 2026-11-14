@@ -1,5 +1,7 @@
 from dataclasses import replace
 
+import pytest
+
 from jp_overlay.dialogue_context import DialogueMemory, DialogueTurn
 from jp_overlay.domain import Rect
 from jp_overlay.grouping import TextBlock
@@ -94,3 +96,75 @@ def test_bounded_history_and_stale_results_do_not_seed_memory():
     assert all(t.english != "stale" for t in memory.context_for(next_block))
     memory.published(next_block, "x" * 513, 3)
     assert sum(len(t.source) + len(t.english) for t in memory.context_for(next_block)) <= 512
+
+
+@pytest.mark.parametrize("key", (1, 2))
+def test_negation_is_a_new_turn_even_when_tracking_reuses_the_box(key):
+    memory = DialogueMemory()
+    first = block("私は彼を信じている。")
+    second = block("私は彼を信じていない。", key)
+    second = replace(second, lines=(replace(second.lines[0], text_revision=2),))
+    memory.observe((first,), 0)
+    memory.published(first, "I trust him.", 0)
+    memory.observe((second,), 1)
+    assert memory.context_for(second) == (DialogueTurn(first.text, "I trust him."),)
+    memory.published(second, "I do not trust him.", 1)
+    following = block("そうですか。", 3)
+    memory.observe((following,), 2)
+    assert memory.context_for(following) == (
+        DialogueTurn(first.text, "I trust him."),
+        DialogueTurn(second.text, "I do not trust him."),
+    )
+
+
+def test_identical_or_prefixed_words_on_new_tracks_are_distinct_turns():
+    for source in ("はい。", "はい。行きましょう。"):
+        memory = DialogueMemory()
+        first, second = block("はい。"), block(source, 2)
+        memory.observe((first,), 0)
+        memory.published(first, "Yes.", 0)
+        memory.observe((second,), 1)
+        assert memory.context_for(second) == (DialogueTurn(first.text, "Yes."),)
+
+
+def test_tracked_growth_and_explicit_correction_replace_only_their_own_turn():
+    memory = DialogueMemory()
+    first = block("私の名前はリナ")
+    memory.observe((first,), 0)
+    memory.published(first, "My name is Rina", 0)
+    grown = replace(
+        first, lines=(replace(first.lines[0], text="私の名前はリナです。", text_revision=2),)
+    )
+    memory.observe((grown,), 1)
+    assert not memory.context_for(grown)
+    memory.published(grown, "My name is Rina.", 1)
+    corrected = replace(
+        grown, lines=(replace(grown.lines[0], text="私の名前はリノです。", text_revision=3),)
+    )
+    memory.observe((corrected,), 2, corrections=((corrected.lines[0], grown.lines[0]),))
+    assert not memory.context_for(corrected)
+    memory.published(grown, "Stale Rina", 2)
+    memory.published(corrected, "My name is Rino.", 2)
+    following = block("よろしくね。", 2)
+    memory.observe((following,), 3)
+    assert memory.context_for(following) == (DialogueTurn(corrected.text, "My name is Rino."),)
+
+
+def test_new_continuation_line_keeps_turn_but_an_edit_to_existing_members_does_not():
+    memory = DialogueMemory()
+    first = block()
+    memory.observe((first,), 0)
+    memory.published(first, "Rina.", 0)
+    grown = replace(first, lines=(*first.lines, block("よろしくね。", 2, y=650).lines[0]))
+    memory.observe((grown,), 1)
+    assert not memory.context_for(grown)
+    memory.published(grown, "Rina. Nice to meet you.", 1)
+    changed = replace(
+        grown,
+        lines=(
+            replace(grown.lines[0], text="私の名前はリノです。", text_revision=2),
+            grown.lines[1],
+        ),
+    )
+    memory.observe((changed,), 2)
+    assert memory.context_for(changed) == (DialogueTurn(grown.text, "Rina. Nice to meet you."),)
