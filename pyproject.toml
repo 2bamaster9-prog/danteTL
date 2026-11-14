@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling==1.33.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -12,8 +12,10 @@ dependencies = [
   "ctranslate2>=4.6,<5",
   "sentencepiece>=0.2,<0.3",
   "meikiocr==0.3.5",
-  "numpy>=2,<3",
+  "numpy>=2,<=2.3.2",
   "packaging>=24,<27",
+  "httpx2==2.16.0",
+  "PyJWT[crypto]==2.10.1",
   "opencv-python>=4.10,<6",
   "PySide6-Essentials>=6.8,<7",
   "windows-capture>=2.0.0,<3; sys_platform == 'win32'",
@@ -23,11 +25,23 @@ dependencies = [
 jp-overlay = "jp_overlay.app:main"
 
 [dependency-groups]
-dev = ["pytest>=8,<10", "pyright>=1.1.400", "ruff>=0.12"]
+dev = [
+    "pytest>=8,<10",
+    "pyright>=1.1.400",
+    "ruff>=0.12",
+    "import-linter==2.10",
+]
+bundle = ["hatchling==1.33.0", "pyinstaller==6.22.3", "uv==0.13.8", { include-group = "native-build" }]
+native-build = ["pip==26.3", "scikit-build-core==1.1.2", "cmake==4.4.5", "ninja==1.13.2", "delvewheel==1.13.2"]
 cpu = ["onnxruntime>=1.20,<2"]
-llm-cpu = ["llama-cpp-python @ https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.36/llama_cpp_python-0.3.36-py3-none-win_amd64.whl ; sys_platform == 'win32' and platform_machine == 'AMD64'"]
+# Complete upstream packages: CPU uses the upstream PEP 517 source build; GPU uses wheels.
+llm-common = ["diskcache==5.6.3", "jinja2==3.1.6", "Pillow==13.0.0"]
+llm-cpu = [{ include-group = "llm-common" }, "llama-cpp-python==0.3.37"]
 amd = ["onnxruntime-directml==1.24.4; sys_platform == 'win32'"]
-gemma-vulkan = ["llama-cpp-python @ https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.36-vulkan/llama_cpp_python-0.3.36-py3-none-win_amd64.whl ; sys_platform == 'win32' and platform_machine == 'AMD64'"]
+gemma-vulkan = [
+  { include-group = "llm-common" },
+  "llama-cpp-python @ https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.37-vulkan/llama_cpp_python-0.3.37-py3-none-win_amd64.whl ; sys_platform == 'win32'",
+]
 cuda = ["nvidia-cuda-runtime==13.0.96", "nvidia-cublas==13.0.2.14"]
 gpu = [
   { include-group = "cuda" },
@@ -40,7 +54,8 @@ gpu = [
 ]
 gemma = [
   { include-group = "cuda" },
-  "llama-cpp-python @ https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.36-cu130/llama_cpp_python-0.3.36-py3-none-win_amd64.whl ; sys_platform == 'win32' and platform_machine == 'AMD64'",
+  { include-group = "llm-common" },
+  "llama-cpp-python @ https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.37-cu130/llama_cpp_python-0.3.37-py3-none-win_amd64.whl ; sys_platform == 'win32'",
 ]
 
 [tool.uv]
@@ -53,6 +68,11 @@ conflicts = [
 # windows-capture already needs opencv-python, which provides the same cv2 API.
 # Installing both OpenCV distributions would overwrite shared package files.
 exclude-dependencies = ["opencv-python-headless"]
+build-constraint-dependencies = ["scikit-build-core==1.1.2", "cmake==4.4.5", "ninja==1.13.2"]
+
+[tool.uv.config-settings-package.llama-cpp-python]
+"cmake.define.GGML_NATIVE" = "OFF"
+"cmake.define.GGML_OPENMP" = "OFF"
 
 # Meiki imports the shared onnxruntime namespace. Select exactly one distribution
 # via CPU/GPU groups instead of installing overlapping CPU and GPU files together.
@@ -63,6 +83,9 @@ requires-dist = ["numpy", "opencv-python-headless", "huggingface-hub"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/jp_overlay"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tools", "/tests", "/engineering", "/packaging", "/.github", "/README.md", "/AGENTS.md", "/pyproject.toml", "/uv.lock", "/.python-version", "/Run DanteJP.cmd"]
 
 [tool.ruff]
 target-version = "py312"
