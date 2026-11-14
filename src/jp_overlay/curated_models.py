@@ -4,7 +4,8 @@ import hashlib
 from dataclasses import dataclass
 
 from jp_overlay.gguf_backend import GgufBackend
-from jp_overlay.gguf_models import ImportedModel, inspect_gguf
+from jp_overlay.gguf_models import inspect_gguf
+from jp_overlay.import_values import ImportedModel
 from jp_overlay.model_store import ModelBundle
 from jp_overlay.models import ModelAsset, validate_asset
 from jp_overlay.paths import state_root
@@ -27,6 +28,7 @@ class CuratedModel:
             self.assets,
             self.description,
             language_model=True,
+            needs_plamo=self.profile == "plamo3",
         )
 
     def load(self, device: str) -> GgufBackend:
@@ -55,12 +57,55 @@ class CuratedModel:
 
 MODELS = (
     CuratedModel(
+        "plamo-2b",
+        "PLaMo 3 Translate 2B · Dialogue alternative",
+        "Fast dialogue translation; unreliable for game stats and terminology.",
+        "plamo3",
+        "plamo3",
+        (
+            ModelAsset(
+                "pfnet/plamo-3-translate-2b-GGUF",
+                "4f672106b847200bfdc0f6af6c321cd94eba1aed",
+                "plamo-3-translate-2b-Q4_K_M.gguf",
+                "1ffd9073afcc70e35ccc942428aa2b73d7aa2b9ea779bf504b775369e0276c13",
+                1807203040,
+            ),
+            ModelAsset(
+                "pfnet/plamo-3-translate-2b-GGUF",
+                "4f672106b847200bfdc0f6af6c321cd94eba1aed",
+                "README.md",
+                "020cfdf300bdbbbb4e314933c86968e71de2151d2f24ce6c4e89632004629859",
+                45514,
+            ),
+        ),
+    ),
+    CuratedModel(
+        "plamo-0.8b",
+        "PLaMo 3 Translate 0.8B · Lightweight alternative",
+        "Very small and fast; weaker wording and unreliable game terminology.",
+        "plamo3",
+        "plamo3",
+        (
+            ModelAsset(
+                "pfnet/plamo-3-translate-0.8b-GGUF",
+                "1cf96ae02133958a20074bfdfab76517bb737d00",
+                "plamo-3-translate-0.8b-Q4_K_M.gguf",
+                "70891ec70dc7ab4205745a38307867c2881b99239f20327927633abfe4bc9ec6",
+                573126848,
+            ),
+            ModelAsset(
+                "pfnet/plamo-3-translate-0.8b-GGUF",
+                "1cf96ae02133958a20074bfdfab76517bb737d00",
+                "README.md",
+                "bed9e42001f64cef73b8c5c236d9eaf73eae3eddfdfa694e8cce99bf285420bb",
+                45558,
+            ),
+        ),
+    ),
+    CuratedModel(
         "qwen35-4b",
-        "Qwen3.5 4B · alternative dialogue model",
-        "A 4B alternative for dialogue and context; compare its wording with Gemma. "
-        "2.74 GB download, plus working memory. CPU works; GPU recommended for responsiveness. "
-        "Unsloth Q4_K_M conversion of Qwen's model · Apache-2.0. "
-        "Quality and speed vary by scene; no overall winner has been established.",
+        "Qwen3.5 4B · Slower alternative",
+        "Useful translations, but noticeably slower than Gemma in this app.",
         "qwen35",
         "embedded",
         (
@@ -82,11 +127,8 @@ MODELS = (
     ),
     CuratedModel(
         "gemma-e4b",
-        "Gemma 4 E4B · larger Gemma option",
-        "A larger Gemma for users willing to spend more memory on translation. "
-        "5.15 GB download, plus working memory; the largest model offered here. "
-        "CPU works; GPU recommended for responsiveness. Google QAT Q4_0 · Apache-2.0. "
-        "A quality upgrade to try, rather than a guaranteed winner over Qwen or E2B.",
+        "Gemma 4 E4B · Higher-resource recommendation",
+        "Recommended when more memory is available; good game terminology.",
         "gemma4",
         "gemma4",
         (

@@ -1,16 +1,29 @@
-"""Cancellable setup subprocesses, with bounded output and owned process-tree cleanup."""
+"""Runtime child environments and cancellable setup subprocesses with owned cleanup."""
 
 import logging
 import threading
 import time
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
-from jp_overlay.model_store import Cancelled
 from jp_overlay.owned_process import OwnedProcess
+from jp_overlay.setup_values import Cancelled
 
 logger = logging.getLogger(__name__)
+
+
+def clean_runtime_environment(inherited: Mapping[str, str]) -> dict[str, str]:
+    """Copy inherited state without Python/uv overrides; callers add their intended settings.
+
+    -P/-s do not ignore Python environment variables. Setup and app launch must start
+    from the same clean baseline: merging a sanitized environment cannot remove leftovers.
+    """
+    return {
+        key: value
+        for key, value in inherited.items()
+        if not key.startswith(("PYTHON", "UV_")) and key != "VIRTUAL_ENV"
+    }
 
 
 def run_setup_command(
@@ -24,6 +37,7 @@ def run_setup_command(
 ) -> None:
     if cancel.is_set():
         raise Cancelled()
+    deadline = time.monotonic() + timeout
     process = OwnedProcess(command, root, environment, capture_output=True)
     tail: deque[str] = deque(maxlen=16)
     lock = threading.Lock()
@@ -41,7 +55,6 @@ def run_setup_command(
     reader = threading.Thread(target=read, daemon=True, name="setup-output")
     try:
         reader.start()
-        deadline = time.monotonic() + timeout
         while process.poll() is None:
             if cancel.wait(0.1):
                 raise Cancelled()

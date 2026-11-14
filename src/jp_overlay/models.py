@@ -76,7 +76,7 @@ def model_directory() -> Path:
     return asset_directory(download_directory(), ASSETS, bundled_model_directory())
 
 
-def validate_asset(path: Path, asset: ModelAsset, setup: str | None = "Setup OCR.cmd") -> None:
+def validate_asset(path: Path, asset: ModelAsset, setup: str | None = None) -> None:
     recovery = "Open Models and choose Download or Verify / repair."
     if setup and not is_standalone():
         recovery += f" You can also run {setup}."

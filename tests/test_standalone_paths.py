@@ -55,7 +55,9 @@ def test_bundled_ocr_is_available_offline_without_installing_or_copying(package,
     bundled = package / "models/meiki"
     bundled.mkdir(parents=True)
     (bundled / asset.filename).write_bytes(b"good")
-    monkeypatch.setattr(model_store, "urlopen", lambda *a, **kw: pytest.fail("No network allowed"))
+    monkeypatch.setattr(
+        model_store, "download_file", lambda *a, **kw: pytest.fail("No network allowed")
+    )
     catalog = model_store.model_catalog()[0]
     assert catalog.directory == paths.state_root() / "models/meiki"
     assert catalog.included and catalog.present() and catalog.local_directory == bundled

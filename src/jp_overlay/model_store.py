@@ -10,16 +10,27 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from urllib.request import urlopen
+from typing import Literal
 
 from jp_overlay import paths
+from jp_overlay.download_transport import download_file
+from jp_overlay.model_advice import RECOMMENDED_TRANSLATION as RECOMMENDED_TRANSLATION
 from jp_overlay.models import ModelAsset, asset_directory, assets_present
 from jp_overlay.paths import is_standalone, state_root
+from jp_overlay.setup_values import Cancelled as Cancelled
+from jp_overlay.setup_values import DownloadProgress as DownloadProgress
+from jp_overlay.setup_values import ModelProgress as ModelProgress
+from jp_overlay.setup_values import Progress as Progress
 
 LANGUAGE_RUNTIME_SETUP = (
     "The model is downloaded, but its language-model engine is not installed in this environment. "
     "Open Settings → Acceleration and choose CPU or GPU, then restart. "
     "Your model files are already present; no model download is needed."
+)
+PLAMO_RUNTIME_SETUP = (
+    "PLaMo is downloaded, but this engine predates its tokenizer. "
+    "Open Settings → Acceleration, install an updated CPU or GPU runtime, then restart. "
+    "Your downloaded models are kept."
 )
 
 
@@ -32,6 +43,8 @@ class ModelBundle:
     description: str
     bundled_directory: Path | None = None
     language_model: bool = False
+    needs_plamo: bool = False
+    category: Literal["translation", "recognition"] = "translation"
 
     @property
     def selection_id(self) -> str:
@@ -57,37 +70,35 @@ def model_catalog() -> tuple[ModelBundle, ...]:
     from jp_overlay import gemma, models, sugoi
     from jp_overlay.curated_models import MODELS
 
-    return (
+    bundles = (
         ModelBundle(
             "ocr",
             "MeikiOCR · Japanese text recognition",
             models.download_directory(),
             models.ASSETS,
-            "Required for text recognition. Included in the standalone app for any OCR device. "
-            "Verify / repair restores missing or damaged files when needed.",
+            "Reads Japanese text from the game image; it does not translate it. "
+            "Included in the standalone app.",
             models.bundled_model_directory(),
+            category="recognition",
         ),
         ModelBundle(
             "sugoi",
-            "Sugoi V4 · compact CPU translation",
+            "Sugoi V4 · CPU fallback",
             sugoi.model_directory(),
             sugoi.ASSETS,
-            "Lowest resource use and fast CPU-only translation. A good fit for modest PCs, "
-            "but dialogue can sound literal or miss meaning. "
-            "Review the upstream Sugoi license before redistribution.",
+            "Lowest resource use; weaker translations and no dialogue context.",
         ),
         ModelBundle(
             "gemma",
-            "Gemma 4 E2B · balanced starting point",
+            "Gemma 4 E2B · Recommended",
             gemma.model_directory(),
             gemma.ASSETS,
-            "Our balanced starting point for natural dialogue, speed and resource use. "
-            "3.35 GB download, plus working memory. CPU works; GPU acceleration is optional. "
-            "Google QAT Q4_0 · Apache-2.0. Quality depends on the text being translated.",
+            "Recommended balance of game terminology, quality and speed.",
             language_model=True,
         ),
         *(model.bundle() for model in MODELS),
     )
+    return bundles
 
 
 def model_status(bundle: ModelBundle) -> str:
@@ -96,10 +107,12 @@ def model_status(bundle: ModelBundle) -> str:
         return "Not downloaded. Choose Download to install this model's files."
     origin = "Included with app." if bundle.included else "Downloaded."
     if bundle.language_model:
-        from jp_overlay.llama_runtime import installed_device
+        from jp_overlay.llama_runtime import installed_device, supports_plamo
 
         if installed_device() is None:
             return LANGUAGE_RUNTIME_SETUP
+        if bundle.needs_plamo and not supports_plamo():
+            return PLAMO_RUNTIME_SETUP
         if installed_device() == "cpu":
             return (
                 "Downloaded. Runtime available on CPU; translations may be slower. "
@@ -115,33 +128,6 @@ def model_status(bundle: ModelBundle) -> str:
                 "OCR model files do not install GPU support."
             )
     return f"{origin} Runtime available; integrity is checked before use."
-
-
-class Cancelled(Exception):
-    pass
-
-
-@dataclass(frozen=True, slots=True)
-class DownloadProgress:
-    name: str
-    received: int = 0
-    total: int = 0
-
-
-@dataclass(frozen=True, slots=True)
-class ModelProgress:
-    message: str = "Starting…"
-    received: int = 0
-    total: int = 0
-    done: bool = False
-    cancelled: bool = False
-    error: str = ""
-    download: DownloadProgress | None = None
-    stage: int = 0
-    stages: int = 0
-
-
-Progress = Callable[[ModelProgress], None]
 
 
 def _check_cancel(cancel: threading.Event) -> None:
@@ -191,33 +177,44 @@ def install_model(bundle: ModelBundle, progress: Progress, cancel: threading.Eve
             ) as out:
                 temporary = Path(out.name)
                 received = 0
-                digest = hashlib.sha256()
                 local = (
                     bundle.bundled_directory / asset.filename if bundle.bundled_directory else None
                 )
                 if local and not _valid(local, asset, cancel):
                     local = None
-                with local.open("rb") if local else urlopen(asset.url, timeout=15) as response:
-                    while chunk := response.read(1024 * 1024):
-                        _check_cancel(cancel)
-                        received += len(chunk)
-                        if received > asset.size:
-                            raise RuntimeError("Download exceeded the pinned model size.")
-                        digest.update(chunk)
-                        out.write(chunk)
-                        progress(
-                            ModelProgress(
-                                f"{'Restoring' if local else 'Downloading'} {asset.filename}",
-                                completed + received,
-                                bundle.size,
-                                download=DownloadProgress(asset.filename, received, asset.size),
-                            )
+
+                def report(
+                    received: int,
+                    _total: int,
+                    *,
+                    asset: ModelAsset = asset,
+                    local: Path | None = local,
+                    completed: int = completed,
+                ) -> None:
+                    progress(
+                        ModelProgress(
+                            f"{'Restoring' if local else 'Downloading'} {asset.filename}",
+                            completed + received,
+                            bundle.size,
+                            download=DownloadProgress(asset.filename, received, asset.size),
                         )
+                    )
+
+                if local:
+                    with local.open("rb") as response:
+                        while chunk := response.read(1024 * 1024):
+                            _check_cancel(cancel)
+                            received += len(chunk)
+                            out.write(chunk)
+                            report(received, asset.size)
+            if not local:
+                download_file(asset.url, temporary, asset.size, report, cancel)
             _check_cancel(cancel)
-            if received != asset.size or digest.hexdigest() != asset.sha256:
+            if not _valid(temporary, asset, cancel):
                 raise RuntimeError(
                     f"Checksum/size mismatch for {asset.filename}. Retry the download."
                 )
+            _check_cancel(cancel)
             os.replace(temporary, destination)
             completed += asset.size
         finally:

@@ -1,10 +1,10 @@
 import hashlib
-import io
 import threading
 from dataclasses import replace
 from unittest.mock import Mock
 
 import pytest
+from download_fixtures import download_bytes
 
 from jp_overlay import model_store as store
 from jp_overlay.models import ModelAsset
@@ -17,8 +17,8 @@ def bundle(tmp_path):
 
 def test_download_is_explicit_atomic_verified_and_reuses_valid_files(tmp_path, monkeypatch):
     model = bundle(tmp_path)
-    download = Mock(side_effect=lambda *a, **k: io.BytesIO(b"good"))
-    monkeypatch.setattr(store, "urlopen", download)
+    download = Mock(side_effect=download_bytes(b"good"))
+    monkeypatch.setattr(store, "download_file", download)
     assert not model.present()
     download.assert_not_called()
     progress = []
@@ -34,7 +34,7 @@ def test_download_is_explicit_atomic_verified_and_reuses_valid_files(tmp_path, m
 def test_bad_download_does_not_replace_existing_file(tmp_path, monkeypatch, payload):
     model = bundle(tmp_path)
     (tmp_path / "weights").write_bytes(b"old")
-    monkeypatch.setattr(store, "urlopen", lambda *a, **k: io.BytesIO(payload))
+    monkeypatch.setattr(store, "download_file", download_bytes(payload))
     with pytest.raises(RuntimeError):
         store.install_model(model, lambda p: None, threading.Event())
     assert (tmp_path / "weights").read_bytes() == b"old"
@@ -43,7 +43,7 @@ def test_bad_download_does_not_replace_existing_file(tmp_path, monkeypatch, payl
 
 def test_cancelled_download_removes_partial_without_publishing(tmp_path, monkeypatch):
     cancel = threading.Event()
-    monkeypatch.setattr(store, "urlopen", lambda *a, **k: io.BytesIO(b"good"))
+    monkeypatch.setattr(store, "download_file", download_bytes(b"good"))
 
     def progress(value):
         if value.received:
@@ -63,7 +63,7 @@ def test_ocr_repair_uses_bundled_files_offline_and_preserves_app_resources(tmp_p
     (primary / "weights").write_bytes(b"evil")  # Same size, incorrect checksum.
     model = replace(bundle(primary), key="ocr", bundled_directory=bundled)
     network = Mock(side_effect=AssertionError("Repair should use local bundled bytes"))
-    monkeypatch.setattr(store, "urlopen", network)
+    monkeypatch.setattr(store, "download_file", network)
     progress = []
     store.install_model(model, progress.append, threading.Event())
     assert (primary / "weights").read_bytes() == b"good"
@@ -81,8 +81,8 @@ def test_damaged_bundle_repairs_to_appdata_and_downloads_only_bad_asset(tmp_path
     primary = tmp_path / "AppData/models"
     model = replace(bundle(primary), key="ocr", bundled_directory=bundled)
     model = replace(model, assets=(*model.assets, replace(model.assets[0], filename="second")))
-    network = Mock(side_effect=lambda *a, **kw: io.BytesIO(b"good"))
-    monkeypatch.setattr(store, "urlopen", network)
+    network = Mock(side_effect=download_bytes(b"good"))
+    monkeypatch.setattr(store, "download_file", network)
     store.install_model(model, lambda p: None, threading.Event())
     network.assert_called_once()
     assert (primary / "weights").read_bytes() == (primary / "second").read_bytes() == b"good"
@@ -99,7 +99,7 @@ def test_cancelled_local_repair_never_publishes_a_partial_file(tmp_path, monkeyp
     (primary / "weights").write_bytes(b"evil")
     model = replace(bundle(primary), bundled_directory=bundled)
     cancel = threading.Event()
-    monkeypatch.setattr(store, "urlopen", lambda *a, **kw: pytest.fail("No network allowed"))
+    monkeypatch.setattr(store, "download_file", lambda *a, **kw: pytest.fail("No network allowed"))
     with pytest.raises(store.Cancelled):
         store.install_model(model, lambda p: cancel.set() if p.received else None, cancel)
     assert (primary / "weights").read_bytes() == b"evil"

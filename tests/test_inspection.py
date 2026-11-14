@@ -533,7 +533,6 @@ def test_download_completion_reports_missing_runtime_instead_of_false_readiness(
     app, tmp_path, monkeypatch, key
 ):
     import hashlib
-    import io
 
     from jp_overlay.model_manager import ModelManager
     from jp_overlay.model_store import ModelBundle
@@ -541,7 +540,9 @@ def test_download_completion_reports_missing_runtime_instead_of_false_readiness(
 
     asset = ModelAsset("fixture", "revision", "weights", hashlib.sha256(b"good").hexdigest(), 4)
     bundle = ModelBundle(key, key, tmp_path, (asset,), "", language_model=True)
-    monkeypatch.setattr("jp_overlay.model_store.urlopen", lambda *a, **k: io.BytesIO(b"good"))
+    from download_fixtures import download_bytes
+
+    monkeypatch.setattr("jp_overlay.model_store.download_file", download_bytes(b"good"))
     monkeypatch.setattr("jp_overlay.llama_runtime.installed_device", lambda: None)
     manager = ModelManager((bundle,))
     manager._download()

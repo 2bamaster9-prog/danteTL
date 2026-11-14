@@ -8,9 +8,17 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from jp_overlay.dialogue_classifier import (
+    Classification,
+    ClassificationInput,
+    classification_instruction,
+    gemma_prompt,
+    local_classification,
+)
 from jp_overlay.dialogue_context import DialogueTurn
-from jp_overlay.gguf_models import ImportedModel, fingerprint, inspect_gguf
-from jp_overlay.llama_runtime import load_runtime
+from jp_overlay.gguf_models import fingerprint, inspect_gguf
+from jp_overlay.import_values import ImportedModel
+from jp_overlay.llama_runtime import flash_attention_options, load_runtime, supports_plamo
 from jp_overlay.paths import state_root
 from jp_overlay.translation_backend import RequestRejected
 
@@ -81,6 +89,8 @@ class GgufBackend:
         self.registration = registration
         path = Path(registration.path)
         info = inspect_gguf(path, registration.profile)
+        if info.profile == "plamo3" and not supports_plamo():
+            raise RuntimeError("PLaMo needs an updated engine. Open Settings → Acceleration.")
         digest, size = fingerprint(path, lambda _: None, threading.Event())
         if (
             digest != registration.sha256
@@ -103,6 +113,7 @@ class GgufBackend:
             )
         self._qwen = info.architecture.startswith("qwen")
         self._gemma = info.profile == "gemma4"
+        self._plamo = info.profile == "plamo3"
         batch = 128 if device == "cpu" else 1
         try:
             self._model = runtime.Llama(
@@ -114,7 +125,7 @@ class GgufBackend:
                 n_gpu_layers=0 if device == "cpu" else -1,
                 split_mode=0,
                 main_gpu=0,
-                flash_attn=device == "cuda",
+                **flash_attention_options(runtime, device),
                 verbose=verbose,
             )
             from llama_cpp.llama_chat_format import (
@@ -131,7 +142,7 @@ class GgufBackend:
             bos = self._token_text(self._model.token_bos())
             self._formatter: Any = (
                 None
-                if self._gemma
+                if self._gemma or self._plamo
                 else Jinja2ChatFormatter(
                     template=template,
                     eos_token=eos,
@@ -143,8 +154,18 @@ class GgufBackend:
                 self._formatter.strftime_now = lambda _: ""
             self._stops = [s for s in (eos, "<|im_end|>", "<|eot_id|>", "<turn|>", "<|turn>") if s]
             from jp_overlay.gemma import translation_prompt
+            from jp_overlay.plamo import STOPS
+            from jp_overlay.plamo import translation_prompt as plamo_prompt
 
-            prompt_version = translation_prompt("", ()) if self._gemma else INSTRUCTION
+            if self._plamo:
+                self._stops = list(STOPS)
+            prompt_version = (
+                plamo_prompt("", ())
+                if self._plamo
+                else translation_prompt("", ())
+                if self._gemma
+                else INSTRUCTION
+            )
             identity = [
                 "gguf-v1",
                 registration.sha256,
@@ -187,7 +208,11 @@ class GgufBackend:
         while sum(len(t.source) + len(t.english) for t in context) > 512:
             context = context[1:]
         while True:
-            if self._gemma:
+            if self._plamo:
+                from jp_overlay.plamo import translation_prompt
+
+                prompt = translation_prompt(text, context)
+            elif self._gemma:
                 from jp_overlay.gemma import translation_prompt
 
                 prompt = translation_prompt(text, context)
@@ -223,3 +248,23 @@ class GgufBackend:
         if self._model is not None:
             self._model.close()
             self._model = None
+
+    def classify(self, value: ClassificationInput, cancelled: threading.Event) -> Classification:
+        if self._plamo:
+            raise RequestRejected("This translation-only model cannot classify dialogue.")
+        prompt = (
+            gemma_prompt(value)
+            if self._gemma
+            else self._formatter(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": classification_instruction(value)
+                        + "\n"
+                        + _escaped(value.payload()),
+                    }
+                ],
+                enable_thinking=False,
+            ).prompt
+        )
+        return local_classification(self._model, prompt, self._stops, cancelled)

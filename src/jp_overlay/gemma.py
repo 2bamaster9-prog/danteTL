@@ -2,11 +2,18 @@
 
 import hashlib
 import os
+import threading
 from pathlib import Path
 from typing import Any
 
+from jp_overlay.dialogue_classifier import (
+    Classification,
+    ClassificationInput,
+    gemma_prompt,
+    local_classification,
+)
 from jp_overlay.dialogue_context import DialogueTurn
-from jp_overlay.llama_runtime import load_runtime
+from jp_overlay.llama_runtime import flash_attention_options, load_runtime
 from jp_overlay.models import ModelAsset, validate_asset
 from jp_overlay.paths import state_root
 from jp_overlay.translation_backend import RequestRejected
@@ -122,7 +129,7 @@ class GemmaBackend:
             # Keep one model on one adapter, including PCs with a discrete GPU + iGPU.
             split_mode=0,  # LLAMA_SPLIT_MODE_NONE
             main_gpu=0,
-            flash_attn=device == "cuda",
+            **flash_attention_options(runtime, device),
             verbose=False,
         )
         prompt_hash = hashlib.sha256(
@@ -180,3 +187,8 @@ class GemmaBackend:
         if self._model is not None:
             self._model.close()
             self._model = None
+
+    def classify(self, value: ClassificationInput, cancelled: threading.Event) -> Classification:
+        return local_classification(
+            self._model, gemma_prompt(value), ["<turn|>", "<|turn>", "<eos>"], cancelled
+        )

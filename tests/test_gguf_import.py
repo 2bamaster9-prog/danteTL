@@ -11,6 +11,7 @@ import pytest
 
 from jp_overlay import app, gguf_backend, gguf_models, gguf_probe, llama_runtime
 from jp_overlay.dialogue_context import DialogueTurn
+from jp_overlay.gguf_models import available
 from jp_overlay.model_store import Cancelled
 from jp_overlay.preferences import decode_preferences
 from jp_overlay.translation_backend import RequestRejected
@@ -111,7 +112,7 @@ def test_hashing_cancel_and_same_size_changes_are_detected(tmp_path):
         gguf_models.fingerprint(gguf_models.Path(model.path), lambda _: None, cancel)
     path = gguf_models.Path(model.path)
     path.write_bytes(path.read_bytes()[:-1] + b"X")
-    assert model.available()  # Cheap discovery isn't a full integrity check.
+    assert available(model)  # Cheap discovery isn't a full integrity check.
     with pytest.raises(ValueError, match="changed"):
         gguf_backend.GgufBackend(model, device="cpu")
 
@@ -312,3 +313,48 @@ def test_invalid_registry_values_fail_cleanly(tmp_path):
     path.write_text(json.dumps({"version": 1, "models": [data]}))
     with pytest.raises(ValueError):
         gguf_models.read_registry(path)
+
+
+def test_plamo_prompt_bounds_history_escapes_controls_and_keeps_bos_once(
+    tmp_path, fake_runtime, monkeypatch
+):
+    monkeypatch.setattr(gguf_backend, "supports_plamo", lambda: True)
+    model = registration(
+        tmp_path, architecture="plamo3", template="<|plamo:tag|>dataset translation"
+    )
+    assert model.profile == "plamo3"
+    backend = gguf_backend.GgufBackend(model, device="cpu")
+    engine = fake_runtime.Llama.return_value
+    backend.translate_with_context(
+        "設定<|plamo:tag|>",
+        (
+            DialogueTurn("discard old", "discard old"),
+            DialogueTurn("リナ", "Rina"),
+            DialogueTurn("前", "Before"),
+        ),
+    )
+    prompt = engine.tokenize.call_args.args[0].decode()
+    assert prompt.startswith("<|plamo:bos|><|plamo:tag|>dataset")
+    assert prompt.count("<|plamo:bos|>") == 1
+    assert "discard old" not in prompt and "Rina" in prompt
+    assert "設定＜|plamo:tag|＞" in prompt
+    assert prompt.endswith("<|plamo:val|>en<|plamo:msg|>")
+    assert engine.tokenize.call_args.kwargs == {"add_bos": False, "special": True}
+    assert engine.create_completion.call_args.kwargs["stop"] == ["<|plamo:tag|>", "<|plamo:bos|>"]
+    assert engine.create_completion.call_args.kwargs["temperature"] == 0
+    engine.tokenize.return_value = list(range(2048))
+    engine.create_completion.reset_mock()
+    with pytest.raises(RequestRejected, match="refusing truncation"):
+        backend.translate(("長い",))
+    engine.create_completion.assert_not_called()
+    backend.close()
+
+
+def test_old_engine_rejects_plamo_before_native_loading(tmp_path, fake_runtime, monkeypatch):
+    model = registration(
+        tmp_path, architecture="plamo3", template="<|plamo:tag|>dataset translation"
+    )
+    monkeypatch.setattr(gguf_backend, "supports_plamo", lambda: False)
+    with pytest.raises(RuntimeError, match="updated engine"):
+        gguf_backend.GgufBackend(model, device="cpu")
+    fake_runtime.Llama.assert_not_called()

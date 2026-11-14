@@ -6,30 +6,17 @@ import os
 import re
 import struct
 import threading
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 from typing import BinaryIO
 from uuid import uuid4
 
-from jp_overlay.model_store import Cancelled, ModelProgress, Progress
+from jp_overlay.import_values import PROFILES as PROFILES
+from jp_overlay.import_values import GgufInfo as GgufInfo
+from jp_overlay.import_values import ImportedModel as ImportedModel
+from jp_overlay.model_store import Cancelled
 from jp_overlay.paths import state_root
-
-PROFILES = {
-    "auto": "Automatic (recommended)",
-    "embedded": "Embedded chat template",
-    "gemma4": "Gemma 4",
-    "chatml": "ChatML",
-    "llama3": "Llama 3",
-}
-
-
-@dataclass(frozen=True, slots=True)
-class GgufInfo:
-    name: str
-    architecture: str
-    template: str
-    size: int
-    profile: str
+from jp_overlay.setup_values import ModelProgress, Progress
 
 
 class _Reader:
@@ -114,6 +101,14 @@ def inspect_gguf(path: Path, profile: str = "auto") -> GgufInfo:
         )
     if profile == "auto":
         profile = "gemma4" if architecture == "gemma4" else "embedded"
+        if (
+            architecture == "plamo3"
+            and "<|plamo:tag|>dataset" in template
+            and "translation" in template
+        ):
+            profile = "plamo3"
+    if profile == "plamo3" and architecture != "plamo3":
+        raise ValueError("The PLaMo 3 profile requires a PLaMo 3 model.")
     if profile == "gemma4" and architecture != "gemma4":
         raise ValueError("The Gemma 4 profile requires a Gemma 4 model.")
     if profile == "embedded" and not template:
@@ -139,24 +134,6 @@ def fingerprint(path: Path, progress: Progress, cancel: threading.Event) -> tupl
             "The model changed while it was being checked. Retry after copying finishes."
         )
     return digest.hexdigest(), received
-
-
-@dataclass(frozen=True, slots=True)
-class ImportedModel:
-    key: str
-    path: str
-    name: str
-    sha256: str
-    size: int
-    architecture: str
-    profile: str
-    template_hash: str
-
-    def available(self) -> bool:
-        try:
-            return Path(self.path).is_file() and Path(self.path).stat().st_size == self.size
-        except OSError:
-            return False
 
 
 def describe(
@@ -241,3 +218,11 @@ def save_registration(
         os.replace(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def available(model: ImportedModel) -> bool:
+    """Cheap discovery on the inventory worker; load still verifies integrity."""
+    try:
+        return Path(model.path).is_file() and Path(model.path).stat().st_size == model.size
+    except OSError:
+        return False

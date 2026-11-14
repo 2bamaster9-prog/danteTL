@@ -43,6 +43,7 @@ class BackendChoice:
     unavailable_reason: str = ""
     performance_notice: str = ""
     selection_id: str = ""
+    classifies: bool = False
 
     @property
     def preference_key(self) -> str:

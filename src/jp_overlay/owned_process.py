@@ -9,9 +9,57 @@ import ctypes as ct
 import importlib
 import os
 import subprocess
-from contextlib import ExitStack
+import sys
+import threading
+from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from typing import TextIO
+
+_launch_lock = threading.Lock()
+
+
+def restore_child_output() -> None:
+    """Attach a windowed helper to its inherited pipe; never called in the app process."""
+    if sys.stdout is None:
+        import msvcrt
+
+        kernel = ct.WinDLL("kernel32", use_last_error=True)
+        kernel.GetStdHandle.argtypes = (ct.c_uint32,)
+        kernel.GetStdHandle.restype = ct.c_void_p
+        handle = kernel.GetStdHandle(-11 & 0xFFFFFFFF)
+        if not handle or handle == ct.c_void_p(-1).value:
+            raise OSError("Download helper has no output pipe.")
+        descriptor = msvcrt.open_osfhandle(handle, os.O_WRONLY)
+        sys.stdout = os.fdopen(descriptor, "w", encoding="utf-8", errors="replace")
+
+
+@contextmanager
+def _child_environment(environment: dict[str, str]) -> Iterator[dict[str, str]]:
+    """External runtimes must not inherit PyInstaller's bundled DLL search directory."""
+    if not getattr(sys, "frozen", False):
+        yield environment
+        return
+    with _launch_lock:
+        kernel = ct.WinDLL("kernel32", use_last_error=True)
+        kernel.GetDllDirectoryW.argtypes = (ct.c_uint32, ct.c_wchar_p)
+        kernel.SetDllDirectoryW.argtypes = (ct.c_wchar_p,)
+        previous = ct.create_unicode_buffer(32768)
+        kernel.GetDllDirectoryW(len(previous), previous)
+        bundle = Path(getattr(sys, "_MEIPASS", "")).resolve()
+        clean = dict(environment)
+        clean["PATH"] = os.pathsep.join(
+            p
+            for p in clean.get("PATH", "").split(os.pathsep)
+            if p and not Path(p).resolve().is_relative_to(bundle)
+        )
+        clean["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+        if not kernel.SetDllDirectoryW(None):
+            raise OSError(ct.get_last_error(), "Could not isolate child library loading.")
+        try:
+            yield clean
+        finally:
+            kernel.SetDllDirectoryW(previous.value or None)
 
 
 class _Limits(ct.Structure):
@@ -49,6 +97,7 @@ class OwnedProcess:
         environment: dict[str, str],
         *,
         capture_output: bool = False,
+        show_window: bool = False,
     ) -> None:
         import msvcrt
 
@@ -76,6 +125,7 @@ class OwnedProcess:
         try:
             self._set_limits(0x2000)  # KILL_ON_JOB_CLOSE, no breakaway.
             with ExitStack() as stack:
+                child_environment = stack.enter_context(_child_environment(environment))
                 stdin = stack.enter_context(open(os.devnull, "rb"))
                 if capture_output:
                     read_fd, write_fd = os.pipe()
@@ -88,7 +138,7 @@ class OwnedProcess:
                     os.set_handle_inheritable(handle, True)
                 startup = subprocess.STARTUPINFO(
                     dwFlags=subprocess.STARTF_USESTDHANDLES | subprocess.STARTF_USESHOWWINDOW,
-                    wShowWindow=0,
+                    wShowWindow=1 if show_window else 0,
                     hStdInput=handles[0],
                     hStdOutput=handles[1],
                     hStdError=handles[1],
@@ -101,7 +151,7 @@ class OwnedProcess:
                     None,
                     True,
                     subprocess.CREATE_NO_WINDOW | 0x4,  # CREATE_SUSPENDED
-                    environment,
+                    child_environment,
                     str(root),
                     startup,
                 )
