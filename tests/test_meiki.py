@@ -9,6 +9,79 @@ from jp_overlay.models import ModelAsset, validate_asset
 from jp_overlay.ocr_runtime import CPU, CUDA, DML
 
 
+def test_crop_padding_preserves_pixels_bounds_and_full_scan_behavior(tmp_path, monkeypatch):
+    import numpy as np
+
+    monkeypatch.setattr("jp_overlay.meiki.local_model_paths", lambda path: ())
+    seen = []
+
+    class Engine:
+        def __init__(self, *args):
+            self.active_provider = CPU
+            self.detected = []
+
+        def run_ocr(self, image, **kwargs):
+            seen.append(image)
+            if image.shape[1] == 195:
+                self.detected = []
+                return []
+            self.detected = [{"bbox": [15, 20, 55, 45]}, {"bbox": [500, 300, 550, 350]}]
+            return [
+                {"text": "設定", "chars": [], "is_vertical": False},
+                {"text": "padding", "chars": [], "is_vertical": False},
+            ]
+
+    monkeypatch.setattr("jp_overlay.meiki._LocalMeiki", Engine)
+    recognizer = MeikiRecognizer(tmp_path)
+    bounds = Rect(0, 0, 195, 210)
+    frame = CapturedFrame(
+        7, 12, WindowGeometry(bounds, bounds, bounds, 168), bytes((20, 35, 55, 255)) * 195 * 210
+    )
+    regions = recognizer.recognize(frame, cropped=True)
+    assert [(r.text, r.bounds) for r in regions] == [("設定", Rect(15, 20, 40, 25))]
+    assert seen[-1].shape == (544, 960, 3)
+    assert len(seen) == 2
+    assert np.all(seen[-1] == (20, 35, 55))
+    recognizer.recognize(frame)
+    assert seen[-1].shape == (210, 195, 3)
+    # A crop that already needs downscaling must keep upstream scale/aspect behavior.
+    large = Rect(0, 0, 1200, 200)
+    recognizer.recognize(
+        replace(
+            frame, geometry=WindowGeometry(large, large, large, 168), bgra=bytes(1200 * 200 * 4)
+        ),
+        cropped=True,
+    )
+    assert seen[-1].shape == (200, 1200, 3)
+    recognizer.close()
+
+
+@pytest.mark.parametrize("text, calls", [("設定", 1), ("", 2)])
+def test_crop_retry_is_bounded_and_keeps_successful_original_results(
+    tmp_path, monkeypatch, text, calls
+):
+    monkeypatch.setattr("jp_overlay.meiki.local_model_paths", lambda path: ())
+    seen = []
+
+    class Engine:
+        def __init__(self, *args):
+            self.active_provider = CPU
+            self.detected = [{"bbox": [10, 10, 60, 40]}]
+
+        def run_ocr(self, image, **kwargs):
+            seen.append(image.shape)
+            return [{"text": text, "chars": [], "is_vertical": False}]
+
+    monkeypatch.setattr("jp_overlay.meiki._LocalMeiki", Engine)
+    bounds = Rect(0, 0, 195, 210)
+    frame = CapturedFrame(1, 0, WindowGeometry(bounds, bounds, bounds, 96), bytes(195 * 210 * 4))
+    recognizer = MeikiRecognizer(tmp_path)
+    regions = recognizer.recognize(frame, cropped=True)
+    assert len(seen) == calls
+    assert regions[0].text == text and regions[0].bounds == Rect(10, 10, 50, 30)
+    recognizer.close()
+
+
 @pytest.mark.parametrize("provider", [CPU, CUDA])
 @pytest.mark.parametrize("vertical", [False, True])
 def test_partial_gpu_batches_keep_a_fixed_shape_and_never_emit_padded_detections(
@@ -84,7 +157,7 @@ def test_missing_models_never_invoke_upstream_downloader(tmp_path, monkeypatch) 
         pytest.fail("Runtime attempted a model download")
 
     monkeypatch.setattr("meikiocr.ocr.hf_hub_download", unexpected_download)
-    with pytest.raises(RuntimeError, match="Setup OCR.cmd"):
+    with pytest.raises(RuntimeError, match="Open Models"):
         MeikiRecognizer(tmp_path)
 
 

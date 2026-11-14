@@ -3,9 +3,9 @@
 from dataclasses import dataclass
 
 from jp_overlay.domain import Rect
-from jp_overlay.recognition import OcrSnapshot
-from jp_overlay.translation import TranslationSnapshot
-from jp_overlay.visual import VisualState
+from jp_overlay.ocr_values import OcrSnapshot
+from jp_overlay.translation_values import TranslationSnapshot
+from jp_overlay.visual_values import VisualState
 
 
 @dataclass(frozen=True, slots=True)

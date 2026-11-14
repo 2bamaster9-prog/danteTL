@@ -13,11 +13,14 @@ from typing import Any
 import cv2
 import numpy as np
 from meikiocr import MeikiOCR
+from meikiocr.ocr import INPUT_DET_HEIGHT, INPUT_DET_WIDTH
 
+from jp_overlay.crop_recovery import recovery_preserves_lines, split_glyphs
 from jp_overlay.domain import CapturedFrame, Rect
 from jp_overlay.models import local_model_paths
 from jp_overlay.ocr_runtime import CPU, CUDA, DML, create_sessions
-from jp_overlay.recognition import TextCharacter, TextRegion
+from jp_overlay.ocr_values import TextCharacter, TextRegion
+from jp_overlay.scan_plan import ScanCosts
 
 
 class _LocalMeiki(MeikiOCR):
@@ -80,25 +83,33 @@ def _verify_directml(sessions: list[Any], paths: tuple[Path, ...], threads: int)
             )
 
 
-def clipped_box(values: list[int], width: int, height: int) -> Rect:
+def clipped_box(
+    values: list[int], width: int, height: int, origin: tuple[int, int] = (0, 0)
+) -> Rect:
     x1, y1, x2, y2 = values
+    x1, x2, y1, y2 = x1 - origin[0], x2 - origin[0], y1 - origin[1], y2 - origin[1]
     x1, x2 = max(0, min(width, x1)), max(0, min(width, x2))
     y1, y2 = max(0, min(height, y1)), max(0, min(height, y2))
     return Rect(x1, y1, max(0, x2 - x1), max(0, y2 - y1))
 
 
 def convert_regions(
-    detections: list[dict[str, Any]], results: list[dict[str, Any]], width: int, height: int
+    detections: list[dict[str, Any]],
+    results: list[dict[str, Any]],
+    width: int,
+    height: int,
+    *,
+    origin: tuple[int, int] = (0, 0),
 ) -> tuple[TextRegion, ...]:
     regions = []
     for detected, result in zip(detections, results, strict=True):
-        bounds = clipped_box(detected["bbox"], width, height)
+        bounds = clipped_box(detected["bbox"], width, height, origin)
         if min(bounds.size) <= 0:
             continue
         characters = []
         for char in result["chars"]:
             confidence = float(char["conf"])
-            box = clipped_box(char["bbox"], width, height)
+            box = clipped_box(char["bbox"], width, height, origin)
             if math.isfinite(confidence) and min(box.size) > 0:
                 characters.append(TextCharacter(char["char"], box, min(1.0, max(0.0, confidence))))
         regions.append(
@@ -129,6 +140,17 @@ class MeikiRecognizer:
     def provider(self) -> str:
         return self._engine.active_provider
 
+    @property
+    def scan_costs(self) -> ScanCosts | None:
+        # Conservative measured priors for the pinned detector/recognizer. These
+        # compare plans, not predict UI latency. Follow actual CPU fallback; the
+        # experimental DirectML provider has not passed this planner's corpus.
+        detector = INPUT_DET_WIDTH, INPUT_DET_HEIGHT
+        return {
+            CPU: ScanCosts(40, 30, detector_size=detector),
+            CUDA: ScanCosts(20, 16, detector_size=detector),
+        }.get(self.provider)
+
     def _fallback(self, error: Exception) -> None:
         logging.getLogger(__name__).warning("GPU OCR unavailable; using CPU: %s", error)
         detail = (str(error).splitlines() or [type(error).__name__])[0][:180]
@@ -137,9 +159,62 @@ class MeikiRecognizer:
             del self._engine  # Release GPU sessions before allocating the CPU engine.
         self._engine = _LocalMeiki(self._paths, self._threads, CPU)
 
-    def recognize(self, frame: CapturedFrame) -> tuple[TextRegion, ...]:
+    def recognize(self, frame: CapturedFrame, *, cropped: bool = False) -> tuple[TextRegion, ...]:
         bgra = np.frombuffer(frame.bgra, dtype=np.uint8).reshape(frame.height, frame.width, 4)
         bgr = cv2.cvtColor(bgra, cv2.COLOR_BGRA2BGR)
+        regions = self._recognize(bgr, frame.width, frame.height)
+        if cropped and frame.width < INPUT_DET_WIDTH and frame.height < INPUT_DET_HEIGHT:
+            empty = not any(region.text.strip() for region in regions)
+            fragments = () if empty else split_glyphs(bgr, regions)
+            if not empty and not fragments:
+                return regions
+            # A tiny crop otherwise magnifies glyphs to fill the detector (e.g. 2.6x),
+            # missing labels recognized in a full scan. Empty results get the usual
+            # natural-scale retry. Only weak, ink-connected fragments get one more
+            # centered attempt, accepted only if every other line survives. Full
+            # scans and ordinary successful crops keep upstream behavior. Estimate
+            # padding background from bounded edges to avoid a black boundary.
+            edges = np.concatenate(
+                (
+                    bgr[0, :: max(1, frame.width // 128)],
+                    bgr[-1, :: max(1, frame.width // 128)],
+                    bgr[:: max(1, frame.height // 128), 0],
+                    bgr[:: max(1, frame.height // 128), -1],
+                )
+            )
+            background = tuple(float(value) for value in np.median(edges, axis=0))
+
+            def padded_at(left: int, top: int) -> Any:
+                return cv2.copyMakeBorder(
+                    bgr,
+                    top,
+                    INPUT_DET_HEIGHT - frame.height - top,
+                    left,
+                    INPUT_DET_WIDTH - frame.width - left,
+                    cv2.BORDER_CONSTANT,
+                    value=background,
+                )
+
+            if empty:
+                retried = self._recognize(padded_at(0, 0), frame.width, frame.height)
+                if any(region.text.strip() for region in retried):
+                    regions = retried
+                fragments = split_glyphs(bgr, regions)
+            if fragments:
+                origin = (
+                    (INPUT_DET_WIDTH - frame.width) // 2,
+                    (INPUT_DET_HEIGHT - frame.height) // 2,
+                )
+                centered = self._recognize(
+                    padded_at(*origin), frame.width, frame.height, origin=origin
+                )
+                if recovery_preserves_lines(regions, centered, fragments):
+                    return centered
+        return regions
+
+    def _recognize(
+        self, bgr: Any, width: int, height: int, *, origin: tuple[int, int] = (0, 0)
+    ) -> tuple[TextRegion, ...]:
         # Meiki scales detection internally and maps both box types back to this image.
         try:
             results = self._engine.run_ocr(bgr, det_threshold=0.5, rec_threshold=0.1)
@@ -148,7 +223,9 @@ class MeikiRecognizer:
                 raise
             self._fallback(error)
             results = self._engine.run_ocr(bgr, det_threshold=0.5, rec_threshold=0.1)
-        return convert_regions(self._engine.detected, results, frame.width, frame.height)
+        # Padding is model input only, never scan coverage or inspector pixels.
+        # Clip to the actual crop; regional edge checks still reject cut-off words.
+        return convert_regions(self._engine.detected, results, width, height, origin=origin)
 
     def close(self) -> None:
         """Release all native ONNX sessions on their owning worker before it completes."""

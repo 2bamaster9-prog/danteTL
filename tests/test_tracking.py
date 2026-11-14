@@ -138,6 +138,55 @@ def test_reordered_duplicate_labels_and_new_detection_keep_existing_ids() -> Non
     assert len({track.track_id for track in current}) == 3
 
 
+@pytest.mark.parametrize("reverse", (False, True))
+def test_competing_nearby_labels_preserve_both_ids_instead_of_greedy_replacement(reverse):
+    replay = Replay()
+    original = replay.step(
+        region("同じ表示", y=200, width=180, height=30),
+        region("同じ表示", y=210, width=180, height=30),
+    )
+    # The first observation is the best individual match for track 1, but it is
+    # track 2's only compatible observation. Track 1 can match the other row.
+    rows = (
+        region("同じ表示", y=202, width=180, height=30),
+        region("同じ表示", y=112, width=180, height=30),
+    )
+    if reverse:
+        rows = tuple(reversed(rows))
+    current = replay.step(*rows)
+    assert {t.track_id for t in current} == {t.track_id for t in original}
+    assert replay.ids == ((1, 2) if reverse else (2, 1))
+    assert all(t.text_revision == 1 for t in current)
+    replay.step(*reversed(rows))
+    assert replay.ids == ((2, 1) if reverse else (1, 2))
+    assert replay.result is not None
+    assert len(replay.tracker.translation_tracks(replay.result.frame, replay.now)) == 2
+
+
+def test_equal_score_ties_use_geometry_instead_of_detector_order():
+    assignments = []
+    for reverse in (False, True):
+        replay = Replay()
+        replay.step(region("はい", x=200), region("はい", x=200))
+        rows = (region("はい", x=197), region("はい", x=203))
+        if reverse:
+            rows = tuple(reversed(rows))
+        replay.step(*rows)
+        assignments.append({row.bounds.x: key for row, key in zip(rows, replay.ids, strict=True)})
+    assert assignments[0] == assignments[1] == {197: 1, 203: 2}
+
+
+def test_repetitive_minor_edit_retains_confidence_but_eventually_commits_real_change():
+    replay = Replay()
+    original = replay.step(region("abababababab", confidence=0.99))[0]
+    # One deletion, despite a misleading long-block diff alignment on repeated text.
+    for _ in range(5):
+        assert replay.step(region("ababbababab", confidence=0.6))[0] == original
+    changed = replay.step(region("ababbababab", confidence=0.6))[0]
+    assert changed.track_id == original.track_id and changed.text_revision == 2
+    assert changed.text == "ababbababab"
+
+
 def test_same_text_far_away_does_not_steal_old_identity() -> None:
     replay = Replay()
     first = replay.step(region())[0]

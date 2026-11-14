@@ -6,7 +6,7 @@ from math import isfinite
 from statistics import median
 
 from jp_overlay.domain import union_bounds
-from jp_overlay.recognition import TextCharacter, TextRegion
+from jp_overlay.ocr_values import TextCharacter, TextRegion
 
 _JAPANESE = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uff66-\uff9f]")
 _STRUCTURAL = frozenset("「」『』（）()[]【】〈〉《》“”\"'。、，．：；？！!?…・+-−±%％")

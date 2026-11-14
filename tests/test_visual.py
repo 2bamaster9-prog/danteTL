@@ -278,7 +278,15 @@ def test_worker_coalesces_frames_and_rejects_evidence_after_invalidation(monkeyp
             return VisualState(frame, True)
 
     monkeypatch.setattr("jp_overlay.visual.VisualAnalyzer", Analyzer)
-    session = VisualSession()
+    notified = []
+
+    def notification():
+        # A snapshot read must not deadlock: callbacks run after publication/unlock.
+        with session._condition:
+            if session._snapshot.frame:
+                notified.append(session._snapshot.frame.sequence)
+
+    session = VisualSession(on_change=notification)
     session.start()
     try:
         session.submit(picture(1), None, (), (), ())
@@ -297,6 +305,10 @@ def test_worker_coalesces_frames_and_rejects_evidence_after_invalidation(monkeyp
             assert time.monotonic() < deadline
             time.sleep(0.005)
         assert calls == [1, 100] and state.request_ocr
+        while not notified:
+            assert time.monotonic() < deadline
+            time.sleep(0.005)
+        assert notified == [100]
         assert not session.poll().request_ocr
     finally:
         release.set()

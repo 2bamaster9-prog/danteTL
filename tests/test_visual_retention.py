@@ -244,3 +244,113 @@ def test_stale_visual_evidence_cannot_lock_new_source_or_a_new_revision():
         edit, unchanged=frozenset((old,)), visual_checked=frozenset((old,)), checked_sequence=1
     )
     assert tracker.visible(edit.frame, 2)[0].text == "防御力"
+
+
+def faint_result(sequence, *, text="HP 3204", gone=False, extension=False, noise=False):
+    y, x = np.mgrid[:180, :400]
+    gray = 204 + 12 * np.sin((x + sequence * 7) / 60) + 2 * np.cos((y + sequence) / 17)
+    mask = np.zeros((180, 400), np.uint8)
+    if not gone:
+        cv2.putText(mask, text, (20, 52), cv2.FONT_HERSHEY_SIMPLEX, 0.8, 255, 2, cv2.LINE_AA)
+    if extension:
+        cv2.putText(mask, "MORE", (245, 52), cv2.FONT_HERSHEY_SIMPLEX, 0.8, 255, 2, cv2.LINE_AA)
+    gray += (235 - gray) * (mask / 255) * 0.8
+    if noise:
+        gray += np.random.default_rng(sequence).uniform(-0.4, 0.4, gray.shape)
+    original = result(sequence)
+    return replace(
+        original,
+        frame=replace(
+            original.frame, bgra=cv2.cvtColor(gray.astype(np.uint8), cv2.COLOR_GRAY2BGRA).tobytes()
+        ),
+    )
+
+
+@pytest.mark.parametrize("noise", [False, True])
+def test_faint_stationary_text_retains_exact_english_over_moving_light(noise):
+    replay = Replay(faint_result(1, noise=noise))
+    original = replay.tracks
+    presentation, grouper = EnglishPresentation(), DialogueGrouper()
+    block = TextBlock(original)
+    english = TranslatedText(TranslationRequest.from_block(block), "Attack")
+    presentation.update((block,), (english,))
+    for sequence in range(2, 40):
+        incoming = faint_result(sequence, noise=noise)
+        raw = incoming.regions[0]
+        incoming = replace(
+            incoming, regions=(replace(raw, text="誤った観測"),) if sequence % 4 else ()
+        )
+        state = replay.step(incoming)
+        assert state.unchanged == set(original)
+        assert not state.hidden
+        assert replay.tracks == original
+        grouped = grouper.update(
+            replay.tracks,
+            replay.tracks,
+            incoming.completed_at,
+            activity=replay.tracker.translation_activity(),
+        )
+        painted = presentation.update(grouped.blocks, (), replay.tracker.display_predecessors())
+        assert len(painted) == 1 and painted[0].translation == english
+
+
+@pytest.mark.parametrize("text", ["HP 3205", "HP 3201", "HP 320", "HP 9204"])
+def test_faint_real_digit_changes_are_not_frozen(text):
+    replay = Replay(faint_result(1))
+    incoming = faint_result(2, text=text)
+    incoming = replace(incoming, regions=(replace(incoming.regions[0], text="防御力"),))
+    assert not replay.step(incoming).unchanged
+    assert replay.tracks[0].text == "防御力"
+
+
+def test_faint_extension_unlocks_and_real_removal_retires():
+    replay = Replay(faint_result(1))
+    incoming = faint_result(2, extension=True)
+    incoming = replace(incoming, regions=(replace(incoming.regions[0], text="攻撃力を強化"),))
+    assert not replay.step(incoming).unchanged
+    assert replay.tracks[0].text == "攻撃力を強化"
+    for sequence in range(3, 7):
+        state = replay.step(replace(faint_result(sequence, gone=True), regions=()))
+        assert not state.unchanged
+    assert not replay.tracks
+
+
+@pytest.mark.parametrize("score", [0.55, 0.96])
+def test_detector_splits_cannot_duplicate_or_truncate_visually_unchanged_line(score):
+    replay = Replay(result(1, text="新しい冒険が始まります", score=score))
+    original = replay.tracks
+    first, last = Rect(20, 30, 175, 28), Rect(198, 30, 42, 28)
+    for sequence in range(2, 10):
+        pieces = (
+            TextRegion("新しい冒険が", first, (TextCharacter("新しい冒険が", first, 0.99),)),
+            TextRegion("始まります", last, (TextCharacter("始まります", last, 0.99),)),
+        )
+        incoming = replace(result(sequence), regions=pieces if sequence % 2 else pieces[::-1])
+        assert replay.step(incoming).unchanged == set(original)
+        assert replay.tracks == original
+        assert sum(key is not None for key in replay.ids) == 1
+
+
+def test_fragment_suppression_needs_current_visual_proof_and_allows_outside_content():
+    first = result(1, text="新しい冒険が始まります")
+    tracker = TextTracker()
+    tracker.observe(first)
+    track = tracker.translation_tracks(first.frame, 1)[0]
+    pieces = (
+        TextRegion("新しい冒険が", Rect(20, 30, 105, 28)),
+        TextRegion("始まります", Rect(130, 30, 110, 28)),
+        TextRegion("設定", Rect(280, 100, 60, 28)),
+    )
+    incoming = replace(result(2), regions=pieces)
+    # Evidence from another source cannot suppress new text tracks.
+    assignments = tracker.observe(
+        incoming,
+        unchanged=frozenset((track,)),
+        visual_checked=frozenset((track,)),
+        checked_sequence=1,
+    )
+    assert all(key is not None for key in assignments)
+    replay = Replay(first)
+    replay.step(incoming)
+    assert replay.tracks[0] == track
+    assert {t.text for t in replay.tracks} == {track.text, "設定"}

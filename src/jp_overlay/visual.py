@@ -1,41 +1,34 @@
 """Cheap frame evidence, OCR pacing, and reversible occlusion on a bounded worker."""
 
+from __future__ import annotations
+
 import logging
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from math import ceil
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from jp_overlay.domain import CapturedFrame, Rect
-from jp_overlay.recognition import OcrResult
+from jp_overlay.ocr_values import OcrResult
 from jp_overlay.regions import padded, scan_regions
 from jp_overlay.text_content import content_region, has_japanese
 from jp_overlay.tracking import TextActivity, TextTrack
+from jp_overlay.visual_values import VisualState as VisualState
 
 logger = logging.getLogger(__name__)
 cv2: Any
-np: Any
+if TYPE_CHECKING:
+    import numpy as np
+    from numpy.typing import NDArray
 
-
-@dataclass(frozen=True, slots=True)
-class VisualState:
-    frame: CapturedFrame | None = None
-    request_ocr: bool = False
-    hidden: frozenset[TextTrack] = frozenset()
-    blocked: frozenset[int] = frozenset()
-    stable_regions: tuple[int, ...] = ()
-    ocr_sequence: int = 0
-    duration_ms: float = 0
-    avoided: int = 0
-    message: str = ""
-    absent: frozenset[TextTrack] = frozenset()
-    checked_sequence: int = 0
-    unchanged: frozenset[TextTrack] = frozenset()
-    checked: frozenset[TextTrack] = frozenset()
-    scan_areas: tuple[Rect, ...] | None = None
-    stable_tracks: tuple[tuple[int, int, str], ...] = ()
-    changed_areas: tuple[Rect, ...] = ()
+    Bytes = NDArray[np.uint8]
+    Gray = NDArray[np.float32]
+    # percentile currently promotes normalized ink to float64; preserve that math.
+    Ink = NDArray[np.float64]
+    Mask = NDArray[np.bool_]
+    Indices = NDArray[np.intp]
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,13 +41,13 @@ class _Job:
     candidate: OcrResult | None = None
 
 
-def _pixels(frame: CapturedFrame) -> Any:
+def _pixels(frame: CapturedFrame) -> Bytes | None:
     if len(frame.bgra) != frame.width * frame.height * 4:
         return None
     return np.frombuffer(frame.bgra, np.uint8).reshape(frame.height, frame.width, 4)
 
 
-def _crop(pixels: Any, bounds: Rect, *, wide: bool = False) -> Any:
+def _crop(pixels: Bytes, bounds: Rect, *, wide: bool = False) -> Gray | None:
     h, w = pixels.shape[:2]
     if min(bounds.size) < 2 or not Rect(0, 0, w, h).contains(bounds):
         return None
@@ -72,14 +65,14 @@ def _crop(pixels: Any, bounds: Rect, *, wide: bool = False) -> Any:
     return cv2.cvtColor(small, cv2.COLOR_BGRA2GRAY).astype(np.float32)
 
 
-def _edges(gray: Any) -> tuple[Any, Any]:
+def _edges(gray: Gray) -> tuple[Gray, Gray]:
     return (
         cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=1),
         cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=1),
     )
 
 
-def _changed(a: Any, b: Any) -> bool:
+def _changed(a: Gray, b: Gray) -> bool:
     if np.array_equal(a, b):
         return False
     # Gradients reject uniform brightness shifts; require more than a few noisy pixels.
@@ -88,26 +81,32 @@ def _changed(a: Any, b: Any) -> bool:
     return float(np.mean(np.maximum(np.abs(ax - bx), np.abs(ay - by)) > 35)) > 0.018
 
 
-def _added_ink(a: Any, b: Any, *, foreground: bool = False) -> bool:
+def _added_ink(a: Gray, b: Gray, *, foreground: bool = False, start: int = 0) -> bool:
     """Append-like stroke additions, rather than general background replacement."""
     if foreground:
         dark = float(np.median(a)) > float(np.mean(a))
         old, new = _ink(a, dark), _ink(b, dark)
         if old is None or new is None:
-            return False
-        before, after = (old >= 0.65).astype(np.uint8), (new >= 0.65).astype(np.uint8)
+            # Faint typewriter text still needs to unlock the accepted shorter source.
+            # Smooth lighting contributes little local detail; this only proposes work.
+            before, after = (
+                (np.abs(value - cv2.GaussianBlur(value, (0, 0), 2)) >= 4).astype(np.uint8)
+                for value in (a, b)
+            )
+        else:
+            before, after = (old >= 0.65).astype(np.uint8), (new >= 0.65).astype(np.uint8)
     else:
         ax, ay = _edges(a)
         bx, by = _edges(b)
         before = (np.maximum(np.abs(ax), np.abs(ay)) > 45).astype(np.uint8)
         after = (np.maximum(np.abs(bx), np.abs(by)) > 45).astype(np.uint8)
     kernel = np.ones((3, 3), np.uint8)
-    added = int(np.count_nonzero(after & ~cv2.dilate(before, kernel)))
-    removed = int(np.count_nonzero(before & ~cv2.dilate(after, kernel)))
+    added = int(np.count_nonzero((after & ~cv2.dilate(before, kernel))[:, start:]))
+    removed = int(np.count_nonzero((before & ~cv2.dilate(after, kernel))[:, start:]))
     return added > max(12, removed * 1.8) and (foreground or added < after.size * 0.2)
 
 
-def _ink(gray: Any, dark: bool) -> Any:
+def _ink(gray: Gray, dark: bool) -> Ink | None:
     """High-contrast glyph cores; ignore dim texture behind translucent game labels."""
     gray = 255 - gray if dark else gray
     low, high = np.percentile(gray, (15, 99))
@@ -116,12 +115,27 @@ def _ink(gray: Any, dark: bool) -> Any:
     return np.clip((gray - low) / (high - low), 0, 1)
 
 
-def _same_ink(reference: Any, current: Any) -> bool | None:
+@dataclass(slots=True)
+class _InkReference:
+    dark: bool
+    before: Ink | None
+    valid: bool
+
+    @classmethod
+    def prepare(cls, reference: Gray) -> _InkReference:
+        dark = float(np.median(reference)) > float(np.mean(reference))
+        before = _ink(reference, dark)
+        return cls(
+            dark, before, bool(before is not None and np.count_nonzero(before >= 0.75) >= 24)
+        )
+
+
+def _same_ink(reference: Gray, current: Gray, prepared: _InkReference | None = None) -> bool | None:
     if np.array_equal(reference, current):
         return True
-    dark = float(np.median(reference)) > float(np.mean(reference))
-    before = _ink(reference, dark)
-    if before is None or np.count_nonzero(before >= 0.75) < 24:
+    prepared = prepared or _InkReference.prepare(reference)
+    dark, before = prepared.dark, prepared.before
+    if not prepared.valid or before is None:
         return None
     # Hover states may invert colors. Align at most one sampled pixel; never follow
     # detector geometry to decide whether the accepted region changed.
@@ -135,43 +149,113 @@ def _same_ink(reference: Any, current: Any) -> bool | None:
     # Local cells catch one changed digit/stroke in a long label. Whole-box averages
     # would conceal a small but meaningful edit among many unchanged characters.
     step = max(6, reference.shape[0] // 2)
-    for left in range(0, reference.shape[1], step):
-        a, b = before[:, left : left + step], after[:, left : left + step]
-        difference = int(np.count_nonzero(((a >= 0.75) & (b < 0.55)) | ((b >= 0.75) & (a < 0.55))))
-        if difference > max(4, int(np.count_nonzero((a >= 0.65) | (b >= 0.65))) * 0.12):
+    starts = np.arange(0, reference.shape[1], step)
+    difference = np.add.reduceat(
+        np.count_nonzero(
+            ((before >= 0.75) & (after < 0.55)) | ((after >= 0.75) & (before < 0.55)), axis=0
+        ),
+        starts,
+    )
+    ink = np.add.reduceat(np.count_nonzero((before >= 0.65) | (after >= 0.65), axis=0), starts)
+    return not bool(np.any(difference > np.maximum(4, ink * 0.12)))
+
+
+@dataclass(slots=True)
+class _FaintReference:
+    """Local stroke detail for dim text over smooth moving light, at thumbnail size.
+
+    This can add positive presence evidence only. A failed comparison never establishes
+    absence, and every informative cell must match so one changed character can unlock OCR.
+    """
+
+    detail: Gray
+    starts: Indices
+    counts: Indices
+    energy: Gray
+    active: Mask
+    valid: bool
+
+    @classmethod
+    def prepare(cls, reference: Gray) -> _FaintReference:
+        detail = reference - cv2.GaussianBlur(reference, (0, 0), 2)
+        starts = np.arange(0, reference.shape[1], max(6, reference.shape[0] // 2))
+        counts = np.diff(np.append(starts, reference.shape[1])) * reference.shape[0]
+        energy = np.add.reduceat(np.sum(detail * detail, axis=0), starts)
+        active = energy / counts >= 1.5**2
+        # Do not use a smooth lighting gradient itself as a text template.
+        valid = np.count_nonzero(active) >= 2 and np.count_nonzero(np.abs(detail) >= 4) >= 24
+        return cls(detail, starts, counts, energy, active, bool(valid))
+
+    def matches(self, current: Gray) -> bool:
+        if not self.valid:
             return False
-    return True
+        detail = current - cv2.GaussianBlur(current, (0, 0), 2)
+        padded = cv2.copyMakeBorder(detail, 1, 1, 1, 1, cv2.BORDER_REPLICATE)
+        scores = cv2.matchTemplate(padded, self.detail, cv2.TM_CCOEFF_NORMED)
+        y, x = np.unravel_index(np.argmax(np.abs(scores)), scores.shape)
+        aligned = padded[y : y + detail.shape[0], x : x + detail.shape[1]]
+        energy = np.add.reduceat(np.sum(aligned * aligned, axis=0), self.starts)
+        product = np.add.reduceat(np.sum(self.detail * aligned, axis=0), self.starts)
+        correlation = np.abs(product) / np.maximum(1e-6, np.sqrt(self.energy * energy))
+        return bool(
+            np.all(correlation[self.active] >= 0.96)
+            and np.all(energy[self.active] / self.counts[self.active] >= 1.0)
+            and np.all(energy[self.active] >= self.energy[self.active] * 0.04)
+            # Newly appearing strokes in a previously empty cell are real change too.
+            and not np.any(energy[~self.active] / self.counts[~self.active] >= 1.5**2)
+        )
 
 
 @dataclass(slots=True)
 class _Anchor:
     value: TextTrack
-    reference: Any
+    reference: Gray
     extension_bounds: Rect | None = None
-    extension: Any = None
-    x: Any = field(init=False)
-    y: Any = field(init=False)
-    mask: Any = field(init=False)
+    extension: Gray | None = None
+    x: Gray = field(init=False)
+    y: Gray = field(init=False)
+    mask: Mask = field(init=False)
     misses: int = 0
     hits: int = 0
     hidden: bool = False
     last_sequence: int = 0
+    ink: _InkReference | None = None
+    faint: _FaintReference | None = None
 
     def __post_init__(self) -> None:
         self.x, self.y = _edges(self.reference)
         strength = np.maximum(np.abs(self.x), np.abs(self.y))
         self.mask = strength >= max(35, float(np.percentile(strength, 80)))
 
-    def content_matches(self, pixels: Any) -> bool | None:
+    def content_matches(self, pixels: Bytes) -> bool | None:
         crop = _crop(pixels, self.value.bounds)
-        same = None if crop is None else _same_ink(self.reference, crop)
+        same = None if crop is None else self._matches(crop)
         if same is True and self.extension is not None and self.extension_bounds is not None:
             extension = _crop(pixels, self.extension_bounds, wide=True)
-            if extension is not None and _added_ink(self.extension, extension, foreground=True):
+            # The accepted box was already checked above. Contrast gains inside it
+            # must not masquerade as new characters outside its right edge.
+            start = ceil(
+                self.value.bounds.width * self.extension.shape[1] / self.extension_bounds.width
+            )
+            if extension is not None and _added_ink(
+                self.extension, extension, foreground=True, start=start
+            ):
                 return False  # Newly revealing characters can extend past the accepted box.
         return same
 
-    def observe(self, pixels: Any, sequence: int, changed: bool) -> bool:
+    def _matches(self, current: Gray) -> bool | None:
+        if np.array_equal(self.reference, current):
+            return True
+        if self.ink is None:
+            self.ink = _InkReference.prepare(self.reference)
+        same = _same_ink(self.reference, current, self.ink)
+        if same is True:
+            return True
+        if self.faint is None:
+            self.faint = _FaintReference.prepare(self.reference)
+        return True if self.faint.matches(current) else same
+
+    def observe(self, pixels: Bytes, sequence: int, changed: bool) -> bool:
         if sequence == self.last_sequence:
             return self.hidden
         needs_check = (
@@ -186,7 +270,7 @@ class _Anchor:
         current = _crop(pixels, self.value.bounds)
         if current is None or int(self.mask.sum()) < 24:
             return False  # Insufficient stroke evidence: let OCR decide.
-        if _same_ink(self.reference, current) is True:
+        if self._matches(current) is True:
             self.misses = 0
             self.hits += 1
             if self.hits >= 2:
@@ -235,8 +319,8 @@ class _Probe:
     index: int
     track_id: int | None
     bounds: Rect
-    reference: Any
-    previous: Any
+    reference: Gray
+    previous: Gray
     changed_at: float
     dialogue: bool
     source_sequence: int = 0
@@ -247,7 +331,7 @@ class _Probe:
     growth: bool = False
 
 
-def _touches(tiles: Any, bounds: Rect, size: tuple[int, int]) -> bool:
+def _touches(tiles: Mask, bounds: Rect, size: tuple[int, int]) -> bool:
     w, h = size
     x1, y1 = max(0, bounds.x * 32 // w), max(0, bounds.y * 18 // h)
     x2, y2 = (
@@ -271,8 +355,8 @@ class VisualAnalyzer:
         import numpy as np
 
         cv2.setNumThreads(1)
-        self._previous: Any = None
-        self._streak: Any = np.zeros((18, 32), np.uint8)
+        self._previous: Bytes | None = None
+        self._streak: Bytes = np.zeros((18, 32), np.uint8)
         self._anchors: dict[TextTrack, _Anchor] = {}
         self._probes: list[_Probe] = []
         self._ocr_sequence = 0
@@ -280,16 +364,16 @@ class VisualAnalyzer:
         self._size: tuple[int, int] | None = None
         self._last_request = float("-inf")
         self._last_full = float("-inf")
-        self._dirty: Any = np.zeros((18, 32), dtype=bool)
+        self._dirty: Mask = np.zeros((18, 32), dtype=bool)
         self._followup: float | None = None
         self._followup_areas: tuple[Rect, ...] | None = None
         self._avoided = 0
-        self._reference_key: Any = None
-        self._checked_key: Any = None
+        self._reference_key: tuple[int, tuple[TextTrack, ...]] | None = None
+        self._checked_key: tuple[int, tuple[TextTrack, ...]] | None = None
         self._checked: frozenset[TextTrack] = frozenset()
         self._unchanged: frozenset[TextTrack] = frozenset()
 
-    def _references(self, job: _Job, pixels: Any) -> None:
+    def _references(self, job: _Job, pixels: Bytes) -> None:
         key = (job.result.frame.sequence if job.result else 0, job.tracks)
         if key == self._reference_key:
             return
@@ -515,10 +599,11 @@ class VisualAnalyzer:
 class VisualSession:
     """One replaceable analysis job. No inference, Qt, full-frame history, or IO."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, on_change: Callable[[], None] | None = None) -> None:
+        self._notify = on_change or (lambda: None)
         self._condition = threading.Condition()
         self._pending: tuple[int, _Job] | None = None
-        self._last_key: Any = None
+        self._last_key: tuple[int, int, tuple[TextTrack, ...], int] | None = None
         self._generation = 0
         self._stop = False
         self._done = threading.Event()
@@ -616,7 +701,8 @@ class VisualSession:
                     failed = True
                     state = VisualState(job.frame, True, message="Visual checks failed; using OCR.")
                 with self._condition:
-                    if not self._stop and current == self._generation:
+                    published = not self._stop and current == self._generation
+                    if published:
                         old = self._snapshot
                         areas = state.scan_areas
                         if old.request_ocr:
@@ -633,6 +719,9 @@ class VisualSession:
                             request_ocr=state.request_ocr or old.request_ocr,
                             scan_areas=areas,
                         )
+                if published:
+                    self._notify()
                 del pending, job, state
         finally:
             self._done.set()
+            self._notify()

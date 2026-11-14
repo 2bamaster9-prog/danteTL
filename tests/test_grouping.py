@@ -39,12 +39,14 @@ def test_incomplete_group_cannot_send_only_its_confirmed_fragment() -> None:
     assert len(grouper.update(tracks, tracks, 1.1).ready) == 1
 
 
-def test_speaker_name_and_completed_sentences_stay_separate_from_wrapped_dialogue() -> None:
+def test_speaker_stays_separate_but_punctuation_does_not_split_tight_prose() -> None:
     tracks = (line(9, "三月なのか", y=655, width=140), *dialogue())
     result = DialogueGrouper().update(tracks, tracks, 0)
     assert [len(b.lines) for b in result.blocks] == [1, 2]
     completed = (replace(tracks[1], text="今日も一緒に出かけましょう。"), tracks[2])
-    assert len(DialogueGrouper().update(completed, completed, 0).blocks) == 2
+    assert len(DialogueGrouper().update(completed, completed, 0).blocks) == 1
+    spaced = (completed[0], replace(completed[1], bounds=Rect(100, 758, 540, 32)))
+    assert len(DialogueGrouper().update(spaced, spaced, 0).blocks) == 2
 
 
 def test_long_narrow_speaker_label_is_not_prepended_to_dialogue() -> None:

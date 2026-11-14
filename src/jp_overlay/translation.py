@@ -7,7 +7,6 @@ import time
 from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass
-from enum import StrEnum
 from pathlib import Path
 
 from jp_overlay.dialogue_context import DialogueMemory, DialogueTurn
@@ -16,6 +15,21 @@ from jp_overlay.text_content import has_japanese
 from jp_overlay.tracking import TextTrack
 from jp_overlay.translation_backend import ContextualBackend, RequestRejected, TranslationBackend
 from jp_overlay.translation_cache import TranslationCache, translation_key
+from jp_overlay.translation_values import (
+    TranslatedText as TranslatedText,
+)
+from jp_overlay.translation_values import (
+    TranslationRejection as TranslationRejection,
+)
+from jp_overlay.translation_values import (
+    TranslationRequest as TranslationRequest,
+)
+from jp_overlay.translation_values import (
+    TranslationSnapshot as TranslationSnapshot,
+)
+from jp_overlay.translation_values import (
+    TranslationState as TranslationState,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,66 +54,6 @@ class BackendChoice:
             if self.key in ("gemma", "gemma-cpu", "gemma-cuda", "gemma-vulkan", "gemma-unavailable")
             else self.key
         )
-
-
-@dataclass(frozen=True, slots=True)
-class TranslationRequest:
-    track_id: int
-    text_revision: int
-    source: str
-    members: tuple[tuple[int, int, str], ...] = ()
-
-    @classmethod
-    def from_track(cls, track: TextTrack) -> "TranslationRequest":
-        return cls(track.track_id, track.text_revision, track.text)
-
-    @classmethod
-    def from_block(cls, block: TextBlock) -> "TranslationRequest":
-        first = block.lines[0]
-        if len(block.lines) == 1:
-            return cls.from_track(first)
-        return cls(first.track_id, first.text_revision, block.text, block.key)
-
-    @property
-    def line_sources(self) -> tuple[tuple[int, int, str], ...]:
-        return self.members or ((self.track_id, self.text_revision, self.source),)
-
-
-@dataclass(frozen=True, slots=True)
-class TranslatedText:
-    request: TranslationRequest
-    english: str
-
-
-@dataclass(frozen=True, slots=True)
-class TranslationRejection:
-    request: TranslationRequest
-    message: str
-
-
-class TranslationState(StrEnum):
-    LOADING = "loading"
-    READY = "ready"
-    STOPPING = "stopping"
-    STOPPED = "stopped"
-    FAILED = "failed"
-
-
-@dataclass(frozen=True, slots=True)
-class TranslationSnapshot:
-    state: TranslationState
-    results: tuple[TranslatedText, ...] = ()
-    pending: int = 0
-    last_batch_ms: float = 0
-    message: str = ""
-    processing_since: float | None = None
-    queue_ms: float = 0
-    cache_hits: int = 0
-    translated_sources: int = 0
-    load_ms: float = 0
-    last_inference_ms: float = 0
-    backend_generation: int = 0
-    rejected: tuple[TranslationRejection, ...] = ()
 
 
 class TranslationSession:

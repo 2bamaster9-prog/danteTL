@@ -6,10 +6,11 @@ from PySide6.QtWidgets import QWidget
 
 from jp_overlay.diagnostics import DebugDisplay
 from jp_overlay.domain import Rect, sample_box
+from jp_overlay.english_placement import EnglishLabel, EnglishPlacement
 from jp_overlay.grouping import TextBlock
-from jp_overlay.text_layout import layout_english
+from jp_overlay.text_layout import EnglishLayout
 from jp_overlay.tracking import TextTrack
-from jp_overlay.translation import TranslatedText, TranslationRequest
+from jp_overlay.translation_values import TranslatedText, TranslationRequest
 from jp_overlay.windows import Windows
 
 
@@ -31,6 +32,7 @@ class OverlayWindow(QWidget):
         self._bounds = Rect(0, 0, 1, 1)
         self._opacity = 0.85
         self._configured = False
+        self._include_in_capture = True
         self._tracks: tuple[TextTrack, ...] | None = None
         self._translations: tuple[TranslatedText, ...] = ()
         self._english_mode = False
@@ -38,6 +40,7 @@ class OverlayWindow(QWidget):
         self._automatic_size = True
         self._manual_size = 20
         self._debug: DebugDisplay | None = None
+        self._placement = EnglishPlacement()
 
     def set_debug(self, display: DebugDisplay | None) -> None:
         if display != self._debug:
@@ -48,6 +51,8 @@ class OverlayWindow(QWidget):
         self, results: tuple[TranslatedText, ...], *, enabled: bool = False
     ) -> None:
         if results != self._translations or enabled != self._english_mode:
+            if not results or not enabled:
+                self._placement.clear()
             self._translations = results
             self._english_mode = enabled
             self.update()
@@ -66,6 +71,8 @@ class OverlayWindow(QWidget):
         # Fresh OCR objects do not imply changed display state. Ignore confidence,
         # timestamps and character-box noise when deciding whether to repaint.
         if tracks != self._tracks:
+            if not tracks:
+                self._placement.clear()
             self._tracks = tracks
             self.update()
 
@@ -78,6 +85,7 @@ class OverlayWindow(QWidget):
         hwnd = int(self.winId())
         if not self._configured:
             self._windows.configure_overlay(hwnd)
+            self._windows.set_overlay_capture(hwnd, self._include_in_capture)
             self._configured = True
         changed = self._bounds != bounds
         self._bounds = bounds
@@ -91,6 +99,13 @@ class OverlayWindow(QWidget):
         if changed:
             self.update()
 
+    def set_capture_included(self, included: bool) -> None:
+        """Change recording visibility without hiding/repainting or resetting live work."""
+        if included != self._include_in_capture:
+            if self._configured:
+                self._windows.set_overlay_capture(int(self.winId()), included)
+            self._include_in_capture = included
+
     def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -103,10 +118,25 @@ class OverlayWindow(QWidget):
                 blocks = self._blocks
                 if blocks is None:
                     blocks = tuple(TextBlock((track,)) for track in self._tracks)
-                for block in blocks:
-                    text = english.get(TranslationRequest.from_block(block))
-                    if text:
-                        self._paint_english(painter, block, text)
+                labels = tuple(
+                    EnglishLabel(
+                        block.key,
+                        text,
+                        block.bounds,
+                        block.bounds.width if block.lines[0].vertical else block.line_height,
+                        block.lines[0].vertical,
+                    )
+                    for block in blocks
+                    if (text := english.get(TranslationRequest.from_block(block)))
+                )
+                for layout in self._placement.arrange(
+                    labels,
+                    self._bounds.size,
+                    tuple(block.bounds for block in blocks),
+                    automatic=self._automatic_size,
+                    pixels=self._manual_size,
+                ):
+                    self._paint_english(painter, layout)
                 self._paint_debug(painter, ratio)
                 return  # Pending regions leave the original game text visible.
             font = QFont("Segoe UI")
@@ -177,21 +207,14 @@ class OverlayWindow(QWidget):
         painter.drawText(area.adjusted(8, 6, -8, -6), Qt.AlignmentFlag.AlignLeft, self._debug.text)
         painter.restore()
 
-    def _paint_english(self, painter: QPainter, block: TextBlock, text: str) -> None:
-        layout = layout_english(
-            text,
-            block.bounds,
-            self._bounds.size,
-            automatic=self._automatic_size,
-            manual_pixels=self._manual_size,
-            vertical=block.lines[0].vertical,
-            source_line_height=block.line_height if len(block.lines) > 1 else None,
-        )
+    def _paint_english(self, painter: QPainter, layout: EnglishLayout) -> None:
         area = QRectF(layout.bounds.x, layout.bounds.y, layout.bounds.width, layout.bounds.height)
         painter.save()
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(12, 20, 31, round(255 * self._opacity)))
-        painter.drawRoundedRect(area, 4, 4)
+        # Paint uses physical pixels; keep the subtle rounding visible at high DPI.
+        radius = min(5 * self.devicePixelRatioF(), area.width() / 4, area.height() / 4)
+        painter.drawRoundedRect(area, radius, radius)
         english_font = QFont("Segoe UI")
         english_font.setPixelSize(layout.pixel_size)
         painter.setFont(english_font)

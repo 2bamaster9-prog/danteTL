@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from jp_overlay.grouping import TextBlock
 from jp_overlay.tracking import TextTrack
-from jp_overlay.translation import TranslatedText, TranslationRequest
+from jp_overlay.translation_values import TranslatedText, TranslationRequest
 
 
 @dataclass(frozen=True, slots=True)

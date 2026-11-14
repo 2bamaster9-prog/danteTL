@@ -6,74 +6,31 @@ import time
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from enum import StrEnum
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
+from jp_overlay.ocr_values import OcrResult as OcrResult
+from jp_overlay.ocr_values import OcrSnapshot as OcrSnapshot
+from jp_overlay.ocr_values import OcrState as OcrState
+from jp_overlay.ocr_values import TextCharacter as TextCharacter
+from jp_overlay.ocr_values import TextRegion as TextRegion
 from jp_overlay.regions import scan_regions
+from jp_overlay.scan_plan import ScanCosts, ScanLine, ScanPlan, ScanPlanner, preserves_lines
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True, slots=True)
-class TextCharacter:
-    text: str
-    bounds: Rect
-    confidence: float
-
-
-@dataclass(frozen=True, slots=True)
-class TextRegion:
-    """Client-relative physical pixels; confidence is mean retained-character confidence."""
-
-    text: str
-    bounds: Rect
-    characters: tuple[TextCharacter, ...] = ()
-    vertical: bool = False
-
-    @property
-    def confidence(self) -> float | None:
-        if not self.characters:
-            return None
-        return sum(char.confidence for char in self.characters) / len(self.characters)
-
-
-@dataclass(frozen=True, slots=True)
-class OcrResult:
-    frame: CapturedFrame
-    regions: tuple[TextRegion, ...]
-    duration_ms: float
-    completed_at: float
-    scanned: tuple[Rect, ...] | None = None
-
-    def covers(self, bounds: Rect) -> bool:
-        return self.scanned is None or any(area.contains(bounds) for area in self.scanned)
-
-
-class OcrState(StrEnum):
-    LOADING = "loading"
-    READY = "ready"
-    FAILED = "failed"
-    STOPPING = "stopping"
-    STOPPED = "stopped"
-
-
-@dataclass(frozen=True, slots=True)
-class OcrSnapshot:
-    state: OcrState
-    result: OcrResult | None = None
-    message: str = ""
-    processed_frames: int = 0
-    skipped_frames: int = 0
-    queue_ms: float = 0
-    mean_duration_ms: float = 0
-    processing_since: float | None = None
-    provider: str = ""
-
-
 class Recognizer(Protocol):
-    def recognize(self, frame: CapturedFrame, /) -> tuple[TextRegion, ...]: ...
+    def recognize(
+        self, frame: CapturedFrame, /, *, cropped: bool = False
+    ) -> tuple[TextRegion, ...]: ...
     def close(self) -> None: ...
+
+
+@runtime_checkable
+class CostedRecognizer(Protocol):
+    @property
+    def scan_costs(self) -> ScanCosts | None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,8 +48,15 @@ class OcrSession:
     resize/minimize; inspection pause is independent. Shutdown drains inference and cleanup.
     """
 
-    def __init__(self, factory: Callable[[], Recognizer], *, require_ack: bool = False) -> None:
+    def __init__(
+        self,
+        factory: Callable[[], Recognizer],
+        *,
+        require_ack: bool = False,
+        on_change: Callable[[], None] | None = None,
+    ) -> None:
         self._factory = factory
+        self._notify = on_change or (lambda: None)
         self._condition = threading.Condition()
         self._done = threading.Event()
         self._stop = False
@@ -191,10 +155,12 @@ class OcrSession:
                 if self._stop:
                     return
             engine = self._factory()
+            planner = ScanPlanner()
             with self._condition:
                 if self._stop:
                     return
                 self._snapshot = self._ready(engine)
+            self._notify()
             while True:
                 with self._condition:
                     self._condition.wait_for(
@@ -218,22 +184,38 @@ class OcrSession:
                 assert job is not None
                 generation, frame, areas = job
                 started = time.monotonic()
-                regions, scanned = recognize_regions(engine, frame, areas)
+                costs = engine.scan_costs if isinstance(engine, CostedRecognizer) else None
+                plan = planner.plan(areas, frame.geometry.client.size, generation, costs)
+                regions, scanned, rejected = recognize_planned(engine, frame, plan)
                 completed = time.monotonic()
                 result = OcrResult(frame, regions, (completed - started) * 1000, completed, scanned)
                 with self._condition:
                     self._processing_since = None
-                    if not self._stop and generation == self._generation:
+                    published = not self._stop and generation == self._generation
+                    if published:
+                        planner.observe(
+                            tuple(
+                                ScanLine(r.bounds, r.confidence, r.vertical)
+                                for r in regions
+                                if r.text.strip()
+                            ),
+                            scanned,
+                            plan,
+                            rejected=rejected,
+                        )
                         self._processed += 1
                         self._queue_ms = max(0, (started - frame.captured_at) * 1000)
                         self._durations.append(result.duration_ms)
                         self._snapshot = self._ready(engine, result)
+                if published:
+                    self._notify()
                 # Do not keep old frame buffers alive through the next idle wait.
                 del job, frame, result
         except Exception as error:
             logger.exception("Local OCR failed")
             with self._condition:
                 self._snapshot = OcrSnapshot(OcrState.FAILED, message=str(error))
+            self._notify()
         finally:
             if engine is not None:
                 try:
@@ -250,6 +232,31 @@ class OcrSession:
                 if self._snapshot.state != OcrState.FAILED:
                     self._snapshot = OcrSnapshot(OcrState.STOPPED)
             self._done.set()
+            self._notify()
+
+
+def recognize_planned(
+    engine: Recognizer,
+    frame: CapturedFrame,
+    plan: ScanPlan,
+) -> tuple[tuple[TextRegion, ...], tuple[Rect, ...] | None, bool]:
+    """Evaluate a plan without publishing provisional output or false coverage.
+
+    A geometry/confidence loss or unexpected full retry discards the entire provisional
+    result and executes the original plan against the same source frame. No old OCR is
+    mixed into this observation. Planning remains separate from retention decisions.
+    """
+    regions, scanned = recognize_regions(engine, frame, plan.areas)
+    if plan.changed and (
+        (scanned is None and plan.areas is not None)
+        or not preserves_lines(
+            plan.expected,
+            tuple(ScanLine(r.bounds, r.confidence, r.vertical) for r in regions if r.text.strip()),
+        )
+    ):
+        regions, scanned = recognize_regions(engine, frame, plan.baseline)
+        return regions, scanned, True
+    return regions, scanned, False
 
 
 def recognize_regions(
@@ -279,7 +286,7 @@ def recognize_regions(
             WindowGeometry(bounds, bounds, bounds, frame.geometry.dpi),
             b"".join(rows),
         )
-        for region in engine.recognize(crop):
+        for region in engine.recognize(crop, cropped=True):
             b = region.bounds
             if (
                 (area.x > 0 and b.x <= 3)

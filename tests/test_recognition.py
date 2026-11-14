@@ -36,7 +36,7 @@ class BlockingRecognizer:
         self.release = threading.Event()
         self.sequences: list[int] = []
 
-    def recognize(self, source: CapturedFrame) -> tuple[TextRegion, ...]:
+    def recognize(self, source: CapturedFrame, *, cropped: bool = False) -> tuple[TextRegion, ...]:
         self.sequences.append(source.sequence)
         self.entered.set()
         assert self.release.wait(3)
@@ -44,6 +44,31 @@ class BlockingRecognizer:
 
     def close(self) -> None:
         pass
+
+
+def test_ocr_completion_wakes_receiver_after_snapshot_and_preserves_ack_gate():
+    engine = BlockingRecognizer()
+    engine.release.set()
+    snapshots = []
+    session = OcrSession(
+        lambda: engine,
+        require_ack=True,
+        on_change=lambda: snapshots.append(session.snapshot()),
+    )
+    session.start()
+    try:
+        session.submit(frame(1))
+        await_condition(lambda: any(s.result for s in snapshots))
+        assert snapshots[-1].result.frame.sequence == 1
+        session.submit(frame(2))
+        # A notification cannot consume or acknowledge the source observation.
+        assert session._acknowledged == 0
+        session.acknowledge(1)
+        await_condition(lambda: any(s.result and s.result.frame.sequence == 2 for s in snapshots))
+    finally:
+        session.request_stop()
+        await_condition(lambda: session.finished)
+    assert snapshots[-1].state == OcrState.STOPPED
 
 
 def test_finished_waits_for_cleanup_and_owner_thread_exit():
@@ -110,7 +135,9 @@ def test_pause_or_resize_discards_inflight_result_and_pending_work() -> None:
             self.second_entered = threading.Event()
             self.second_release = threading.Event()
 
-        def recognize(self, source: CapturedFrame) -> tuple[TextRegion, ...]:
+        def recognize(
+            self, source: CapturedFrame, *, cropped: bool = False
+        ) -> tuple[TextRegion, ...]:
             if not self.sequences:
                 return super().recognize(source)
             self.sequences.append(source.sequence)
@@ -149,7 +176,9 @@ def test_pause_or_resize_discards_inflight_result_and_pending_work() -> None:
 
 def test_inference_failure_clears_previous_detections() -> None:
     class FailingRecognizer:
-        def recognize(self, source: CapturedFrame) -> tuple[TextRegion, ...]:
+        def recognize(
+            self, source: CapturedFrame, *, cropped: bool = False
+        ) -> tuple[TextRegion, ...]:
             if source.sequence == 2:
                 raise RuntimeError("Inference failed")
             return (TextRegion("old text", Rect(0, 0, 10, 10)),)

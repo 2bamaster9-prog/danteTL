@@ -11,9 +11,12 @@ from difflib import SequenceMatcher
 from math import isfinite
 
 from jp_overlay.domain import CapturedFrame, Rect
+from jp_overlay.ocr_values import OcrResult, TextRegion
 from jp_overlay.presence import FrameEvidence
-from jp_overlay.recognition import OcrResult, TextRegion
+from jp_overlay.spatial import SpatialCandidates
 from jp_overlay.text_content import content_region
+from jp_overlay.text_distance import within_edits
+from jp_overlay.track_assignment import assign_tracks
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,15 +128,24 @@ def _minor_variant(old: str, new: str) -> bool:
         unicodedata.category(c)[0] not in "PS" for c in longer[len(shorter) :]
     ):
         return False  # Typewriter growth/contraction needs the normal confirmation path.
-    matcher = SequenceMatcher(None, old, new, autojunk=False)
-    edits = sum(max(b - a, d - c) for tag, a, b, c, d in matcher.get_opcodes() if tag != "equal")
-    return matcher.ratio() >= 0.75 and edits <= min(2, max(1, len(shorter) // 5))
+    # At most one edit for 4..9 characters, two for longer text. These caps already
+    # imply at least 75% character agreement; an approximate diff alignment is not
+    # an edit distance and can miscount repetitive OCR strings.
+    return within_edits(old, new, min(2, max(1, len(shorter) // 5)))
 
 
 def _same_location(old: Rect, new: Rect) -> bool:
     return _overlap(old, new) >= 0.7 and _edge_distance(old, new) <= max(
         12, min(*old.size, *new.size)
     )
+
+
+def _inside_line(fragment: Rect, line: Rect) -> bool:
+    width = max(0, min(fragment.x + fragment.width, line.x + line.width) - max(fragment.x, line.x))
+    height = max(
+        0, min(fragment.y + fragment.height, line.y + line.height) - max(fragment.y, line.y)
+    )
+    return width * height >= fragment.width * fragment.height * 0.9
 
 
 def _clear_text_candidate(track: _Track) -> None:
@@ -155,14 +167,13 @@ def _commit_text(track: _Track) -> None:
     _clear_text_candidate(track)
 
 
-def _match_score(track: _Track, region: TextRegion) -> float | None:
+def _match_score(track: _Track, region: TextRegion, old: str, new: str) -> float | None:
     if track.value.vertical != region.vertical:
         return None
     overlap = _overlap(track.observed, region.bounds)
     distance = _edge_distance(track.observed, region.bounds)
     thickness = max(1, min(track.observed.size), min(region.bounds.size))
     a, b = track.observed, region.bounds
-    old, new = _normalized(track.value.text), _normalized(region.text)
     tolerance = _deadband(a)
     same_origin = (
         abs(a.x - b.x) <= tolerance
@@ -244,12 +255,14 @@ class TextTracker:
         complete = len(raw_regions) == len(result.regions)
         self._complete_observation = complete
         evidence = FrameEvidence(frame)
-        regions = [
-            (index, region)
-            for index, raw in enumerate(raw_regions)
-            for region in (content_region(raw),)
-            if _normalized(region.text) and min(region.bounds.size) > 0
-        ]
+        regions: list[tuple[int, TextRegion]] = []
+        normalized: dict[int, str] = {}
+        for index, raw in enumerate(raw_regions):
+            region = content_region(raw)
+            text = _normalized(region.text)
+            if text and min(region.bounds.size) > 0:
+                regions.append((index, region))
+                normalized[index] = text
         candidates = []
         observations = dict(regions)
         # Evidence must describe the exact source being reconciled and the current
@@ -261,17 +274,34 @@ class TextTracker:
             if track.value in checked and not track.visual_same:
                 track.review_attempts = 0
                 track.display_predecessor = None
+        nearby = SpatialCandidates(regions)
         for key, track in self._tracks.items():
-            for index, region in regions:
-                score = _match_score(track, region)
+            old = _normalized(track.value.text)
+            for index, region in nearby.for_bounds(track.observed):
+                score = _match_score(track, region, old, normalized[index])
                 if score is not None:
-                    candidates.append((-score, key, index))
+                    candidates.append((score, key, index))
         assignments: list[int | None] = [None] * len(result.regions)
         used: set[int] = set()
-        # One-to-one matching, deterministic ties. At most 128 x 512 candidates.
-        for _, key, index in sorted(candidates):
-            if key in used or assignments[index] is not None:
-                continue
+        # Canonical columns make ties independent of detector order. Raw result rows
+        # remain untouched and returned IDs still refer to their original indices.
+        order = tuple(
+            index
+            for index, _ in sorted(
+                regions,
+                key=lambda item: (
+                    item[1].bounds.y,
+                    item[1].bounds.x,
+                    item[1].bounds.width,
+                    item[1].bounds.height,
+                    item[1].vertical,
+                    normalized[item[0]],
+                    item[1].text,
+                    -(_confidence(item[1]) or 0),
+                ),
+            )
+        )
+        for key, index in assign_tracks(candidates, order):
             used.add(key)
             assignments[index] = key
             track = self._tracks[key]
@@ -309,6 +339,16 @@ class TextTracker:
                     del self._tracks[key]
         for index, region in regions:
             if assignments[index] is not None:
+                continue
+            # A detector can split one unchanged line into several observations. Its
+            # unmatched fragments must not become duplicate tracks beside the retained
+            # full line. Only exact source-matched visual proof permits this suppression.
+            if any(
+                track.visual_same
+                and track.value.vertical == region.vertical
+                and _inside_line(region.bounds, track.value.bounds)
+                for track in self._tracks.values()
+            ):
                 continue
             # Wait for absence confirmation before admitting an incompatible overlapping
             # observation (e.g. a one-pass orientation error). Never draw both boxes.
@@ -370,7 +410,7 @@ class TextTracker:
             eligible
             and score is not None
             and (track.best_confidence is None or score > track.best_confidence + 0.01)
-            and _overlap(track.value.bounds, region.bounds) >= 0.7
+            and _same_location(track.value.bounds, region.bounds)
         ):
             # This is an OCR correction on unchanged pixels, not a new game sentence.
             # Its predecessor remains eligible for display until the replacement
