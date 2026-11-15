@@ -6,14 +6,15 @@ import sys
 
 def main() -> int:
     checks = [
-        ["ruff", "format", "--check", "."],
-        ["ruff", "check", "."],
-        ["pyright"],
-        ["pytest", "-q", "-m", "not windows"],
+        ["-m", "ruff", "format", "--check", "."],
+        ["-m", "ruff", "check", "."],
+        ["-m", "pyright"],
+        ["-c", "from importlinter.cli import lint_imports_command; lint_imports_command()"],
+        ["-m", "pytest", "-q", "-m", "not windows"],
     ]
     for check in checks:
         print(f"Running {' '.join(check)}", flush=True)
-        result = subprocess.run([sys.executable, "-m", *check], check=False)
+        result = subprocess.run([sys.executable, *check], check=False)
         if result.returncode:
             return result.returncode
     return 0

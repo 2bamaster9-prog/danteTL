@@ -2,8 +2,29 @@ import hashlib
 
 import pytest
 
-from jp_overlay import app, llama_runtime, model_store, ocr_runtime
+from jp_overlay import llama_runtime, model_store, ocr_runtime
+from jp_overlay import model_factories as app
 from jp_overlay.models import ModelAsset
+
+
+def test_recommended_catalog_and_backend_order_do_not_mix_recognition(tmp_path, monkeypatch):
+    from dataclasses import replace
+
+    bundles = tuple(
+        replace(b, directory=tmp_path / b.key, assets=(), bundled_directory=None)
+        for b in model_store.model_catalog()
+    )
+    assert bundles[0].key == model_store.RECOMMENDED_TRANSLATION == "gemma"
+    assert [b.key for b in bundles if b.category == "recognition"] == ["ocr"]
+    monkeypatch.setattr(model_store, "model_catalog", lambda: bundles)
+    monkeypatch.setattr(llama_runtime, "installed_device", lambda: "cpu")
+    monkeypatch.setattr(llama_runtime, "supports_plamo", lambda: True)
+    choices = app.translation_backends()
+    assert choices[0].preference_key == "gemma" and "Recommended" in choices[0].name
+    assert all(c.preference_key != "ocr" for c in choices)
+    assert {"sugoi-fast", "sugoi-wide", "gemma", "gemma-e4b", "qwen35-4b", "plamo-0.8b"} <= {
+        c.preference_key for c in choices
+    }
 
 
 @pytest.fixture
@@ -93,3 +114,45 @@ def test_curated_choices_keep_identity_across_runtime_changes(catalog, monkeypat
             }
         )
         assert saved.model == saved.setup_model == choice.preference_key
+
+
+@pytest.mark.parametrize("supported", [False, True])
+def test_downloaded_plamo_stays_visible_but_old_engine_needs_update(
+    tmp_path, monkeypatch, supported
+):
+    from dataclasses import replace
+
+    from jp_overlay.curated_models import MODELS
+
+    models = []
+    for definition in MODELS:
+        if not definition.key.startswith("plamo-"):
+            continue
+        bundle = replace(
+            definition.bundle(),
+            directory=tmp_path / definition.key,
+            assets=(ModelAsset("fixture", "pin", "weights", "hash", 4),),
+        )
+        bundle.directory.mkdir()
+        (bundle.directory / "weights").write_bytes(b"good")
+        models.append(bundle)
+    # Sugoi discovery expects its catalog entry, but no weights.
+    models.append(
+        model_store.ModelBundle("sugoi", "Sugoi", tmp_path / "sugoi", models[0].assets, "")
+    )
+    monkeypatch.setattr(model_store, "model_catalog", lambda: tuple(models))
+    monkeypatch.setattr(llama_runtime, "installed_device", lambda: "cpu")
+    monkeypatch.setattr(llama_runtime, "supports_plamo", lambda: supported)
+    choices = app.translation_backends()
+    assert {c.selection_id for c in choices} == {"plamo-2b", "plamo-0.8b"}
+    for choice in choices:
+        assert bool(choice.preparation_id) is supported
+        assert bool(choice.unavailable_reason) is not supported
+        from jp_overlay.preferences import decode_preferences
+
+        saved = decode_preferences(
+            {"version": 1, "model": choice.preference_key, "setup_model": choice.preference_key}
+        )
+        assert saved.model == saved.setup_model == choice.preference_key
+    for bundle in models[:-1]:
+        assert ("predates" in model_store.model_status(bundle)) is not supported

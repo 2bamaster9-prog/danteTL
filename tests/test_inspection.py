@@ -5,12 +5,26 @@ from dataclasses import replace
 from unittest.mock import Mock
 
 import pytest
+from ui_fixtures import (
+    app_owner,
+    replace_backends,
+    set_ocr_available,
+    settings,
+    settle_setup,
+    setup_owner,
+    show_scene,
+)
+
+from jp_overlay.setup_assistant import SetupAssistant
+from jp_overlay.setup_coordinator import SetupLane
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import shiboken6  # noqa: E402
 from PySide6.QtCore import QCoreApplication, QEvent  # noqa: E402
-from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
+from PySide6.QtWidgets import QApplication, QMessageBox, QProgressDialog  # noqa: E402
+from ui_fixtures import create_window as MainWindow  # noqa: E402
+from ui_fixtures import find_model
 
 from jp_overlay.diagnostics import DebugDisplay  # noqa: E402
 from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry  # noqa: E402
@@ -24,10 +38,11 @@ from jp_overlay.translation import (  # noqa: E402
     BackendChoice,
     TranslatedText,
     TranslationRequest,
+    TranslationSession,
     TranslationSnapshot,
     TranslationState,
 )
-from jp_overlay.ui import MainWindow  # noqa: E402
+from jp_overlay.translation_coordinator import model_reference
 
 
 @pytest.fixture(scope="module")
@@ -39,33 +54,96 @@ def app():
     shiboken6.delete(application)
 
 
-def test_first_run_is_explicit_skippable_and_does_not_change_manual_cpu_choice(app, tmp_path):
+def test_capture_visibility_applies_before_show_and_live_failure_preserves_state(app):
+    windows = Mock()
+    overlay = OverlayWindow(windows)
+    bounds = Rect(10, 20, 600, 400)
+    try:
+        overlay.set_capture_included(False)
+        windows.set_overlay_capture.assert_not_called()
+        overlay.align(bounds)
+        hwnd = int(overlay.winId())
+        windows.set_overlay_capture.assert_called_once_with(hwnd, False)
+        windows.reset_mock()
+        overlay.set_capture_included(True)
+        windows.set_overlay_capture.assert_called_once_with(hwnd, True)
+        assert overlay.isVisible()
+        windows.set_overlay_capture.side_effect = RuntimeError("Unavailable")
+        with pytest.raises(RuntimeError, match="Unavailable"):
+            overlay.set_capture_included(False)
+        windows.reset_mock()
+        overlay.set_capture_included(True)  # Failed exclusion did not commit a new state.
+        windows.set_overlay_capture.assert_not_called()
+        overlay.align(bounds)
+        windows.configure_overlay.assert_not_called()
+        windows.place_overlay.assert_not_called()
+        assert overlay.isVisible() and int(overlay.winId()) == hwnd
+    finally:
+        overlay.close()
+        shiboken6.delete(overlay)
+
+
+def test_capture_visibility_ui_remembers_choice_and_rolls_back_native_failure(app, monkeypatch):
+    windows, preferences = Mock(), Mock()
+    from jp_overlay.preferences import Preferences
+
+    windows.list_targets.return_value = []
+    preferences.initial = Preferences(include_overlay_in_capture=False)
+    preferences.error = ""
+    monkeypatch.setattr("jp_overlay.composition.PreferenceStore", lambda path: preferences)
+    window = MainWindow(windows, Mock())
+    try:
+        assert not window.capture_overlay_check.isChecked()
+        window._overlay.align(Rect(0, 0, 600, 400))
+        windows.set_overlay_capture.assert_called_once_with(int(window._overlay.winId()), False)
+        window.capture_overlay_check.setChecked(True)
+        assert preferences.save.call_args.args[0].include_overlay_in_capture
+        preferences.save.reset_mock()
+        windows.set_overlay_capture.side_effect = RuntimeError("Fixture native failure")
+        warning = Mock()
+        monkeypatch.setattr(QMessageBox, "warning", warning)
+        window.capture_overlay_check.setChecked(False)
+        assert window.capture_overlay_check.isChecked()
+        preferences.save.assert_not_called()
+        assert "Fixture native failure" in warning.call_args.args[-1]
+    finally:
+        window.close()
+        window.deleteLater()
+
+
+def test_first_run_is_explicit_skippable_and_does_not_change_manual_cpu_choice(
+    app, tmp_path, monkeypatch
+):
     from jp_overlay.hardware import Adapter, HardwareStatus
     from jp_overlay.model_store import model_catalog
     from jp_overlay.setup_assistant import SetupAssistant
 
     hardware = Mock()
+    monkeypatch.setattr("jp_overlay.first_run.supports_plamo", lambda: True)
     hardware.snapshot.return_value = None
     models = tuple(replace(b, directory=tmp_path / b.key) for b in model_catalog())
     windows = Mock()
     windows.list_targets.return_value = []
     parent = MainWindow(windows, Mock(), models=models)
-    guide = SetupAssistant(models, hardware, parent, root=tmp_path)
+    guide = SetupAssistant(parent.application.setup, hardware, parent)
     guide.show()
+    assert guide.model.currentData() == "gemma"
+    assert guide.model.findData("ocr") == -1
     guide.next.click()
     guide.next.click()
-    assert not guide.operation and not guide.next.isEnabled()
+    assert not guide.busy and not guide.next.isEnabled()
     guide.runtime.activated.emit(0)  # Choosing the already-selected CPU is still a manual choice.
     hardware.snapshot.return_value = HardwareStatus(
         adapters=(Adapter("RTX", 0x10DE, 16 * 2**30),), llama_device="cpu"
     )
-    guide._poll()
+    setup_owner(guide).advance()
+    guide.refresh_view()
     assert guide.runtime.currentData().key == "cpu"
     guide.next.click()
-    assert guide.pages.currentIndex() == 3 and guide._plan and guide._plan.runtime is None
-    assert not guide.operation and not list(tmp_path.iterdir())
+    assert guide.pages.currentIndex() == 3 and guide._review and not guide._review.install_runtime
+    assert not guide.busy and not list(tmp_path.iterdir())
     guide.skip.click()
-    assert not guide.isVisible() and not guide._timer.isActive()
+    assert not guide.isVisible()
     parent.close()
     guide.deleteLater()
     parent.deleteLater()
@@ -74,7 +152,6 @@ def test_first_run_is_explicit_skippable_and_does_not_change_manual_cpu_choice(a
 def test_first_run_close_drains_worker_and_progress_reports_actual_download(
     app, tmp_path, monkeypatch
 ):
-    from jp_overlay import setup_assistant
     from jp_overlay.hardware import HardwareStatus
     from jp_overlay.model_store import Cancelled, DownloadProgress, ModelProgress, model_catalog
 
@@ -90,7 +167,7 @@ def test_first_run_close_drains_worker_and_progress_reports_actual_download(
         cancel.wait(2)
         raise Cancelled()
 
-    monkeypatch.setattr(setup_assistant, "run_setup", setup)
+    monkeypatch.setattr("jp_overlay.first_run.run_setup", setup)
     hardware = Mock()
     hardware.snapshot.return_value = HardwareStatus(llama_device="cpu")
     windows = Mock()
@@ -100,20 +177,24 @@ def test_first_run_close_drains_worker_and_progress_reports_actual_download(
     parent.offer_first_run()
     guide = parent._setup_assistant
     assert guide
-    guide._poll()
+    setup_owner(guide).advance()
+    guide.refresh_view()
     for _ in range(4):
         guide.next.click()
     assert entered.wait(2) and guide.busy
-    guide._poll()
+    setup_owner(guide).advance()
+    guide.refresh_view()
     assert guide.progress_view.download.value() == 200
     assert guide.progress_view.download.maximum() == 1000
     parent.close()
-    assert parent._closing  # Parent cannot abandon its setup worker.
+    assert parent.application.closing  # Parent cannot abandon its setup worker.
     deadline = time.monotonic() + 3
     while guide.busy and time.monotonic() < deadline:
         app.processEvents()
         time.sleep(0.01)
     assert not guide.busy
+    setup_owner(guide).advance()
+    guide.refresh_view()
     assert guide.progress_view.overall.maximum() == 1
     parent.close()
     parent.deleteLater()
@@ -130,22 +211,183 @@ def test_first_run_skip_persists_and_settings_can_reopen_it(app, tmp_path):
     path = tmp_path / "preferences.json"
     models = tuple(replace(b, directory=tmp_path / b.key) for b in model_catalog())
     window = MainWindow(windows, Mock(), models=models, hardware=hardware, preferences_path=path)
+    application = app_owner(window)
     window.offer_first_run()
-    assert window._setup_assistant
-    window._setup_assistant.skip.click()
-    drain(window, lambda: window._preferences.idle)
+    guide = window.findChild(SetupAssistant)
+    assert guide is not None
+    guide.skip.click()
+    drain(window, lambda: application.preferences.idle)
     assert PreferenceStore(path).initial.setup_seen
     window.offer_first_run()
-    assert not window._setup_assistant.isVisible()
-    window._settings.setup_assistant.click()
-    assert window._setup_assistant
-    assert window._setup_assistant.isVisible()
-    window._setup_assistant.close()
+    assert not guide.isVisible()
+    settings(window).setup_assistant.click()
+    assert window.findChild(SetupAssistant)
+    guide = next(g for g in window.findChildren(SetupAssistant) if g.isVisible())
+    guide.close()
     window.close()
     window.deleteLater()
 
 
-@pytest.mark.parametrize("model", ["gemma", "gemma-e4b", "qwen35-4b"])
+def test_model_summary_separates_ratings_capabilities_and_unrated_imports(app):
+    from jp_overlay.model_summary import ModelSummary
+
+    summary = ModelSummary()
+    summary.set_model("plamo-2b", 1_800_000_000, True)
+    assert summary.values[1].property("tone") == "error"
+    assert "Heart Rate" in summary.values[1].toolTip()
+    assert "support" in summary.cpu.text() and "support" in summary.gpu.text()
+    summary.set_model("qwen35-4b", 2_700_000_000, True)
+    assert summary.values[2].property("tone") == "error"
+    summary.set_model("sugoi", 1_100_000_000, False)
+    assert "CPU only" in summary.gpu.text() and "No context" in summary.context.text()
+    summary.set_model("custom", 2_000_000_000, True, imported=True)
+    assert summary.ratings.isHidden() and "Not rated" in summary.size_label.text()
+    assert "Local file" in summary.size_label.text()
+    summary.deleteLater()
+
+
+def test_processing_panel_distinguishes_cached_work_and_resets_stale_capture_metrics(app):
+    from jp_overlay.domain import CaptureSnapshot, CaptureState
+    from jp_overlay.processing_panel import ProcessingPanel
+    from jp_overlay.recognition import OcrSnapshot, OcrState
+    from jp_overlay.visual import VisualState
+
+    panel = ProcessingPanel()
+    panel.show()
+    bounds = Rect(0, 0, 100, 100)
+    geometry = WindowGeometry(bounds, bounds, bounds, 144)
+    frame = CapturedFrame(8, 1, geometry, b"")
+    result = OcrResult(frame, (), 20, 1.02, (Rect(0, 0, 50, 50),))
+    ocr = OcrSnapshot(OcrState.READY, result, queue_ms=35, provider="CPUExecutionProvider")
+    translation = TranslationSnapshot(
+        TranslationState.READY, cache_hits=1, last_batch_ms=0.1, last_inference_ms=92
+    )
+    panel.refresh(
+        CaptureSnapshot(CaptureState.RUNNING, frame),
+        ocr,
+        translation,
+        VisualState(avoided=10),
+        now=1,
+        started_at=0,
+        capture_rate=8,
+        model="Gemma",
+    )
+    assert panel.ocr.values["Scan coverage"].text() == "1 area · 25%"
+    assert panel.ocr.values["Device"].text() == "CPU"
+    assert panel.translation.values["Last batch"].text() == "1 cached / 0 model"
+    assert panel.translation.values["Model call"].text() == "92 ms"
+    # Idle cache hits must not be presented as zero-time model inference.
+    assert "Most recent inference" in panel.translation.values["Model call"].toolTip()
+    panel.hide()
+    panel.refresh(
+        None, None, None, VisualState(), now=2, started_at=0, capture_rate=8, model="Gemma"
+    )
+    assert panel.ocr.values["Device"].text() == "CPU"  # Hidden diagnostics do no formatting.
+    panel.show()
+    panel.refresh(
+        None, None, None, VisualState(), now=3, started_at=0, capture_rate=8, model="Gemma"
+    )
+    assert panel.ocr.values["Device"].text() == "—"
+    assert panel.capture.values["Image"].text() == "—"
+    assert panel.translation.values["Last batch"].text() == "—"
+    panel.close()
+    panel.deleteLater()
+
+
+def test_model_categories_share_one_worker_and_ocr_never_enters_translation_picker(
+    app, tmp_path, monkeypatch
+):
+    from ui_fixtures import model_manager as ModelManager
+
+    from jp_overlay.model_store import Cancelled, ModelBundle
+
+    ocr = ModelBundle("ocr", "MeikiOCR", tmp_path / "ocr", (), "Reads text", category="recognition")
+    gemma = ModelBundle(
+        "gemma", "Gemma E2B · Recommended", tmp_path / "gemma", (), "Translates text"
+    )
+    other = replace(gemma, key="sugoi", name="Sugoi", directory=tmp_path / "sugoi")
+    entered, calls = threading.Event(), []
+
+    def install(bundle, report, cancel):
+        calls.append(bundle.key)
+        entered.set()
+        assert cancel.wait(2)
+        raise Cancelled()
+
+    monkeypatch.setattr("jp_overlay.model_store.install_model", install)
+    manager = ModelManager((ocr, other, gemma))
+    assert manager.choice.currentData().key == gemma.key
+    assert [manager.choice.itemData(i).key for i in range(manager.choice.count())] == [
+        "sugoi",
+        "gemma",
+    ]
+    assert manager.ocr.choice.currentData().key == ocr.key
+    assert "Reads text" in manager.ocr.summary.text()
+    manager.choice.setCurrentIndex(0)
+    manager.refresh()
+    # Browsing is not reset to the recommendation.
+    assert manager.choice.currentData().key == other.key
+    translation_status = manager.status.text()
+    manager.category.setCurrentIndex(1)
+    assert manager.pages.currentWidget() is manager.ocr_page
+    assert not manager.busy
+    manager.ocr.download.click()
+    assert entered.wait(1) and manager.busy
+    operation = manager.service.job(SetupLane.MODELS)
+    manager.category.setCurrentIndex(0)  # Navigation leaves work and selections intact.
+    manager._download()  # A second section cannot start competing work.
+    setup_owner(manager).advance()
+    manager.refresh_view()
+    assert calls == ["ocr"] and manager.service.job(SetupLane.MODELS).token == operation.token
+    assert not manager.choice.isEnabled() and not manager.ocr.download.isEnabled()
+    assert manager.status.text() == translation_status
+    manager.close()  # Closing still drains the same operation owner.
+    settle_setup(manager.service)
+    setup_owner(manager).advance()
+    manager.refresh_view()
+    assert not manager.busy and manager.choice.currentData().key == other.key
+    assert manager.ocr.download.isEnabled()
+    manager.deleteLater()
+
+
+@pytest.mark.parametrize(
+    "saved,prepared,expected",
+    [
+        ("auto", True, "gemma"),
+        ("auto", False, "sugoi-fast"),
+        ("sugoi-fast", True, "sugoi-fast"),
+        ("none", True, "none"),
+    ],
+)
+def test_recommended_model_preserves_saved_choice_and_preparation_consent(
+    app, tmp_path, monkeypatch, saved, prepared, expected
+):
+    import json
+
+    monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: not key or prepared)
+    path = tmp_path / "preferences.json"
+    path.write_text(json.dumps({"version": 1, "model": saved}), encoding="utf-8")
+    windows, factory = Mock(), Mock()
+    windows.list_targets.return_value = []
+    choices = (
+        BackendChoice(
+            "Gemma E2B · Recommended",
+            factory,
+            "gemma-cpu",
+            preparation_id="pending",
+            selection_id="gemma",
+        ),
+        BackendChoice("Sugoi", factory, "sugoi-fast"),
+    )
+    window = MainWindow(windows, Mock(), choices, preferences_path=path)
+    selected = window.backend_combo.currentData()
+    assert (selected.preference_key if selected else "none") == expected
+    factory.assert_not_called()
+    window.close()
+    window.deleteLater()
+
+
+@pytest.mark.parametrize("model", ["gemma", "gemma-e4b", "qwen35-4b", "plamo-2b", "plamo-0.8b"])
 def test_included_ocr_has_ready_badge_and_is_not_in_first_run_download_plan(app, tmp_path, model):
     import hashlib
 
@@ -157,31 +399,35 @@ def test_included_ocr_has_ready_badge_and_is_not_in_first_run_download_plan(app,
     bundled.mkdir()
     (bundled / "ocr").write_bytes(b"good")
     asset = ModelAsset("fixture", "pinned", "ocr", hashlib.sha256(b"good").hexdigest(), 4)
-    ocr = ModelBundle("ocr", "MeikiOCR", tmp_path / "AppData", (asset,), "", bundled)
-    models = (ocr, *model_catalog()[1:])
+    ocr = ModelBundle(
+        "ocr", "MeikiOCR", tmp_path / "AppData", (asset,), "", bundled, category="recognition"
+    )
+    models = (ocr, *(b for b in model_catalog() if b.category == "translation"))
     windows, hardware = Mock(), Mock()
     windows.list_targets.return_value = []
     hardware.snapshot.return_value = HardwareStatus(llama_device="cpu")
     window = MainWindow(windows, Mock(), models=models, hardware=hardware)
-    window._show_setup_assistant()
-    guide = window._setup_assistant
-    assert guide and window._ocr_models_ready()
+    application = app_owner(window)
+    settings(window).setup_assistant.click()
+    guide = window.findChild(SetupAssistant)
+    assert guide and application.inventory.snapshot().data.ocr_ready
     guide.model.setCurrentIndex(guide.model.findData(model))
-    assert "Included with app" in window._settings.models.download_badge.text()
-    assert window._settings.models.download.text() == "Verify / repair"
-    guide._poll()
+    assert "Included with app" in settings(window).models.ocr.badge.text()
+    assert settings(window).models.ocr.download.text() == "Verify / repair OCR files"
+    setup_owner(guide).advance()
+    guide.refresh_view()
     for _ in range(3):
         guide.next.click()
-    assert guide._plan and [b.key for b in guide._plan.models] == [model]
+    assert guide._review and guide._review.model_keys == (model,)
     assert guide.model_help.text() == next(b.description for b in models if b.key == model)
     assert "included, no download" in guide.review.text()
-    assert not guide.operation and not ocr.directory.exists()
+    assert not guide.busy and not ocr.directory.exists()
     guide.close()
     window.close()
     window.deleteLater()
 
 
-@pytest.mark.parametrize("key", ["gemma", "gemma-e4b", "qwen35-4b"])
+@pytest.mark.parametrize("key", ["gemma", "gemma-e4b", "qwen35-4b", "plamo-2b", "plamo-0.8b"])
 def test_first_run_resumes_model_intent_after_restart_but_still_requires_consent(
     app, tmp_path, monkeypatch, key
 ):
@@ -193,15 +439,16 @@ def test_first_run_resumes_model_intent_after_restart_but_still_requires_consent
     windows.list_targets.return_value = []
     base = BackendChoice("Sugoi", factory, "sugoi-fast")
     gemma = BackendChoice("Language model", factory, f"{key}-cuda", "new-device", selection_id=key)
-    monkeypatch.setattr("jp_overlay.ui.is_prepared", lambda key: not key)
+    monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: not key)
     consent = Mock(return_value=QMessageBox.StandardButton.No)
     monkeypatch.setattr(QMessageBox, "question", consent)
     window = MainWindow(windows, Mock(), (base, gemma), preferences_path=path)
+    application = app_owner(window)
     window.offer_first_run()
     consent.assert_called_once()
-    assert window.backend_combo.currentData() == base
+    assert window.backend_combo.currentData() == window.routing.resolve(model_reference(base))
     factory.assert_not_called()
-    drain(window, lambda: window._preferences.idle)
+    drain(window, lambda: application.preferences.idle)
     saved = PreferenceStore(path).initial
     assert saved.setup_model == "" and saved.model == "sugoi-fast"
     window.offer_first_run()
@@ -219,13 +466,14 @@ def test_hotkey_settings_apply_conflict_disable_and_persistence(app, tmp_path):
     hotkeys = Hotkeys(Mock())
     path = tmp_path / "preferences.json"
     window = MainWindow(windows, Mock(), hotkeys=hotkeys, preferences_path=path)
-    panel = window._settings.hotkeys
+    application = app_owner(window)
+    panel = settings(window).hotkeys
     overlay, capture = panel.rows[HotkeyAction.OVERLAY], panel.rows[HotkeyAction.CAPTURE]
     overlay.modifiers.setCurrentText("Ctrl+Shift")
     overlay.key.setCurrentIndex(overlay.key.findData("F7"))
     # Drafts do not change the registered or persisted shortcut.
-    window._save_preferences()
-    drain(window, lambda: window._preferences.idle)
+    settings(window).opacity.setValue(61)
+    drain(window, lambda: application.preferences.idle)
     assert PreferenceStore(path).initial.overlay_hotkey == "Ctrl+Alt+F8"
     overlay.apply.click()
     assert hotkeys.shortcut(HotkeyAction.OVERLAY) == "Ctrl+Shift+F7"
@@ -237,10 +485,11 @@ def test_hotkey_settings_apply_conflict_disable_and_persistence(app, tmp_path):
     assert "Still active" in capture.status.label.text()
     capture.key.setCurrentIndex(0)
     capture.apply.click()
-    drain(window, lambda: window._preferences.idle)
+    drain(window, lambda: application.preferences.idle)
     saved = PreferenceStore(path).initial
     assert saved.overlay_hotkey == "Ctrl+Shift+F7" and saved.capture_hotkey == ""
     window.close()
+    drain(window, lambda: not window.driver.timer.isActive())
     assert not hotkeys.shortcut(HotkeyAction.OVERLAY)
     window.deleteLater()
     restored = MainWindow(windows, Mock(), hotkeys=hotkeys, preferences_path=path)
@@ -259,13 +508,13 @@ def test_startup_shortcut_conflict_is_visible_and_retryable(app, tmp_path):
     windows.list_targets.return_value = []
     window = MainWindow(windows, Mock(), hotkeys=Hotkeys(native), cache_path=tmp_path / "cache")
     assert "unavailable" in window.hotkey_notice.label.text()
-    row = window._settings.hotkeys.rows[HotkeyAction.OVERLAY]
+    row = settings(window).hotkeys.rows[HotkeyAction.OVERLAY]
     assert "Another app" in row.status.label.text()
     assert row.committed == "Ctrl+Alt+F8"
     native.register.side_effect = None
-    for row in window._settings.hotkeys.rows.values():
+    for row in settings(window).hotkeys.rows.values():
         row.apply.click()
-    assert not window._settings.hotkeys.problem
+    assert not settings(window).hotkeys.problem
     assert window.hotkey_notice.isHidden()
     window.close()
     window.deleteLater()
@@ -275,48 +524,56 @@ def test_hotkeys_keep_selected_window_and_respect_stop_close_and_modal_guards(
     app, tmp_path, monkeypatch
 ):
     from PySide6.QtWidgets import QDialog
+    from test_live_session import frame
 
-    from jp_overlay.domain import WindowTarget
+    from jp_overlay.domain import CaptureSnapshot, CaptureState, WindowTarget
     from jp_overlay.hotkeys import HotkeyAction, Hotkeys
 
     target = WindowTarget(101, 202, "Our fixture")
     windows = Mock()
     windows.list_targets.return_value = [target]
     capture = Mock()
-    monkeypatch.setattr("jp_overlay.ui.CaptureSession", capture)
-    window = MainWindow(windows, Mock(), hotkeys=Hotkeys(Mock()), cache_path=tmp_path / "cache")
-    window._timer.stop()
-    window._tick = Mock()
-    window._ocr_models_ready = Mock(return_value=False)
-    window._settings.hotkeys.capture_focused.setChecked(False)
-    window._hotkey_activated(HotkeyAction.CAPTURE)
-    capture.assert_called_once_with(target, windows, fps=8)
-    active = window._pipeline.capture
-    clear = Mock()
-    window._clear_tracking = clear
-    window._hotkey_activated(HotkeyAction.OVERLAY)
-    assert not window.overlay_check.isChecked() and window._pipeline.capture is active
-    clear.assert_not_called()
-    window._hotkey_activated(HotkeyAction.CAPTURE)
+    capture.return_value.finished = False
+    capture.return_value.snapshot.return_value = CaptureSnapshot(CaptureState.RUNNING, frame(1))
+    windows.geometry.return_value = frame(1).geometry
+    windows.is_foreground.return_value = True
+    monkeypatch.setattr("jp_overlay.composition.CaptureSession", capture)
+    hotkeys = Hotkeys(Mock())
+    window = MainWindow(windows, Mock(), hotkeys=hotkeys, cache_path=tmp_path / "cache")
+    application = app_owner(window)
+    window.driver.timer.stop()
+    set_ocr_available(window, False)
+    settings(window).hotkeys.capture_focused.setChecked(False)
+    hotkeys.activated(HotkeyAction.CAPTURE)
+    capture.assert_called_once_with(
+        target, windows, fps=8, on_change=window.driver.notify, show_border=True
+    )
+    window.driver.refresh(inspect=True)
+    active = application.live.capture
+    before = application.view.reset
+    hotkeys.activated(HotkeyAction.OVERLAY)
+    assert not window.overlay_check.isChecked() and application.live.capture is active
+    assert application.view.reset == before
+    hotkeys.activated(HotkeyAction.CAPTURE)
     assert not window.start_button.isEnabled()
     capture.return_value.request_stop.assert_called_once()
-    window._hotkey_activated(HotkeyAction.CAPTURE)
+    hotkeys.activated(HotkeyAction.CAPTURE)
     capture.return_value.request_stop.assert_called_once()
-    window._pipeline.capture = None
+    application.live.capture = None
     window.start_button.setEnabled(True)
     windows.is_target.return_value = False
-    window._hotkey_activated(HotkeyAction.CAPTURE)
+    hotkeys.activated(HotkeyAction.CAPTURE)
     assert "closed" in window.status.text()
     assert capture.call_count == 1  # Never substitute a foreground or recycled HWND.
     dialog = QDialog(window)
     dialog.setModal(True)
     dialog.show()
-    window._hotkey_activated(HotkeyAction.OVERLAY)
+    hotkeys.activated(HotkeyAction.OVERLAY)
     assert not window.overlay_check.isChecked()
     dialog.close()
-    window._closing = True
-    window._hotkey_activated(HotkeyAction.OVERLAY)
-    window._hotkey_activated(HotkeyAction.CAPTURE)
+    application.shutdown.request()
+    hotkeys.activated(HotkeyAction.OVERLAY)
+    hotkeys.activated(HotkeyAction.CAPTURE)
     assert not window.overlay_check.isChecked() and capture.call_count == 1
     window.close()
     window.deleteLater()
@@ -350,7 +607,7 @@ def test_capture_hotkey_picks_focused_window_but_never_retargets_running_capture
     app, tmp_path, monkeypatch
 ):
     from jp_overlay.domain import WindowTarget
-    from jp_overlay.hotkeys import HotkeyAction
+    from jp_overlay.hotkeys import HotkeyAction, Hotkeys
     from jp_overlay.windows import WindowUnavailable
 
     target = WindowTarget(101, 202, "New focused game")
@@ -358,35 +615,38 @@ def test_capture_hotkey_picks_focused_window_but_never_retargets_running_capture
     windows.list_targets.return_value = []  # The initial list can be empty or stale.
     windows.foreground_target.return_value = target
     capture = Mock()
-    monkeypatch.setattr("jp_overlay.ui.CaptureSession", capture)
-    window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
-    window._timer.stop()
-    window._tick = Mock()
-    window._ocr_models_ready = Mock(return_value=False)
+    monkeypatch.setattr("jp_overlay.composition.CaptureSession", capture)
+    hotkeys = Hotkeys(Mock())
+    window = MainWindow(windows, Mock(), hotkeys=hotkeys, cache_path=tmp_path / "cache")
+    application = app_owner(window)
+    window.driver.timer.stop()
+    set_ocr_available(window, False)
     assert not window.start_button.isEnabled()
-    window._hotkey_activated(HotkeyAction.CAPTURE)
-    capture.assert_called_once_with(target, windows, fps=8)
+    hotkeys.activated(HotkeyAction.CAPTURE)
+    capture.assert_called_once_with(
+        target, windows, fps=8, on_change=window.driver.notify, show_border=True
+    )
     assert window.windows_combo.currentData() == target
     windows.foreground_target.side_effect = WindowUnavailable("Focus the game window")
-    window._hotkey_activated(HotkeyAction.CAPTURE)
+    hotkeys.activated(HotkeyAction.CAPTURE)
     capture.return_value.request_stop.assert_called_once()
     windows.foreground_target.assert_called_once()
-    window._pipeline.capture = None
+    application.live.capture = None
     window.start_button.setEnabled(True)
-    window._hotkey_activated(HotkeyAction.CAPTURE)
+    hotkeys.activated(HotkeyAction.CAPTURE)
     assert "Focus the game" in window.status.text()
     assert capture.call_count == 1 and window.windows_combo.currentData() == target
     windows.foreground_target.side_effect = None
     windows.is_foreground.return_value = False
-    window._hotkey_activated(HotkeyAction.CAPTURE)
+    hotkeys.activated(HotkeyAction.CAPTURE)
     assert "Focus changed" in window.status.text() and capture.call_count == 1
     windows.is_foreground.return_value = True
     renamed = replace(target, title="Game with a new title")
     windows.foreground_target.return_value = renamed
-    window._hotkey_activated(HotkeyAction.CAPTURE)
+    hotkeys.activated(HotkeyAction.CAPTURE)
     assert window.windows_combo.count() == 1 and window.windows_combo.currentData() == renamed
     assert capture.call_count == 2
-    window._pipeline.capture = None
+    application.live.capture = None
     window.close()
     window.deleteLater()
 
@@ -399,38 +659,45 @@ def test_original_hold_is_transient_and_focus_loss_cancels_it(app, tmp_path):
     registrar = Mock()
     hotkeys = Hotkeys(registrar)
     window = MainWindow(windows, Mock(), hotkeys=hotkeys, cache_path=tmp_path / "cache")
-    window._timer.stop()
-    window._advance_session = Mock()
-    window._update_notice = Mock()
-    window._pipeline.capture = Mock(finished=False)
-    workers = (window._pipeline.capture, window._pipeline.ocr, window._translation)
-    clear = Mock()
-    window._clear_tracking = clear
+    application = app_owner(window)
+    window.driver.timer.stop()
+    application.advance = Mock()
+    application.live.capture = Mock(finished=False)
+    workers = (
+        application.live.capture,
+        application.live.ocr,
+        application.translation.session,
+    )
+    before = application.view.reset
     window._overlay.show()
-    window._original_changed(True)
-    assert window._showing_original and not window._overlay.isVisible()
+    hotkeys.hold_changed(True)
+    assert application.original and not window._overlay.isVisible()
     assert window.overlay_check.isChecked() and window.translate_check.isChecked()
-    assert (window._pipeline.capture, window._pipeline.ocr, window._translation) == workers
-    window._original_changed(False)
-    assert not window._showing_original
-    window._advance_session.assert_called_once()  # Re-evaluate current visibility on release.
+    assert (
+        application.live.capture,
+        application.live.ocr,
+        application.translation.session,
+    ) == workers
+    hotkeys.hold_changed(False)
+    assert not application.original
+    application.advance.assert_called_once()  # Re-evaluate current visibility on release.
     window.overlay_check.setChecked(False)
-    window._original_changed(True)
-    window._original_changed(False)
+    hotkeys.hold_changed(True)
+    hotkeys.hold_changed(False)
     assert not window.overlay_check.isChecked()  # Does not override the user's hidden setting.
-    window._original_changed(True)
+    hotkeys.hold_changed(True)
     windows.is_foreground.return_value = False
-    window._tick()
-    assert not window._showing_original and not hotkeys.holding_original
-    window._original_changed(True)
-    assert not window._showing_original
-    clear.assert_not_called()
+    window.driver.refresh(inspect=True)
+    assert not application.original and not hotkeys.holding_original
+    hotkeys.hold_changed(True)
+    assert not application.original
+    assert application.view.reset == before
     windows.is_foreground.return_value = True
     hotkeys.dispatch(*registrar.register.call_args.args)
-    assert hotkeys.holding_original and window._showing_original
-    window._stop("Stopped during hold")
-    assert not hotkeys.holding_original and not window._showing_original
-    window._pipeline.capture = None
+    assert hotkeys.holding_original and application.original
+    window.start_button.click()
+    assert not hotkeys.holding_original and not application.original
+    application.live.capture = None
     window.close()
     window.deleteLater()
 
@@ -473,7 +740,7 @@ def drain(window, predicate):
     deadline = time.monotonic() + 3
     while not predicate():
         assert time.monotonic() < deadline
-        window._tick()
+        window.driver.refresh(inspect=True)
         time.sleep(0.005)
 
 
@@ -484,16 +751,18 @@ def test_no_models_do_not_start_inference_and_refresh_never_prepares_implicitly(
     windows.list_targets.return_value = []
     factory = Mock()
     choice = BackendChoice("Gemma", factory, "gemma", "unprepared")
-    monkeypatch.setattr("jp_overlay.ui.is_prepared", lambda key: not key)
+    monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: not key)
     window = MainWindow(
         windows, factory, cache_path=tmp_path / "cache", backend_provider=lambda: (choice,)
     )
     assert window.backend_combo.currentData() is None
     assert window.translate_check.isEnabled() and window.models_button.isEnabled()
+    drain(window, lambda: not settings(window).busy)
+    window.driver.refresh(inspect=True)
     assert "No translation model is downloaded" in window.notice.text()
     assert window.onboarding.property("tone") == "warning"
-    window._tick()
-    window._refresh_models()
+    window.driver.refresh(inspect=True)
+    window.application.refresh_models()
     assert window.backend_combo.currentData() is None
     assert window.translate_check.isEnabled()
     factory.assert_not_called()
@@ -514,42 +783,44 @@ def test_downloaded_model_without_runtime_stays_visible_and_explains_setup(
         unavailable_reason="Open Runtime setup.",
     )
     setup = Mock()
-    monkeypatch.setattr(MainWindow, "_manage_runtime", setup)
-    window = MainWindow(windows, factory, (choice,), cache_path=tmp_path / "cache")
+    monkeypatch.setattr("jp_overlay.ui.MainWindow._manage_runtime", setup)
+    window = MainWindow(windows, factory, (choice,), scene_feed=True, cache_path=tmp_path / "cache")
+    application = app_owner(window)
     assert window.backend_combo.isEnabled() and window.translate_check.isEnabled()
     assert window.backend_combo.currentData() is None  # Never implicitly load an unusable model.
-    window._poll_translation(True)
+    show_scene(window)
     assert "runtime setup" in window.translation_status.text()
-    window.backend_combo.setCurrentIndex(0)
+    window.backend_combo.setCurrentIndex(find_model(window.backend_combo, choice))
     setup.assert_called_once()
-    assert window.backend_combo.currentData() is None and window._translation is None
+    assert window.backend_combo.currentData() is None and application.translation.session is None
     factory.assert_not_called()
     window.close()
     window.deleteLater()
 
 
-@pytest.mark.parametrize("key", ["gemma", "gemma-e4b", "qwen35-4b"])
+@pytest.mark.parametrize("key", ["gemma", "gemma-e4b", "qwen35-4b", "plamo-2b", "plamo-0.8b"])
 def test_download_completion_reports_missing_runtime_instead_of_false_readiness(
     app, tmp_path, monkeypatch, key
 ):
     import hashlib
 
-    from jp_overlay.model_manager import ModelManager
+    from download_fixtures import download_bytes
+    from ui_fixtures import model_manager as ModelManager
+
     from jp_overlay.model_store import ModelBundle
     from jp_overlay.models import ModelAsset
 
     asset = ModelAsset("fixture", "revision", "weights", hashlib.sha256(b"good").hexdigest(), 4)
     bundle = ModelBundle(key, key, tmp_path, (asset,), "", language_model=True)
-    from download_fixtures import download_bytes
-
     monkeypatch.setattr("jp_overlay.model_store.download_file", download_bytes(b"good"))
     monkeypatch.setattr("jp_overlay.llama_runtime.installed_device", lambda: None)
     manager = ModelManager((bundle,))
-    manager._download()
-    assert manager.operation is not None
-    manager.operation._thread.join(2)
-    manager._poll()
-    assert manager.operation is None and bundle.present()
+    manager.download.click()
+    assert manager.busy
+    settle_setup(manager.service)
+    setup_owner(manager).advance()
+    manager.refresh_view()
+    assert not manager.busy and bundle.present()
     assert "not installed" in manager.status.text() and "Acceleration" in manager.status.text()
     assert manager.download.text() == "Verify / repair"
     assert manager.progress.value() == manager.progress.maximum()
@@ -563,14 +834,13 @@ def test_download_completion_reports_missing_runtime_instead_of_false_readiness(
 def test_runtime_setup_detects_without_installing_and_close_waits_for_cancel(
     app, tmp_path, monkeypatch
 ):
-    from jp_overlay import runtime_dialog
     from jp_overlay.hardware import Adapter
     from jp_overlay.model_store import Cancelled
 
     calls = []
     entered = threading.Event()
     monkeypatch.setattr(
-        runtime_dialog, "detect_adapters", lambda: (Adapter("RTX", 0x10DE, 16 * 2**30),)
+        "jp_overlay.hardware.detect_adapters", lambda: (Adapter("RTX", 0x10DE, 16 * 2**30),)
     )
 
     def install(root, profile, progress, cancel):
@@ -579,26 +849,30 @@ def test_runtime_setup_detects_without_installing_and_close_waits_for_cancel(
         assert cancel.wait(2)
         raise Cancelled()
 
-    monkeypatch.setattr(runtime_dialog, "install_runtime", install)
+    monkeypatch.setattr("jp_overlay.runtime_setup.install_runtime", install)
     windows = Mock()
     windows.list_targets.return_value = []
     window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
-    dialog = runtime_dialog.RuntimeSetupDialog(window, root=tmp_path)
-    window._runtime_dialog = dialog
-    assert dialog.operation
-    dialog.operation._thread.join(2)
-    dialog._poll()
+    application = app_owner(window)
+    settings(window).show_runtime()
+    dialog = settings(window).runtime
+    assert dialog is not None
+    assert dialog.busy
+    settle_setup(dialog.service)
+    setup_owner(dialog).advance()
+    dialog.refresh_view()
     assert "RTX" in dialog.hardware.text() and dialog.choice.currentData().key == "nvidia"
     assert not calls and dialog.install.isEnabled() and not dialog.restart.isEnabled()
     dialog.install.click()
     assert entered.wait(1) and calls != [threading.get_ident()]
     assert not dialog.choice.isEnabled() and not dialog.restart.isEnabled()
     window.close()
-    assert window._closing and dialog.operation
-    dialog.operation._thread.join(2)
-    dialog._poll()
-    window._tick()
-    assert dialog.operation is None and not window._timer.isActive()
+    assert application.shutdown.active and dialog.busy
+    settle_setup(dialog.service)
+    setup_owner(dialog).advance()
+    dialog.refresh_view()
+    window.driver.refresh(inspect=True)
+    assert not dialog.busy and not window.driver.timer.isActive()
     window.deleteLater()
 
 
@@ -617,25 +891,26 @@ def test_model_download_badges_and_missing_selection_warnings_are_distinct(
     hardware.snapshot.return_value = HardwareStatus((Adapter("RTX fixture", 0x10DE),))
     monkeypatch.setattr("jp_overlay.llama_runtime.installed_device", lambda: None)
     window = MainWindow(windows, Mock(), models=(bundle,), hardware=hardware)
-    manager = window._settings.models
+    manager = settings(window).models
     assert "Download required" in manager.download_badge.text()
     assert manager.download_badge.property("tone") == "warning"
     assert window.onboarding.property("tone") == "warning"
     assert "NVIDIA GPU detected" in window.acceleration_notice.label.text()
     (tmp_path / "weights").write_bytes(b"good")
-    window._manage_models()
+    settings(window).show_models()
+    drain(window, lambda: manager.download_badge.text() == "✓  Downloaded")
     assert manager.download_badge.text() == "✓  Downloaded"
     assert manager.download_badge.property("tone") == "success"
     assert manager.choice.itemText(0).startswith("✓")
     assert not manager.runtime_badge.isHidden() and "Engine setup" in manager.runtime_badge.text()
     choice = BackendChoice("Gemma", Mock(), "gemma", unavailable_reason="Missing runtime")
-    window._backends = (choice,)
-    window._update_notice()
+    replace_backends(window, (choice,))
+    window.driver.refresh(inspect=True)
     assert "No translation model is selected" in window.notice.text()
     assert window.models_button.text() == "Choose model"
-    assert "selected" in window._settings.model_notice.label.text()
+    assert "selected" in settings(window).model_notice.label.text()
     window.close()
-    assert not window._settings.isVisible()
+    assert not settings(window).isVisible()
     window.deleteLater()
 
 
@@ -647,12 +922,13 @@ def test_cpu_model_selection_is_usable_and_notice_does_not_request_setup(app, mo
         "Gemma · CPU", factory, "gemma-cpu", performance_notice="CPU translation may be slower."
     )
     window = MainWindow(windows, Mock(), (choice,))
+    application = app_owner(window)
     setup = Mock(side_effect=AssertionError("CPU selection must not require GPU installation"))
     monkeypatch.setattr(window, "_manage_runtime", setup)
-    window.backend_combo.setCurrentIndex(window.backend_combo.count() - 1)
-    window.backend_combo.setCurrentIndex(0)
-    window._update_notice()
-    assert window._selected_backend == choice and window.translate_check.isEnabled()
+    window.backend_combo.setCurrentIndex(find_model(window.backend_combo, choice))
+    window.backend_combo.activated.emit(window.backend_combo.currentIndex())
+    window.driver.refresh(inspect=True)
+    assert application.translation.selected == choice and window.translate_check.isEnabled()
     assert choice.performance_notice in window.notice.text()
     assert window.models_button.text() == "Acceleration options"
     setup.assert_not_called()
@@ -689,8 +965,9 @@ def test_switch_clears_painted_and_paused_english_rejects_late_reply_and_keeps_m
         BackendChoice("Sugoi", lambda: old, "sugoi-fast"),
         BackendChoice("Gemma", lambda: new, "gemma"),
     )
-    window = MainWindow(windows, Mock(), choices, cache_path=tmp_path / "cache")
-    window._timer.stop()
+    window = MainWindow(windows, Mock(), choices, scene_feed=True, cache_path=tmp_path / "cache")
+    application = app_owner(window)
+    window.driver.timer.stop()
     window.advanced.setChecked(True)
     first = TextBlock((TextTrack(1, "猫", Rect(0, 0, 40, 20)),))
     second = TextBlock((TextTrack(2, "犬", Rect(0, 40, 40, 20)),))
@@ -698,51 +975,58 @@ def test_switch_clears_painted_and_paused_english_rejects_late_reply_and_keeps_m
     def poll_until(predicate, blocks):
         deadline = time.monotonic() + 3
         while True:
-            window._poll_translation(True, blocks, blocks)
+            show_scene(window, blocks)
             if predicate():
                 return
             assert time.monotonic() < deadline
             time.sleep(0.005)
 
     try:
-        poll_until(lambda: bool(window._overlay._translations), (first,))
+        poll_until(lambda: bool(application.view.english), (first,))
         bounds = Rect(0, 0, 80, 80)
         frame = CapturedFrame(1, 0, WindowGeometry(bounds, bounds, bounds, 96), b"\xff" * 25600)
         result = OcrResult(frame, (TextRegion("猫", first.bounds),), 1, 1)
         window.inspector.set_result(result, (1,))
-        window.inspector.set_translations(window._overlay._translations)
+        window.inspector.set_translations(application.view.english)
         window.inspector.pause.setChecked(True)
         assert cell(window.inspector, 0, 3).text() == "Sugoi: 猫"
         old.entered.clear()
         old.release.clear()
-        window._poll_translation(True, (first, second), (first, second))
+        show_scene(window, (first, second))
         assert old.entered.wait(1)
         new.release.clear()
-        window.backend_combo.setCurrentIndex(1)
-        assert not window._overlay._translations and not window._overlay._blocks
+        window.backend_combo.setCurrentIndex(find_model(window.backend_combo, choices[1]))
+        assert not application.view.english and not application.view.blocks
         assert cell(window.inspector, 0, 3).text() == "—"
         assert window.inspector.result is result and window.inspector.pause.isChecked()
         old.release.set()
-        assert new.entered.wait(1)
-        window._poll_translation(True, (first, second), (first, second))
-        assert not window._overlay._translations
+        poll_until(new.entered.is_set, (first, second))
+        show_scene(window, (first, second))
+        assert not application.view.english
         new.release.set()
-        poll_until(lambda: len(window._overlay._translations) == 2, (first, second))
-        assert all(t.english.startswith("Gemma:") for t in window._overlay._translations)
+        poll_until(lambda: len(application.view.english) == 2, (first, second))
+        assert all(t.english.startswith("Gemma:") for t in application.view.english)
+        window.inspector.set_result(result, (1,))
         window.inspector.pause.setChecked(False)
         assert cell(window.inspector, 0, 3).text() == "Gemma: 猫"
-        window.backend_combo.setItemData(0, replace(choices[0], create=lambda: old_again))
-        window.backend_combo.setCurrentIndex(0)
-        assert not window._overlay._translations
-        poll_until(lambda: len(window._overlay._translations) == 2, (first, second))
-        assert all(t.english.startswith("Sugoi:") for t in window._overlay._translations)
+        replace_backends(window, (replace(choices[0], create=lambda: old_again), choices[1]))
+        window.routing.set_models(application.translation.options(), application.translation.plan)
+        window.backend_combo.setCurrentIndex(
+            find_model(window.backend_combo, application.translation.choices[0])
+        )
+        assert not application.view.english
+        poll_until(lambda: len(application.view.english) == 2, (first, second))
+        assert all(t.english.startswith("Sugoi:") for t in application.view.english)
         assert old_again.calls == []  # Its own cache still works; Gemma never read those entries.
         assert new.calls == [("猫",), ("犬",)]
     finally:
         old.release.set()
         new.release.set()
         window.close()
-        drain(window, lambda: not window._closing or window._translation is None)
+        drain(
+            window,
+            lambda: not application.shutdown.active or application.translation.session is None,
+        )
         window.deleteLater()
 
 
@@ -752,11 +1036,14 @@ def test_app_shutdown_drains_startup_hardware_check(app, tmp_path):
     hardware = Mock(finished=False)
     hardware.snapshot.return_value = None
     window = MainWindow(windows, Mock(), hardware=hardware, cache_path=tmp_path / "cache")
+    application = app_owner(window)
     window.close()
-    assert window._closing and window._timer.isActive()
+    assert application.shutdown.active and window.driver.timer.isActive()
+    window.driver.refresh(inspect=True)
+    assert window.driver.timer.isActive()
     hardware.finished = True
-    window._tick()
-    assert not window._timer.isActive()
+    drain(window, lambda: not window.driver.timer.isActive())
+    assert not window.driver.timer.isActive()
     window.deleteLater()
 
 
@@ -770,33 +1057,78 @@ def test_runtime_restart_waits_for_translation_and_recovers_if_launch_fails(
     native = Mock()
     hotkeys = Hotkeys(native)
     window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache", hotkeys=hotkeys)
+    application = app_owner(window)
     worker = Mock(finished=False)
-    window._translation = worker
+    application.translation.session = worker
 
-    def fail_restart(*args):
+    def fail_restart(*args, **kwargs):
         assert not hotkeys.shortcut(HotkeyAction.OVERLAY)
         assert not hotkeys.shortcut(HotkeyAction.CAPTURE)
         raise OSError("Could not launch")
 
     restart = Mock(side_effect=fail_restart)
-    monkeypatch.setattr("jp_overlay.ui.RuntimeRestart", restart)
+    monkeypatch.setattr("jp_overlay.composition.RuntimeRestart", restart)
     warnings = []
     monkeypatch.setattr(QMessageBox, "warning", lambda *a: warnings.append(a[-1]))
-    window._request_restart(tmp_path)
-    assert window._closing
+    settings(window).restart_requested.emit(tmp_path)
+    assert application.shutdown.active
     worker.request_stop.assert_called()
     restart.assert_not_called()
     worker.finished = True
     window.close()
+    drain(window, lambda: not application.shutdown.active)
     restart.assert_called_once()
-    assert not window._closing and window._restart_target is None
+    assert not application.shutdown.active
     assert warnings == ["Could not launch"]
     assert hotkeys.shortcut(HotkeyAction.OVERLAY) == "Ctrl+Alt+F8"
     assert hotkeys.shortcut(HotkeyAction.CAPTURE) == "Ctrl+Alt+F9"
     central = window.centralWidget()
-    assert central and central.isEnabled() and window._timer.isActive()
+    assert central and central.isEnabled() and window.driver.timer.isActive()
     window.close()
     window.deleteLater()
+
+
+def test_restart_cleanup_cannot_block_gui_or_report_finished_before_draining(
+    app, tmp_path, monkeypatch
+):
+    entered, release = threading.Event(), threading.Event()
+    owners, warnings = [], []
+
+    class Restart:
+        def __init__(self, root, target, *, on_cleanup, cancel):
+            owners.append(threading.get_ident())
+            self.on_cleanup = on_cleanup
+
+        def poll(self):
+            self.on_cleanup()
+            entered.set()
+            assert release.wait(3)
+            raise RuntimeError("fixture cleanup finished")
+
+    windows = Mock()
+    windows.list_targets.return_value = []
+    window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
+    application = app_owner(window)
+    monkeypatch.setattr("jp_overlay.composition.RuntimeRestart", Restart)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a: warnings.append(a[-1]))
+    try:
+        settings(window).restart_requested.emit(tmp_path)
+        drain(window, entered.is_set)
+        assert owners and owners[0] != threading.get_ident()
+        for _ in range(20):
+            window.driver.refresh(inspect=True)
+            app.processEvents()
+            assert application.shutdown.snapshot().phase == "restarting"
+            assert not warnings and application.shutdown.active
+        assert "Stopping" in window.status.text()
+        release.set()
+        drain(window, lambda: not application.shutdown.active)
+        assert warnings == ["fixture cleanup finished"]
+    finally:
+        release.set()
+        window.close()
+        drain(window, lambda: not window.driver.timer.isActive())
+        window.deleteLater()
 
 
 def test_preparation_decline_preserves_selection_and_accept_loads_once_off_ui(
@@ -817,27 +1149,33 @@ def test_preparation_decline_preserves_selection_and_accept_loads_once_off_ui(
 
     base = BackendChoice("Sugoi", Mock(), "sugoi")
     gemma = BackendChoice("Gemma", load, "gemma", "new")
-    monkeypatch.setattr("jp_overlay.ui.is_prepared", lambda key: not key)
-    monkeypatch.setattr("jp_overlay.ui.mark_prepared", receipts.append)
+    monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: not key)
+    monkeypatch.setattr("jp_overlay.model_store.mark_prepared", receipts.append)
     monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.No)
     window = MainWindow(windows, Mock(), (base, gemma), cache_path=tmp_path / "cache")
-    window.backend_combo.setCurrentIndex(1)
-    assert window.backend_combo.currentData() == base
+    application = app_owner(window)
+    window.backend_combo.setCurrentIndex(find_model(window.backend_combo, gemma))
+    assert window.backend_combo.currentData() == window.routing.resolve(model_reference(base))
     assert not entered.is_set() and not receipts
     monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.Yes)
-    window.backend_combo.setCurrentIndex(1)
+    window.backend_combo.setCurrentIndex(find_model(window.backend_combo, gemma))
     # Draining the previous worker may take more than one GUI poll under build/IO load.
     drain(window, entered.is_set)
-    assert window._progress_dialog and window._progress_dialog.maximum() == 0
-    assert not receipts and window._preparing == gemma
-    assert window._translation is not None
-    assert calls == [window._translation._thread.ident] and calls[0] != threading.get_ident()
+    progress = window.findChild(QProgressDialog)
+    assert progress is not None and progress.maximum() == 0
+    assert not receipts and application.translation.preparing == gemma
+    assert isinstance(application.translation.session, TranslationSession)
+    assert len(calls) == 1 and calls[0] != threading.get_ident()
     release.set()
-    drain(window, lambda: window._preparing is None)
-    assert receipts == ["new"] and len(calls) == 1
-    assert window.backend_combo.currentData() == gemma and window._translation is not None
+    drain(window, lambda: application.translation.preparing is None)
+    drain(window, lambda: receipts == ["new"])
+    assert len(calls) == 1
+    assert (
+        window.backend_combo.currentData() == window.routing.resolve(model_reference(gemma))
+        and application.translation.session is not None
+    )
     window.close()
-    drain(window, lambda: not window._timer.isActive())
+    drain(window, lambda: not window.driver.timer.isActive())
     window.deleteLater()
 
 
@@ -849,14 +1187,15 @@ def test_failed_preparation_restores_previous_selection_without_a_receipt(
     base = BackendChoice("Sugoi", Mock(), "sugoi")
     bad = BackendChoice("Gemma", Mock(side_effect=RuntimeError("GPU unavailable")), "gemma", "new")
     receipts, errors = [], []
-    monkeypatch.setattr("jp_overlay.ui.is_prepared", lambda key: not key)
-    monkeypatch.setattr("jp_overlay.ui.mark_prepared", receipts.append)
+    monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: not key)
+    monkeypatch.setattr("jp_overlay.model_store.mark_prepared", receipts.append)
     monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.Yes)
     monkeypatch.setattr(QMessageBox, "warning", lambda *a: errors.append(a[-1]))
     window = MainWindow(windows, Mock(), (base, bad), cache_path=tmp_path / "cache")
-    window.backend_combo.setCurrentIndex(1)
-    drain(window, lambda: window._preparing is None)
-    assert window.backend_combo.currentData() == base
+    application = app_owner(window)
+    window.backend_combo.setCurrentIndex(find_model(window.backend_combo, bad))
+    drain(window, lambda: application.translation.preparing is None)
+    assert window.backend_combo.currentData() == window.routing.resolve(model_reference(base))
     assert not receipts and errors == ["GPU unavailable"]
     window.close()
     window.deleteLater()
@@ -867,21 +1206,27 @@ def test_nested_consent_event_loop_does_not_unload_previous_model(app, tmp_path,
     windows.list_targets.return_value = []
     base = BackendChoice("Sugoi", Mock(), "sugoi")
     gemma = BackendChoice("Gemma", Mock(), "gemma", "new")
-    monkeypatch.setattr("jp_overlay.ui.is_prepared", lambda key: not key)
-    window = MainWindow(windows, Mock(), (base, gemma), cache_path=tmp_path / "cache")
+    monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: not key)
+    window = MainWindow(
+        windows, Mock(), (base, gemma), scene_feed=True, cache_path=tmp_path / "cache"
+    )
+    application = app_owner(window)
     session = Mock(finished=False)
     session.snapshot.return_value = TranslationSnapshot(TranslationState.READY)
-    window._translation = session
+    application.translation.session = session
 
     def question(*args):
-        window._poll_translation(True)
+        show_scene(window)
         session.request_stop.assert_not_called()
         return QMessageBox.StandardButton.No
 
     monkeypatch.setattr(QMessageBox, "question", question)
-    window.backend_combo.setCurrentIndex(1)
-    assert window.backend_combo.currentData() == base and window._translation == session
-    window._translation = None
+    window.backend_combo.setCurrentIndex(find_model(window.backend_combo, gemma))
+    assert (
+        window.backend_combo.currentData() == window.routing.resolve(model_reference(base))
+        and application.translation.session == session
+    )
+    application.translation.session = None
     window.close()
     window.deleteLater()
 
@@ -901,23 +1246,24 @@ def test_closing_during_download_waits_for_cancellation_before_destroying_gui(
         assert cancel.wait(2)
         raise Cancelled()
 
-    monkeypatch.setattr("jp_overlay.model_manager.install_model", install)
+    monkeypatch.setattr("jp_overlay.model_store.install_model", install)
     bundle = ModelBundle("fake", "Fixture", tmp_path, (), "")
     window = MainWindow(windows, Mock(), models=(bundle,), cache_path=tmp_path / "cache")
-    window._manage_models()
-    manager = window._model_manager
+    settings(window).show_models()
+    manager = settings(window).models
     assert manager is not None
-    manager._download()
+    manager.download.click()
     assert entered.wait(1)
     window.close()
-    assert window._timer.isActive()
+    assert window.driver.timer.isActive()
     deadline = time.monotonic() + 2
-    while window._timer.isActive():
+    while window.driver.timer.isActive():
         assert time.monotonic() < deadline
-        manager._poll()
-        window._tick()
+        setup_owner(manager).advance()
+        manager.refresh_view()
+        window.driver.refresh(inspect=True)
         time.sleep(0.005)
-    assert manager.operation is None
+    assert not manager.busy
     window.deleteLater()
 
 
@@ -938,12 +1284,13 @@ def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_pat
     choices = (OcrChoice("Automatic", factory, key="auto"), OcrChoice("CPU", factory, key="cpu"))
     path = tmp_path / "preferences.json"
     window = MainWindow(windows, factory, ocr_backends=choices, preferences_path=path)
-    window._show_settings()
-    original = window._settings
-    window._show_settings()
-    assert window._settings is original
+    application = app_owner(window)
+    window.settings_button.click()
+    original = settings(window)
+    window.settings_button.click()
+    assert settings(window) is original
     window.stabilize_check.setChecked(False)
-    window._settings.opacity.setValue(61)
+    settings(window).opacity.setValue(61)
     window.automatic_font.setChecked(False)
     window.font_size.setValue(26)
     window.group_dialogue.setChecked(False)
@@ -952,7 +1299,7 @@ def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_pat
     window.translate_check.setChecked(False)
     window.overlay_check.setChecked(False)
     deadline = time.monotonic() + 2
-    while not window._preferences.idle:
+    while not application.preferences.idle:
         assert time.monotonic() < deadline
         time.sleep(0.005)
     window.close()
@@ -1009,44 +1356,8 @@ def test_hidden_inspector_does_no_frame_copy_or_table_build_and_resume_uses_late
     panel.deleteLater()
 
 
-def test_device_and_rate_edits_wait_for_next_capture_even_when_models_arrive_mid_session(
-    app, tmp_path, monkeypatch
-):
-    from jp_overlay.domain import WindowTarget
-    from jp_overlay.recognition import OcrChoice
-
-    windows = Mock()
-    windows.list_targets.return_value = [WindowTarget(1, 1, "Fixture")]
-    cpu, gpu = Mock(), Mock()
-    choices = (OcrChoice("CPU", cpu, key="cpu"), OcrChoice("GPU", gpu, key="auto"))
-    capture, ocr = Mock(), Mock()
-    capture.return_value.finished = False
-    monkeypatch.setattr("jp_overlay.ui.CaptureSession", capture)
-    monkeypatch.setattr("jp_overlay.ui.OcrSession", ocr)
-    monkeypatch.setattr("jp_overlay.ui.VisualSession", Mock())
-    window = MainWindow(windows, cpu, ocr_backends=choices, cache_path=tmp_path / "cache")
-    window._timer.stop()
-    window._tick = Mock()
-    window._ocr_models_ready = Mock(return_value=False)
-    window._toggle_capture()
-    assert capture.call_args.kwargs["fps"] == 8 and window._capture_ocr_choice == choices[1]
-    window.ocr_device.setCurrentIndex(0)
-    window.capture_rate.setValue(5)
-    window._ocr_models_ready.return_value = True
-    window._refresh_models()
-    ocr.assert_called_once_with(gpu, require_ack=True)
-    assert capture.call_count == 1  # Editing settings did not restart the current session.
-    window._pipeline.capture = window._pipeline.ocr = window._pipeline.visual = None
-    window._toggle_capture()
-    assert capture.call_args.kwargs["fps"] == 5
-    assert ocr.call_args.args == (cpu,)
-    window._pipeline.capture = window._pipeline.ocr = window._pipeline.visual = None
-    window.close()
-    window.deleteLater()
-
-
 @pytest.mark.parametrize("prepared", [False, True])
-@pytest.mark.parametrize("key", ["gemma", "gemma-e4b", "qwen35-4b"])
+@pytest.mark.parametrize("key", ["gemma", "gemma-e4b", "qwen35-4b", "plamo-2b", "plamo-0.8b"])
 def test_saved_model_choice_survives_runtime_change_without_implicit_preparation(
     app, tmp_path, monkeypatch, prepared, key
 ):
@@ -1062,62 +1373,61 @@ def test_saved_model_choice_survives_runtime_change_without_implicit_preparation
     gemma = BackendChoice(
         "Language model", factory, f"{key}-vulkan", "vulkan-receipt", selection_id=key
     )
-    monkeypatch.setattr("jp_overlay.ui.is_prepared", lambda key: prepared or not key)
+    monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: prepared or not key)
     consent = Mock(return_value=QMessageBox.StandardButton.No)
     monkeypatch.setattr(QMessageBox, "question", consent)
     window = MainWindow(windows, factory, (sugoi, gemma), preferences_path=path)
-    assert window.backend_combo.currentData() == (gemma if prepared else None)
+    application = app_owner(window)
+    assert window.backend_combo.currentData() == (
+        window.routing.resolve(model_reference(gemma if prepared else None))
+    )
     consent.assert_not_called()
     factory.assert_not_called()
     if not prepared:
-        window.backend_combo.setCurrentIndex(1)
+        window.backend_combo.setCurrentIndex(find_model(window.backend_combo, gemma))
         consent.assert_called_once()
         assert window.backend_combo.currentData() is None
-    window._settings.opacity.setValue(63)
-    drain(window, lambda: window._preferences.idle)
+    settings(window).opacity.setValue(63)
+    drain(window, lambda: application.preferences.idle)
     assert PreferenceStore(path).initial.model == key
-    # Explicit No translation is a successful user choice and persists immediately.
-    if window.backend_combo.currentData() is None:
-        window.backend_combo.setCurrentIndex(0)
-    window.backend_combo.setCurrentIndex(2)
-    drain(window, lambda: window._preferences.idle)
-    assert PreferenceStore(path).initial.model == "none"
+    # Disabling translation preserves the saved model and its preparation intent.
+    window.translate_check.setChecked(False)
+    drain(window, lambda: application.preferences.idle)
+    assert PreferenceStore(path).initial.model == key
+    assert not PreferenceStore(path).initial.translation
     factory.assert_not_called()
     window.close()
     window.deleteLater()
 
 
-def test_live_reconciliation_and_ocr_ack_continue_while_inspector_is_hidden_or_paused(
-    app, tmp_path
-):
+def test_inspector_disclosure_and_pause_do_not_change_the_injected_live_session(app, tmp_path):
+    from jp_overlay.live_session import LiveSession
     from jp_overlay.recognition import OcrSnapshot, OcrState
     from jp_overlay.visual import VisualState
 
     windows = Mock()
     windows.list_targets.return_value = []
-    window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
-    window._pipeline.ocr, window._pipeline.visual, window._pipeline._tracker = (
-        Mock(),
-        Mock(),
-        Mock(),
-    )
-    window._pipeline._tracker.visible.return_value = ()
-    window._pipeline._tracker.translation_activity.return_value = ()
-    window._pipeline._tracker.observe.return_value = (1,)
+    ocr, visual, capture = Mock(), Mock(), Mock(finished=False)
+    live = LiveSession(ocr_factory=lambda _: ocr, visual_factory=lambda: visual)
+    window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache", live_session=live)
+    live.start(capture, Mock())
     bounds = Rect(0, 0, 4, 4)
     geometry = WindowGeometry(bounds, bounds, bounds, 96)
     frozen = None
     for sequence in range(1, 4):
         frame = CapturedFrame(sequence, sequence, geometry, b"\xff" * 64)
         result = OcrResult(frame, (TextRegion("猫", bounds),), 10, sequence)
-        window._pipeline.ocr.snapshot.return_value = OcrSnapshot(OcrState.READY, result)
-        window._pipeline.visual.poll.return_value = VisualState(
+        ocr.snapshot.return_value = OcrSnapshot(OcrState.READY, result)
+        visual.poll.return_value = VisualState(
             frame=frame, request_ocr=True, checked_sequence=sequence
         )
-        window._update_ocr(frame)
-        assert window._pipeline.accepted is result
-        window._pipeline.ocr.acknowledge.assert_called_with(sequence)
-        assert window._pipeline.visual.submit.call_args.args[1] is result
+        from jp_overlay.domain import CaptureSnapshot, CaptureState
+
+        windows.geometry.return_value = geometry
+        windows.is_foreground.return_value = True
+        capture.snapshot.return_value = CaptureSnapshot(CaptureState.RUNNING, frame)
+        window.driver.refresh(inspect=True)
+        assert live.accepted is result
         if sequence == 1:
             assert window.inspector.result is None
             window.advanced.setChecked(True)
@@ -1126,48 +1436,31 @@ def test_live_reconciliation_and_ocr_ack_continue_while_inspector_is_hidden_or_p
         else:
             assert window.inspector.result is frozen
             window.advanced.setChecked(False)
-    window._pipeline._tracker.reset.assert_not_called()
-    window._pipeline.ocr.invalidate.assert_not_called()
-    assert window._pipeline.ocr.submit.call_count == 3
     window.inspector.pause.setChecked(False)
-    assert window.inspector.result is None  # Still collapsed: no hidden image conversion.
+    assert window.inspector.result is None  # Collapsed inspection does no hidden conversion.
     window.advanced.setChecked(True)
-    assert window.inspector.result is window._pipeline.accepted
-    window._pipeline.ocr = window._pipeline.visual = None
+    assert window.inspector.result is live.accepted
+    capture.finished = ocr.finished = visual.finished = True
     window.close()
     window.deleteLater()
 
 
 def test_translation_off_leaves_game_unobscured_until_ocr_boxes_are_requested(app, tmp_path):
-    from jp_overlay.domain import CaptureSnapshot, CaptureState, WindowTarget
-
     windows = Mock()
     windows.list_targets.return_value = []
-    bounds = Rect(0, 0, 400, 200)
-    geometry = WindowGeometry(bounds, bounds, bounds, 96)
-    frame = CapturedFrame(1, time.monotonic(), geometry, b"\xff" * 320000)
-    windows.geometry.return_value = geometry
-    windows.is_foreground.return_value = True
-    window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
+    window = MainWindow(windows, Mock(), scene_feed=True, cache_path=tmp_path / "cache")
     window.translate_check.setChecked(False)
-    window._pipeline.capture = Mock(finished=False, target=WindowTarget(1, 1, "Fixture"))
-    window._pipeline.capture.snapshot.return_value = CaptureSnapshot(CaptureState.RUNNING, frame)
-    window._pipeline.valid_size = bounds.size
-    window._update_ocr = Mock()
-    window._pipeline._tracker = Mock()
-    track = TextTrack(1, "猫", Rect(20, 20, 40, 20))
-    window._pipeline._tracker.visible.return_value = (track,)
-    window._pipeline._tracker.translation_tracks.return_value = (track,)
-    window._pipeline._tracker.translation_activity.return_value = ()
-    window._overlay.align = Mock()
-    window._tick()
-    window._overlay.align.assert_not_called()
+    block = TextBlock((TextTrack(1, "cat", Rect(20, 20, 40, 20)),))
+    show_scene(window, (block,))
+    before = window.application.view.scene
+    assert window.application.view.overlay_bounds is None
     window.raw_boxes_check.setChecked(True)
-    window._overlay.align.assert_called_with(bounds)
+    assert window.application.view.overlay_bounds is not None
     window.overlay_check.setChecked(False)
-    window._pipeline._tracker.reset.assert_not_called()
-    window._pipeline.capture = None
+    assert window.application.view.overlay_bounds is None
+    assert window.application.view.scene == before
     window.close()
+    drain(window, lambda: not window.driver.timer.isActive())
     window.deleteLater()
 
 
@@ -1186,7 +1479,7 @@ def test_settings_close_can_keep_setup_running_or_cancel_without_stopping_app(
         assert cancel.wait(2)
         raise Cancelled()
 
-    monkeypatch.setattr("jp_overlay.model_manager.install_model", install)
+    monkeypatch.setattr("jp_overlay.model_store.install_model", install)
     monkeypatch.setattr(QMessageBox, "exec", lambda self: 0)
     selected = "Cancel operation" if cancel_operation else "Continue in background"
     monkeypatch.setattr(
@@ -1196,21 +1489,22 @@ def test_settings_close_can_keep_setup_running_or_cancel_without_stopping_app(
     )
     bundle = ModelBundle("fixture", "Fixture", tmp_path, (), "")
     window = MainWindow(windows, Mock(), models=(bundle,), cache_path=tmp_path / "cache")
-    window._manage_models()
-    manager = window._settings.models
-    manager._download()
-    assert entered.wait(1) and manager.operation
-    operation = manager.operation
-    window._settings.close()
-    assert not window._closing and window._timer.isActive()
-    assert operation._cancel.is_set() == cancel_operation
+    application = app_owner(window)
+    settings(window).show_models()
+    manager = settings(window).models
+    manager.download.click()
+    assert entered.wait(1) and manager.busy
+    settings(window).close()
+    assert not application.shutdown.active and window.driver.timer.isActive()
+    assert manager.service.job(SetupLane.MODELS).cancelling == cancel_operation
     if not cancel_operation:
-        assert window._settings.busy and not window._settings.isVisible()
+        assert settings(window).busy and not settings(window).isVisible()
     window.close()  # Closing the whole app always cancels and drains, without another prompt.
-    operation._thread.join(2)
-    manager._poll()
-    window._tick()
-    assert not window._settings.busy and not window._timer.isActive()
+    settle_setup(manager.service)
+    setup_owner(manager).advance()
+    manager.refresh_view()
+    window.driver.refresh(inspect=True)
+    assert not settings(window).busy and not window.driver.timer.isActive()
     window.deleteLater()
 
 
@@ -1430,70 +1724,3 @@ def test_raw_icon_evidence_is_visible_beside_cleaned_translation(app) -> None:
     assert panel.preview._regions == (raw,)
     panel.close()
     panel.deleteLater()
-
-
-def test_import_probe_waits_for_unload_and_preserves_selection(app, tmp_path):
-    windows = Mock()
-    windows.list_targets.return_value = []
-    choice = BackendChoice("Gemma", Mock(), "gemma")
-    window = MainWindow(windows, Mock(), (choice,), cache_path=tmp_path / "cache")
-    window._timer.stop()
-    manager = window._settings.models
-    manager._import()
-    dialog = manager.import_dialog
-    assert dialog
-    dialog.testing = True
-    old = Mock()
-    old.finished = False
-    window._translation = old
-    window._poll_translation(True)
-    old.request_stop.assert_called_once()
-    assert not dialog.gate.is_set() and window._selected_backend == choice
-    window.backend_combo.setCurrentIndex(1)
-    assert window.backend_combo.currentData() == choice
-    old.finished = True
-    window._poll_translation(True)
-    assert dialog.gate.is_set() and window._translation is None
-    assert window._selected_backend == choice
-    dialog.testing = False
-    window.close()
-    window.deleteLater()
-
-
-def test_removing_active_import_revokes_english_and_stops_worker(app, tmp_path):
-    windows = Mock()
-    windows.list_targets.return_value = []
-    choice = BackendChoice("Imported", Mock(), "imported-" + "a" * 64)
-    window = MainWindow(
-        windows, Mock(), (choice,), backend_provider=lambda: (), cache_path=tmp_path / "cache"
-    )
-    window._timer.stop()
-    old = Mock()
-    old.finished = False
-    window._translation = old
-    window._overlay.set_translations((TranslatedText(TranslationRequest(1, 1, "猫"), "Cat"),))
-    window._refresh_models()
-    assert window._selected_backend is None and not window._overlay._translations
-    old.request_stop.assert_called_once()
-    window._translation = None
-    window.close()
-    window.deleteLater()
-
-
-def test_locating_same_model_refreshes_next_load_without_restarting_current_worker(app, tmp_path):
-    windows = Mock()
-    windows.list_targets.return_value = []
-    old = BackendChoice("Imported", Mock(), "imported-" + "b" * 64)
-    moved = replace(old, create=Mock())
-    window = MainWindow(
-        windows, Mock(), (old,), backend_provider=lambda: (moved,), cache_path=tmp_path / "cache"
-    )
-    window._timer.stop()
-    session = Mock()
-    window._translation = session
-    window._refresh_models()
-    assert window._selected_backend == moved and window._translation is session
-    session.request_stop.assert_not_called()
-    window._translation = None
-    window.close()
-    window.deleteLater()

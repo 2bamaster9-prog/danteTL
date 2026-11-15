@@ -2,7 +2,7 @@
 
 from PySide6.QtWidgets import QLabel, QProgressBar, QVBoxLayout, QWidget
 
-from jp_overlay.model_store import ModelProgress
+from jp_overlay.setup_values import ModelProgress
 
 
 class SetupProgressView(QWidget):

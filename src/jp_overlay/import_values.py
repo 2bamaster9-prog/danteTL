@@ -1,7 +1,6 @@
 """Model import descriptions. Inspection and registration live in gguf_models."""
 
 from dataclasses import dataclass
-from pathlib import Path
 
 PROFILES = {
     "auto": "Automatic (recommended)",
@@ -32,12 +31,6 @@ class ImportedModel:
     architecture: str
     profile: str
     template_hash: str
-
-    def available(self) -> bool:
-        try:
-            return Path(self.path).is_file() and Path(self.path).stat().st_size == self.size
-        except OSError:
-            return False
 
 
 @dataclass(frozen=True, slots=True)

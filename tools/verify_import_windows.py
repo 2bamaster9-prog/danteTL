@@ -9,14 +9,15 @@ from unittest.mock import patch
 
 import shiboken6
 from PySide6.QtWidgets import QApplication, QMessageBox
+from verification_isolation import app_owner
+from verification_isolation import create_window as MainWindow
 
 from jp_overlay import gguf_models
-from jp_overlay.app import create_recognizer, ocr_backends, translation_backends
 from jp_overlay.demo import DemoWindow
 from jp_overlay.domain import WindowTarget
+from jp_overlay.model_factories import create_recognizer, ocr_backends, translation_backends
 from jp_overlay.model_store import model_catalog
 from jp_overlay.translation import TranslationState
-from jp_overlay.ui import MainWindow
 from jp_overlay.windows import Windows
 
 
@@ -46,8 +47,8 @@ def main() -> None:
 
     with (
         patch.object(gguf_models, "registry_path", return_value=registry),
-        patch("jp_overlay.ui.is_prepared", return_value=False),
-        patch("jp_overlay.ui.mark_prepared"),
+        patch("jp_overlay.model_store.is_prepared", return_value=False),
+        patch("jp_overlay.model_store.mark_prepared"),
         patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes),
         patch.object(QMessageBox, "warning") as warning,
     ):
@@ -59,10 +60,12 @@ def main() -> None:
             translation_backends(),
             ocr_backends=ocr_backends(),
             models=model_catalog(),
+            include_imports=True,
             backend_provider=translation_backends,
             cache_path=output / "cache.sqlite3",
             preferences_path=output / "preferences.json",
         )
+        application = app_owner(window)
         window.show()
         manager = window._settings.models
         try:
@@ -73,17 +76,20 @@ def main() -> None:
             gemma_index = next(
                 i
                 for i in range(window.backend_combo.count())
-                if getattr(window.backend_combo.itemData(i), "key", "").startswith("gemma-")
+                if getattr(window.backend_combo.itemData(i), "preference_key", "") == "gemma"
             )
             window.backend_combo.setCurrentIndex(gemma_index)
             wait(
                 lambda: (
-                    window._translation
-                    and window._translation.snapshot().state == TranslationState.READY
-                    and window._preparing is None
+                    application.translation.session
+                    and application.translation.session.snapshot().state == TranslationState.READY
+                    and application.translation.preparing is None
                 )
             )
-            old_choice, old_worker = window._selected_backend, window._translation
+            old_choice, old_worker = (
+                application.translation.selected,
+                application.translation.session,
+            )
             assert old_worker is not None
             wait(lambda: window._overlay._translations)
             window._settings.show_models()
@@ -92,24 +98,31 @@ def main() -> None:
             assert dialog
             dialog.file.setText(str(args.model.resolve()))
             dialog.start_test()
-            wait(lambda: "Testing on" in dialog.status.text() or dialog.operation is None)
-            assert dialog.operation, dialog.status.text()
+            wait(lambda: "Testing on" in dialog.status.text() or not dialog.busy)
+            assert dialog.busy, dialog.status.text()
             dialog.cancel()
-            wait(lambda: dialog.operation is None)
+            wait(lambda: not dialog.busy)
             assert not dialog.add_button.isEnabled() and not registry.exists()
-            assert window._selected_backend == old_choice
+            assert application.translation.selected == old_choice
             dialog.start_test()
-            wait(lambda: dialog.operation is None)
+            wait(lambda: not dialog.busy)
             assert dialog.add_button.isEnabled(), dialog.status.text()
-            assert old_worker.finished and window._selected_backend == old_choice
+            assert old_worker.finished and application.translation.selected == old_choice
             assert not registry.exists(), "Testing must not register or select the model"
             dialog.grab().save(str(output / "import-review.png"))
-            assert dialog.test and dialog.test.result
-            result = dialog.test.result
+            assert dialog.service.probe_result
+            result = dialog.service.probe_result
             dialog.add_button.click()
-            wait(lambda: dialog.operation is None and registry.exists())
-            assert window._selected_backend == old_choice
+            wait(lambda: not dialog.busy and registry.exists())
+            assert application.translation.selected == old_choice
             model = gguf_models.read_registry()[0]
+            # Registration completes before the bounded inventory worker publishes it.
+            wait(
+                lambda: any(
+                    getattr(window.backend_combo.itemData(i), "key", "") == model.key
+                    for i in range(window.backend_combo.count())
+                )
+            )
             index = next(
                 i
                 for i in range(window.backend_combo.count())
@@ -118,21 +131,21 @@ def main() -> None:
             window.backend_combo.setCurrentIndex(index)
             wait(
                 lambda: (
-                    window._selected_backend
-                    and window._selected_backend.key == model.key
-                    and window._translation
-                    and window._translation.snapshot().state == TranslationState.READY
+                    application.translation.selected
+                    and application.translation.selected.key == model.key
+                    and application.translation.session
+                    and application.translation.session.snapshot().state == TranslationState.READY
                 )
             )
             wait(lambda: window._overlay._translations)
             window.grab().save(str(output / "imported-active.png"))
-            imported_worker = window._translation
+            imported_worker = application.translation.session
             window.backend_combo.setCurrentIndex(gemma_index)
             wait(
                 lambda: (
-                    window._translation
-                    and window._translation.snapshot().state == TranslationState.READY
-                    and window._selected_backend == old_choice
+                    application.translation.session
+                    and application.translation.session.snapshot().state == TranslationState.READY
+                    and application.translation.selected == old_choice
                 )
             )
             assert imported_worker is not None
@@ -147,8 +160,8 @@ def main() -> None:
             app.processEvents()
             manager.grab().save(str(output / "registered-model.png"))
             manager._remove()
-            wait(lambda: manager.operation is None and not gguf_models.read_registry())
-            assert args.model.is_file() and window._selected_backend == old_choice
+            wait(lambda: not manager.busy and not gguf_models.read_registry())
+            assert args.model.is_file() and application.translation.selected == old_choice
             assert not warning.called, warning.call_args
             (output / "results.json").write_text(
                 json.dumps(
@@ -178,4 +191,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    from verification_isolation import run_isolated
+
+    run_isolated(main)

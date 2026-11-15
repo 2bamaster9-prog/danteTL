@@ -98,6 +98,7 @@ select = ["E", "F", "I", "B", "UP", "SIM"]
 include = ["src", "tests", "tools"]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
+strict = ["src/jp_overlay/application_api.py", "src/jp_overlay/application_values.py", "src/jp_overlay/model_selection.py", "src/jp_overlay/view_services.py", "src/jp_overlay/translation_activity.py", "src/jp_overlay/capture_lifecycle.py", "src/jp_overlay/application_presentation.py"]
 venvPath = "."
 venv = ".venv"
 
@@ -105,3 +106,19 @@ venv = ".venv"
 testpaths = ["tests"]
 addopts = "-ra"
 markers = ["windows: requires an interactive Windows desktop and real capture"]
+
+[tool.importlinter]
+root_package = "jp_overlay"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Application and processing owners are independent of Qt and composition"
+type = "forbidden"
+source_modules = ["jp_overlay.capture_lifecycle", "jp_overlay.translation_activity", "jp_overlay.application_presentation", "jp_overlay.application_session", "jp_overlay.translation_coordinator", "jp_overlay.cloud_services", "jp_overlay.setup_coordinator", "jp_overlay.model_inventory", "jp_overlay.live_session", "jp_overlay.shutdown", "jp_overlay.grouping", "jp_overlay.tracking", "jp_overlay.visual"]
+forbidden_modules = ["PySide6", "shiboken6", "jp_overlay.ui", "jp_overlay.settings_window", "jp_overlay.composition", "jp_overlay.app", "jp_overlay.desktop_driver"]
+
+[[tool.importlinter.contracts]]
+name = "Views cannot reach backend implementations, credential stores or installers"
+type = "forbidden"
+source_modules = ["jp_overlay.ui", "jp_overlay.settings_window", "jp_overlay.cloud_settings", "jp_overlay.cloud_editor", "jp_overlay.model_manager", "jp_overlay.model_import_dialog", "jp_overlay.runtime_dialog", "jp_overlay.setup_assistant", "jp_overlay.routing_controls", "jp_overlay.history_panel"]
+forbidden_modules = ["jp_overlay.composition", "jp_overlay.model_factories", "jp_overlay.model_store", "jp_overlay.gguf_probe", "jp_overlay.gguf_models", "jp_overlay.runtime_setup", "jp_overlay.first_run", "jp_overlay.meiki", "jp_overlay.sugoi", "jp_overlay.gemma", "jp_overlay.plamo", "jp_overlay.gguf_backend", "jp_overlay.cloud", "jp_overlay.credentials", "jp_overlay.protected_store", "jp_overlay.preferences", "jp_overlay.translation", "jp_overlay.recognition", "jp_overlay.capture", "jp_overlay.visual", "jp_overlay.model_inventory", "jp_overlay.model_lifecycle", "jp_overlay.application_session", "jp_overlay.setup_coordinator", "jp_overlay.cloud_services", "jp_overlay.hardware", "jp_overlay.translation_coordinator", "jp_overlay.shutdown", "jp_overlay.cloud_profiles", "jp_overlay.cloud_catalog", "jp_overlay.chatgpt_auth", "jp_overlay.api_connections", "jp_overlay.translation_routing", "jp_overlay.dialogue_classifier", "jp_overlay.owned_process", "jp_overlay.runtime_restart", "jp_overlay.runtime_application", "jp_overlay.runtime_downloads", "jp_overlay.runtime_probe", "jp_overlay.setup_process"]

@@ -1,7 +1,7 @@
 """Real capture/models with stationary labels, animated backgrounds, and injected OCR noise.
 
 No game pixels are read. After initial English, deliberately corrupt or omit local OCR
-observations and require the same rendered blocks on every UI poll for 12 seconds.
+observations and require the same blocks on every publication and UI poll for 12 seconds.
 """
 
 import argparse
@@ -10,29 +10,32 @@ import os
 import threading
 import time
 from dataclasses import replace
+from math import sin
 from pathlib import Path
 
 import shiboken6
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent
+from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPaintEvent
 from PySide6.QtWidgets import QApplication, QWidget
+from verification_isolation import app_owner
+from verification_isolation import create_window as MainWindow
 
-from jp_overlay.app import create_recognizer, translation_backends
 from jp_overlay.domain import CapturedFrame, Rect, WindowTarget
 from jp_overlay.grouping import TextBlock
+from jp_overlay.model_factories import create_recognizer, translation_backends
 from jp_overlay.recognition import OcrChoice, OcrState, TextCharacter, TextRegion
 from jp_overlay.text_content import has_japanese
 from jp_overlay.translation import TranslatedText
-from jp_overlay.ui import MainWindow
 from jp_overlay.windows import Windows
 
 
 class CharacterScreen(QWidget):
-    def __init__(self) -> None:
+    def __init__(self, *, low_contrast: bool = False) -> None:
         super().__init__()
         self.setWindowTitle("DanteJP stationary-label verification")
         self.resize(900, 580)
         self.phase = 0
+        self.low_contrast = low_contrast
         self.new_label = False
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.advance)
@@ -44,14 +47,21 @@ class CharacterScreen(QWidget):
 
     def paintEvent(self, event: QPaintEvent) -> None:
         p = QPainter(self)
-        p.fillRect(self.rect(), QColor(20, 35, 55))
-        for i in range(130):
-            p.setPen(QColor(45 + i % 25, 60 + i % 25, 80 + i % 25))
-            p.drawEllipse((i * 43 + self.phase * 3) % 900, i * 71 % 580, 4, 4)
+        if self.low_contrast:
+            brightness = round(200 + 10 * sin(self.phase / 15))
+            gradient = QLinearGradient(0, 0, self.width(), self.height())
+            for stop, value in ((0, brightness), (0.5, brightness + 8), (1, brightness)):
+                gradient.setColorAt(stop, QColor(value, value, value))
+            p.fillRect(self.rect(), gradient)
+        else:
+            p.fillRect(self.rect(), QColor(20, 35, 55))
+            for i in range(130):
+                p.setPen(QColor(45 + i % 25, 60 + i % 25, 80 + i % 25))
+                p.drawEllipse((i * 43 + self.phase * 3) % 900, i * 71 % 580, 4, 4)
         font = QFont("Yu Gothic UI")
         font.setPixelSize(24)
         p.setFont(font)
-        p.setPen(QColor(245, 245, 245))
+        p.setPen(QColor(235, 235, 235, 204) if self.low_contrast else QColor(245, 245, 245))
         for i, label in enumerate(
             ("キャラクター", "装備を確認", "攻撃力", "防御力", "速度", "詳細を表示")
         ):
@@ -64,6 +74,9 @@ class CharacterScreen(QWidget):
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
+    parser.add_argument(
+        "--low-contrast", action="store_true", help="Faint text over smooth moving bright light"
+    )
     parser.add_argument(
         "--appearance",
         action="store_true",
@@ -80,9 +93,15 @@ def main() -> int:
             self.provider = getattr(self.engine, "provider", "")
             self.message = getattr(self.engine, "message", "")
 
-        def recognize(self, frame: CapturedFrame) -> tuple[TextRegion, ...]:
+        @property
+        def scan_costs(self):
+            return getattr(self.engine, "scan_costs", None)
+
+        def recognize(
+            self, frame: CapturedFrame, *, cropped: bool = False
+        ) -> tuple[TextRegion, ...]:
             nonlocal passes
-            regions = self.engine.recognize(frame)
+            regions = self.engine.recognize(frame, cropped=cropped)
             if not armed.is_set():
                 return regions
             passes += 1
@@ -110,7 +129,7 @@ def main() -> int:
     windows.enable_dpi_awareness()
     app = QApplication([])
     app.setQuitOnLastWindowClosed(False)
-    target = CharacterScreen()
+    target = CharacterScreen(low_contrast=args.low_contrast)
     target.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
     target.show()
     window = MainWindow(
@@ -124,6 +143,7 @@ def main() -> int:
         ),
         ocr_backends=(OcrChoice(args.device, NoisyRecognizer, 8),),
     )
+    application = app_owner(window)
     window.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
     window.show()
     window.advanced.setChecked(True)
@@ -137,28 +157,66 @@ def main() -> int:
     polls = 0
     finished = False
     appearance_started = 0.0
-    evidence = {}
+    evidence = {"low_contrast": args.low_contrast}
+    publication_checks = 0
+    violations: list[str] = []
+    original_blocks = window._overlay.set_blocks
+    original_translations = window._overlay.set_translations
+
+    def audit_publication() -> None:
+        nonlocal publication_checks
+        if baseline is None or finished:
+            return
+        publication_checks += 1
+        prior = {item.request for item in baseline[1]}
+        current = tuple(item for item in window._overlay._translations if item.request in prior)
+        if len(violations) < 8 and (
+            current != baseline[1]
+            or any(block not in (window._overlay._blocks or ()) for block in (baseline[0] or ()))
+        ):
+            violations.append("Existing English/geometry changed between timer polls")
+
+    def audited_blocks(blocks: tuple[TextBlock, ...]) -> None:
+        original_blocks(blocks)
+        audit_publication()
+
+    def audited_translations(results: tuple[TranslatedText, ...], *, enabled: bool = False) -> None:
+        original_translations(results, enabled=enabled)
+        audit_publication()
+
+    window._overlay.set_blocks = audited_blocks
+    window._overlay.set_translations = audited_translations
 
     def tick() -> None:
         nonlocal stable_since, baseline, polls, finished, appearance_started
         now = time.monotonic()
         try:
             if finished:
-                if window._pipeline.capture is None:
+                if application.shutdown.snapshot().phase == "ready":
                     assert (
-                        window._pipeline.visual is None
-                        and window._pipeline.ocr is None
-                        and window._translation is None
+                        application.live.visual is None
+                        and application.live.ocr is None
+                        and application.translation.session is None
                     )
                     evidence["all_workers_stopped"] = True
+                    evidence["publication_checks"] = publication_checks
+                    evidence["publication_violations"] = violations
                     target.close()
                     timer.stop()
                     app.quit()
                 return
             assert now - started < 70, "Stationary retention verification timed out"
-            if window._pipeline.ocr:
-                assert window._pipeline.ocr.snapshot().state != OcrState.FAILED, (
-                    window._pipeline.ocr.snapshot().message
+            assert not violations, violations
+            evidence["max_visual_ms"] = round(
+                max(
+                    evidence.get("max_visual_ms", 0),
+                    application.live.visual_state.duration_ms,
+                ),
+                2,
+            )
+            if application.live.ocr:
+                assert application.live.ocr.snapshot().state != OcrState.FAILED, (
+                    application.live.ocr.snapshot().message
                 )
             showing = (window._overlay._blocks, window._overlay._translations)
             if appearance_started:
@@ -197,11 +255,13 @@ def main() -> int:
             if baseline is None:
                 if (
                     len(showing[1]) < 6
-                    or not window._translation
-                    or window._translation.snapshot().pending
+                    or not application.translation.session
+                    or application.translation.session.snapshot().pending
                 ):
                     return
                 baseline = showing
+                args.output.parent.mkdir(parents=True, exist_ok=True)
+                target.grab().save(str(args.output.with_suffix(".png")))
                 stable_since = now
                 armed.set()
             else:
@@ -215,7 +275,7 @@ def main() -> int:
                 if now - stable_since >= 8 and "advanced_resumed" not in evidence:
                     assert window.inspector.result is None
                     window.advanced.setChecked(True)
-                    assert window.inspector.result is window._pipeline.accepted
+                    assert window.inspector.result is application.live.accepted
                     evidence["advanced_resumed"] = True
                 if now - stable_since >= 12 and passes >= 6:
                     evidence.update(
@@ -248,8 +308,8 @@ def main() -> int:
             evidence["noisy_ocr_passes"] = passes
             evidence["baseline"] = repr(baseline)
             evidence["showing"] = repr((window._overlay._blocks, window._overlay._translations))
-            evidence["visual"] = repr(replace(window._pipeline.visual_state, frame=None))
-            evidence["tracks"] = repr(window._pipeline._tracker.translation_activity())
+            evidence["visual"] = repr(replace(application.live.visual_state, frame=None))
+            evidence["tracks"] = repr(application.live._tracker.translation_activity())
             latest = window.inspector.result
             evidence["last_coverage"] = repr(latest.scanned) if latest else "none"
             evidence["last_source_age"] = now - latest.frame.captured_at if latest else None
@@ -268,4 +328,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from verification_isolation import run_isolated
+
+    run_isolated(main)

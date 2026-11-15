@@ -12,16 +12,18 @@ from unittest.mock import patch
 import shiboken6
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
+from verification_isolation import app_owner
+from verification_isolation import create_window as MainWindow
 
-from jp_overlay import runtime_downloads, runtime_setup, ui
-from jp_overlay.app import create_recognizer, ocr_backends, translation_backends
+from jp_overlay import composition, runtime_downloads, runtime_setup
 from jp_overlay.hotkeys import HotkeyAction, Hotkeys
 from jp_overlay.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
+from jp_overlay.model_factories import create_recognizer, ocr_backends, translation_backends
 from jp_overlay.model_store import model_catalog
 from jp_overlay.paths import is_standalone
 from jp_overlay.preferences import Preferences, PreferenceStore
 from jp_overlay.runtime_restart import RuntimeRestart
-from jp_overlay.ui import MainWindow
+from jp_overlay.setup_coordinator import SetupLane
 from jp_overlay.windows import Windows
 
 
@@ -67,6 +69,7 @@ def main() -> int:
         preferences_path=preferences,
         hotkeys=hotkeys,
     )
+    application = app_owner(window)
     assert not window._settings.hotkeys.problem, window._settings.hotkeys.problem
     window.show()
     window._manage_models()
@@ -83,17 +86,17 @@ def main() -> int:
     original_prepare = runtime_setup.prepare_wheels
     download_samples = {}
 
-    def prepare(export, cache, progress, cancel):
+    def prepare(export, cache, progress, cancel, **kwargs):
         if args.cache_root:
             cache = args.cache_root / ".runtime-downloads/wheels"
-        return original_prepare(export, cache, progress, cancel)
+        return original_prepare(export, cache, progress, cancel, offline=args.offline, **kwargs)
 
     def command(argv, *a, **kw):
         if args.cache_root:
             a[1]["UV_CACHE_DIR"] = str(args.cache_root / ".uv-cache")
             if not is_standalone():
                 a[1]["UV_PYTHON_INSTALL_DIR"] = str(args.cache_root / ".python")
-        if args.offline and "--offline" not in argv:
+        if args.offline and Path(argv[0]).stem == "uv" and "--offline" not in argv:
             argv = [*argv, "--offline"]
         return original_command(argv, *a, **kw)
 
@@ -110,7 +113,7 @@ def main() -> int:
         try:
             assert time.monotonic() - started < 600, "Runtime verification timed out"
             if stage == 0:
-                if dialog.operation:
+                if dialog.busy:
                     return
                 evidence["hardware"] = dialog.hardware.text()
                 index = next(
@@ -122,12 +125,12 @@ def main() -> int:
                 dialog.grab().save(str(args.output / "offer.png"))
                 assert dialog.install.isEnabled()
                 dialog.install.click()
-                assert dialog.operation
+                assert dialog.busy
                 stage = 1
             elif stage == 1:
-                if dialog.operation:
+                if dialog.busy:
                     busy_ticks += 1
-                    sample = dialog.operation.snapshot().download
+                    sample = dialog.service.job(SetupLane.RUNTIME).progress.download
                     if sample and sample.total and 0 < sample.received < sample.total:
                         download_samples[sample.name] = [sample.received, sample.total]
                         if len(download_samples) == 1:
@@ -147,7 +150,7 @@ def main() -> int:
                 stage = 2
             elif stage == 2:
                 if window.isVisible():
-                    assert window._closing, window.status.text()
+                    assert application.shutdown.active, window.status.text()
                     return
                 assert child and child.process.poll() is None
                 assert runtime_setup.selected_runtime(root) == child.target
@@ -169,6 +172,13 @@ def main() -> int:
                     return
                 post = ctypes.WinDLL("user32").PostMessageW
                 post.argtypes = (ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t)
+                welcome = [t for t in targets if t.title == "DanteJP · Welcome"]
+                if welcome:
+                    # Modal welcome can ignore the owner's close. Dismiss it first;
+                    # the next tick closes the app after the modal guard has unwound.
+                    for target in welcome:
+                        post(target.hwnd, 0x0010, 0, 0)
+                    return
                 for target in targets:
                     post(target.hwnd, 0x0010, 0, 0)  # WM_CLOSE
                 stage = 3
@@ -204,10 +214,12 @@ def main() -> int:
     with (
         patch.object(runtime_setup, "run_setup_command", command),
         patch.object(runtime_setup, "prepare_wheels", prepare),
-        patch.object(runtime_downloads, "urlopen", side_effect=RuntimeError("Offline cache miss"))
+        patch.object(
+            runtime_downloads, "download_file", side_effect=RuntimeError("Offline cache miss")
+        )
         if args.offline
         else nullcontext(),
-        patch.object(ui, "RuntimeRestart", restart),
+        patch.object(composition, "RuntimeRestart", restart),
     ):
         app.exec()
     native.close()

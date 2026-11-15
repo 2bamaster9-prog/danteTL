@@ -99,7 +99,7 @@ def main() -> int:
                 assert windows.is_foreground(target) == foreground_before, "Overlay stole focus"
                 style, affinity = windows.overlay_properties(int(overlay.winId()))
                 assert style & 0x80000 and style & 0x20 and style & 0x08000000
-                assert affinity == 0x11, "Overlay is not excluded from capture"
+                assert affinity == 0, "Overlay must allow screenshots/display recording"
                 evidence["initial_client"] = geometry.client.size
                 evidence["dpi"] = geometry.dpi
                 evidence["native_input_transparency"] = True

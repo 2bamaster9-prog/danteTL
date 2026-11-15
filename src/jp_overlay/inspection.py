@@ -1,5 +1,8 @@
 """Frame-matched OCR inspection: zoomable image, numbered boxes, and copyable text."""
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import (
     QColor,
@@ -28,9 +31,9 @@ from PySide6.QtWidgets import (
 )
 
 from jp_overlay.domain import CapturedFrame, Rect
-from jp_overlay.recognition import OcrResult, TextRegion
+from jp_overlay.ocr_values import OcrResult, TextRegion
 from jp_overlay.text_content import content_region
-from jp_overlay.translation import TranslatedText
+from jp_overlay.translation_values import TranslatedText
 
 
 def frame_image(frame: CapturedFrame) -> QImage:
@@ -139,6 +142,7 @@ class OcrInspector(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self.result: OcrResult | None = None
+        self._deferred = False
         self._active = True
         self._latest_result: OcrResult | None = None
         self._latest_frame: CapturedFrame | None = None
@@ -225,7 +229,7 @@ class OcrInspector(QWidget):
         self._render_latest()
 
     def _render_latest(self) -> None:
-        if not self._active or self.pause.isChecked():
+        if self._deferred or not self._active or self.pause.isChecked():
             return
         changed = self._translations != self._latest_translations
         self._translations = self._latest_translations
@@ -238,6 +242,21 @@ class OcrInspector(QWidget):
             self._clear_display()
             self._display_frame = self._latest_frame
             self.preview.set_frame(self._latest_frame)
+
+    @contextmanager
+    def defer_rendering(self) -> Iterator[None]:
+        """Keep only the latest pair/English; the UI timer calls refresh() to paint.
+
+        Clear and model-switch revocation remain immediate, including while paused.
+        """
+        previous, self._deferred = self._deferred, True
+        try:
+            yield
+        finally:
+            self._deferred = previous
+
+    def refresh(self) -> None:
+        self._render_latest()
 
     def _show_result(self, result: OcrResult, track_ids: tuple[int | None, ...] | None) -> None:
         if self.result is result:

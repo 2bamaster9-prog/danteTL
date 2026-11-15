@@ -19,13 +19,14 @@ from uuid import uuid4
 import shiboken6
 from PySide6.QtCore import QByteArray, QTimer
 from PySide6.QtWidgets import QApplication
+from verification_isolation import app_owner
+from verification_isolation import create_window as MainWindow
 
 from jp_overlay.demo import DemoWindow
 from jp_overlay.domain import WindowTarget
 from jp_overlay.hotkeys import HotkeyAction, Hotkeys
 from jp_overlay.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
 from jp_overlay.preferences import Preferences
-from jp_overlay.ui import MainWindow
 from jp_overlay.windows import Windows
 
 
@@ -130,7 +131,23 @@ def main() -> int:
         raise AssertionError("This capture/hotkey fixture must not load OCR models")
 
     window = MainWindow(windows, no_recognizer, hotkeys=hotkeys, preferences_path=preferences)
-    window._ocr_models_ready = lambda: False
+    application = app_owner(window)
+    from dataclasses import replace
+
+    from jp_overlay.model_inventory import inspect_models
+    from jp_overlay.model_store import model_catalog
+
+    missing = tuple(
+        replace(b, directory=args.output / "absent-ocr", bundled_directory=None)
+        for b in model_catalog()
+        if b.key == "ocr"
+    )
+    inventory = application.inventory
+    data = inspect_models(missing, lambda: (), include_imports=False)
+    inventory._inspect = lambda: data
+    inventory._snapshot = replace(
+        inventory.snapshot(), data=data, revision=inventory.snapshot().revision + 1
+    )
     window.showMinimized()
     child = subprocess.Popen(
         [sys.executable, __file__, "--fixture", str(identity)],
@@ -187,7 +204,7 @@ def main() -> int:
                     timer.stop()
                     app.exit(1)
                     return
-                if window._timer.isActive():
+                if window.driver.timer.isActive():
                     window.close()
                     return
                 timer.stop()
@@ -212,7 +229,7 @@ def main() -> int:
                 chord(0x78)
                 advance()
             elif stage == 2:
-                session = window._pipeline.capture
+                session = application.live.capture
                 if not session or not session.snapshot().frame:
                     return
                 assert session.target == target and window.isMinimized()
@@ -228,7 +245,7 @@ def main() -> int:
                 assert not window.overlay_check.isChecked(), (
                     "Repeat key-down toggled more than once"
                 )
-                assert window._pipeline.capture is session
+                assert application.live.capture is session
                 frame = session.snapshot().frame
                 assert frame
                 frame_sequence = frame.sequence
@@ -240,7 +257,7 @@ def main() -> int:
                 frame = session.snapshot().frame
                 if not frame or frame.sequence <= frame_sequence:
                     return
-                assert window.overlay_check.isChecked() and window._pipeline.capture is session
+                assert window.overlay_check.isChecked() and application.live.capture is session
                 assert windows.is_foreground(target), "Hotkey stole focus"
                 evidence["hide_show_preserves_capture_and_focus"] = True
                 row = window._settings.hotkeys.rows[HotkeyAction.OVERLAY]
@@ -268,21 +285,21 @@ def main() -> int:
                 advance()
             elif stage == 7:
                 assert session
-                if window._pipeline.capture is not None:
+                if application.live.capture is not None:
                     return
                 assert session.finished and window.start_button.isEnabled()
                 evidence["stop_drained_capture"] = True
                 chord(0x78)
                 advance()
             elif stage == 8:
-                if not window._pipeline.capture or not window._pipeline.capture.snapshot().frame:
+                if not application.live.capture or not application.live.capture.snapshot().frame:
                     return
                 assert (
-                    window._pipeline.capture is not session
-                    and window._pipeline.capture.target == target
+                    application.live.capture is not session
+                    and application.live.capture.target == target
                 )
                 evidence["restart_same_selected_source"] = True
-                session = window._pipeline.capture
+                session = application.live.capture
                 frame = session.snapshot().frame
                 assert frame
                 frame_sequence = frame.sequence
@@ -295,45 +312,45 @@ def main() -> int:
                     return
                 frame = session.snapshot().frame
                 assert frame and frame.sequence > frame_sequence
-                assert hotkeys.holding_original and window._showing_original
-                assert window._pipeline.capture is session and window.overlay_check.isChecked()
+                assert hotkeys.holding_original and application.original
+                assert application.live.capture is session and window.overlay_check.isChecked()
                 assert not window._overlay.isVisible()
                 evidence["hold_keeps_capture_running"] = True
                 send_keys([(17, 2)])  # Release a modifier before the main key.
                 held_keys.remove(17)
                 advance()
             elif stage == 10:
-                if hotkeys.holding_original or window._showing_original:
+                if hotkeys.holding_original or application.original:
                     return
                 evidence["modifier_release_seconds"] = round(time.monotonic() - stage_at, 3)
-                assert window._pipeline.capture is session and window.overlay_check.isChecked()
+                assert application.live.capture is session and window.overlay_check.isChecked()
                 end_hold()
                 begin_hold()
                 advance()
             elif stage == 11:
-                if not window._showing_original:
+                if not application.original:
                     return
                 end_hold()
                 advance()
             elif stage == 12:
-                if window._showing_original:
+                if application.original:
                     return
                 assert not native._release_timer.isActive()
                 evidence["key_up_restores_without_capture_restart"] = (
-                    window._pipeline.capture is session
+                    application.live.capture is session
                 )
-                assert window._pipeline.capture is session
+                assert application.live.capture is session
                 begin_hold()
                 advance()
             elif stage == 13:
-                if not window._showing_original:
+                if not application.original:
                     return
                 window.showNormal()
                 window.activateWindow()
                 windows.user.SetForegroundWindow(int(window.winId()))
                 advance()
             elif stage == 14:
-                if window._showing_original:
+                if application.original:
                     return
                 assert not hotkeys.holding_original
                 end_hold()
@@ -348,7 +365,7 @@ def main() -> int:
         except Exception as error:
             failure = f"Stage {stage}: {error}"
             evidence["last_status"] = window.status.text()
-            evidence["capture_exists"] = window._pipeline.capture is not None
+            evidence["capture_exists"] = application.live.capture is not None
             print(f"FAIL: {failure}", flush=True)
             stage = 99
             window.close()
@@ -384,4 +401,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from verification_isolation import run_isolated
+
+    run_isolated(main)

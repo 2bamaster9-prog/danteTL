@@ -157,8 +157,14 @@ class Windows:
         result = self.user.SetWindowLongPtrW(hwnd, -20, style | 0x80000 | 0x20 | 0x08000000 | 0x80)
         if result == 0 and ctypes.get_last_error():
             raise ctypes.WinError(ctypes.get_last_error())
-        if not self.user.SetWindowDisplayAffinity(hwnd, 0x11):
-            raise RuntimeError("Windows could not exclude the overlay from capture.")
+
+    def set_overlay_capture(self, hwnd: int, included: bool) -> None:
+        # Capture targets one game HWND, so the independent overlay is never OCR input.
+        # WDA_NONE / WDA_EXCLUDEFROMCAPTURE affect desktop capture of this surface only.
+        if not self.user.SetWindowDisplayAffinity(hwnd, 0 if included else 0x11):
+            raise RuntimeError(
+                "Windows could not change whether screen capture includes the overlay."
+            )
 
     def place_overlay(self, hwnd: int, bounds: Rect) -> None:
         # Physical desktop coordinates avoid Qt's virtual-desktop DPI conversion.

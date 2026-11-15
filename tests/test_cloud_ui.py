@@ -1,0 +1,815 @@
+import os
+import threading
+import time
+from dataclasses import replace
+from unittest.mock import Mock
+
+import httpx2
+import pytest
+from ui_fixtures import app_owner, cloud_owner, show_scene
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
+from ui_fixtures import cloud_panel as CloudSettings  # noqa: E402
+from ui_fixtures import (
+    cloud_service,  # noqa: E402
+    find_model,
+)
+from ui_fixtures import create_window as MainWindow
+
+from jp_overlay.chatgpt_auth import PLAN_SCOPE, ChatGPTConnections  # noqa: E402
+from jp_overlay.cloud import CloudBackend  # noqa: E402
+from jp_overlay.cloud_catalog import CatalogModel  # noqa: E402
+from jp_overlay.cloud_profiles import CloudProfile, CloudProfiles  # noqa: E402
+from jp_overlay.domain import Rect  # noqa: E402
+from jp_overlay.grouping import TextBlock  # noqa: E402
+from jp_overlay.preferences import Preferences, PreferenceStore  # noqa: E402
+from jp_overlay.protected_store import ProtectedStore  # noqa: E402
+from jp_overlay.tracking import TextTrack  # noqa: E402
+from jp_overlay.translation import BackendChoice  # noqa: E402
+from jp_overlay.translation_coordinator import model_reference
+from jp_overlay.translation_plan import TranslationPlan  # noqa: E402
+from jp_overlay.translation_routing import RoutedTranslationSession  # noqa: E402
+
+
+class MemorySecrets:
+    def __init__(self):
+        self.values = {}
+        self.writers = []
+
+    def read(self, key):
+        return self.values.get(key)
+
+    def write(self, key, secret):
+        self.writers.append(threading.get_ident())
+        self.values[key] = secret
+
+    def delete(self, key):
+        self.values.pop(key, None)
+
+
+@pytest.fixture
+def app():
+    return QApplication.instance() or QApplication([])
+
+
+def drain(app, predicate):
+    deadline = time.monotonic() + 4
+    while not predicate():
+        assert time.monotonic() < deadline
+        app.processEvents()
+        time.sleep(0.005)
+
+
+def test_model_refresh_preserves_draft_and_route_caches_offline_and_keeps_old_list_on_error(
+    app, tmp_path, monkeypatch
+):
+    secrets = MemorySecrets()
+    catalog = CloudProfiles(tmp_path / "cloud.json")
+    panel = CloudSettings(
+        catalog=catalog,
+        secrets=lambda: secrets,
+        connections=ChatGPTConnections(ProtectedStore(tmp_path / "accounts")),
+    )
+    calls = []
+
+    def fetch(provider, secret, cancel):
+        calls.append((provider, secret, threading.get_ident()))
+        return (CatalogModel("future-chat", "Future chat"),)
+
+    monkeypatch.setattr("jp_overlay.cloud_services.fetch_models", fetch)
+    try:
+        drain(app, lambda: not cloud_owner(panel).busy)
+        panel.open_editor()
+        editor = panel.editor
+        assert editor
+        editor.provider.setCurrentIndex(editor.provider.findData("openai"))
+        editor.key.setText("fixture-new-key")
+        previous = editor.model.currentData()
+        editor.refresh_models.click()
+        drain(app, lambda: not cloud_owner(panel).busy)
+        assert editor.model.currentData() == previous
+        assert not panel.profiles and not secrets.values
+        assert calls == [("openai", "fixture-new-key", calls[0][2])]
+        assert calls[0][2] != threading.get_ident()
+        editor.model.setCurrentIndex(editor.model.findData("future-chat"))
+        editor.save.click()
+        drain(app, lambda: not cloud_owner(panel).busy)
+        saved = panel.profiles[0]
+        assert saved.model == "future-chat" and saved.decoding == "default"
+        assert len(secrets.values) == 1
+        assert cloud_owner(panel).catalog_cache.read("openai", saved.credential) == fetch(
+            "openai", "", None
+        )
+        revision = cloud_owner(panel).revision
+        panel.open_editor(saved)
+        editor = panel.editor
+        assert editor
+        assert (
+            editor.model.currentData() == "future-chat"
+            and "Cached catalog" in editor.model_note.text()
+        )
+
+        def fail(*args):
+            raise ValueError("Provider unavailable")
+
+        monkeypatch.setattr("jp_overlay.cloud_services.fetch_models", fail)
+        editor.refresh_models.click()
+        drain(app, lambda: not cloud_owner(panel).busy)
+        assert "unavailable" in editor.status.text()
+        assert editor.model.currentData() == saved.model
+        assert panel.profiles == (saved,) and cloud_owner(panel).revision == revision
+        monkeypatch.setattr("jp_overlay.cloud_services.fetch_models", lambda *args: ())
+        editor.refresh_models.click()
+        drain(app, lambda: not cloud_owner(panel).busy)
+        assert editor.model.currentData() == saved.model
+        assert panel.profiles == (saved,) and cloud_owner(panel).revision == revision
+        editor.reject()
+        assert panel.editor is None
+    finally:
+        panel.close()
+        panel.deleteLater()
+
+
+def test_models_setup_saves_secret_off_gui_and_does_not_make_a_request(app, tmp_path):
+    secrets = MemorySecrets()
+    panel = CloudSettings(
+        catalog=CloudProfiles(tmp_path / "cloud.json"),
+        secrets=lambda: secrets,
+        connections=ChatGPTConnections(ProtectedStore(tmp_path / "accounts")),
+    )
+    try:
+        drain(app, lambda: not cloud_owner(panel).busy)
+        panel.open_editor()
+        editor = panel.editor
+        assert editor
+        editor.provider.setCurrentIndex(editor.provider.findData("deepseek"))
+        editor.key.setText("fixture-secret")
+        editor.model.setCurrentIndex(1)
+        editor.save.click()
+        drain(app, lambda: not cloud_owner(panel).busy)
+        assert len(panel.profiles) == 1
+        profile = panel.profiles[0]
+        assert panel.selected_profile() == profile and cloud_owner(panel).available(profile.key)
+        assert secrets.writers and threading.get_ident() not in secrets.writers
+        assert "fixture-secret" not in (tmp_path / "cloud.json").read_text()
+        assert (
+            panel.editor is None
+            and cloud_owner(panel).allowance(profile.key).snapshot().requests == 0
+        )
+        panel.open_editor()
+        editor = panel.editor
+        assert editor
+        editor.provider.setCurrentIndex(editor.provider.findData("deepseek"))
+        editor.key.setText("must-not-cross-providers")
+        editor.provider.setCurrentIndex(editor.provider.findData("chatgpt"))
+        assert not editor.key.text()
+        editor.reject()
+    finally:
+        panel.close()
+        panel.deleteLater()
+
+
+def test_cloud_only_needs_no_local_model_and_keeps_english_until_real_change(
+    app, tmp_path, monkeypatch
+):
+    profile = CloudProfile.new("openai")
+    catalog = CloudProfiles(tmp_path / "cloud.json")
+    catalog.write((profile,))
+    secrets = MemorySecrets()
+    secrets.write(profile.key, "fixture")
+    service = cloud_service(
+        catalog=catalog,
+        secrets=lambda: secrets,
+        connections=ChatGPTConnections(ProtectedStore(tmp_path / "accounts")),
+    )
+    windows = Mock()
+    windows.list_targets.return_value = []
+    window = MainWindow(
+        windows, Mock(), scene_feed=True, cache_path=tmp_path / "cache", cloud=service
+    )
+    application = app_owner(window)
+    try:
+        drain(app, lambda: not application.cloud.busy)
+        window.driver.timer.stop()
+        window.driver.wakeup.close()
+        panel = window._settings.models.cloud
+        calls = []
+
+        def handle(request):
+            calls.append(request)
+            return httpx2.Response(
+                200,
+                json={"choices": [{"finish_reason": "stop", "message": {"content": "Settings"}}]},
+            )
+
+        monkeypatch.setattr(
+            cloud_owner(panel),
+            "create_backend",
+            lambda p, game: CloudBackend(
+                p, "fixture", game=game, transport=httpx2.MockTransport(handle)
+            ),
+        )
+        window.routing.simple.setCurrentIndex(
+            find_model(window.routing.simple, window.routing.resolve("cloud:" + profile.key))
+        )
+        assert not application.translation.selected
+        assert application.controls.assignment.active_models == ("cloud:" + profile.key,)
+        block = TextBlock((TextTrack(1, "設定", Rect(10, 10, 100, 30)),))
+        show_scene(window, (block,))
+        assert isinstance(application.translation.session, RoutedTranslationSession)
+        assert application.translation.session.local is None
+        drain(
+            app,
+            lambda: bool(
+                application.translation.session
+                and application.translation.session.snapshot().results
+            ),
+        )
+        show_scene(window, (block,))
+        before = application.view.english
+        assert before and before[0].english == "Settings"
+        for _ in range(30):
+            show_scene(window, (block,))
+            assert application.view.english == before
+        assert len(calls) == 1
+        session = application.translation.session
+        for _ in range(4):
+            window.routing.advanced.setChecked(not window.routing.advanced.isChecked())
+            show_scene(window, (block,))
+            assert application.translation.session is session and application.view.english == before
+        assert len(calls) == 1
+        panel.open_editor(profile)
+        assert panel.editor
+        panel.editor.name.setText("Unsaved rename")
+        panel.editor.reject()
+        show_scene(window, (block,))
+        assert application.translation.session is session and application.view.english == before
+        assert len(calls) == 1
+        window.routing.game_from_window.setChecked(False)
+        window.routing.game.setText("Different game")
+        window.routing.game.editingFinished.emit()
+        assert not application.view.english
+        assert application.translation.session.snapshot().results == ()
+    finally:
+        if application.translation.session:
+            application.translation.session.request_stop()
+            drain(
+                app,
+                lambda: (
+                    not application.translation.session or application.translation.session.finished
+                ),
+            )
+        window.close()
+        window.deleteLater()
+
+
+def test_simple_selection_declined_preparation_and_custom_disclosure_preserve_route(
+    app, tmp_path, monkeypatch
+):
+    profile = CloudProfile.new("openai")
+    catalog = CloudProfiles(tmp_path / "cloud.json")
+    catalog.write((profile,))
+    secrets = MemorySecrets()
+    secrets.write(profile.key, "fixture")
+    service = cloud_service(
+        catalog=catalog,
+        secrets=lambda: secrets,
+        connections=ChatGPTConnections(ProtectedStore(tmp_path / "accounts")),
+    )
+    preferences = PreferenceStore(tmp_path / "prefs.json")
+    preferences._write(
+        replace(Preferences(), model="none", translation_route="cloud", cloud_model=profile.key)
+    )
+    windows = Mock()
+    windows.list_targets.return_value = []
+    backend = BackendChoice(
+        "Unprepared model", Mock(), "unprepared", preparation_id="fixture-requires-preparation"
+    )
+    window = MainWindow(
+        windows,
+        Mock(),
+        (backend,),
+        preferences_path=preferences.path,
+        cache_path=tmp_path / "cache",
+        cloud=service,
+    )
+    application = app_owner(window)
+    try:
+        drain(app, lambda: not application.cloud.busy)
+        window.driver.timer.stop()
+        assert window.routing.simple.currentData() == window.routing.resolve(
+            model_reference(profile)
+        )
+        assert not window.routing.advanced.isChecked()
+        monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.No)
+        window.routing.simple.setCurrentIndex(find_model(window.routing.simple, backend))
+        assert window.routing.selection == TranslationPlan(
+            "cloud:" + profile.key, "cloud:" + profile.key
+        )
+        assert window.routing.simple.currentData() == window.routing.resolve(
+            model_reference(profile)
+        )
+        assert not application.translation.preparing and not application.translation.session
+        window.routing.advanced.setChecked(True)
+        window.routing.short_enabled.setChecked(False)
+        selected = window.routing.selection
+        assert not selected.short_enabled and selected.long == "cloud:" + profile.key
+        window.routing.advanced.setChecked(False)
+        assert window.routing.selection == selected
+        assert window.routing.simple.currentData() == window.routing.resolve(
+            model_reference(profile)
+        )
+        window.routing.long_enabled.setChecked(False)
+        assert (
+            not window.routing.selection.active_models and application.translation.selected is None
+        )
+    finally:
+        window.close()
+        window.deleteLater()
+
+
+@pytest.mark.parametrize("provider", ["openai", "gemini", "claude"])
+def test_new_model_reuses_saved_api_connection_in_settings_after_reopen(app, tmp_path, provider):
+    secrets = MemorySecrets()
+    catalog = CloudProfiles(tmp_path / "cloud.json")
+    accounts = ChatGPTConnections(ProtectedStore(tmp_path / "accounts"))
+    panel = CloudSettings(catalog=catalog, secrets=lambda: secrets, connections=accounts)
+    try:
+        drain(app, lambda: not cloud_owner(panel).busy)
+        panel.open_editor()
+        editor = panel.editor
+        assert editor
+        editor.provider.setCurrentIndex(editor.provider.findData(provider))
+        editor.key.setText("remember-me")
+        editor.model.setCurrentIndex(1)
+        editor.save.click()
+        drain(app, lambda: not cloud_owner(panel).busy)
+        first = panel.profiles[0]
+        panel.open_editor()
+        editor = panel.editor
+        assert editor
+        editor.provider.setCurrentIndex(editor.provider.findData(provider))
+        editor.model.setCurrentIndex(1)
+        editor.name.setText("Second model")
+        assert editor.connection.currentData() == first.credential
+        assert "Saved key" in editor.key.placeholderText() and not editor.key.text()
+        editor.save.click()
+        drain(app, lambda: not cloud_owner(panel).busy)
+        assert len(panel.profiles) == 2 and len(secrets.values) == 1
+    finally:
+        panel.close()
+        panel.deleteLater()
+    reopened = CloudSettings(catalog=catalog, secrets=lambda: secrets, connections=accounts)
+    try:
+        drain(app, lambda: cloud_owner(reopened)._worker is None)
+        assert all(cloud_owner(reopened).available(p.key) for p in reopened.profiles)
+        assert len(cloud_owner(reopened).api_accounts) == 1
+    finally:
+        reopened.close()
+        reopened.deleteLater()
+
+
+def test_two_chatgpt_models_share_persisted_account_without_signing_in_again(
+    app, tmp_path, monkeypatch
+):
+    account = "account-" + "e" * 32
+    connections = ChatGPTConnections(ProtectedStore(tmp_path / "accounts"))
+    connections.store.write(
+        account,
+        {
+            "access_token": "fixture",
+            "scopes": [PLAN_SCOPE],
+            "models": [["gpt-6-luna", "Luna"], ["gpt-6.1-sol", "Sol"]],
+        },
+    )
+
+    def no_network(*args, **kwargs):
+        raise AssertionError("A saved account must not sign in again to add models")
+
+    monkeypatch.setattr(connections, "sign_in", no_network)
+    monkeypatch.setattr(connections, "refresh_models", no_network)
+    catalog = CloudProfiles(tmp_path / "cloud.json")
+    panel = CloudSettings(catalog=catalog, secrets=MemorySecrets, connections=connections)
+    try:
+        drain(app, lambda: not cloud_owner(panel).busy)
+        for index in (0, 1):
+            panel.open_editor()
+            editor = panel.editor
+            assert editor
+            editor.model.setCurrentIndex(index + 1)
+            editor.save.click()
+            drain(app, lambda: not cloud_owner(panel).busy)
+        assert len(panel.profiles) == 2
+        assert all(
+            p.account == account and cloud_owner(panel).available(p.key) for p in panel.profiles
+        )
+    finally:
+        panel.close()
+        panel.deleteLater()
+    reopened = CloudSettings(catalog=catalog, secrets=MemorySecrets, connections=connections)
+    try:
+        drain(app, lambda: cloud_owner(reopened)._worker is None)
+        assert all(cloud_owner(reopened).available(p.key) for p in reopened.profiles)
+    finally:
+        reopened.close()
+        reopened.deleteLater()
+
+
+def test_chatgpt_refresh_populates_empty_picker_from_large_catalog_and_allows_save(
+    app, tmp_path, monkeypatch
+):
+    from jp_overlay.auth_work import AuthWork
+
+    key = "account-" + "a" * 32
+    connections = ChatGPTConnections(ProtectedStore(tmp_path / "accounts"))
+    connections.store.write(
+        key,
+        {"access_token": "fixture", "scopes": [PLAN_SCOPE], "expires_at": time.time() + 600},
+    )
+    calls = []
+
+    def respond(request):
+        calls.append((request.url.path, threading.get_ident()))
+        return httpx2.Response(
+            200,
+            json={
+                "models": [
+                    {
+                        "slug": "fixture-chat",
+                        "display_name": "Fixture model",
+                        "visibility": "list",
+                        "metadata": "extra catalog information " * 32_768,
+                    }
+                ]
+            },
+        )
+
+    transport = httpx2.MockTransport(respond)
+    monkeypatch.setattr(
+        "jp_overlay.cloud_services.AuthWork", lambda event: AuthWork(event, transport=transport)
+    )
+    panel = CloudSettings(
+        catalog=CloudProfiles(tmp_path / "cloud.json"),
+        secrets=MemorySecrets,
+        connections=connections,
+    )
+    try:
+        drain(app, lambda: not cloud_owner(panel).busy)
+        panel.open_editor()
+        editor = panel.editor
+        assert editor and editor.model.count() == 1 and editor.model.currentData() is None
+        editor.chatgpt.refresh_models.click()
+        drain(app, lambda: not cloud_owner(panel).busy)
+        assert editor.model.currentData() is None
+        editor.model.setCurrentIndex(editor.model.findData("fixture-chat"))
+        assert calls == [("/v1/models", calls[0][1])]
+        assert calls[0][1] != threading.get_ident()
+        editor.save.click()
+        drain(app, lambda: not cloud_owner(panel).busy)
+        assert len(panel.profiles) == 1 and panel.profiles[0].model == "fixture-chat"
+        assert cloud_owner(panel).available(panel.profiles[0].key)
+        assert len(calls) == 1  # Saving neither signs in again nor makes an inference request.
+    finally:
+        panel.close()
+        panel.deleteLater()
+
+
+def test_simple_local_preparation_commits_only_when_ready_and_reuses_worker(
+    app, tmp_path, monkeypatch
+):
+    class Engine:
+        cache_identity = "simple-prepare-fixture"
+        batch_size = 1
+        closed = False
+
+        def translate(self, texts):
+            return tuple("Local answer" for _ in texts)
+
+        def close(self):
+            self.closed = True
+
+    engine = Engine()
+    factory = Mock(return_value=engine)
+    backend = BackendChoice(
+        "Local", factory, "local-fixture", preparation_id="fixture-prepare-once"
+    )
+    monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Yes)
+    monkeypatch.setattr("jp_overlay.model_store.mark_prepared", lambda *args: None)
+    windows = Mock()
+    windows.list_targets.return_value = []
+    window = MainWindow(windows, Mock(), (backend,), cache_path=tmp_path / "cache")
+    application = app_owner(window)
+    try:
+        drain(app, lambda: not application.cloud.busy)
+        window.driver.timer.stop()
+        previous = window.routing.selection
+        window.routing.simple.setCurrentIndex(find_model(window.routing.simple, backend))
+        assert application.translation.preparing == backend and window.routing.selection == previous
+        window.driver.refresh(inspect=True)
+        prepared = application.translation.session
+        assert prepared
+        drain(app, lambda: prepared.snapshot().state.value == "ready")
+        window.driver.refresh(inspect=True)
+        assert not app_owner(
+            window
+        ).translation.preparing and window.routing.selection == TranslationPlan(
+            "local:local-fixture", "local:local-fixture"
+        )
+        assert (
+            application.translation.session is prepared
+            and application.translation.standby
+            and not engine.closed
+        )
+        assert factory.call_count == 1
+    finally:
+        if application.translation.session:
+            application.translation.session.request_stop()
+            drain(
+                app,
+                lambda: (
+                    not application.translation.session or application.translation.session.finished
+                ),
+            )
+        window.close()
+        window.deleteLater()
+
+
+def test_unconfigured_cloud_route_cannot_silently_use_local_or_start_network(app, tmp_path):
+    windows = Mock()
+    windows.list_targets.return_value = []
+    local_factory = Mock(side_effect=AssertionError("Unexpected local fallback"))
+    prefs = PreferenceStore(tmp_path / "prefs.json")
+    missing = "cloud:cloud-" + "f" * 32
+    prefs._write(replace(Preferences(), short_model=missing, long_model=missing))
+    window = MainWindow(
+        windows,
+        Mock(),
+        (BackendChoice("Local", local_factory, "test"),),
+        scene_feed=True,
+        cache_path=tmp_path / "cache",
+        preferences_path=prefs.path,
+    )
+    application = app_owner(window)
+    try:
+        drain(app, lambda: not application.cloud.busy)
+        window.driver.timer.stop()
+        show_scene(window)
+        assert not application.translation.session and not local_factory.called
+        assert "unavailable" in window.notice.text()
+        assert window._notice_destination == "selection"
+    finally:
+        window.close()
+        window.deleteLater()
+
+
+@pytest.mark.parametrize("previously_enabled", [False, True])
+def test_history_experimental_opt_in_persists_and_keeps_translation_independent(
+    app, tmp_path, previously_enabled
+):
+    windows = Mock()
+    windows.list_targets.return_value = []
+    factory = Mock(side_effect=AssertionError("No capture: must not load classifier"))
+    prefs = PreferenceStore(tmp_path / "history-prefs.json")
+    prefs._write(
+        replace(Preferences(), translation=False, model="none", history_enabled=previously_enabled)
+    )
+    choices = (
+        BackendChoice("Instruction model", factory, "fixture", classifies=True),
+        BackendChoice("Translation only", factory, "sugoi-fast"),
+    )
+    available: list[tuple[BackendChoice, ...]] = [choices]
+    window = MainWindow(
+        windows,
+        Mock(),
+        choices,
+        cache_path=tmp_path / "cache",
+        preferences_path=prefs.path,
+        backend_provider=lambda: available[0],
+    )
+    application = app_owner(window)
+    try:
+        drain(app, lambda: not application.cloud.busy)
+        panel = window.history_panel
+        settings = window._settings
+        assert "Experimental" in [settings.tabs.tabText(i) for i in range(settings.tabs.count())]
+        assert settings.history_enabled.isChecked() is previously_enabled
+        assert panel.model.isEnabled() is previously_enabled
+        assert window.history_button.isHidden() is not previously_enabled
+        assert panel.model.findData("local:sugoi-fast") == -1
+        assignment = application.translation.plan
+        settings.history_enabled.setChecked(True)
+        assert not window.history_button.isHidden()
+        window.history_button.click()
+        assert panel.isVisible() and "Experimental" in panel.windowTitle()
+        panel.model.setCurrentIndex(panel.model.findData("local:fixture"))
+        assert application.live.history_enabled
+        assert "separate local model" in panel.model_notice.text()
+        panel.hide()
+        assert application.live.history_enabled  # closing reader does not disable collection
+        drain(app, lambda: application.preferences.idle)
+        saved = PreferenceStore(prefs.path).initial
+        assert saved.history_enabled and saved.history_model == "local:fixture"
+        available[0] = ()
+        window.application.refresh_models()
+        drain(app, lambda: not application.inventory.snapshot().data.backends)
+        assert panel.model_key == "local:fixture" and "available classifier" in panel.status.text()
+        window.history_button.click()
+        assert panel.isVisible()
+        settings.history_enabled.setChecked(False)
+        assert not panel.isVisible() and window.history_button.isHidden()
+        assert not panel.model.isEnabled() and not application.live.history_enabled
+        assert panel.model_key == "local:fixture"
+        assert application.translation.plan == assignment and not application.values.translation
+        drain(app, lambda: application.preferences.idle)
+        assert not PreferenceStore(prefs.path).initial.history_enabled
+        assert not factory.called
+    finally:
+        window.close()
+        window.deleteLater()
+
+
+def test_edit_cancel_and_failed_save_preserve_committed_model_and_shared_key(
+    app, tmp_path, monkeypatch
+):
+    secrets = MemorySecrets()
+    panel = CloudSettings(
+        catalog=CloudProfiles(tmp_path / "cloud.json"),
+        secrets=lambda: secrets,
+        connections=ChatGPTConnections(ProtectedStore(tmp_path / "accounts")),
+    )
+    try:
+        drain(app, lambda: not cloud_owner(panel).busy)
+        panel.open_editor()
+        editor = panel.editor
+        assert editor
+        editor.provider.setCurrentIndex(editor.provider.findData("openai"))
+        editor.key.setText("original-key")
+        editor.model.setCurrentIndex(1)
+        editor.save.click()
+        drain(app, lambda: not cloud_owner(panel).busy)
+        original = panel.profiles[0]
+        unchanged = Mock()
+        panel.changed.connect(unchanged)
+        panel.open_editor(original)
+        editor = panel.editor
+        assert editor
+        editor.name.setText("Unsaved")
+        editor.key.setText("replacement-key")
+        editor.rate.setValue(333)
+        editor.advanced.setChecked(True)
+        editor.reject()
+        assert panel.editor is None and cloud_owner(panel).catalog.read() == (original,)
+        assert list(secrets.values.values()) == ["original-key"]
+        assert not unchanged.called
+        panel.open_editor(original)
+        editor = panel.editor
+        assert editor and editor.name.text() == original.name
+        assert editor.rate.value() == original.requests_per_minute
+        assert not editor.advanced.isChecked() and not editor.key.text()
+        editor.name.setText("Keep this draft")
+        editor.key.setText("replacement-key")
+        monkeypatch.setattr(
+            cloud_owner(panel).catalog, "write", Mock(side_effect=OSError("Disk full fixture"))
+        )
+        editor.save.click()
+        drain(app, lambda: not cloud_owner(panel).busy)
+        assert panel.editor is editor and editor.name.text() == "Keep this draft"
+        assert "Disk full" in editor.status.text()
+        assert cloud_owner(panel).catalog.read() == (original,)
+        assert list(secrets.values.values()) == ["original-key"]
+        assert not unchanged.called
+        editor.reject()
+    finally:
+        panel.close()
+        panel.deleteLater()
+
+
+def test_test_connection_is_explicit_and_does_not_save_draft_or_credentials(
+    app, tmp_path, monkeypatch
+):
+    backend = Mock()
+    backend.translate.return_value = ("Critical Rate",)
+    factory = Mock(return_value=backend)
+    monkeypatch.setattr("jp_overlay.cloud_services.CloudBackend", factory)
+    monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.No)
+    secrets = MemorySecrets()
+    panel = CloudSettings(
+        catalog=CloudProfiles(tmp_path / "cloud.json"),
+        secrets=lambda: secrets,
+        connections=ChatGPTConnections(ProtectedStore(tmp_path / "accounts")),
+    )
+    try:
+        drain(app, lambda: not cloud_owner(panel).busy)
+        panel.open_editor()
+        editor = panel.editor
+        assert editor
+        editor.provider.setCurrentIndex(editor.provider.findData("deepseek"))
+        editor.key.setText("unsaved-secret")
+        editor.model.setCurrentIndex(1)
+        editor.test.click()
+        assert not factory.called
+        monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Yes)
+        editor.test.click()
+        drain(app, lambda: not cloud_owner(panel).busy)
+        assert factory.call_args.args[1] == "unsaved-secret"
+        backend.translate.assert_called_once_with(("会心率",))
+        backend.close.assert_called_once()
+        assert "Test successful" in editor.status.text()
+        assert (
+            not panel.profiles
+            and not cloud_owner(panel).catalog.path.exists()
+            and not secrets.values
+        )
+        assert editor.key.text() == "unsaved-secret"
+        editor.reject()
+        assert not cloud_owner(panel)._allowances
+    finally:
+        panel.close()
+        panel.deleteLater()
+
+
+def test_cancel_dialog_drains_test_cleanup_before_releasing_editor(app, tmp_path, monkeypatch):
+    entered, cancelled, cleanup, release = (threading.Event() for _ in range(4))
+
+    class SlowTest:
+        def translate(self, texts):
+            entered.set()
+            assert cancelled.wait(3)
+            return ("Cancelled",)
+
+        def cancel_pending(self):
+            cancelled.set()
+
+        def close(self):
+            cleanup.set()
+            assert release.wait(3)
+
+    monkeypatch.setattr(
+        "jp_overlay.cloud_services.CloudBackend", lambda *args, **kwargs: SlowTest()
+    )
+    monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Yes)
+    panel = CloudSettings(
+        catalog=CloudProfiles(tmp_path / "cloud.json"),
+        secrets=MemorySecrets,
+        connections=ChatGPTConnections(ProtectedStore(tmp_path / "accounts")),
+    )
+    try:
+        drain(app, lambda: not cloud_owner(panel).busy)
+        panel.open_editor()
+        editor = panel.editor
+        assert editor
+        editor.provider.setCurrentIndex(editor.provider.findData("deepseek"))
+        editor.key.setText("fake-key")
+        editor.model.setCurrentIndex(1)
+        editor.test.click()
+        drain(app, entered.is_set)
+        editor.reject()
+        drain(app, cleanup.is_set)
+        assert panel.editor is editor and panel.busy and not editor.key.text()
+        assert not panel.add.isEnabled()
+        release.set()
+        drain(app, lambda: not cloud_owner(panel).busy)
+        assert panel.editor is None and not panel.profiles
+    finally:
+        cancelled.set()
+        release.set()
+        drain(app, lambda: not cloud_owner(panel).busy)
+        panel.close()
+        panel.deleteLater()
+
+
+def test_remove_model_keeps_shared_connection_for_other_models(app, tmp_path, monkeypatch):
+    monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Yes)
+    secrets = MemorySecrets()
+    panel = CloudSettings(
+        catalog=CloudProfiles(tmp_path / "cloud.json"),
+        secrets=lambda: secrets,
+        connections=ChatGPTConnections(ProtectedStore(tmp_path / "accounts")),
+    )
+    try:
+        drain(app, lambda: not cloud_owner(panel).busy)
+        for index in (0, 1):
+            panel.open_editor()
+            editor = panel.editor
+            assert editor
+            editor.provider.setCurrentIndex(editor.provider.findData("openai"))
+            editor.model.setCurrentIndex(index + 1)
+            if not index:
+                editor.key.setText("shared-secret")
+            editor.save.click()
+            drain(app, lambda: not cloud_owner(panel).busy)
+        assert panel.table.rowCount() == 2
+        panel.table.selectRow(0)
+        panel.remove.click()
+        drain(app, lambda: not cloud_owner(panel).busy)
+        assert panel.table.rowCount() == 1 and len(secrets.values) == 1
+        assert cloud_owner(panel).available(panel.profiles[0].key)
+        panel.open_editor(panel.profiles[0])
+        editor = panel.editor
+        assert editor and "Key saved" in editor.badge.text()
+        editor.reject()
+    finally:
+        panel.close()
+        panel.deleteLater()

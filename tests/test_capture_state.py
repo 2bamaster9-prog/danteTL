@@ -25,6 +25,19 @@ def test_latest_frame_replaces_previous_without_a_queue() -> None:
     assert mailbox.snapshot().frame == make_frame(999)
 
 
+def test_capture_notifies_after_publication_without_holding_its_lock():
+    snapshots = []
+    mailbox = FrameMailbox(lambda: snapshots.append(mailbox.snapshot()))
+    thread = threading.Thread(target=lambda: mailbox.publish(make_frame(1)), daemon=True)
+    thread.start()
+    thread.join(2)
+    assert not thread.is_alive(), "Notification held the capture mailbox lock"
+    assert snapshots[-1].frame == make_frame(1)
+    mailbox.set_state(CaptureState.STOPPED)
+    mailbox.publish(make_frame(2))
+    assert len(snapshots) == 2 and snapshots[-1].state == CaptureState.STOPPED
+
+
 @pytest.mark.parametrize(
     "state", [CaptureState.STOPPING, CaptureState.STOPPED, CaptureState.FAILED]
 )

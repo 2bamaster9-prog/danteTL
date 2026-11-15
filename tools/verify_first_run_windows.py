@@ -2,7 +2,6 @@
 
 import argparse
 import hashlib
-import io
 import json
 import time
 from dataclasses import replace
@@ -13,13 +12,14 @@ from uuid import uuid4
 import shiboken6
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
+from verification_isolation import app_owner
+from verification_isolation import create_window as MainWindow
 
 from jp_overlay import model_store
 from jp_overlay.hardware import Adapter, HardwareStatus
 from jp_overlay.model_store import ModelBundle
 from jp_overlay.models import ModelAsset
 from jp_overlay.preferences import PreferenceStore
-from jp_overlay.ui import MainWindow
 from jp_overlay.windows import Windows
 
 
@@ -37,8 +37,19 @@ def main() -> int:
     data = b"fixture" * 1000000
     asset = ModelAsset("fixture", "1", "test.bin", hashlib.sha256(data).hexdigest(), len(data))
     models = tuple(
-        ModelBundle(k, name, state / k, (asset,), "Synthetic verification bytes")
-        for k, name in (("ocr", "MeikiOCR"), ("gemma", "Gemma"), ("sugoi", "Sugoi"))
+        ModelBundle(
+            k,
+            name,
+            state / k,
+            (asset,),
+            "Synthetic verification bytes",
+            category="recognition" if k == "ocr" else "translation",
+        )
+        for k, name in (
+            ("ocr", "MeikiOCR"),
+            ("gemma", "Gemma E2B · Recommended"),
+            ("sugoi", "Sugoi"),
+        )
     )
     bundled = state / "bundled"
     bundled.mkdir()
@@ -55,6 +66,7 @@ def main() -> int:
         hardware=hardware,
         preferences_path=state / "preferences.json",
     )
+    application = app_owner(window)
     window.windows_combo.clear()
     window.show()
     window.offer_first_run()
@@ -65,10 +77,14 @@ def main() -> int:
     evidence = {}
     started = time.monotonic()
 
-    class Response(io.BytesIO):
-        def read(self, size: int | None = -1):
-            time.sleep(0.05)
-            return super().read(min(size or -1, 256 * 1024))
+    def download(url, destination, limit, progress, cancel):
+        with destination.open("wb") as output:
+            for offset in range(0, len(data), 256 * 1024):
+                if cancel.wait(0.05):
+                    raise model_store.Cancelled()
+                chunk = data[offset : offset + 256 * 1024]
+                output.write(chunk)
+                progress(offset + len(chunk), len(data))
 
     def screenshot(name: str) -> None:
         assert guide
@@ -84,18 +100,19 @@ def main() -> int:
             if stage == 0:
                 if guide.hardware_status is None:
                     return
-                assert not guide.operation and models[0].included
+                assert not guide.busy and models[0].included
                 assert not any(b.present() for b in models[1:])
                 screenshot("welcome.png")
                 guide.next.click()
+                assert guide.model.currentData() == "gemma" and guide.model.findData("ocr") == -1
                 screenshot("models.png")
                 guide.next.click()
                 assert guide.runtime.currentData().key == "nvidia"
                 screenshot("acceleration.png")
                 guide.runtime.setCurrentIndex(0)  # Explicit CPU avoids runtime/network install.
                 guide.next.click()
-                assert guide._plan and guide._plan.runtime is None
-                assert [b.key for b in guide._plan.models] == ["gemma"]
+                assert guide._review and not guide._review.install_runtime
+                assert guide._review.model == "gemma"
                 screenshot("review.png")
                 guide.next.click()
                 stage = 1
@@ -123,10 +140,11 @@ def main() -> int:
                 guide.next.click()
                 stage = 4
             elif stage == 4:
-                if not window._preferences.idle:
+                if not application.preferences.idle:
                     return
                 assert PreferenceStore(state / "preferences.json").initial.setup_seen
-                assert "Included with app" in window._settings.models.download_badge.text()
+                assert "Included with app" in window._settings.models.ocr.badge.text()
+                assert "Downloaded" in window._settings.models.download_badge.text()
                 assert not models[0].directory.exists()
                 window.offer_first_run()
                 assert not guide.isVisible()
@@ -165,11 +183,13 @@ def main() -> int:
     timer.setInterval(50)
     timer.timeout.connect(tick)
     timer.start()
-    with patch.object(model_store, "urlopen", lambda *a, **kw: Response(data)):
+    with patch.object(model_store, "download_file", download):
         app.exec()
     shiboken6.delete(app)
     return int(failed)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from verification_isolation import run_isolated
+
+    run_isolated(main)

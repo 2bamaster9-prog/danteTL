@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from jp_overlay.hardware import HardwareStatus
+from jp_overlay.hardware_values import HardwareStatus
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,8 +1,6 @@
 """Small model download dialog; all I/O and hashing belong to its worker."""
 
-from functools import partial
-
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QComboBox,
@@ -11,25 +9,35 @@ from PySide6.QtWidgets import (
     QLabel,
     QProgressBar,
     QPushButton,
+    QScrollArea,
+    QStackedWidget,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
+from jp_overlay.cloud_settings import CloudSettings
 from jp_overlay.controls import InfoButton, set_tone
-from jp_overlay.gguf_models import ImportedModel, read_registry, save_registration
+from jp_overlay.import_values import ImportedModel
+from jp_overlay.model_advice import ADVICE, COMPARISON_NOTE
 from jp_overlay.model_import_dialog import ModelImportDialog
-from jp_overlay.model_store import ModelBundle, ModelOperation, install_model, model_status
+from jp_overlay.model_summary import ModelSummary
+from jp_overlay.model_values import ModelFile
+from jp_overlay.ocr_model_settings import OcrModelSettings
+from jp_overlay.setup_values import SetupLane
+from jp_overlay.view_services import CloudCommands, SetupCommands
 
 
 class ModelManager(QDialog):
-    models_changed = Signal()
     runtime_requested = Signal()
+    operation_started = Signal()
 
     def __init__(
         self,
-        bundles: tuple[ModelBundle, ...],
+        service: SetupCommands,
         parent: QWidget | None = None,
         *,
+        cloud: CloudCommands,
         embedded: bool = False,
     ) -> None:
         super().__init__(parent)
@@ -41,70 +49,95 @@ class ModelManager(QDialog):
             self.resize(640, 460)
             self.setMinimumSize(580, 420)
         self.error_message = ""
-        self._bundles = bundles
-        self._operation: ModelOperation | None = None
+        self.service = service
+        self._completion = 0
+        self._inventory_revision = -1
         self.import_dialog: ModelImportDialog | None = None
         self._closing = False
         self._cancelling = False
-        layout = QVBoxLayout(self)
-        header = QHBoxLayout()
-        header.addWidget(QLabel("Model"))
-        header.addWidget(
+        root = QVBoxLayout(self)
+        root.setContentsMargins(12, 12, 12, 12)
+        category_row = QHBoxLayout()
+        category_row.addWidget(QLabel("Model type"))
+        self.category = QComboBox()
+        self.category.setAccessibleName("Model type")
+        self.category.addItem("Local translation", "translation")
+        self.category.addItem("Text recognition (OCR)", "recognition")
+        self.category.addItem("Cloud translation", "cloud")
+        category_row.addWidget(self.category, 1)
+        category_row.addWidget(
             InfoButton(
-                "Model downloads",
-                "Choose a model to download or verify. "
-                "MeikiOCR reads Japanese text; translation models turn it into English. "
-                "Downloads need internet access; recognition and translation stay local.",
+                "Model types",
+                "Translation turns recognized Japanese into English. "
+                "OCR reads the text from game images. Gemma E2B is the recommended translator; "
+                "MeikiOCR is included in the standalone app.",
             )
         )
-        header.addStretch()
-        layout.addLayout(header)
+        root.addLayout(category_row)
+        self.pages = QStackedWidget()
+        root.addWidget(self.pages, 1)
+        self.translation_page, layout = self._page()
+        self.category.currentIndexChanged.connect(self.pages.setCurrentIndex)
         self.choice = QComboBox()
-        for bundle in bundles:
-            self.choice.addItem(bundle.name, bundle)
+        self.choice.setAccessibleName("Translation model files")
+        self.choice.setMinimumContentsLength(20)
+        self.choice.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self.choice.setCurrentIndex(self.choice.count() - 1)
         layout.addWidget(self.choice)
         self.download_badge = QLabel()
         self.download_badge.setObjectName("modelBadge")
         self.download_badge.setWordWrap(True)
-        layout.addWidget(self.download_badge)
+        badges = QHBoxLayout()
+        badges.addWidget(self.download_badge, 1)
         self.runtime_badge = QLabel()
         self.runtime_badge.setObjectName("modelBadge")
         self.runtime_badge.setWordWrap(True)
         set_tone(self.runtime_badge, "warning")
-        layout.addWidget(self.runtime_badge)
+        badges.addWidget(self.runtime_badge, 1)
+        layout.addLayout(badges)
         self.description = QLabel()
         self.description.setTextFormat(Qt.TextFormat.PlainText)
         self.description.setWordWrap(True)
         layout.addWidget(self.description)
+        self.summary = ModelSummary()
+        layout.addWidget(self.summary)
+        self.file_details = QWidget()
+        file_layout = QVBoxLayout(self.file_details)
+        file_layout.setContentsMargins(0, 0, 0, 0)
         self.status = QLabel()
         self.status.setTextFormat(Qt.TextFormat.PlainText)
         self.status.setWordWrap(True)
         self.status.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        layout.addWidget(self.status)
+        file_layout.addWidget(self.status)
         self.location = QLabel()
         self.location.setTextFormat(Qt.TextFormat.PlainText)
         self.location.setWordWrap(True)
         self.location.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        layout.addWidget(self.location)
-        self.progress = QProgressBar()
-        layout.addWidget(self.progress)
+        file_layout.addWidget(self.location)
+        self.license = QLabel()
+        self.license.setWordWrap(True)
+        file_layout.addWidget(self.license)
+        comparison = QLabel(COMPARISON_NOTE)
+        comparison.setWordWrap(True)
+        file_layout.addWidget(comparison)
         self.download = QPushButton("Download")
-        self.download.setEnabled(bool(bundles))
+        self.download.setEnabled(bool(service.files))
         self.download.clicked.connect(self._download)
         layout.addWidget(self.download)
-        self.cancel_button = QPushButton("Cancel download")
-        self.cancel_button.setEnabled(False)
-        self.cancel_button.clicked.connect(self._cancel)
-        layout.addWidget(self.cancel_button)
         self.runtime_button = QPushButton("Set up acceleration…")
         self.runtime_button.setToolTip(
             "Detect graphics cards and install acceleration inside the app."
         )
         self.runtime_button.clicked.connect(self.runtime_requested.emit)
-        layout.addWidget(self.runtime_button)
         imports = QHBoxLayout()
+        imports.addWidget(self.runtime_button)
         self.import_button = QPushButton("Import GGUF…")
         self.import_button.clicked.connect(lambda: self._import())
+        imports.addWidget(self.import_button)
+        layout.addLayout(imports)
+        imported_actions = QHBoxLayout()
         self.locate_button = QPushButton("Locate file…")
         self.locate_button.clicked.connect(self._locate)
         self.remove_button = QPushButton("Remove from list")
@@ -112,49 +145,86 @@ class ModelManager(QDialog):
             "Removes the registration only. Your model file is never deleted."
         )
         self.remove_button.clicked.connect(self._remove)
-        for button in (self.import_button, self.locate_button, self.remove_button):
-            imports.addWidget(button)
-        layout.addLayout(imports)
+        for button in (self.locate_button, self.remove_button):
+            imported_actions.addWidget(button)
+        layout.addLayout(imported_actions)
+        self.details_toggle = QToolButton()
+        self.details_toggle.setText("File and runtime details")
+        self.details_toggle.setCheckable(True)
+        self.details_toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.details_toggle.setArrowType(Qt.ArrowType.RightArrow)
+        self.details_toggle.toggled.connect(self._details_toggled)
+        layout.addWidget(self.details_toggle)
+        layout.addWidget(self.file_details)
+        self.file_details.hide()
+        layout.addStretch()
+        self.ocr_page, ocr_layout = self._page()
+        self.ocr = OcrModelSettings()
+        self.ocr.install_requested.connect(self._start_download)
+        ocr_layout.addWidget(self.ocr)
+        ocr_layout.addStretch()
+        self.cloud_page, cloud_layout = self._page()
+        self.cloud = CloudSettings(cloud)
+        cloud_layout.addWidget(self.cloud)
+        self.operation_status = QLabel()
+        self.operation_status.setTextFormat(Qt.TextFormat.PlainText)
+        self.operation_status.setWordWrap(True)
+        self.operation_status.hide()
+        root.addWidget(self.operation_status)
+        self.progress = QProgressBar()
+        self.progress.hide()
+        root.addWidget(self.progress)
+        self.cancel_button = QPushButton("Cancel download")
+        self.cancel_button.setEnabled(False)
+        self.cancel_button.hide()
+        self.cancel_button.clicked.connect(self._cancel)
+        root.addWidget(self.cancel_button)
         self.choice.currentIndexChanged.connect(self._selected)
         self.refresh()
-        self._timer = QTimer(self)
-        self._timer.setInterval(150)
-        self._timer.timeout.connect(self._poll)
-        self._timer.start()
+
+    def _page(self) -> tuple[QScrollArea, QVBoxLayout]:
+        body = QWidget()
+        layout = QVBoxLayout(body)
+        layout.setContentsMargins(2, 8, 12, 8)
+        layout.setSpacing(8)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setWidget(body)
+        self.pages.addWidget(scroll)
+        return scroll, layout
+
+    def _details_toggled(self, expanded: bool) -> None:
+        self.file_details.setVisible(expanded)
+        self.details_toggle.setArrowType(
+            Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow
+        )
 
     def refresh(self) -> None:
-        """Refresh files installed by another setup view without disturbing active downloads."""
-        if self.operation is None:
-            selected = self.choice.currentData()
-            try:
-                imported = read_registry()
-            except (OSError, ValueError) as error:
-                self.error_message = f"Could not read imported models: {error}"
-                self.status.setText(self.error_message)
-                return
-            self.choice.blockSignals(True)
-            self.choice.clear()
-            for item in (*self._bundles, *imported):
-                self.choice.addItem(item.name, item)
-                if selected and item.key == selected.key:
-                    self.choice.setCurrentIndex(self.choice.count() - 1)
-            self.choice.blockSignals(False)
-            self._selected()
+        revision = self.service.inventory_revision
+        if self.busy or revision == self._inventory_revision:
+            return
+        self._inventory_revision = revision
+        files = self.service.files
+        self.ocr.refresh(files)
+        selected = self.choice.currentData()
+        self.choice.blockSignals(True)
+        self.choice.clear()
+        for item in files:
+            if item.category != "translation":
+                continue
+            self.choice.addItem(item.name, item)
+            if selected and item.key == selected.key or selected is None and item.key == "gemma":
+                self.choice.setCurrentIndex(self.choice.count() - 1)
+        self.choice.blockSignals(False)
+        self._selected()
 
     @property
-    def operation(self) -> ModelOperation | None:
-        return self._operation or (self.import_dialog.operation if self.import_dialog else None)
-
-    @property
-    def probe_active(self) -> bool:
-        return bool(self.import_dialog and self.import_dialog.testing)
-
-    def allow_probe(self) -> None:
-        if self.import_dialog:
-            self.import_dialog.gate.set()
+    def busy(self) -> bool:
+        return self.service.job(SetupLane.MODELS).busy
 
     def _import(self, expected: ImportedModel | None = None) -> None:
-        if self.operation:
+        if self.busy:
             return
         self.error_message = ""
         if self.import_dialog and self.import_dialog.isVisible():
@@ -162,64 +232,52 @@ class ModelManager(QDialog):
             return
         if self.import_dialog:
             self.import_dialog.deleteLater()
-        self.import_dialog = ModelImportDialog(self, expected=expected)
-        self.import_dialog.models_changed.connect(self._imported)
+        self.import_dialog = ModelImportDialog(self.service, self, expected=expected)
         self.import_dialog.show()
-
-    def _imported(self) -> None:
-        self.refresh()
-        self.models_changed.emit()
 
     def _locate(self) -> None:
         value = self.choice.currentData()
-        if isinstance(value, ImportedModel):
-            self._import(value)
+        if isinstance(value, ModelFile) and value.imported:
+            self._import(value.imported)
 
     def _remove(self) -> None:
         value = self.choice.currentData()
-        if self.operation or not isinstance(value, ImportedModel):
-            return
-        self._operation = ModelOperation(
-            lambda progress, cancel: save_registration(value, remove=True)
-        )
-        self.choice.setEnabled(False)
-        self._operation.start()
+        if isinstance(value, ModelFile) and self.service.remove(value.key):
+            self.refresh_view()
 
     def _selected(self) -> None:
         self._refresh_badges()
         bundle = self.choice.currentData()
-        imported = isinstance(bundle, ImportedModel)
+        imported = isinstance(bundle, ModelFile) and bundle.imported is not None
         self.locate_button.setVisible(imported)
         self.remove_button.setVisible(imported)
         self.download.setVisible(not imported)
-        if isinstance(bundle, ImportedModel):
-            from jp_overlay.llama_runtime import installed_device
-
-            self.description.setText(
-                f"Imported · {bundle.architecture} · {bundle.size / 2**30:.2f} GiB on disk. "
-                "Local Japanese → English translation. Quality depends on the model."
-            )
-            self.location.setText(f"Referenced file: {bundle.path}")
-            self.status.setText(
-                "File is missing or changed size. Use Locate file to check its new location."
-                if not bundle.available()
-                else "Language-model engine missing. Open Acceleration to set up CPU or GPU."
-                if installed_device() is None
-                else "Local model registered. Select it on the main screen to prepare and use it."
-            )
+        if isinstance(bundle, ModelFile) and bundle.imported:
+            self.summary.set_model(bundle.key, bundle.size, True, imported=True)
+            self.license.setText("License: check the imported model's source.")
+            self.description.setText(bundle.description)
+            self.location.setText(f"Referenced file: {bundle.directory}")
+            self.status.setText(bundle.status)
             return
-        if not isinstance(bundle, ModelBundle):
+        if not isinstance(bundle, ModelFile):
             return
-        self.description.setText(
-            f"{bundle.description}\nModel size: {bundle.size / 1e6:.1f} MB. "
-            "Processing stays offline after setup."
+        self.description.setText(bundle.description)
+        self.summary.set_model(bundle.key, bundle.size, bundle.language_model)
+        advice = ADVICE.get(bundle.key)
+        self.license.setText(
+            (f"License: {advice.license}." if advice else "")
+            + (
+                " Personal/non-commercial use is free; review the model card for commercial use."
+                if bundle.needs_plamo
+                else ""
+            )
         )
-        self.status.setText(model_status(bundle))
+        self.status.setText(bundle.status)
         self.location.setText(
             f"Model folder: {bundle.local_directory}"
             + (f"\nRepairs folder: {bundle.directory}" if bundle.bundled_directory else "")
         )
-        self.download.setText("Verify / repair" if bundle.present() else "Download")
+        self.download.setText("Verify / repair" if bundle.present else "Download")
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
         self.progress.hide()
@@ -228,34 +286,22 @@ class ModelManager(QDialog):
     def _refresh_badges(self) -> None:
         for i in range(self.choice.count()):
             candidate = self.choice.itemData(i)
-            if isinstance(candidate, ModelBundle):
+            if isinstance(candidate, ModelFile):
                 self.choice.setItemText(
-                    i, f"{'✓' if candidate.present() else '↓'}  {candidate.name}"
-                )
-            elif isinstance(candidate, ImportedModel):
-                self.choice.setItemText(
-                    i, f"{'✓' if candidate.available() else '⚠'}  {candidate.name} · Imported"
+                    i,
+                    f"{'✓' if candidate.present else '↓'}  {candidate.name}"
+                    + (" · Imported" if candidate.imported else ""),
                 )
         bundle = self.choice.currentData()
-        if isinstance(bundle, ImportedModel):
-            present = bundle.available()
-            self.download_badge.setText(
-                "✓  Local file registered" if present else "⚠  Locate model file"
-            )
-            self.download_badge.setToolTip(
-                "Compatibility was tested during import; integrity is checked on load."
-            )
-            set_tone(self.download_badge, "success" if present else "warning")
-            self.download_badge.show()
-            self.runtime_badge.hide()
-            return
-        if not isinstance(bundle, ModelBundle):
+        if not isinstance(bundle, ModelFile):
             self.download_badge.hide()
             self.runtime_badge.hide()
             return
-        downloaded = bundle.present()
+        downloaded = bundle.present
         self.download_badge.setText(
-            "✓  Included with app"
+            ("✓  Local file registered" if downloaded else "⚠  Locate model file")
+            if bundle.imported
+            else "✓  Included with app"
             if bundle.included
             else "✓  Downloaded"
             if downloaded
@@ -265,79 +311,82 @@ class ModelManager(QDialog):
         self.download_badge.setToolTip("Model files are present. Integrity is checked before use.")
         set_tone(self.download_badge, "success" if downloaded else "warning")
         self.download_badge.show()
-        from jp_overlay.llama_runtime import installed_device
-
-        device = installed_device() if downloaded and bundle.language_model else None
+        device, upgrade = bundle.device, bundle.upgrade
         self.runtime_badge.setText(
-            "⚠  CPU ready — translations may be slower; GPU optional"
+            "⚠  Engine update required"
+            if upgrade
+            else "✓  CPU ready · GPU optional"
             if device == "cpu"
-            else "⚠  Engine setup required — choose CPU or GPU"
+            else "⚠  Engine setup required"
         )
+        self.runtime_badge.setToolTip(bundle.status)
+        set_tone(self.runtime_badge, "info" if device == "cpu" and not upgrade else "warning")
         self.runtime_badge.setVisible(
-            downloaded and bundle.language_model and device in (None, "cpu")
+            not bundle.imported
+            and downloaded
+            and bundle.language_model
+            and (upgrade or device in (None, "cpu"))
         )
 
     def _download(self) -> None:
-        bundle = self.choice.currentData()
-        if self.operation is not None or not isinstance(bundle, ModelBundle):
+        self._start_download(self.choice.currentData())
+
+    def _start_download(self, bundle: ModelFile) -> None:
+        if not isinstance(bundle, ModelFile) or not self.service.download(bundle.key):
             return
         self._closing = self._cancelling = False
         self.error_message = ""
-        self._operation = ModelOperation(partial(install_model, bundle))
         self.choice.setEnabled(False)
+        self.ocr.set_busy(True)
         self.download.setEnabled(False)
         self.cancel_button.setEnabled(True)
         self.cancel_button.show()
         self.progress.show()
-        self._operation.start()
+        self.operation_status.setText(f"{bundle.name}: starting…")
+        self.operation_status.show()
+        self.operation_started.emit()
 
     def _cancel(self) -> None:
-        if self.import_dialog:
-            self.import_dialog.cancel()
-        if self._operation:
+        self.cloud.cancel()
+        if self.busy:
             self._cancelling = True
-            self._operation.cancel()
+            self.service.cancel(SetupLane.MODELS)
             self.cancel_button.setEnabled(False)
-            self.status.setText("Cancelling… finishing the current network read.")
+            self.operation_status.setText("Cancelling… finishing the current network read.")
 
-    def _poll(self) -> None:
-        busy = self.operation is not None
+    def refresh_view(self) -> None:
+        if self.import_dialog:
+            self.import_dialog.refresh_view()
+        job = self.service.job(SetupLane.MODELS)
+        busy = job.busy
         self.import_button.setEnabled(not busy)
         self.locate_button.setEnabled(not busy)
         self.remove_button.setEnabled(not busy)
-        self.download.setEnabled(not busy)
-        if self._operation is None:
-            if self._closing and not busy:
-                self.close()
-            return
-        value = self._operation.snapshot()
-        self.status.setText(
-            "Cancelling… finishing the current network read."
-            if self._cancelling and not value.done
-            else value.error or value.message
-        )
-        self.progress.setRange(0, 1000 if value.total else 0)
-        if value.total:
-            self.progress.setValue(round(value.received / value.total * 1000))
-            self.progress.setFormat(f"{value.received / 1e6:.1f} / {value.total / 1e6:.1f} MB")
-        if value.done:
-            self.error_message = value.error
-            self._operation = None
-            self.choice.setEnabled(True)
-            self.download.setEnabled(True)
-            self.cancel_button.setEnabled(False)
-            self.cancel_button.hide()
-            self.progress.hide()
-            bundle = self.choice.currentData()
-            if not value.error and not value.cancelled and isinstance(bundle, ModelBundle):
-                self.status.setText(model_status(bundle))
-                self.download.setText("Verify / repair")
-            self._refresh_badges()
-            if isinstance(bundle, ImportedModel) and not value.error:
-                self.refresh()
-            self.models_changed.emit()
-            if self._closing:
-                self.close()
+        value = self.choice.currentData()
+        self.download.setEnabled(not busy and isinstance(value, ModelFile) and not value.imported)
+        self.choice.setEnabled(not busy)
+        self.ocr.set_busy(busy)
+        self.refresh()
+        if job.action in ("download", "remove") and job.token:
+            progress = job.progress
+            self.operation_status.setText(
+                "Cancelling… finishing the current network read."
+                if job.cancelling and busy
+                else progress.error or progress.message
+            )
+            self.progress.setRange(0, 1000 if progress.total else 0)
+            if progress.total:
+                self.progress.setValue(round(progress.received / progress.total * 1000))
+                self.progress.setFormat(
+                    f"{progress.received / 1e6:.1f} / {progress.total / 1e6:.1f} MB"
+                )
+            if not busy and self._completion != job.token:
+                self._completion = job.token
+                self.error_message = progress.error
+                self.cancel_button.hide()
+                self.progress.hide()
+        if self._closing and not busy and not self.cloud.busy:
+            self.close()
 
     def reject(self) -> None:
         if self._embedded:
@@ -346,7 +395,7 @@ class ModelManager(QDialog):
             self.close()
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        if self.operation:
+        if self.busy or self.cloud.busy:
             self._closing = True
             self._cancel()
             event.ignore()

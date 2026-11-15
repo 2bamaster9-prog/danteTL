@@ -14,6 +14,7 @@ from typing import Literal
 
 from jp_overlay import paths
 from jp_overlay.download_transport import download_file
+from jp_overlay.model_advice import MODEL_ORDER
 from jp_overlay.model_advice import RECOMMENDED_TRANSLATION as RECOMMENDED_TRANSLATION
 from jp_overlay.models import ModelAsset, asset_directory, assets_present
 from jp_overlay.paths import is_standalone, state_root
@@ -98,7 +99,7 @@ def model_catalog() -> tuple[ModelBundle, ...]:
         ),
         *(model.bundle() for model in MODELS),
     )
-    return bundles
+    return tuple(sorted(bundles, key=lambda bundle: MODEL_ORDER.index(bundle.key)))
 
 
 def model_status(bundle: ModelBundle) -> str:

@@ -3,174 +3,12 @@
 import logging
 import os
 import sys
-from functools import partial
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from types import TracebackType
 
-from jp_overlay.gguf_models import ImportedModel
-from jp_overlay.models import model_directory
-from jp_overlay.ocr_runtime import gpu_runtime_installed
+from jp_overlay.model_factories import create_recognizer, ocr_backends, translation_backends
 from jp_overlay.paths import is_standalone, state_root
-from jp_overlay.recognition import OcrChoice, Recognizer
-from jp_overlay.translation import BackendChoice, TranslationBackend
-
-
-def create_recognizer(*, device: str = "cpu") -> Recognizer:
-    # Import native inference dependencies on the OCR worker, keeping GUI startup light.
-    from jp_overlay.meiki import MeikiRecognizer
-
-    return MeikiRecognizer(model_directory(), device=device)
-
-
-def ocr_backends() -> tuple[OcrChoice, ...]:
-    if gpu_runtime_installed("onnxruntime-directml"):
-        return (
-            OcrChoice("CPU · recommended with the AMD package", create_recognizer, 8, "cpu"),
-            OcrChoice(
-                "DirectML · experimental, checked CPU fallback",
-                partial(create_recognizer, device="auto-directml"),
-                8,
-                "auto-directml",
-            ),
-        )
-    if gpu_runtime_installed():
-        return (
-            OcrChoice(
-                "Automatic · GPU with CPU fallback",
-                partial(create_recognizer, device="auto"),
-                8,
-                "auto",
-            ),
-            OcrChoice("CPU · low resource use", create_recognizer, 8, "cpu"),
-        )
-    return (OcrChoice("CPU · GPU setup optional", create_recognizer, 8, "cpu"),)
-
-
-def create_translator(*, beam_size: int = 2) -> TranslationBackend:
-    from jp_overlay.sugoi import SugoiBackend, model_directory
-
-    return SugoiBackend(model_directory(), beam_size=beam_size)
-
-
-def translation_backends() -> tuple[BackendChoice, ...]:
-    from jp_overlay.curated_models import MODELS
-    from jp_overlay.llama_runtime import installed_device
-    from jp_overlay.model_store import LANGUAGE_RUNTIME_SETUP, model_catalog, preparation_id
-
-    bundles = {bundle.key: bundle for bundle in model_catalog()}
-    choices = []
-    if bundles["sugoi"].present():
-        choices.extend(
-            (
-                BackendChoice("Sugoi V4 · Fast CPU", create_translator, "sugoi-fast"),
-                BackendChoice(
-                    "Sugoi V4 · Wider search", partial(create_translator, beam_size=5), "sugoi-wide"
-                ),
-            )
-        )
-    device = installed_device()
-    factories = {
-        "gemma": ("Gemma 4 E2B", create_gemma_translator),
-        **{
-            model.key: (model.name.split(" · ")[0], partial(create_curated_translator, model.key))
-            for model in MODELS
-        },
-    }
-    for key, (name, factory) in factories.items():
-        bundle = bundles.get(key)
-        if bundle is None or not bundle.present():
-            continue
-        label = {"vulkan": "Vulkan GPU", "cuda": "NVIDIA GPU", "cpu": "CPU · slower"}.get(
-            device or "", "runtime setup needed"
-        )
-        choices.append(
-            BackendChoice(
-                f"{name} · {label}",
-                factory,
-                f"{key}-{device or 'unavailable'}",
-                preparation_id(bundle, device) if device else "",
-                LANGUAGE_RUNTIME_SETUP if device is None else "",
-                "CPU translation is available. It may be slower, especially on busy screens. "
-                "GPU acceleration is optional."
-                if device == "cpu"
-                else "",
-                selection_id=key,
-            )
-        )
-    from jp_overlay.gguf_models import read_registry
-
-    try:
-        imported = read_registry()
-    except (OSError, ValueError) as error:
-        logging.getLogger(__name__).warning("Cannot read imported models: %s", error)
-        imported = ()
-    for model in imported:
-        reason = (
-            "Imported model file is missing or changed size. Open Models → Locate file."
-            if not model.available()
-            else "Language-model engine is missing. Open Settings → Acceleration."
-            if not device
-            else ""
-        )
-        choices.append(
-            BackendChoice(
-                f"{model.name} · Imported · {device or 'engine needed'}",
-                partial(create_imported_translator, model),
-                model.key,
-                imported_preparation_id(model, device) if device and not reason else "",
-                reason,
-                "CPU translation may be slower; GPU acceleration is optional."
-                if device == "cpu"
-                else "",
-            )
-        )
-    return tuple(choices)
-
-
-def imported_preparation_id(model: ImportedModel, device: str) -> str:
-    from jp_overlay.model_store import ModelBundle, preparation_id
-    from jp_overlay.models import ModelAsset
-
-    asset = ModelAsset("", "", model.key, model.sha256, model.size)
-    return (
-        preparation_id(
-            ModelBundle(model.key, model.name, Path(model.path).parent, (asset,), ""), device
-        )
-        + "-"
-        + model.key
-    )
-
-
-def create_imported_translator(model: ImportedModel) -> TranslationBackend:
-    from jp_overlay.gguf_backend import GgufBackend
-    from jp_overlay.llama_runtime import installed_device
-
-    device = installed_device()
-    if device is None:
-        raise RuntimeError("Language-model engine is missing. Open Acceleration.")
-    return GgufBackend(model, device=device)
-
-
-def create_curated_translator(key: str) -> TranslationBackend:
-    from jp_overlay.curated_models import MODELS
-    from jp_overlay.llama_runtime import installed_device
-
-    device = installed_device()
-    if device is None:
-        raise RuntimeError("Language-model engine is missing. Open Acceleration.")
-    model = next(model for model in MODELS if model.key == key)
-    return model.load(device)
-
-
-def create_gemma_translator() -> TranslationBackend:
-    from jp_overlay.gemma import GemmaBackend, model_directory
-    from jp_overlay.llama_runtime import installed_device
-
-    device = installed_device()
-    if device is None:
-        raise RuntimeError("Local language-model engine is not installed. Open runtime setup.")
-    return GemmaBackend(model_directory(), device=device)
 
 
 def configure_logging() -> None:
@@ -182,6 +20,13 @@ def configure_logging() -> None:
     directory.mkdir(parents=True, exist_ok=True)
     handler = RotatingFileHandler(
         directory / "app.log", maxBytes=500_000, backupCount=2, encoding="utf-8"
+    )
+    # Cloud adapters supply sanitized diagnostics. Transport debug logs may contain
+    # headers/token request bodies and must never enter the application log.
+    handler.addFilter(
+        lambda record: (
+            record.name.split(".", 1)[0] not in ("httpx", "httpx2", "httpcore", "httpcore2")
+        )
     )
     logging.basicConfig(
         level=logging.INFO,
@@ -198,6 +43,13 @@ def main() -> None:
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication, QMessageBox
 
+    from jp_overlay.composition import (
+        application_session,
+        cloud_services,
+        model_inventory,
+        setup_coordinator,
+    )
+    from jp_overlay.desktop_driver import DesktopDriver
     from jp_overlay.hardware import HardwareCheck
     from jp_overlay.hotkeys import Hotkeys
     from jp_overlay.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
@@ -230,17 +82,22 @@ def main() -> None:
     hardware.start()
     hotkeys = Hotkeys(WindowsHotkeyRegistrar())
     hotkey_events = WindowsHotkeyEvents(app, hotkeys)
-    window = MainWindow(
+    models = model_catalog()
+    inventory = model_inventory(models, translation_backends)
+    driver = DesktopDriver()
+    application = application_session(
         windows,
         create_recognizer,
-        translation_backends(),
+        cloud=cloud_services(),
+        inventory=inventory,
+        setup=setup_coordinator(inventory, models, project_root()),
         ocr_backends=ocr_backends(),
-        models=model_catalog(),
-        backend_provider=translation_backends,
+        notify=driver.notify,
         preferences_path=project_root() / "data/preferences.json",
         hardware=hardware,
         hotkeys=hotkeys,
     )
+    window = MainWindow(application, windows, driver, hardware=hardware, hotkeys=hotkeys)
     window.show()
     from jp_overlay.runtime_restart import acknowledge_startup
 

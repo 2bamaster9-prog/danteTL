@@ -1,9 +1,8 @@
 """Skippable guided setup; one explicit action owns one cancellable background operation."""
 
 from pathlib import Path
-from threading import Event
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QComboBox,
@@ -16,11 +15,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from jp_overlay.first_run import SetupPlan, needs_runtime, run_setup
-from jp_overlay.hardware import HardwareCheck, HardwareStatus, recommended_profile
-from jp_overlay.model_store import ModelBundle, ModelOperation, ModelProgress, Progress
-from jp_overlay.runtime_setup import PROFILES, RuntimeProfile, project_root
+from jp_overlay.hardware_values import HardwareReader, HardwareStatus, recommended_profile
+from jp_overlay.model_advice import RECOMMENDED_TRANSLATION
+from jp_overlay.model_summary import ModelSummary
 from jp_overlay.setup_progress import SetupProgressView
+from jp_overlay.setup_values import ModelProgress, SetupLane, SetupReview
+from jp_overlay.view_services import SetupCommands
 
 
 class SetupAssistant(QDialog):
@@ -29,25 +29,22 @@ class SetupAssistant(QDialog):
 
     def __init__(
         self,
-        models: tuple[ModelBundle, ...],
-        hardware: HardwareCheck | None,
+        service: SetupCommands,
+        hardware: HardwareReader | None,
         parent: QWidget,
-        *,
-        root: Path | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("DanteJP · Welcome")
         self.setWindowModality(Qt.WindowModality.WindowModal)
         self.resize(640, 510)
-        self.root = root or project_root()
-        self.models = {model.key: model for model in models}
+        self.service = service
+        self.models = {model.key: model for model in service.files}
+        self._completion = 0
         self.hardware = hardware
         self.hardware_status: HardwareStatus | None = None
-        self.operation: ModelOperation | None = None
-        self.target: Path | None = None
         self._closing = self._finished = self._reported = False
         self._runtime_chosen = False
-        self._plan: SetupPlan | None = None
+        self._review: SetupReview | None = None
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 20, 24, 20)
         self.heading = QLabel("Welcome to DanteJP")
@@ -81,14 +78,17 @@ class SetupAssistant(QDialog):
             )
         )
         self.model = QComboBox()
-        for key in ("gemma", *(key for key in self.models if key not in ("ocr", "gemma"))):
-            if key in self.models:
-                bundle = self.models[key]
-                suffix = " · downloaded" if bundle.present() else f" · {bundle.size / 1e9:.2f} GB"
-                self.model.addItem(bundle.name + suffix, key)
+        for bundle in service.guide_models:
+            suffix = " · downloaded" if bundle.present else f" · {bundle.size / 1e9:.2f} GB"
+            self.model.addItem(bundle.name + suffix, bundle.key)
+        recommended = self.model.findData(RECOMMENDED_TRANSLATION)
+        if recommended >= 0:
+            self.model.setCurrentIndex(recommended)
         page.addWidget(self.model)
         self.model_help = self._label("")
         page.addWidget(self.model_help)
+        self.model_summary = ModelSummary()
+        page.addWidget(self.model_summary)
         self.model.currentIndexChanged.connect(self._model_changed)
         self._model_changed()
         page.addStretch()
@@ -96,7 +96,7 @@ class SetupAssistant(QDialog):
         self.hardware_label = self._label("Checking graphics hardware…")
         page.addWidget(self.hardware_label)
         self.runtime = QComboBox()
-        for profile in (PROFILES[2], PROFILES[0], PROFILES[1]):
+        for profile in sorted(service.profiles, key=lambda p: p.key != "cpu"):
             self.runtime.addItem(profile.name, profile)
         page.addWidget(self.runtime)
         self.runtime_help = self._label("")
@@ -135,11 +135,19 @@ class SetupAssistant(QDialog):
         self.skip.clicked.connect(self._skip)
         self.back.clicked.connect(lambda: self._show(self.pages.currentIndex() - 1))
         self.next.clicked.connect(self._next)
-        self._timer = QTimer(self)
-        self._timer.setInterval(100)
-        self._timer.timeout.connect(self._poll)
-        self._timer.start()
         self._show(0)
+        job = service.job(SetupLane.GUIDE)
+        if job.token and service.reviewed is not None:
+            self._review = service.reviewed
+            self.model.setCurrentIndex(self.model.findData(self._review.model))
+            for index in range(self.runtime.count()):
+                if self.runtime.itemData(index).key == self._review.runtime:
+                    self.runtime.setCurrentIndex(index)
+                    break
+            self._show(4)
+            self.next.setEnabled(False)
+            self.skip.setText("Cancel setup")
+        self.refresh_view()
 
     @staticmethod
     def _label(text: str) -> QLabel:
@@ -157,6 +165,8 @@ class SetupAssistant(QDialog):
     def _model_changed(self) -> None:
         bundle = self.models.get(self.model.currentData())
         self.model_help.setText(bundle.description if bundle else "Choose a translation model.")
+        if bundle:
+            self.model_summary.set_model(bundle.key, bundle.size, bundle.language_model)
 
     def _runtime_changed(self) -> None:
         self._runtime_chosen = True
@@ -179,13 +189,12 @@ class SetupAssistant(QDialog):
         self.next.setEnabled(page != 2 or self.hardware_status is not None)
         if page == 3:
             assert self.hardware_status is not None
-            profile: RuntimeProfile = self.runtime.currentData()
+            profile = self.runtime.currentData()
             ocr = self.models["ocr"]
-            self._plan = SetupPlan(
-                (() if ocr.included else (ocr,)) + (self.models[self.model.currentData()],),
-                profile if needs_runtime(profile, self.hardware_status) else None,
+            self._review = self.service.review(
+                self.model.currentData(), profile.key, self.hardware_status
             )
-            pending = sum(m.size for m in self._plan.models if not m.present())
+            pending = self._review.download_bytes
             self.review.setText(
                 f"Recognition: MeikiOCR{' · included, no download' if ocr.included else ''}\n"
                 f"Translation: {self.model.currentText()}\n"
@@ -196,7 +205,7 @@ class SetupAssistant(QDialog):
                     "Runtime libraries and app dependencies will also be downloaded. "
                     "NVIDIA libraries add about 1.3 GB; CPU and Vulkan downloads are smaller. "
                     "Restart is offered when ready.\n"
-                    if self._plan.runtime
+                    if self._review.install_runtime
                     else "Your current runtime provides this support; no runtime install needed.\n"
                 )
                 + "\nNothing has downloaded yet. Download and set up starts the selected work. "
@@ -213,35 +222,31 @@ class SetupAssistant(QDialog):
             self._finish(self.target)
 
     def _start(self) -> None:
-        if self.operation or self._plan is None:
+        if self._review is None or not self.service.start_review(self._review.token):
             return
-        plan = self._plan
-        self.target = None
         self._show(4)
         self.next.setEnabled(False)
         self.skip.setText("Cancel setup")
         self.result_note.setText("")
         self.progress_view.update_progress(ModelProgress("Starting selected setup…"))
 
-        def action(progress: Progress, cancel: Event) -> None:
-            self.target = run_setup(plan, self.root, progress, cancel)
-
-        self.operation = ModelOperation(action)
-        self.operation.start()
-
     @property
     def busy(self) -> bool:
-        return self.operation is not None
+        return self.service.job(SetupLane.GUIDE).busy
+
+    @property
+    def target(self) -> Path | None:
+        return self.service.guide_target
 
     def cancel(self) -> None:
-        if self.operation:
-            self.operation.cancel()
+        if self.busy:
+            self.service.cancel(SetupLane.GUIDE)
             self.skip.setEnabled(False)
             self.result_note.setText(
                 "Cancelling… waiting for the current read or installer to stop."
             )
 
-    def _poll(self) -> None:
+    def refresh_view(self) -> None:
         if self.hardware_status is None:
             status = (
                 self.hardware.snapshot() if self.hardware else HardwareStatus(error="Unavailable")
@@ -266,13 +271,14 @@ class SetupAssistant(QDialog):
                     )
                 if self.pages.currentIndex() == 2:
                     self.next.setEnabled(True)
-        if self.operation is None:
+        job = self.service.job(SetupLane.GUIDE)
+        if not job.token or self._completion == job.token:
             return
-        value = self.operation.snapshot()
+        value = job.progress
         self.progress_view.update_progress(value)
-        if not value.done:
+        if job.busy:
             return
-        self.operation = None
+        self._completion = job.token
         self.skip.setEnabled(True)
         self.next.setEnabled(True)
         self._finished = not (value.error or value.cancelled)
@@ -295,14 +301,13 @@ class SetupAssistant(QDialog):
 
     def _finish(self, target: Path | None) -> None:
         self._reported = True
-        self._timer.stop()
         self.hide()
-        key = self.models[self.model.currentData()].selection_id
+        key = self.service.selection_id(self.model.currentData())
         self.completed.emit(key, target)
         self.accept()
 
     def _skip(self) -> None:
-        if self.operation:
+        if self.busy:
             self.cancel()
         elif self._finished:
             self._finish(None)
@@ -313,16 +318,15 @@ class SetupAssistant(QDialog):
         self.close()
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        if self.operation:
+        if self.busy:
             self._closing = True
             self.cancel()
             event.ignore()
             return
-        self._timer.stop()
         if not self._reported:
             self._reported = True
             if self._finished:
-                key = self.models[self.model.currentData()].selection_id
+                key = self.service.selection_id(self.model.currentData())
                 self.completed.emit(key, None)
             else:
                 self.skipped.emit()

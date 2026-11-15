@@ -25,24 +25,30 @@ class GeometrySource(Protocol):
 class FrameMailbox:
     """A single replaceable frame; consumers cannot create a backlog."""
 
-    def __init__(self) -> None:
+    def __init__(self, on_change: Callable[[], None] | None = None) -> None:
         self._lock = threading.Lock()
         self._snapshot = CaptureSnapshot(CaptureState.STARTING)
+        self._notify = on_change or (lambda: None)
 
     def publish(self, frame: CapturedFrame) -> None:
         with self._lock:
-            if self._snapshot.state not in (
+            if self._snapshot.state in (
                 CaptureState.STOPPING,
                 CaptureState.STOPPED,
                 CaptureState.FAILED,
             ):
-                self._snapshot = CaptureSnapshot(CaptureState.RUNNING, frame)
+                return
+            self._snapshot = CaptureSnapshot(CaptureState.RUNNING, frame)
+        self._notify()
 
     def set_state(self, state: CaptureState, message: str = "") -> None:
         with self._lock:
             if self._snapshot.state in (CaptureState.FAILED, CaptureState.STOPPED):
                 return
+            if self._snapshot.state == state and self._snapshot.message == message:
+                return
             self._snapshot = CaptureSnapshot(state, message=message)
+        self._notify()
 
     def snapshot(self) -> CaptureSnapshot:
         with self._lock:
@@ -62,17 +68,24 @@ class CaptureSession:
         windows: GeometrySource,
         fps: int = 4,
         clock: Callable[[], float] = time.monotonic,
+        *,
+        on_change: Callable[[], None] | None = None,
+        show_border: bool = True,
     ) -> None:
         if not 1 <= fps <= 30:
             raise ValueError("Capture rate must be between 1 and 30.")
         self.target = target
-        self.mailbox = FrameMailbox()
+        self.mailbox = FrameMailbox(on_change)
         self._windows = windows
         self._fps = fps
         self._clock = clock
         self._stop = threading.Event()
         self._done = threading.Event()
         self._thread: threading.Thread | None = None
+        self._options_lock = threading.Lock()
+        self._show_border = show_border
+        self._sequence = 0
+        self._last_sample = float("-inf")
 
     @property
     def finished(self) -> bool:
@@ -91,9 +104,19 @@ class CaptureSession:
     def snapshot(self) -> CaptureSnapshot:
         return self.mailbox.snapshot()
 
+    def set_border(self, enabled: bool) -> None:
+        """Coalesce a native setting change; leave frames and processing state intact."""
+        with self._options_lock:
+            self._show_border = enabled
+
+    def _border(self) -> bool:
+        with self._options_lock:
+            return self._show_border
+
     def _run(self) -> None:
         try:
-            self._capture()
+            while self._capture():
+                pass  # Reopen only the same HWND after a requested border change.
         except Exception as error:
             logger.exception("Capture session failed")
             self.mailbox.set_state(CaptureState.FAILED, str(error))
@@ -101,30 +124,30 @@ class CaptureSession:
             self.mailbox.set_state(CaptureState.STOPPED)
             self._done.set()
 
-    def _capture(self) -> None:
+    def _capture(self) -> bool:
         # Native dependency imports stay at the boundary and off the GUI thread.
         from windows_capture import Frame, InternalCaptureControl, WindowsCapture
 
         if self._stop.is_set():
-            return
+            return False
         self._windows.geometry(self.target)
-        last_sample = float("-inf")
-        sequence = 0
+        border = self._border()
+        first_sequence = self._sequence
         closed = threading.Event()
         capture = WindowsCapture(
             window_hwnd=self.target.hwnd,
             cursor_capture=False,
+            draw_border=None if border else False,
             minimum_update_interval=round(1000 / self._fps),
         )
 
         @capture.event
         def on_frame_arrived(frame: Frame, control: InternalCaptureControl) -> None:
-            nonlocal last_sample, sequence
             if self._stop.is_set():
                 control.stop()
                 return
             now = self._clock()
-            if now - last_sample < 1 / self._fps:
+            if now - self._last_sample < 1 / self._fps:
                 return
             try:
                 geometry = self._windows.geometry(self.target)
@@ -134,9 +157,9 @@ class CaptureSession:
                 pixels = frame.frame_buffer[
                     crop.y : crop.y + crop.height, crop.x : crop.x + crop.width, :4
                 ].tobytes(order="C")
-                sequence += 1
-                self.mailbox.publish(CapturedFrame(sequence, now, geometry, pixels))
-                last_sample = now
+                self._sequence += 1
+                self.mailbox.publish(CapturedFrame(self._sequence, now, geometry, pixels))
+                self._last_sample = now
             except Exception as error:
                 logger.exception("Could not process a captured frame")
                 self.mailbox.set_state(CaptureState.FAILED, str(error))
@@ -148,14 +171,16 @@ class CaptureSession:
             closed.set()
 
         if self._stop.is_set():
-            return
+            return False
         control = capture.start_free_threaded()
         started = self._clock()
         try:
             while not self._stop.wait(0.05):
                 if closed.is_set() or control.is_finished():
                     break
-                if sequence == 0 and self._clock() - started > 10:
+                if self._border() != border:
+                    return True
+                if self._sequence == first_sequence and self._clock() - started > 10:
                     raise RuntimeError(
                         "No usable frame arrived. Restore the window and try windowed or "
                         "borderless mode. Protected or unsupported windows cannot be captured."
@@ -165,3 +190,4 @@ class CaptureSession:
                 control.wait()
             else:
                 control.stop()
+        return False

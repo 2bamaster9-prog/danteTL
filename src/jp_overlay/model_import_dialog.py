@@ -1,10 +1,6 @@
 """Local import review. All model inspection, testing and registration runs off Qt."""
 
-import threading
-from dataclasses import replace
-from pathlib import Path
-
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QComboBox,
@@ -20,28 +16,27 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from jp_overlay.gguf_models import PROFILES, ImportedModel, save_registration
-from jp_overlay.gguf_probe import ImportTest
-from jp_overlay.llama_runtime import installed_device
-from jp_overlay.model_store import ModelOperation
+from jp_overlay.import_values import PROFILES, ImportedModel
+from jp_overlay.setup_values import SetupLane
+from jp_overlay.view_services import SetupCommands
 
 
 class ModelImportDialog(QDialog):
-    models_changed = Signal()
-
     def __init__(
-        self, parent: QWidget | None = None, *, expected: ImportedModel | None = None
+        self,
+        service: SetupCommands,
+        parent: QWidget | None = None,
+        *,
+        expected: ImportedModel | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Locate imported model" if expected else "Import local GGUF model")
         self.resize(670, 600)
         self.setMinimumSize(540, 450)
         self.expected = expected
-        self.operation: ModelOperation | None = None
-        self.test: ImportTest | None = None
-        self.gate = threading.Event()
-        self.testing = False
-        self._saving = False
+        self.service = service
+        service.begin_import(expected)
+        self._completion = 0
         self._closing = False
         layout = QVBoxLayout(self)
         intro = QLabel(
@@ -111,10 +106,16 @@ class ModelImportDialog(QDialog):
         layout.addLayout(buttons)
         self.file.textChanged.connect(self._invalidate)
         self.profile.currentIndexChanged.connect(self._invalidate)
-        self.timer = QTimer(self)
-        self.timer.setInterval(100)
-        self.timer.timeout.connect(self._poll)
-        self.timer.start()
+        result = service.probe_result
+        if result is not None:
+            self.file.blockSignals(True)
+            self.profile.blockSignals(True)
+            self.file.setText(result.model.path)
+            self.name.setText(result.model.name)
+            self.profile.setCurrentIndex(self.profile.findData(result.model.profile))
+            self.file.blockSignals(False)
+            self.profile.blockSignals(False)
+        self.refresh_view()
 
     def _browse(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(
@@ -124,29 +125,15 @@ class ModelImportDialog(QDialog):
             self.file.setText(filename)
 
     def _invalidate(self) -> None:
-        self.test = None
+        self.service.invalidate_import()
         self.add_button.setEnabled(False)
         self.results.clear()
 
     def start_test(self) -> None:
-        if self.operation:
-            return
-        device = installed_device()
-        if not device:
-            self.status.setText(
-                "A language-model engine is needed. "
-                "Open Settings → Acceleration and select CPU or GPU."
-            )
-            return
-        self.gate.clear()
-        self.testing = True
-        self.test = ImportTest(
-            Path(self.file.text()), self.profile.currentData(), device, self.gate
-        )
-        self.operation = ModelOperation(self.test.run)
-        self._set_busy(True)
-        self.results.clear()
-        self.operation.start()
+        if self.service.test_import(self.file.text(), self.profile.currentData()):
+            self._set_busy(True)
+            self.results.clear()
+        self.refresh_view()
 
     def _set_busy(self, busy: bool) -> None:
         for widget in (self.file, self.name, self.browse, self.profile, self.test_button):
@@ -157,55 +144,44 @@ class ModelImportDialog(QDialog):
         self.progress.setRange(0, 0)
 
     def _add(self) -> None:
-        if self.operation or not self.test or not self.test.result:
-            return
-        model = replace(
-            self.test.result.model,
-            name=" ".join(self.name.text().split()) or Path(self.test.result.model.path).stem[:100],
-        )
-        self._saving = True
-        self.operation = ModelOperation(lambda progress, cancel: save_registration(model))
-        self._set_busy(True)
-        self.operation.start()
+        if self.service.save_import(self.name.text()):
+            self._set_busy(True)
 
     def cancel(self) -> None:
-        if self.operation:
-            self.operation.cancel()
+        if self.busy:
+            self.service.cancel(SetupLane.MODELS)
             self.status.setText("Cancelling… waiting for the test process to stop.")
 
+    @property
+    def busy(self) -> bool:
+        return self.service.job(SetupLane.MODELS).busy
+
     def _cancel_or_close(self) -> None:
-        if self.operation:
+        if self.busy:
             self.cancel()
         else:
             self.close()
 
-    def _poll(self) -> None:
-        if not self.operation:
+    def refresh_view(self) -> None:
+        job = self.service.job(SetupLane.MODELS)
+        if not job.token:
             return
-        value = self.operation.snapshot()
+        value = job.progress
+        if job.busy:
+            self._set_busy(True)
         self.status.setText(value.error or value.message)
         self.progress.setRange(0, 1000 if value.total else 0)
         if value.total:
             self.progress.setValue(round(value.received / value.total * 1000))
-        if not value.done:
+        if job.busy or self._completion == job.token:
             return
-        self.operation = None
-        self.testing = False
+        self._completion = job.token
         self._set_busy(False)
         succeeded = not value.error and not value.cancelled
-        if self._saving:
-            self._saving = False
-            if succeeded:
-                self.models_changed.emit()
-                self.accept()
-        elif succeeded and self.test and self.test.result:
-            result = self.test.result
-            if self.expected and result.model.key != self.expected.key:
-                self.status.setText(
-                    "This is a different model. Import it separately; "
-                    "the original registration was kept."
-                )
-                return
+        if job.action == "register" and succeeded:
+            self.accept()
+        elif job.action == "probe" and succeeded and self.service.probe_result:
+            result = self.service.probe_result
             self.results.setPlainText(
                 f"{result.model.name}\nArchitecture: {result.model.architecture} · "
                 f"Format: {PROFILES[result.model.profile]}\n"
@@ -224,7 +200,7 @@ class ModelImportDialog(QDialog):
         self.close()
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        if self.operation:
+        if self.busy:
             self._closing = True
             self.cancel()
             event.ignore()

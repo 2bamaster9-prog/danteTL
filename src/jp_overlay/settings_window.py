@@ -21,25 +21,26 @@ from jp_overlay.controls import InfoButton, StatusBanner, Switch
 from jp_overlay.hotkey_settings import HotkeySettings
 from jp_overlay.hotkeys import HotkeyAction, Hotkeys
 from jp_overlay.model_manager import ModelManager
-from jp_overlay.model_store import ModelBundle
-from jp_overlay.preferences import Preferences
-from jp_overlay.recognition import OcrChoice
+from jp_overlay.model_selection import OcrOption
+from jp_overlay.preference_values import Preferences
 from jp_overlay.runtime_dialog import RuntimeSetupDialog
+from jp_overlay.setup_values import SetupLane
+from jp_overlay.view_services import CloudCommands, SetupCommands
 
 
 class SettingsWindow(QDialog):
     changed = Signal()
-    models_changed = Signal()
     restart_requested = Signal(object)
     runtime_created = Signal(object)
 
     def __init__(
         self,
         preferences: Preferences,
-        ocr_choices: tuple[OcrChoice, ...],
-        models: tuple[ModelBundle, ...],
+        ocr_choices: tuple[OcrOption, ...],
         parent: QWidget,
         *,
+        cloud: CloudCommands,
+        setup: SetupCommands,
         hotkeys: Hotkeys | None = None,
     ) -> None:
         super().__init__(parent)
@@ -47,6 +48,8 @@ class SettingsWindow(QDialog):
         self.setWindowModality(Qt.WindowModality.NonModal)
         self.resize(680, 620)
         self.setMinimumSize(540, 440)
+        self._setup = setup
+        self._cloud = cloud
         self._ocr_key = preferences.ocr_device
         self.runtime: RuntimeSetupDialog | None = None
         layout = QVBoxLayout(self)
@@ -56,7 +59,7 @@ class SettingsWindow(QDialog):
         layout.addWidget(self.model_notice)
         layout.addWidget(self.acceleration_notice)
         self.tabs = QTabWidget()
-        self._pages: dict[str, QScrollArea] = {}
+        self._pages: dict[str, QWidget] = {}
         layout.addWidget(self.tabs, 1)
         appearance = self._page("Appearance")
         self.stabilize = Switch("Stabilize game boxes")
@@ -147,12 +150,10 @@ class SettingsWindow(QDialog):
         recognition.addWidget(self.capture_note)
         recognition.addStretch()
 
-        model_page = self._page("Models")
-        self.models = ModelManager(models, self, embedded=True)
-        self.models.models_changed.connect(self.models_changed.emit)
+        self.models = ModelManager(setup, self, cloud=cloud, embedded=True)
         self.models.runtime_requested.connect(self.show_runtime)
-        model_page.addWidget(self.models)
-        model_page.addStretch()
+        self._pages["Models"] = self.models
+        self.tabs.addTab(self.models, "Models")
         self.runtime_layout = self._page("Acceleration")
         self.runtime_layout.addStretch()
         shortcuts = self._page("Hotkeys")
@@ -165,6 +166,27 @@ class SettingsWindow(QDialog):
         )
         self.hotkeys.changed.connect(self.changed.emit)
         shortcuts.addWidget(self.hotkeys)
+        experimental = self._page("Experimental")
+        note = QLabel("Features under development. Results may be inaccurate or incomplete.")
+        note.setWordWrap(True)
+        note.setObjectName("muted")
+        experimental.addWidget(note)
+        self.history_enabled = Switch("Dialogue history")
+        self.history_enabled.setChecked(preferences.history_enabled)
+        self._setting(
+            experimental,
+            self.history_enabled,
+            "Dialogue history",
+            "Collect recent dialogue in a separate reader. Dialogue and speaker detection may "
+            "be inaccurate. Disabled by default; your choice is saved.",
+        )
+        history_note = QLabel(
+            "When enabled, open Dialogue history beside Settings to choose a classifier model "
+            "and read recent turns. Cloud classifiers use your plan/API allowance."
+        )
+        history_note.setWordWrap(True)
+        experimental.addWidget(history_note)
+        experimental.addStretch()
         self.tabs.currentChanged.connect(self._tab_changed)
         footer = QHBoxLayout()
         self.setup_assistant = QPushButton("Setup assistant…")
@@ -173,7 +195,7 @@ class SettingsWindow(QDialog):
         )
         footer.addWidget(self.setup_assistant)
         self.save_note = QLabel(
-            "Changes save automatically; hotkeys save when applied. Downloads require your action."
+            "Most settings save automatically. Save model edits; apply hotkeys."
         )
         self.save_note.setWordWrap(True)
         self.save_note.setObjectName("muted")
@@ -182,7 +204,12 @@ class SettingsWindow(QDialog):
         close.clicked.connect(self.close)
         footer.addWidget(close)
         layout.addLayout(footer)
-        for control in (self.stabilize, self.automatic_size, self.group_dialogue):
+        for control in (
+            self.stabilize,
+            self.automatic_size,
+            self.group_dialogue,
+            self.history_enabled,
+        ):
             control.toggled.connect(lambda _: self.changed.emit())
         self.opacity.valueChanged.connect(self._opacity_changed)
         self.text_size.valueChanged.connect(lambda _: self.changed.emit())
@@ -253,6 +280,7 @@ class SettingsWindow(QDialog):
             capture_hotkey=self.hotkeys.rows[HotkeyAction.CAPTURE].committed,
             original_hotkey=self.hotkeys.rows[HotkeyAction.ORIGINAL].committed,
             capture_focused_window=self.hotkeys.capture_focused.isChecked(),
+            history_enabled=self.history_enabled.isChecked(),
         )
 
     def show_hotkeys(self) -> None:
@@ -290,23 +318,31 @@ class SettingsWindow(QDialog):
         if self.tabs.widget(index) is self._pages["Models"]:
             self.models.refresh()
         if self.tabs.widget(index) is self._pages["Acceleration"] and self.runtime is None:
-            self.runtime = RuntimeSetupDialog(self, embedded=True)
+            self.runtime = RuntimeSetupDialog(self._setup, self, embedded=True)
             self.runtime.restart_requested.connect(self.restart_requested.emit)
             self.runtime_layout.insertWidget(0, self.runtime)
             self.runtime_created.emit(self.runtime)
 
     @property
     def busy(self) -> bool:
-        return bool(self.models.operation or (self.runtime and self.runtime.operation))
+        return bool(
+            self._setup.job(SetupLane.MODELS).busy
+            or self._setup.job(SetupLane.RUNTIME).busy
+            or self._cloud.snapshot().busy
+        )
 
     @property
     def problem(self) -> str:
-        return self.models.error_message or (self.runtime.error_message if self.runtime else "")
+        return (
+            self._setup.job(SetupLane.MODELS).progress.error
+            or self._cloud.snapshot().problem
+            or self._setup.job(SetupLane.RUNTIME).progress.error
+        )
 
     def cancel_operations(self) -> None:
-        self.models._cancel()
-        if self.runtime and self.runtime.operation:
-            self.runtime.cancel_operation()
+        self._setup.cancel(SetupLane.MODELS)
+        self._setup.cancel(SetupLane.RUNTIME)
+        self._cloud.cancel()
 
     def reject(self) -> None:
         self.close()

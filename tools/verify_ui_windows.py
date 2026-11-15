@@ -10,14 +10,15 @@ import shiboken6
 from PySide6.QtCore import QPoint, Qt, QTimer
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
+from verification_isolation import app_owner
+from verification_isolation import create_window as MainWindow
 
-from jp_overlay.app import create_recognizer, ocr_backends, translation_backends
 from jp_overlay.controls import InfoButton
 from jp_overlay.demo import DemoWindow
 from jp_overlay.hardware import HardwareCheck
+from jp_overlay.model_factories import create_recognizer, ocr_backends, translation_backends
 from jp_overlay.model_store import model_catalog
 from jp_overlay.preferences import PreferenceStore
-from jp_overlay.ui import MainWindow
 from jp_overlay.windows import Windows
 
 
@@ -50,6 +51,7 @@ def main() -> int:
         preferences_path=preferences_path,
         hardware=hardware,
     )
+    application = app_owner(window)
     # Show only our fixture name in screenshots, never another application's title.
     window.windows_combo.clear()
     window.windows_combo.addItem("DanteJP Demo · 日本語のテスト")
@@ -73,7 +75,17 @@ def main() -> int:
                 QTest.keyClick(window.overlay_check, Qt.Key.Key_Space)
                 assert window.overlay_check.isChecked()
                 evidence["keyboard_switch_toggle"] = True
+                assert window.border_check.isChecked()
+                QTest.keyClick(window.border_check, Qt.Key.Key_Space)
+                assert not window.border_check.isChecked()
+                assert window.capture_overlay_check.isChecked()
+                QTest.keyClick(window.capture_overlay_check, Qt.Key.Key_Space)
+                assert not window.capture_overlay_check.isChecked()
                 evidence["compact_size"] = [window.width(), window.height()]
+                assert window.subtitle.text() == "Stay for the story."
+                assert window.start_button.property("tone") == "idle"
+                assert not window.start_button.icon().isNull()
+                evidence["capture_icon_and_idle_state"] = True
                 window.grab().save(str(args.output / "main.png"))
                 if args.missing_models:
                     assert (
@@ -90,10 +102,25 @@ def main() -> int:
                     "Models",
                     "Acceleration",
                     "Hotkeys",
+                    "Experimental",
                 ]
                 assert settings.runtime is None  # Merely opening Settings does not start setup.
                 assert window.stabilize_check.isChecked() and window.automatic_font.isChecked()
                 settings.grab().save(str(args.output / "appearance.png"))
+                settings.tabs.setCurrentIndex(settings.tabs.count() - 1)
+                assert not settings.history_enabled.isChecked()
+                assert not window.history_button.isVisible()
+                settings.grab().save(str(args.output / "experimental.png"))
+                QTest.keyClick(settings.history_enabled, Qt.Key.Key_Space)
+                assert window.history_button.isVisible() and application.live.history_enabled
+                window.history_button.click()
+                assert window.history_panel.isVisible()
+                QTest.keyClick(settings.history_enabled, Qt.Key.Key_Space)
+                assert (
+                    not window.history_panel.isVisible() and not window.history_button.isVisible()
+                )
+                assert not application.live.history_enabled
+                evidence["experimental_history_opt_in"] = True
                 settings.opacity.setValue(62)
                 window.automatic_font.setChecked(False)
                 window.font_size.setValue(24)
@@ -108,6 +135,13 @@ def main() -> int:
                 stage = 3
             elif stage == 3:
                 assert settings.tabs.tabText(settings.tabs.currentIndex()) == "Models"
+                assert settings.models.choice.currentData().key == "gemma"
+                assert all(
+                    settings.models.choice.itemData(i).key != "ocr"
+                    for i in range(settings.models.choice.count())
+                )
+                assert settings.models.ocr.choice.currentData().key == "ocr"
+                assert not settings.models.ocr.details.isVisible()
                 expected = (
                     "Download required"
                     if args.missing_models
@@ -134,8 +168,19 @@ def main() -> int:
                     "Model description is clipped after changing selection"
                 )
                 key = settings.models.choice.currentData().key
+                summary = settings.models.summary
+                assert summary.isVisible() and summary.cpu.text() == "✓ CPU support"
+                if key.startswith("plamo-"):
+                    assert summary.values[1].property("tone") == "error"
+                if key == "qwen35-4b":
+                    assert summary.values[2].text() == "✕ Slow"
                 settings.grab().save(str(args.output / f"{key}-status.png"))
-                following = {"gemma": "qwen35-4b", "qwen35-4b": "gemma-e4b"}.get(key)
+                following = {
+                    "gemma": "plamo-2b",
+                    "plamo-2b": "plamo-0.8b",
+                    "plamo-0.8b": "qwen35-4b",
+                    "qwen35-4b": "gemma-e4b",
+                }.get(key)
                 index = next(
                     (
                         i
@@ -156,6 +201,21 @@ def main() -> int:
                 )
                 settings.grab().save(str(args.output / "model-small.png"))
                 settings.resize(680, 620)
+                settings.models.category.setCurrentIndex(1)
+                settings.models.ocr.manage.click()
+                stage = 33
+            elif stage == 33:
+                assert settings.models.ocr.details.isVisible()
+                settings.models.ocr_page.ensureWidgetVisible(settings.models.ocr.download)
+                stage = 34
+            elif stage == 34:
+                assert "does not translate" in settings.models.ocr.summary.text()
+                assert settings.models.pages.currentWidget() is settings.models.ocr_page
+                assert not settings.models.choice.isVisible()
+                assert settings.models.category.isVisible()
+                settings.grab().save(str(args.output / "ocr-models.png"))
+                evidence["separate_model_pages_with_fixed_menu"] = True
+                settings.models.category.setCurrentIndex(0)
                 settings.models.runtime_button.click()
                 stage = 4
             elif stage == 4:
@@ -163,7 +223,7 @@ def main() -> int:
                     return
                 assert window._runtime_dialog and window._runtime_dialog.isVisible()
                 assert settings.tabs.tabText(settings.tabs.currentIndex()) == "Acceleration"
-                assert not window._translation and not window._pipeline.ocr
+                assert not application.translation.session and not application.live.ocr
                 settings.grab().save(str(args.output / "runtime.png"))
                 runtime = settings.runtime
                 settings.show_hotkeys()
@@ -189,12 +249,26 @@ def main() -> int:
                 stage = 6
             elif stage == 6:
                 assert window.advanced_panel.isVisible()
+                assert window.processing.isVisible()
+                assert all(
+                    card.isVisible()
+                    for card in (
+                        window.processing.capture,
+                        window.processing.ocr,
+                        window.processing.translation,
+                    )
+                )
+                window.processing.grab().save(str(args.output / "processing.png"))
                 window.grab().save(str(args.output / "advanced.png"))
                 window.advanced.setChecked(False)
-                if not window._preferences.idle:
+                if not application.preferences.idle:
                     return
                 saved = PreferenceStore(preferences_path).initial
                 assert saved.opacity == 62 and saved.text_size == 24 and not saved.automatic_size
+                assert not saved.show_border
+                assert not saved.include_overlay_in_capture
+                evidence["capture_inclusion_preference_saved"] = True
+                evidence["border_preference_saved"] = True
                 evidence.update(
                     settings_saved=True, info_controls=len(settings.findChildren(InfoButton))
                 )
@@ -202,9 +276,12 @@ def main() -> int:
                 stage = 8
             elif stage == 8:
                 assert window.isMaximized()
-                assert window.control_panel.width() <= 760 and window.control_panel.height() < 850
+                assert window.control_panel.width() > 760 and window.control_panel.height() < 850
+                assert window.sections.translation.x() > window.sections.game.x()
                 assert window.control_panel.mapTo(window, QPoint()).y() <= 24
                 assert window.translate_check.mapTo(window, QPoint()).x() < 450
+                assert window.border_check.y() == window.translate_check.y()
+                assert window.border_check.x() > window.translate_check.x()
                 assert window.windows_combo.mapTo(window, QPoint()).y() < 200
                 window.grab().save(str(args.output / "maximized.png"))
                 window.advanced.setChecked(True)
@@ -253,4 +330,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from verification_isolation import run_isolated
+
+    run_isolated(main)

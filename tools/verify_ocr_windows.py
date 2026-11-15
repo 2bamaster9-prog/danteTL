@@ -13,14 +13,15 @@ from unittest.mock import patch
 import shiboken6
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QApplication
+from verification_isolation import app_owner
+from verification_isolation import create_window as MainWindow
 from verify_translation import process_memory
 
-from jp_overlay.app import create_recognizer, translation_backends
 from jp_overlay.demo import DIALOGUE_LINES, DemoWindow
 from jp_overlay.domain import CapturedFrame, WindowTarget
+from jp_overlay.model_factories import create_recognizer, translation_backends
 from jp_overlay.recognition import OcrChoice, OcrState, TextRegion
 from jp_overlay.translation import TranslationState
-from jp_overlay.ui import MainWindow
 from jp_overlay.windows import Windows
 
 
@@ -37,8 +38,13 @@ def main() -> int:
     )
     parser.add_argument("--gemma", action="store_true", help="Start Gemma, swap to Sugoi and back")
     parser.add_argument(
+        "--classifier",
+        choices=("gemma", "gemma-e4b", "qwen35-4b"),
+        help="Enable a separate prepared local history classifier",
+    )
+    parser.add_argument(
         "--model",
-        choices=("gemma-e4b", "qwen35-4b"),
+        choices=("gemma-e4b", "qwen35-4b", "plamo-2b", "plamo-0.8b"),
         help="Start a curated model, swap to Sugoi and back",
     )
     parser.add_argument("--debug", action="store_true", help="Verify diagnostic overlay rendering")
@@ -49,6 +55,7 @@ def main() -> int:
     args = parser.parse_args()
     selected_model = args.model or ("gemma" if args.gemma else "")
     args.gemma = bool(selected_model)
+    selected_model = selected_model or "sugoi-fast"
     if args.gemma and not args.translation:
         parser.error("--gemma requires --translation")
     if args.dialogue and not args.translation:
@@ -64,9 +71,15 @@ def main() -> int:
         def __init__(self) -> None:
             self.engine = create_recognizer(device=args.device)
 
-        def recognize(self, frame: CapturedFrame) -> tuple[TextRegion, ...]:
+        @property
+        def scan_costs(self):
+            return getattr(self.engine, "scan_costs", None)
+
+        def recognize(
+            self, frame: CapturedFrame, *, cropped: bool = False
+        ) -> tuple[TextRegion, ...]:
             time.sleep(args.ocr_delay_ms / 1000)
-            return self.engine.recognize(frame)
+            return self.engine.recognize(frame, cropped=cropped)
 
         def close(self) -> None:
             self.engine.close()
@@ -85,9 +98,9 @@ def main() -> int:
     factory = (
         DelayedRecognizer if args.ocr_delay_ms else partial(create_recognizer, device=args.device)
     )
-    choices = (OcrChoice(args.device, factory, 8),)
+    choices = (OcrChoice(args.device, factory, 8, "auto"),)
     if args.device != "cpu":
-        choices += (OcrChoice("CPU", create_recognizer, 8),)
+        choices += (OcrChoice("CPU", create_recognizer, 8, "cpu"),)
     cache_path = (
         Path(__file__).resolve().parents[1]
         / "artifacts"
@@ -109,7 +122,14 @@ def main() -> int:
         cache_path=cache_path,
         ocr_backends=choices,
     )
+    application = app_owner(window)
     window.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+    if args.dialogue:
+        classifier_key = "local:" + args.classifier if args.classifier else "layout"
+        classifier_index = window.history_panel.model.findData(classifier_key)
+        assert classifier_index >= 0, "Requested classifier is not installed"
+        window.history_panel.model.setCurrentIndex(classifier_index)
+        window._settings.history_enabled.setChecked(True)
     model_index = next(
         (
             i
@@ -118,7 +138,7 @@ def main() -> int:
         ),
         -1,
     )
-    if args.gemma:
+    if args.translation:
         assert model_index >= 0, "Requested model is not downloaded"
         window.backend_combo.setCurrentIndex(model_index)
     window.debug_check.setChecked(args.debug)
@@ -143,6 +163,8 @@ def main() -> int:
     continuity_started = 0.0
     continuity_polls = 0
     continuity_request = None
+    border_owners = None
+    border_sequence = 0
     evidence: dict[str, object] = {"translation_cache_initially_empty": cache_initially_empty}
     failure = ""
     reveal_finished = 0.0
@@ -153,6 +175,7 @@ def main() -> int:
         nonlocal stage, stage_started, frozen, initial_size, failure, phrase_id, phrase_bounds
         nonlocal swapped, grouping_stage
         nonlocal continuity_started, continuity_polls, continuity_request
+        nonlocal border_owners, border_sequence
         nonlocal reveal_finished
         nonlocal transitions_done
         now = time.monotonic()
@@ -160,25 +183,25 @@ def main() -> int:
             if now - started > timeout:
                 raise RuntimeError(f"Live OCR verification timed out at stage {stage}")
             if stage == 99:
-                if window._pipeline.capture is None:
+                if application.shutdown.snapshot().phase == "ready":
                     window.close()
                     demo.close()
                     timer.stop()
                     app.quit()
                 return
-            if window._pipeline.ocr and window._pipeline.ocr.snapshot().state == OcrState.FAILED:
-                raise RuntimeError(window._pipeline.ocr.snapshot().message)
+            if application.live.ocr and application.live.ocr.snapshot().state == OcrState.FAILED:
+                raise RuntimeError(application.live.ocr.snapshot().message)
             if (
-                window._translation
-                and window._translation.snapshot().state == TranslationState.FAILED
+                application.translation.session
+                and application.translation.session.snapshot().state == TranslationState.FAILED
             ):
-                raise RuntimeError(window._translation.snapshot().message)
+                raise RuntimeError(application.translation.session.snapshot().message)
             result = window.inspector.result
             if (
                 args.typewriter
                 and reveal_finished
                 and not swapped
-                and window._translation
+                and application.translation.session
                 and any(
                     t.request.source == translation_source for t in window._overlay._translations
                 )
@@ -189,8 +212,8 @@ def main() -> int:
             if stage == 0 and args.typewriter and result is not None:
                 demo.reveal_active = True
                 if demo.revealed < sum(map(len, DIALOGUE_LINES)):
-                    if window._translation:
-                        for translated in window._translation.snapshot().results:
+                    if application.translation.session:
+                        for translated in application.translation.session.snapshot().results:
                             assert translated.request.source == "旅人", (
                                 "Premature dialogue translation: " + translated.request.source
                             )
@@ -199,18 +222,18 @@ def main() -> int:
                     reveal_finished = now
                 if not all(line in [r.text for r in result.regions] for line in DIALOGUE_LINES):
                     return
-            if stage == 8 and phrase_id and window._pipeline.capture:
-                latest = window._pipeline.capture.snapshot().frame
+            if stage == 8 and phrase_id and application.live.capture:
+                latest = application.live.capture.snapshot().frame
                 if latest:
-                    current = window._pipeline._tracker.visible(latest, now)
+                    current = application.live._tracker.visible(latest, now)
                     assert any(t.track_id == phrase_id for t in current), (
                         "Track blinked between OCR passes"
                     )
                 if continuity_request is not None:
-                    assert window._translation is not None
+                    assert application.translation.session is not None
                     assert any(
                         t.request == continuity_request
-                        for t in window._translation.snapshot().results
+                        for t in application.translation.session.snapshot().results
                     ), "English disappeared between slow OCR passes"
                     assert any(
                         t.request == continuity_request for t in window._overlay._translations
@@ -222,7 +245,7 @@ def main() -> int:
                     assert DIALOGUE_LINES[1] in text, text
                     assert any(
                         t.text == "旅人"
-                        for t in window._pipeline._tracker.visible(result.frame, now)
+                        for t in application.live._tracker.visible(result.frame, now)
                     ), "Unscanned speaker disappeared"
                 assert window.inspector.table.rowCount() == len(result.regions)
                 evidence["live_japanese_recognized"] = True
@@ -233,13 +256,13 @@ def main() -> int:
                         "CUDAExecutionProvider" if args.device == "cuda" else "DmlExecutionProvider"
                     )
                     assert (
-                        window._pipeline.ocr
-                        and window._pipeline.ocr.snapshot().provider == provider
+                        application.live.ocr
+                        and application.live.ocr.snapshot().provider == provider
                     )
-                    evidence["actual_gpu_provider"] = window._pipeline.ocr.snapshot().provider
+                    evidence["actual_gpu_provider"] = application.live.ocr.snapshot().provider
                 initial_size = result.frame.geometry.client.size
                 frozen = result
-                tracks = window._pipeline._tracker.visible(result.frame, now)
+                tracks = application.live._tracker.visible(result.frame, now)
                 phrase = next((t for t in tracks if t.text == expected), None)
                 if phrase is None:
                     return  # Raw OCR can complete before its source-matched track commits.
@@ -251,13 +274,13 @@ def main() -> int:
                 and frozen
                 and result.frame.sequence >= frozen.frame.sequence + 3
             ):
-                tracks = window._pipeline._tracker.visible(result.frame, now)
+                tracks = application.live._tracker.visible(result.frame, now)
                 phrase = next(t for t in tracks if t.track_id == phrase_id)
                 assert phrase.bounds == phrase_bounds, "Stationary dialogue box changed bounds"
                 if args.translation:
-                    if window._translation is None:
+                    if application.translation.session is None:
                         return
-                    translated = window._translation.snapshot()
+                    translated = application.translation.session.snapshot()
                     if not translated.results or translated.pending:
                         return
                     if not swapped:
@@ -274,7 +297,14 @@ def main() -> int:
                             for t in window._overlay._translations
                             if t.request.source == translation_source
                         )
-                        window.backend_combo.setCurrentIndex(1)
+                        window.backend_combo.setCurrentIndex(
+                            next(
+                                i
+                                for i in range(window.backend_combo.count())
+                                if (b := window.backend_combo.itemData(i))
+                                and b.preference_key == "sugoi-wide"
+                            )
+                        )
                         swapped = 1
                         return
                     if args.gemma and swapped == 1:
@@ -308,10 +338,33 @@ def main() -> int:
                                 return  # The worker can finish between two UI polls.
                             continuity_started = now
                             continuity_request = english.request
+                            if window.border_check.isChecked():
+                                capture = application.live.capture
+                                assert capture and capture.snapshot().frame
+                                frame = capture.snapshot().frame
+                                assert frame is not None
+                                border_sequence = frame.sequence
+                                border_owners = (
+                                    capture,
+                                    application.live.ocr,
+                                    application.translation.session,
+                                )
+                                window.border_check.setChecked(False)
                         continuity_polls += 1
                         if now - continuity_started < 3:
                             return
                         evidence["slow_ocr_english_continuity_polls"] = continuity_polls
+                        if border_owners:
+                            assert border_owners == (
+                                application.live.capture,
+                                application.live.ocr,
+                                application.translation.session,
+                            ), "Border change replaced a processing owner"
+                            capture = application.live.capture
+                            assert capture is not None
+                            frame = capture.snapshot().frame
+                            assert frame and frame.sequence > border_sequence
+                            evidence["border_toggle_preserves_workers_and_english"] = True
                     assert "adventure" in english.english.lower()
                     evidence["english_after_backend_swap"] = english.english
                     if args.dialogue:
@@ -325,6 +378,48 @@ def main() -> int:
                         assert blocks and sum(len(b.lines) == 2 for b in blocks) == 1
                         evidence["dialogue_translated_as_one_block_with_separate_speaker"] = True
                         evidence["grouping_off_on_rebuilds_current_requests"] = True
+                        history = application.live.history.turns
+                        if not history:
+                            return  # Reader settling is independent of the earlier overlay result.
+                        assert history[-1].source == english.request.source
+                        assert history[-1].speaker in (None, "旅人")
+                        assert window.start_button.property("tone") == "recording"
+                        assert not window.start_button.icon().isNull()
+                        evidence["history_records_complete_group_without_speaker_in_body"] = True
+                        evidence["history_speaker"] = history[-1].speaker
+                        evidence["history_speaker_english"] = history[-1].speaker_english
+                        if history[-1].speaker:
+                            name_result = next(
+                                t for t in translated.results if t.request.source == "旅人"
+                            )
+                            assert history[-1].speaker_english == name_result.english.strip()
+                        if "history_panel_independent" not in evidence:
+                            assert len(history) == 1, (
+                                "Grouping/model swaps duplicated the same turn"
+                            )
+                            before = application.translation.session
+                            window.history_button.click()
+                            app.processEvents()
+                            assert not window.history_panel.isModal()
+                            assert english.english in window.history_panel.reader.toPlainText()
+                            assert window.history_panel.reader.verticalScrollBar().value() == 0
+                            if history[-1].speaker_english:
+                                assert (
+                                    f"({history[-1].speaker_english}) 旅人"
+                                    in window.history_panel.reader.toPlainText()
+                                )
+                            if args.output:
+                                window.history_panel.grab().save(
+                                    str(args.output.with_name("dialogue-history.png"))
+                                )
+                                window.grab().save(
+                                    str(args.output.with_name("capture-running.png"))
+                                )
+                            window.history_panel.hide()
+                            assert application.translation.session is before
+                            evidence["history_panel_independent"] = True
+                            demo.raise_()
+                            demo.activateWindow()
                     evidence["process_memory"] = process_memory()
                     window._overlay.set_tracks(tracks)
                     window._overlay.set_translations(translated.results, enabled=True)
@@ -387,7 +482,7 @@ def main() -> int:
                 assert result is not None
                 restored = next(
                     t
-                    for t in window._pipeline._tracker.visible(result.frame, now)
+                    for t in application.live._tracker.visible(result.frame, now)
                     if t.text == expected
                 )
                 evidence["closed_panel_identity_retired"] = restored.track_id != phrase_id
@@ -402,10 +497,10 @@ def main() -> int:
                     window._tick()
                     assert window._overlay.isVisible(), "Inspector pause hid the live overlay"
                     workers = (
-                        window._pipeline.capture,
-                        window._pipeline.ocr,
-                        window._pipeline.visual,
-                        window._translation,
+                        application.live.capture,
+                        application.live.ocr,
+                        application.live.visual,
+                        application.translation.session,
                     )
                     english = window._overlay._translations
                     window._original_changed(True)
@@ -418,10 +513,10 @@ def main() -> int:
                     )
                     assert window._overlay._translations == english
                     assert workers == (
-                        window._pipeline.capture,
-                        window._pipeline.ocr,
-                        window._pipeline.visual,
-                        window._translation,
+                        application.live.capture,
+                        application.live.ocr,
+                        application.live.visual,
+                        application.translation.session,
                     ), "Original hold replaced processing workers"
                     window.overlay_check.setChecked(False)
                     window._original_changed(True)
@@ -429,8 +524,8 @@ def main() -> int:
                     assert not window._overlay.isVisible(), "Release overrode the visibility switch"
                     window.overlay_check.setChecked(True)
                     evidence["original_hold_restores_english_without_worker_restart"] = True
-                assert window._pipeline.capture is not None
-                captured = window._pipeline.capture.snapshot().frame
+                assert application.live.capture is not None
+                captured = application.live.capture.snapshot().frame
                 assert captured and frozen and captured.sequence > frozen.frame.sequence
                 evidence["pause_freezes_result_while_capture_continues"] = True
                 evidence["pause_preserves_live_overlay"] = True
@@ -454,10 +549,11 @@ def main() -> int:
                 evidence["restore_resumes_ocr"] = True
                 window.start_button.click()
                 stage = 5
-            elif stage == 5 and window._pipeline.capture is None:
-                assert window._pipeline.ocr is None
-                assert window._translation is None
-                assert window._pipeline.visual is None
+            elif stage == 5 and application.live.capture is None:
+                assert window.start_button.property("tone") == "idle"
+                assert application.live.ocr is None
+                assert application.translation.session is None
+                assert application.live.visual is None
                 assert window.inspector.result is None
                 if args.device != "cpu":
                     window.ocr_device.setCurrentIndex(1)
@@ -466,17 +562,17 @@ def main() -> int:
             elif stage == 6 and result:
                 if args.device != "cpu":
                     assert (
-                        window._pipeline.ocr
-                        and window._pipeline.ocr.snapshot().provider == "CPUExecutionProvider"
+                        application.live.ocr
+                        and application.live.ocr.snapshot().provider == "CPUExecutionProvider"
                     )
                     evidence["cpu_selection_after_gpu_session"] = True
                 evidence["restart_receives_new_result"] = True
                 window.close()
                 stage = 7
-            elif stage == 7 and window._pipeline.capture is None:
-                assert window._pipeline.ocr is None
-                assert window._translation is None
-                assert window._pipeline.visual is None
+            elif stage == 7 and application.shutdown.snapshot().phase == "ready":
+                assert application.live.ocr is None
+                assert application.translation.session is None
+                assert application.live.visual is None
                 assert not window.isVisible()
                 evidence["close_finishes_all_workers"] = True
                 evidence["elapsed_seconds"] = round(now - started, 2)
@@ -487,11 +583,11 @@ def main() -> int:
             evidence["failure_state"] = {
                 "stage": stage,
                 "revealed": demo.revealed,
-                "visual_source": window._pipeline.visual_state.ocr_sequence,
-                "visual_blocked": sorted(window._pipeline.visual_state.blocked),
+                "visual_source": application.live.visual_state.ocr_sequence,
+                "visual_blocked": sorted(application.live.visual_state.blocked),
                 "readings": [
                     {"text": a.observation.text, "pending": a.pending, "growing": a.growing}
-                    for a in window._pipeline._tracker.translation_activity()
+                    for a in application.live._tracker.translation_activity()
                 ],
             }
             traceback.print_exc()
@@ -518,4 +614,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from verification_isolation import run_isolated
+
+    run_isolated(main)
