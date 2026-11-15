@@ -3,24 +3,12 @@
 import ctypes as ct
 import sys
 import threading
-from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
-
-@dataclass(frozen=True, slots=True)
-class Adapter:
-    name: str
-    vendor: int
-    dedicated_bytes: int = 0
-
-
-@dataclass(frozen=True, slots=True)
-class HardwareStatus:
-    adapters: tuple[Adapter, ...] = ()
-    cuda_ocr: bool = False
-    llama_device: str | None = None
-    error: str = ""
+from jp_overlay.hardware_values import Adapter as Adapter
+from jp_overlay.hardware_values import HardwareStatus as HardwareStatus
+from jp_overlay.hardware_values import recommended_profile as recommended_profile
 
 
 class HardwareCheck:
@@ -53,16 +41,6 @@ class HardwareCheck:
             self._result = HardwareStatus(error=str(error))
         finally:
             self._done.set()
-
-
-def recommended_profile(adapters: tuple[Adapter, ...]) -> str:
-    # A discrete card normally has more dedicated memory than a CPU's integrated GPU.
-    # This is a recommendation, not a driver/compute compatibility guarantee.
-    supported = [a for a in adapters if a.vendor in (0x10DE, 0x1002)]
-    if not supported:
-        return "cpu"
-    best = max(supported, key=lambda a: (a.dedicated_bytes, a.vendor == 0x10DE))
-    return "nvidia" if best.vendor == 0x10DE else "amd"
 
 
 class _Description(ct.Structure):

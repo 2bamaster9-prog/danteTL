@@ -1,0 +1,154 @@
+"""Fixed setup lanes, review identity and draining without constructing a dialog."""
+
+import threading
+from dataclasses import replace
+from unittest.mock import Mock
+
+import pytest
+from ownership_fixtures import Replay
+
+from jp_overlay.hardware_values import HardwareStatus
+from jp_overlay.model_inventory import InventoryData
+from jp_overlay.model_store import ModelBundle
+from jp_overlay.model_values import ModelFile
+from jp_overlay.runtime_values import PROFILES
+from jp_overlay.setup_coordinator import SetupCoordinator
+from jp_overlay.setup_values import SetupLane
+
+
+def configured(tmp_path):
+    replay = Replay(tmp_path)
+    bundles = tuple(
+        ModelBundle(
+            key,
+            key,
+            tmp_path / key,
+            (),
+            "",
+            category="recognition" if key == "ocr" else "translation",
+        )
+        for key in ("ocr", "model")
+    )
+    files = tuple(
+        ModelFile(
+            b.key,
+            b.name,
+            "",
+            b.category,
+            0,
+            False,
+            False,
+            False,
+            False,
+            str(b.directory),
+            "",
+            str(b.directory),
+            "",
+            "cpu",
+            False,
+        )
+        for b in bundles
+    )
+    replay.discover(InventoryData(files=files, device="cpu"))
+    replay.setup = SetupCoordinator(replay.inventory, bundles, PROFILES, replay.dependencies)
+    return replay
+
+
+def test_setup_lanes_are_bounded_and_cancel_waits_for_owner_cleanup(tmp_path):
+    replay = configured(tmp_path)
+    try:
+        setup = replay.setup
+        assert setup.download("model") and not setup.download("ocr")
+        assert setup.detect_runtime() and not setup.install_runtime("cpu")
+        assert not setup.test_import("model.gguf", "auto")
+        assert len(replay.operations) == 2
+        setup.close()
+        assert all(op.cancelled for op in replay.operations)
+        assert setup.busy and not setup.download("model")
+        replay.operations[0].finish()  # Completion raced cancellation; do not adopt its result.
+        setup.advance()
+        assert setup.busy
+        replay.operations[1].finish(cancelled=True)
+        setup.advance()
+        assert not setup.busy
+        setup.resume()
+        assert setup.download("model")
+    finally:
+        replay.close()
+
+
+def test_stale_review_repeated_success_and_failed_retry(tmp_path):
+    replay = configured(tmp_path)
+    try:
+        setup = replay.setup
+        hardware = HardwareStatus(llama_device="cpu")
+        old = setup.review("model", "cpu", hardware)
+        current = setup.review("model", "cpu", hardware)
+        assert not setup.start_review(old.token)
+        assert setup.start_review(current.token)
+        assert not setup.start_review(current.token)
+        with pytest.raises(ValueError):
+            setup.review("model", "cpu", hardware)
+        replay.operations[-1].finish(error="fixture failure")
+        setup.advance()
+        assert setup.start_review(current.token)  # explicit retry uses the same reviewed intent
+        replay.operations[-1].finish()
+        setup.advance()
+        assert not setup.start_review(current.token)  # completed intent is consumed
+        assert setup.reviewed == current
+    finally:
+        replay.close()
+
+
+def test_import_capability_does_not_depend_on_downloaded_model_rows(tmp_path):
+    replay = Replay(tmp_path, data=InventoryData(device="vulkan"))
+    try:
+        assert replay.setup.test_import("user.gguf", "auto")
+        assert isinstance(replay.dependencies.probe, Mock)
+        args = replay.dependencies.probe.call_args.args
+        assert args[2] == "vulkan"
+        gate = args[3]
+        assert isinstance(gate, threading.Event) and not gate.is_set()
+        replay.setup.permit_probe()
+        assert gate.is_set()
+        replay.setup.cancel(SetupLane.MODELS)
+        assert replay.setup.probing  # cancellation is not finished teardown
+        replay.operations[-1].finish(cancelled=True)
+        replay.setup.advance()
+        assert not replay.setup.probing and replay.setup.probe_result is None
+    finally:
+        replay.close()
+
+
+def test_probe_permit_requires_both_translation_and_classifier_cleanup(tmp_path):
+    replay = Replay(tmp_path, data=InventoryData(device="cpu"))
+    try:
+        assert replay.setup.test_import("user.gguf", "auto")
+        assert isinstance(replay.dependencies.probe, Mock)
+        gate = replay.dependencies.probe.call_args.args[3]
+        replay.translation.suspend_for_probe = Mock(return_value=False)
+        replay.live.suspend_history = Mock(return_value=False)
+        replay.app.advance(1)
+        assert not gate.is_set()
+        replay.translation.suspend_for_probe.return_value = True
+        replay.app.advance(2)
+        assert not gate.is_set()
+        replay.live.suspend_history.return_value = True
+        replay.app.advance(3)
+        assert gate.is_set()
+    finally:
+        replay.close()
+
+
+def test_cancelled_runtime_completion_cannot_replace_current_snapshot(tmp_path):
+    replay = Replay(tmp_path)
+    try:
+        assert replay.setup.detect_runtime()
+        before = replay.setup.runtime
+        replay.setup._runtime_result = replace(before, recommendation="amd")
+        replay.setup.cancel(SetupLane.RUNTIME)
+        replay.operations[0].finish(cancelled=True)
+        replay.setup.advance()
+        assert replay.setup.runtime == before
+    finally:
+        replay.close()
