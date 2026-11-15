@@ -15,7 +15,7 @@ from jp_overlay.translation import TranslationBackend
 from jp_overlay.translation_backend import ContextualBackend
 
 
-def process_memory() -> dict[str, float]:
+def process_memory(pid: int | None = None) -> dict[str, float]:
     """One Windows process snapshot, not a sustained memory-budget measurement."""
 
     class Counters(ctypes.Structure):
@@ -37,6 +37,9 @@ def process_memory() -> dict[str, float]:
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
     psapi = ctypes.WinDLL("psapi", use_last_error=True)
     kernel.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel.OpenProcess.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
     psapi.GetProcessMemoryInfo.argtypes = [
         wintypes.HANDLE,
         ctypes.POINTER(Counters),
@@ -45,10 +48,15 @@ def process_memory() -> dict[str, float]:
     psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
     counters = Counters()
     counters.cb = ctypes.sizeof(counters)
-    if not psapi.GetProcessMemoryInfo(
-        kernel.GetCurrentProcess(), ctypes.byref(counters), counters.cb
-    ):
+    handle = kernel.GetCurrentProcess() if pid is None else kernel.OpenProcess(0x410, False, pid)
+    if not handle:
         raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        if not psapi.GetProcessMemoryInfo(handle, ctypes.byref(counters), counters.cb):
+            raise ctypes.WinError(ctypes.get_last_error())
+    finally:
+        if pid is not None:
+            kernel.CloseHandle(handle)
     return {
         "working_set_mib": round(counters.working / 2**20, 1),
         "private_mib": round(counters.private / 2**20, 1),
@@ -59,7 +67,9 @@ def process_memory() -> dict[str, float]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--backend", choices=("sugoi", "gemma", "gemma-e4b", "qwen35-4b"), default="sugoi"
+        "--backend",
+        choices=("sugoi", "gemma", "gemma-e4b", "qwen35-4b", "plamo-2b", "plamo-0.8b"),
+        default="sugoi",
     )
     parser.add_argument(
         "--device", choices=("cpu", "cuda", "vulkan"), help="Require this language-model engine"
@@ -94,10 +104,10 @@ def main() -> None:
         started = time.monotonic()
         backend: TranslationBackend
         if args.backend != "sugoi":
-            from jp_overlay.app import create_curated_translator
             from jp_overlay.gemma import GemmaBackend
             from jp_overlay.gemma import model_directory as gemma_directory
             from jp_overlay.llama_runtime import installed_device
+            from jp_overlay.model_factories import create_curated_translator
 
             device = installed_device()
             assert device is not None, "Language-model engine is missing"

@@ -1,0 +1,34 @@
+{
+  "plamo-2b": {
+    "profile": "plamo",
+    "repo": "pfnet/plamo-3-translate-2b-GGUF",
+    "revision": "4f672106b847200bfdc0f6af6c321cd94eba1aed",
+    "filename": "plamo-3-translate-2b-Q4_K_M.gguf",
+    "sha256": "1ffd9073afcc70e35ccc942428aa2b73d7aa2b9ea779bf504b775369e0276c13",
+    "size": 1807203040
+  },
+  "plamo-0.8b": {
+    "profile": "plamo",
+    "repo": "pfnet/plamo-3-translate-0.8b-GGUF",
+    "revision": "1cf96ae02133958a20074bfdfab76517bb737d00",
+    "filename": "plamo-3-translate-0.8b-Q4_K_M.gguf",
+    "sha256": "70891ec70dc7ab4205745a38307867c2881b99239f20327927633abfe4bc9ec6",
+    "size": 573126848
+  },
+  "cat-3.3b": {
+    "profile": "cat",
+    "repo": "LinuxRF/CAT-Translate-3.3b-Q6_K-GGUF",
+    "revision": "8a9352732066ca0d25e453b807ebb4f1e65b3a4f",
+    "filename": "cat-translate-3.3b-q6_k.gguf",
+    "sha256": "8a37e518730ec443a65a446f6d80cf5409a9c8169ba784888b006dffa16e5711",
+    "size": 2755744768
+  },
+  "index-2b": {
+    "profile": "index",
+    "repo": "IndexTeam/Index-Translate-2B-GGUF",
+    "revision": "3a0eca6ce931d88d00614d427ab3ed8ff0743902",
+    "filename": "Index-Translate-2B.Q4_K_M.gguf",
+    "sha256": "044b313d29342bd3b2c77cbb64023ca0d209bd9b3247763f9d162767ef2d746a",
+    "size": 1312164352
+  }
+}
