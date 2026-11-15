@@ -37,7 +37,9 @@ def project(tmp_path, monkeypatch):
         report("Fixture process complete")
 
     monkeypatch.setattr(setup, "run_setup_command", run)
-    monkeypatch.setattr(setup, "prepare_wheels", lambda export, *args: export.with_suffix(".txt"))
+    monkeypatch.setattr(
+        setup, "prepare_wheels", lambda export, *args, **kwargs: export.with_suffix(".txt")
+    )
     monkeypatch.setenv("VIRTUAL_ENV", "another-project")
     monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", "another-project")
     return tmp_path, calls, run
@@ -122,6 +124,12 @@ def test_repair_creates_replacement_without_modifying_running_environment(projec
     assert (old / "keep").read_text() == "loaded dll"
     assert setup.selected_runtime(root) == old
     setup.select_runtime(root, old)  # Rollback accepts the old verified receipt too.
+    process = Mock()
+    process.poll.return_value = None
+    monkeypatch.setattr(runtime_restart, "OwnedProcess", lambda *a, **kw: process)
+    launch = runtime_restart.RuntimeRestart(root, old)
+    assert not launch.poll()  # Latest-prepared B must not prevent launching selected A.
+    launch.cancel()
 
 
 @pytest.mark.parametrize("name", ["../.venv", "cpu-../../elsewhere", "C:/Python", ".venv"])
@@ -170,6 +178,7 @@ def test_repaired_profile_keeps_previous_selection_on_activation_failure(
     target = setup.ready_runtime(root, profile.key)
     assert target and target != previous
     assert setup.selected_runtime(root) == previous
+
     process = Mock()
     process.poll.return_value = 1 if failure == "start" else None
     process.release.side_effect = OSError("handoff failed")
@@ -181,6 +190,12 @@ def test_repaired_profile_keeps_previous_selection_on_activation_failure(
     with pytest.raises((RuntimeError, OSError)):
         restart.poll()
     assert setup.selected_runtime(root) == previous
+    # Both normal launchers use this boundary; A remains launchable after B failed activation.
+    process.poll.return_value = None
+    process.release.side_effect = None
+    restored = runtime_restart.RuntimeRestart(root, previous)
+    assert not restored.poll()
+    restored.cancel()
 
 
 def test_failed_restart_preserves_previous_selection(project, monkeypatch):

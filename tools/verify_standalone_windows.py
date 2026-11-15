@@ -1,8 +1,4 @@
-"""Relocate the release ZIP and test its EXE with no Python/tools on PATH.
-
-Only the owned app window is closed. No games are captured and no models are downloaded.
-Run subsequent native fixtures with the extracted private interpreter and source paths.
-"""
+"""Verify the relocated PyInstaller EXE, offline OCR and optional desktop startup."""
 
 import argparse
 import ctypes
@@ -10,22 +6,145 @@ import hashlib
 import json
 import os
 import struct
-import subprocess
+import threading
 import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from uuid import uuid4
 from zipfile import ZipFile
 
+from jp_overlay.domain import WindowTarget
+from jp_overlay.owned_process import OwnedProcess
+from jp_overlay.setup_process import run_setup_command
 from jp_overlay.windows import Windows
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def files(root: Path) -> dict[str, str]:
+    result = {}
+    for path in root.rglob("*"):
+        if path.is_file():
+            with path.open("rb") as stream:
+                result[path.relative_to(root).as_posix()] = hashlib.file_digest(
+                    stream, "sha256"
+                ).hexdigest()
+    return result
+
+
+def wait(process: OwnedProcess, seconds: float) -> None:
+    deadline = time.monotonic() + seconds
+    while process.poll() is None:
+        if time.monotonic() >= deadline:
+            raise TimeoutError("Packaged process did not finish")
+        time.sleep(0.1)
+    assert process.returncode == 0, process.returncode
+
+
+def download_helper(exe: Path, output: Path, environment: dict[str, str]) -> None:
+    """The windowed EXE must stream progress through its inherited pipe without Python on PATH."""
+    payload = b"synthetic download fixture" * 20000
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, format, *args):
+            pass
+
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.05})
+    temporary = output / "download.part"
+    progress = []
+    thread.start()
+    try:
+        run_setup_command(
+            [
+                str(exe),
+                "--module",
+                "jp_overlay.download_transport",
+                f"http://127.0.0.1:{server.server_port}/fixture",
+                str(temporary),
+                str(len(payload)),
+            ],
+            output,
+            environment,
+            threading.Event(),
+            progress.append,
+            timeout=15,
+        )
+        assert temporary.read_bytes() == payload
+        assert json.loads(progress[-1]) == {"received": len(payload), "total": len(payload)}
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(2)
+        temporary.unlink(missing_ok=True)
+        assert not thread.is_alive()
+
+
+def desktop(exe: Path, output: Path, environment: dict[str, str], state: Path) -> None:
+    token = uuid4().hex
+    process = OwnedProcess(
+        [str(exe)], output, environment | {"JP_OVERLAY_RESTART_TOKEN": token}, show_window=True
+    )
+    receipt = state / "data/restarts" / token
+    windows = Windows()
+
+    def owned_windows():
+        found = []
+
+        def visit(hwnd, _):
+            if windows.process_id(hwnd) == process.pid and windows.user.IsWindowVisible(hwnd):
+                found.append(WindowTarget(hwnd, process.pid, windows.title(hwnd)))
+            return True
+
+        windows.user.EnumWindows(windows._enum_callback(visit), 0)
+        return found
+
+    try:
+        deadline = time.monotonic() + 45
+        while not receipt.is_file():
+            assert process.poll() is None, "App exited before Qt startup"
+            assert time.monotonic() < deadline, "App did not acknowledge Qt startup"
+            time.sleep(0.1)
+        pid = int(receipt.read_text("ascii"))
+        assert pid == process.pid, "Bundled CPU must run inside the actual PyInstaller EXE"
+        while True:
+            owned = owned_windows()
+            if any(t.title == "DanteJP · Welcome" for t in owned):
+                break
+            assert time.monotonic() < deadline, "Fresh app did not show its welcome"
+            time.sleep(0.1)
+        post = ctypes.WinDLL("user32").PostMessageW
+        post.argtypes = (ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t)
+        for title in ("DanteJP · Welcome", "DanteJP"):
+            owned = owned_windows()
+            while not any(t.title == title for t in owned):
+                assert time.monotonic() < deadline, (title, owned)
+                time.sleep(0.1)
+                owned = owned_windows()
+            for target in owned:
+                if target.title == title:
+                    post(target.hwnd, 0x0010, 0, 0)
+            while any(t.title == title for t in owned_windows()):
+                assert time.monotonic() < deadline, "App did not close its owned window"
+                time.sleep(0.1)
+        wait(process, 15)
+    finally:
+        process.close()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--zip", type=Path, default=ROOT / "dist/DanteJP-windows-x64.zip")
-    parser.add_argument("--bundle", type=Path, help="Verify an already extracted bundle")
+    parser.add_argument("--bundle", type=Path, help="Verify an already built/extracted bundle")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--headless", action="store_true", help="Skip desktop startup on CI")
+    parser.add_argument("--invalid-selection", action="store_true")
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(ROOT / "artifacts") or output.exists():
@@ -33,8 +152,6 @@ def main() -> None:
     output.mkdir(parents=True)
     if args.bundle:
         bundle = args.bundle.resolve()
-        if not bundle.is_relative_to(ROOT / "artifacts"):
-            raise ValueError("Use an extracted test bundle under artifacts.")
     else:
         relocated = output / "Moved app 日本語"
         with ZipFile(args.zip) as archive:
@@ -43,133 +160,71 @@ def main() -> None:
                     raise ValueError("ZIP path escapes extraction.")
             archive.extractall(relocated)
         bundle = relocated / "DanteJP"
-    manifest = json.loads((bundle / "MANIFEST.json").read_text("utf-8"))
-    for relative, digest in manifest["files"].items():
-        assert hashlib.sha256((bundle / relative).read_bytes()).hexdigest() == digest, relative
-    image = (bundle / "DanteJP.exe").read_bytes()
+    before = files(bundle)
+    assert not (bundle / "_internal/app/src").exists(), "No duplicate application source tree"
+    assert not (bundle / "_internal/app/bootstrap.py").exists(), "No custom runtime bootstrap"
+    exe = bundle / "DanteJP.exe"
+    image = exe.read_bytes()
     pe = struct.unpack_from("<I", image, 0x3C)[0]
     assert struct.unpack_from("<H", image, pe + 24 + 68)[0] == 2, "Must be a GUI executable"
     environment = {
         key: value
         for key, value in os.environ.items()
-        if not key.startswith(("UV_", "JP_OVERLAY_", "DANTEJP_"))
-        and key not in ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV")
+        if not key.startswith(("UV_", "JP_OVERLAY_", "DANTEJP_", "_PYI"))
+        and key not in ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV", "QT_QPA_PLATFORM")
     }
     environment.update(
         PATH=str(Path(os.environ["SYSTEMROOT"]) / "System32"),
         LOCALAPPDATA=str(output / "AppData"),
+        PYINSTALLER_RESET_ENVIRONMENT="1",
     )
     state = output / "AppData/DanteJP"
-    python = bundle / "_internal/python/python.exe"
-    bootstrap = bundle / "_internal/app/bootstrap.py"
-    subprocess.run(
-        [str(python), "-I", "-B", str(bootstrap), "--module", "jp_overlay.runtime_probe", "cpu"],
-        env=environment,
-        cwd=output,
-        check=True,
-        timeout=60,
+    saved = {"profile": "nvidia", "environment": "nvidia-" + "0" * 32}
+    if args.invalid_selection:
+        (state / "data").mkdir(parents=True)
+        (state / "data/runtime.json").write_text(json.dumps(saved), encoding="utf-8")
+    report = output / "runtime.json"
+    process = OwnedProcess(
+        [
+            str(exe),
+            "--module",
+            "jp_overlay.runtime_probe",
+            "cpu",
+            "--ocr-image",
+            str(ROOT / "tests/fixtures/ocr.png"),
+            "--report",
+            str(report),
+        ],
+        output,
+        environment | {"QT_QPA_PLATFORM": "offscreen"},
     )
-    # Exercise actual OCR with bundled weights and fresh AppData, with sockets blocked
-    # by verify_ocr.py. No model copies, inference downloads, or system Python allowed.
-    verify_code = (
-        "import sys,runpy; from pathlib import Path; "
-        "source=Path(sys.argv.pop(1)); sys.path.insert(0,str(source)); "
-        "from jp_overlay.models import model_directory; "
-        "assert model_directory()==source.parent/'models/meiki'; "
-        "script=sys.argv.pop(1); sys.argv[0]=script; runpy.run_path(script,run_name='__main__')"
-    )
-    with (output / "ocr-check.log").open("w", encoding="utf-8") as log:
-        subprocess.run(
-            [
-                str(python),
-                "-I",
-                "-B",
-                "-c",
-                verify_code,
-                str(bundle / "_internal/app/src"),
-                str(ROOT / "tools/verify_ocr.py"),
-                "--output",
-                str(output / "ocr"),
-            ],
-            env=environment | {"QT_QPA_PLATFORM": "windows"},
-            cwd=output,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            check=True,
-            timeout=180,
-        )
-    token = uuid4().hex
-    environment["JP_OVERLAY_RESTART_TOKEN"] = token
-    subprocess.run(
-        [str(bundle / "DanteJP.exe")], env=environment, cwd=output, check=True, timeout=10
-    )
-    receipt = state / "data/restarts" / token
-    deadline = time.monotonic() + 40
-    while not receipt.exists() and time.monotonic() < deadline:
-        time.sleep(0.1)
-    assert receipt.is_file(), "Native EXE did not acknowledge Qt startup"
-    pid = int(receipt.read_text("ascii"))
-    windows = Windows()
-    # The startup acknowledgement precedes the queued first-run callback. On a fresh
-    # install, wait for that modal before attempting to close the main window.
-    deadline = time.monotonic() + 10
-    while True:
-        owned = [t for t in windows.list_targets() if t.process_id == pid]
-        if any(t.title == "DanteJP · Welcome" for t in owned):
-            break
-        assert time.monotonic() < deadline, "Fresh standalone did not show its welcome"
-        time.sleep(0.05)
-    targets = [target for target in owned if target.title == "DanteJP"]
-    assert len(targets) == 1, targets  # The first-run assistant is an owned child window.
-    user = ctypes.WinDLL("user32")
-    user.PostMessageW.argtypes = (ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t)
-    kernel = ctypes.WinDLL("kernel32")
-    kernel.OpenProcess.argtypes = (ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32)
-    kernel.OpenProcess.restype = ctypes.c_void_p
-    kernel.WaitForSingleObject.argtypes = (ctypes.c_void_p, ctypes.c_uint32)
-    kernel.CloseHandle.argtypes = (ctypes.c_void_p,)
-    handle = kernel.OpenProcess(0x100000, False, pid)
-    assert handle
     try:
-        # The welcome is modal; close that owned window first, as a user would.
-        for target in owned:
-            if target.title == "DanteJP · Welcome":
-                user.PostMessageW(target.hwnd, 0x0010, 0, 0)
-        deadline = time.monotonic() + 5
-        while (
-            any(
-                t.process_id == pid and t.title == "DanteJP · Welcome"
-                for t in windows.list_targets()
-            )
-            and time.monotonic() < deadline
-        ):
-            time.sleep(0.05)
-        user.PostMessageW(targets[0].hwnd, 0x0010, 0, 0)
-        assert kernel.WaitForSingleObject(handle, 15000) == 0, "App did not drain on close"
+        wait(process, 180)
     finally:
-        kernel.CloseHandle(handle)
-    assert not (state / "models").exists(), "First launch must not download models"
-    assert not (state / ".runtimes").exists(), "First launch must not install a runtime"
-    # Untouched defaults need not write a preferences file. The startup receipt and log
-    # establish where state goes; UI fixtures separately exercise edited preferences.
-    assert (state / "logs/app.log").is_file()
-    before = set(manifest["files"]) | {"MANIFEST.json"}
-    assert {p.relative_to(bundle).as_posix() for p in bundle.rglob("*") if p.is_file()} == before
-    result = {
-        "bundle": str(bundle),
-        "state": str(state),
-        "private_python": str(python),
-        "no_python_on_path": True,
-        "relocated_exe_started": True,
-        "unicode_path": any(ord(char) > 127 for char in str(bundle)),
-        "appdata_receipt_and_logs": True,
-        "no_implicit_downloads": True,
-        "bundled_ocr_worked_offline_without_appdata_models": True,
-        "welcome_shown": any(t.title == "DanteJP · Welcome" for t in owned),
-        "no_files_written_in_app_folder": True,
-        "clean_shutdown": True,
-        "verified_files": len(manifest["files"]),
-    }
+        process.close()
+    result = json.loads(report.read_text("utf-8"))
+    assert Path(result["ocr"]["models"]) == bundle / "_internal/app/models/meiki"
+    download_helper(exe, output, environment)
+    if not args.headless:
+        desktop(exe, output, environment, state)
+        assert (state / "logs/app.log").is_file()
+    assert not (state / "models").exists(), "No implicit model download/copy"
+    assert not (state / ".runtimes").exists(), "No implicit runtime installation"
+    if args.invalid_selection:
+        assert json.loads((state / "data/runtime.json").read_text("utf-8")) == saved
+    assert files(bundle) == before, "Application resources were modified"
+    result.update(
+        bundle=str(bundle),
+        state=str(state),
+        no_python_on_path=True,
+        relocated_exe_started=not args.headless,
+        unicode_path=any(ord(c) > 127 for c in str(bundle)),
+        no_implicit_downloads=True,
+        no_files_written_in_app_folder=True,
+        verified_files=len(before),
+        windowed_download_helper=True,
+        invalid_selection=args.invalid_selection,
+    )
     (output / "results.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(result, indent=2))
 

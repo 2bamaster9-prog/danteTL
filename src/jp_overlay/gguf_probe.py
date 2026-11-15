@@ -7,22 +7,16 @@ import sys
 import tempfile
 import threading
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 
-from jp_overlay.gguf_models import ImportedModel, describe
-from jp_overlay.model_store import Cancelled, ModelProgress, Progress
+from jp_overlay.gguf_models import describe
+from jp_overlay.import_values import ImportedModel
+from jp_overlay.import_values import ProbeResult as ProbeResult
+from jp_overlay.model_store import Cancelled
 from jp_overlay.paths import module_command, state_root
 from jp_overlay.setup_process import run_setup_command
-
-
-@dataclass(frozen=True, slots=True)
-class ProbeResult:
-    model: ImportedModel
-    device: str
-    samples: tuple[tuple[str, str, float], ...]
-    load_ms: float
-    offloaded_layers: int = 0
+from jp_overlay.setup_values import ModelProgress, Progress
 
 
 class ImportTest:

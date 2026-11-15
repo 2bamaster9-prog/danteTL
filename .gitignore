@@ -2,11 +2,14 @@
 .venv/
 .venv-gpu/
 .venv-amd/
+.venv-cloud-check/
+.venv-build/
 .runtimes/
 .runtime-bootstrap/
 .runtime-downloads/
 .python/
 .uv-cache/
+.pip-cache/
 __pycache__/
 *.py[cod]
 .pytest_cache/

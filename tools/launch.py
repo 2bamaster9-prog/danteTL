@@ -14,7 +14,8 @@ from jp_overlay.runtime_setup import selected_runtime  # noqa: E402
 
 
 def main() -> None:
-    target = selected_runtime(ROOT)
+    force_cpu = "--cpu" in sys.argv[1:]
+    target = None if force_cpu else selected_runtime(ROOT)
     if target:
         try:
             pending = RuntimeRestart(ROOT, target)
@@ -25,7 +26,11 @@ def main() -> None:
             os.environ["JP_OVERLAY_STARTUP_NOTICE"] = f"Opened the fallback runtime. {error}"
     python = ROOT / ".venv/Scripts/pythonw.exe"
     # Preserve existing users' verified CUDA launcher until they choose an in-app runtime.
-    if not (ROOT / "data/runtime.json").exists() and (ROOT / ".venv-gpu/ocr-verified").is_file():
+    if (
+        not force_cpu
+        and not (ROOT / "data/runtime.json").exists()
+        and (ROOT / ".venv-gpu/ocr-verified").is_file()
+    ):
         candidate = ROOT / ".venv-gpu/Scripts/pythonw.exe"
         if candidate.is_file():
             python = candidate

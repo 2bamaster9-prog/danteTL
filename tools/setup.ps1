@@ -21,20 +21,17 @@ if (Get-Command uv -ErrorAction SilentlyContinue) {
     }
 }
 
-$gemmaArgs = @()
-if ($Gemma -or ($Gpu -and (Test-Path -LiteralPath (Join-Path $projectRoot 'models\gemma-4-e2b\gemma-4-E2B_q4_0-it.gguf')))) {
-    $gemmaArgs = @('--group', 'gemma')
-}
+# Keep legacy -Gemma accepted; language-model support now accompanies every profile.
 if ($Amd) {
     $env:UV_PROJECT_ENVIRONMENT = Join-Path $projectRoot '.venv-amd'
     & $uvCommand sync --locked --no-default-groups --group amd --group gemma-vulkan --group dev
 } elseif ($Gpu) {
     $env:UV_PROJECT_ENVIRONMENT = Join-Path $projectRoot '.venv-gpu'
-    & $uvCommand sync --locked --no-default-groups --group gpu --group dev @gemmaArgs
+    & $uvCommand sync --locked --no-default-groups --group gpu --group dev --group gemma
 } else {
     $env:UV_PROJECT_ENVIRONMENT = Join-Path $projectRoot '.venv'
-    & $uvCommand sync --locked @gemmaArgs
+    & $uvCommand sync --locked --group llm-cpu
 }
 if ($LASTEXITCODE -ne 0) { throw 'Dependency setup failed. Check the network connection and retry.' }
-if ($Amd) { Write-Host 'Ready. Open Run DanteJP AMD.cmd, then Models to choose downloads.' }
+if ($Amd) { Write-Host 'Ready. Run .venv-amd/Scripts/pythonw.exe -m jp_overlay, then Models to choose downloads.' }
 else { Write-Host 'Ready. Open Run DanteJP.cmd, then Models to choose downloads.' }

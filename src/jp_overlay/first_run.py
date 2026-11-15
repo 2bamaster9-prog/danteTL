@@ -4,9 +4,12 @@ import threading
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from jp_overlay.hardware import HardwareStatus
-from jp_overlay.model_store import Cancelled, ModelBundle, ModelProgress, Progress, install_model
-from jp_overlay.runtime_setup import RuntimeProfile, install_runtime, ready_runtime
+from jp_overlay.hardware_values import HardwareStatus
+from jp_overlay.llama_runtime import supports_plamo
+from jp_overlay.model_store import Cancelled, ModelBundle, install_model
+from jp_overlay.runtime_setup import install_runtime, ready_runtime
+from jp_overlay.runtime_values import RuntimeProfile
+from jp_overlay.setup_values import ModelProgress, Progress
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,7 +18,11 @@ class SetupPlan:
     runtime: RuntimeProfile | None
 
 
-def needs_runtime(profile: RuntimeProfile, hardware: HardwareStatus) -> bool:
+def needs_runtime(
+    profile: RuntimeProfile, hardware: HardwareStatus, model: ModelBundle | None = None
+) -> bool:
+    if model is not None and model.needs_plamo and not supports_plamo():
+        return True
     if profile.key == "nvidia":
         return not (hardware.cuda_ocr and hardware.llama_device == "cuda")
     device = "vulkan" if profile.key == "amd" else "cpu"

@@ -1,21 +1,59 @@
 import hashlib
 import json
+import sys
 import threading
 from pathlib import Path
 
 import pytest
 
-from jp_overlay import gemma, model_store, models, paths, runtime_setup, sugoi
+from jp_overlay import gemma, model_store, models, paths, runtime_application, runtime_setup, sugoi
+from jp_overlay.runtime_package import bundled_application
+from jp_overlay.runtime_requirements import expected_wheels
+
+
+def app_wheel(resources, content=b"app version one"):
+    directory = resources / "application"
+    directory.mkdir(exist_ok=True)
+    wheel = directory / "jp_overlay-0.1.0-py3-none-any.whl"
+    wheel.write_bytes(content)
+    wheel.with_suffix(".whl.sha256").write_text(
+        f"{hashlib.sha256(content).hexdigest()}  {wheel.name}\n", encoding="ascii"
+    )
+
+
+def install_app_metadata(resources, site):
+    application = bundled_application(resources)
+    metadata = site / f"jp_overlay-{application.version}.dist-info"
+    metadata.mkdir(parents=True, exist_ok=True)
+    (metadata / "direct_url.json").write_text(
+        json.dumps({"archive_info": {"hashes": {"sha256": application.sha256}}}), "utf-8"
+    )
+    (site / "jp_overlay").mkdir(exist_ok=True)
+    (site / "jp_overlay/__main__.py").touch()
 
 
 @pytest.fixture
 def package(tmp_path, monkeypatch):
     resources = tmp_path / "Read only app/_internal/app"
     resources.mkdir(parents=True)
-    for name in ("standalone.json", "uv.lock", "pyproject.toml", "bootstrap.py"):
+    for name in ("standalone.json", "uv.lock", "pyproject.toml"):
         (resources / name).write_text("fixture")
+    app_wheel(resources)
+    (resources / ".python-version").write_text("3.12.16")
+    (resources / "runtime-locks").mkdir()
+    (resources / "cpu-runtime").mkdir()
+    (resources / "cpu-runtime/llama_cpp_python-0.3.37-py3-none-win_amd64.whl.sha256").write_text(
+        "fixture"
+    )
+    for profile in runtime_setup.PROFILES:
+        (resources / "runtime-locks" / f"pylock.{profile.key}.toml").write_text(
+            'lock-version = "1.0"\n[[packages]]\nname = "example"\n'
+            f'wheels = [{{url = "https://example.test/example_{profile.key}-1.0-py3-none-any.whl", '
+            'hashes = {sha256 = "' + "a" * 64 + '"}}]\n'
+        )
     (resources.parent / "uv.exe").touch()
     monkeypatch.setattr(paths, "resource_root", lambda: resources)
+    monkeypatch.setattr(runtime_application, "resource_root", lambda: paths.resource_root())
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "User AppData"))
     monkeypatch.delenv("DANTEJP_DATA_DIR", raising=False)
     for name in ("JP_OVERLAY_MODEL_DIR", "JP_OVERLAY_SUGOI_DIR", "JP_OVERLAY_GEMMA_DIR"):
@@ -58,7 +96,7 @@ def test_bundled_ocr_is_available_offline_without_installing_or_copying(package,
     monkeypatch.setattr(
         model_store, "download_file", lambda *a, **kw: pytest.fail("No network allowed")
     )
-    catalog = model_store.model_catalog()[0]
+    catalog = next(b for b in model_store.model_catalog() if b.key == "ocr")
     assert catalog.directory == paths.state_root() / "models/meiki"
     assert catalog.included and catalog.present() and catalog.local_directory == bundled
     assert models.model_directory() == bundled
@@ -75,7 +113,7 @@ def test_bundled_ocr_is_available_offline_without_installing_or_copying(package,
     explicit = moved.parent / "explicit models"
     monkeypatch.setenv("JP_OVERLAY_MODEL_DIR", str(explicit))
     assert models.model_directory() == explicit
-    assert not model_store.model_catalog()[0].present()  # No silent override of an explicit path.
+    assert not next(b for b in model_store.model_catalog() if b.key == "ocr").present()
 
 
 def test_complete_appdata_models_take_precedence_but_partial_files_do_not_mask_bundle(
@@ -113,45 +151,334 @@ def test_explicit_state_override_requires_absolute_path(package, monkeypatch, tm
     assert paths.state_root() == tmp_path / "test data"
 
 
-def test_packaged_runtime_uses_appdata_python_and_current_resources_after_move(
-    package, monkeypatch, tmp_path
-):
-    state = paths.state_root()
+@pytest.fixture
+def installer(package, monkeypatch):
     calls = []
 
     def command(argv, cwd, environment, *args, **kwargs):
-        assert cwd == paths.resource_root()
-        assert environment["DANTEJP_DATA_DIR"] == str(state)
-        assert environment["UV_PYTHON_INSTALL_DIR"] == str(state / ".python")
-        assert environment["UV_PYTHON_PREFERENCE"] == "only-managed"
         calls.append(argv)
+        assert cwd == paths.resource_root()
+        assert environment["DANTEJP_DATA_DIR"] == str(paths.state_root())
         if "venv" in argv:
             target = Path(environment["UV_PROJECT_ENVIRONMENT"])
             (target / "Scripts").mkdir(parents=True)
-            (target / "Scripts/pythonw.exe").touch()
+            for name in ("python.exe", "pythonw.exe"):
+                (target / "Scripts" / name).touch()
+            (target / "pyvenv.cfg").write_text("version_info = 3.12.16\nimplementation = CPython")
+        elif "--target" in argv:
+            install_app_metadata(paths.resource_root(), Path(argv[argv.index("--target") + 1]))
+
+    def prepare(export, *args, **kwargs):
+        profile = export.parent.name.split("-", 1)[0]
+        requirement = export.parent / "verified-wheels.txt"
+        requirement.write_text(
+            "".join(
+                f"file:///C:/old%20cache/{name} --hash=sha256:{digest}\n"
+                for name, digest in expected_wheels(paths.resource_root(), profile)
+            ),
+            "utf-8",
+        )
+        return requirement
 
     monkeypatch.setattr(runtime_setup, "run_setup_command", command)
-    monkeypatch.setattr(
-        runtime_setup, "prepare_wheels", lambda export, *args: export.with_suffix(".txt")
-    )
-    runtime_setup.install_runtime(
-        state, runtime_setup.PROFILES[0], lambda p: None, threading.Event()
-    )
-    assert all("--editable" not in call for call in calls)
-    assert "--no-emit-project" in calls[1]
-    assert calls[0][0] == str(package.parent / "uv.exe")
-    assert calls[-1][1:5] == ["-I", "-B", str(package / "bootstrap.py"), "--module"]
-    ready = runtime_setup.ready_runtime(state, "nvidia")
+    monkeypatch.setattr(runtime_application, "run_setup_command", command)
+    monkeypatch.setattr(runtime_setup, "prepare_wheels", prepare)
+    return calls, command
+
+
+@pytest.mark.parametrize("profile", runtime_setup.PROFILES, ids=lambda p: p.key)
+def test_app_update_and_relocation_reuse_legacy_dependencies(
+    package, installer, monkeypatch, profile
+):
+    state = paths.state_root()
+    calls, _ = installer
+    runtime_setup.install_runtime(state, profile, lambda _: None, threading.Event())
+    ready = runtime_setup.ready_runtime(state, profile.key)
     assert ready
     runtime_setup.select_runtime(state, ready)
-    moved = tmp_path / "New app version"
+    assert all("--editable" not in call and "export" not in call for call in calls)
+    # Old releases put the app hash into this receipt; migration must leave it unchanged.
+    receipt = {"environment": ready.name, "fingerprint": "f" * 64}
+    (ready / "ready.json").write_text(json.dumps(receipt))
+    (state / "data/runtimes" / f"{profile.key}.json").write_text(json.dumps(receipt))
+    install_app_metadata(package, ready / "Lib/site-packages")
+    previous_native = {
+        str(p.relative_to(ready)): p.read_bytes() for p in ready.rglob("*") if p.is_file()
+    }
+    previous_app = runtime_application.prepare_application(
+        state, ready / "Scripts/python.exe", threading.Event()
+    )["PYTHONPATH"]
+    selection = (state / "data/runtime.json").read_bytes()
+    moved = package.with_name("Updated 日本語")
     package.rename(moved)
     monkeypatch.setattr(paths, "resource_root", lambda: moved)
+    app_wheel(moved, b"app version two")
+    (moved / "pyproject.toml").write_text("new version and description")
+    (moved / "uv.lock").write_text("changed application metadata")
     assert runtime_setup.selected_runtime(state) == ready
-    assert str(moved / "bootstrap.py") in paths.module_command(
-        ready / "Scripts/pythonw.exe", "jp_overlay"
+    assert runtime_setup.ready_runtime(state, profile.key) == ready
+    before = len(calls)
+    current_app = runtime_application.prepare_application(
+        state, ready / "Scripts/python.exe", threading.Event()
+    )["PYTHONPATH"]
+    assert current_app != previous_app and Path(previous_app).exists()
+    assert all("venv" not in call for call in calls[before:])
+    assert (state / "data/runtime.json").read_bytes() == selection
+    assert previous_native == {
+        str(p.relative_to(ready)): p.read_bytes() for p in ready.rglob("*") if p.is_file()
+    }
+    assert bundled_application(moved).installed_at(Path(current_app))
+    # Hash identity, not only version labels; switching back reuses the older app install.
+    app_wheel(moved)
+    assert (
+        runtime_application.prepare_application(
+            state, ready / "Scripts/python.exe", threading.Event()
+        )["PYTHONPATH"]
+        == previous_app
     )
-    # Dependencies changing requires fresh validation; UI/source-only changes do not.
-    (moved / "uv.lock").write_text("new dependencies")
+    # A genuinely changed native wheel must still reject reuse.
+    lock = moved / "runtime-locks" / f"pylock.{profile.key}.toml"
+    lock.write_text(lock.read_text().replace("a" * 64, "b" * 64))
     assert runtime_setup.selected_runtime(state) is None
-    assert json.loads((state / "data/runtime.json").read_text())["environment"] == ready.name
+    assert (state / "data/runtime.json").read_bytes() == selection
+
+
+@pytest.mark.parametrize("failure", ["install", "cancel", "release_changed"])
+def test_failed_app_update_never_reinstalls_dependencies_or_overwrites_previous_code(
+    package, installer, monkeypatch, failure
+):
+    from jp_overlay.model_store import Cancelled
+
+    calls, command = installer
+    state = paths.state_root()
+    profile = runtime_setup.PROFILES[0]
+    runtime_setup.install_runtime(state, profile, lambda _: None, threading.Event())
+    ready = runtime_setup.ready_runtime(state, profile.key)
+    assert ready
+    runtime_setup.select_runtime(state, ready)
+    old_apps = list((state / ".applications").iterdir())
+    app_wheel(package, b"update")
+    cancel = threading.Event()
+
+    def fail(argv, *args, **kwargs):
+        if "--target" in argv and failure == "install":
+            raise RuntimeError("Wheel install failed")
+        command(argv, *args, **kwargs)
+        if "--application-only" in argv:
+            if failure == "cancel":
+                cancel.set()
+            if failure == "release_changed":
+                app_wheel(package, b"changed during update")
+
+    monkeypatch.setattr(runtime_application, "run_setup_command", fail)
+    with pytest.raises(Cancelled if failure == "cancel" else RuntimeError):
+        runtime_setup.install_runtime(state, profile, lambda _: None, cancel)
+    assert list((state / ".applications").iterdir()) == old_apps
+    assert list((state / ".runtimes").iterdir()) == [ready]
+    assert runtime_setup.selected_runtime(state) == ready
+    assert len([c for c in calls if "venv" in c]) == 1
+
+
+def test_incomplete_or_ambiguous_release_never_supplies_an_application_wheel(package):
+    wheel = bundled_application(package)
+    (wheel.path.parent / "jp_overlay-0.2.0-py3-none-any.whl").touch()
+    with pytest.raises(ValueError, match="ambiguous"):
+        bundled_application(package)
+    (wheel.path.parent / "jp_overlay-0.2.0-py3-none-any.whl").unlink()
+    wheel.path.with_suffix(".whl.sha256").write_text("not a checksum")
+    with pytest.raises(ValueError, match="checksum"):
+        bundled_application(package)
+
+
+def test_installed_local_wheel_provenance_survives_relocation_but_requires_exact_hash(package):
+    wheel = bundled_application(package)
+    target = paths.state_root() / "example-runtime"
+    install_app_metadata(package, target)
+    metadata = target / "jp_overlay-0.1.0.dist-info/direct_url.json"
+    # Actual uv local-wheel provenance: the original URL retains its integrity fragment.
+    metadata.write_text(
+        json.dumps(
+            {
+                "url": "file:///C:/old-release/application/"
+                + wheel.path.name
+                + "#sha256="
+                + wheel.sha256,
+                "archive_info": {},
+            }
+        ),
+        "utf-8",
+    )
+    assert wheel.installed_at(target)
+    metadata.write_text(json.dumps({"url": wheel.path.as_uri(), "archive_info": {}}), "utf-8")
+    assert not wheel.installed_at(target)
+    metadata.write_text("[]", "utf-8")
+    assert not wheel.installed_at(target)
+
+
+def test_concurrent_launches_install_once_and_cancel_waiter_without_touching_owner(
+    package, installer, monkeypatch
+):
+    from concurrent.futures import ThreadPoolExecutor
+
+    from jp_overlay.model_store import Cancelled
+
+    calls, command = installer
+    root = paths.state_root()
+    python = root / ".runtimes" / ("cpu-" + "a" * 32) / "Scripts/python.exe"
+    entered, release, cancel = threading.Event(), threading.Event(), threading.Event()
+
+    def delayed(argv, *args, **kwargs):
+        if "--target" in argv:
+            entered.set()
+            assert release.wait(5)
+        command(argv, *args, **kwargs)
+
+    monkeypatch.setattr(runtime_application, "run_setup_command", delayed)
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        first = pool.submit(
+            runtime_application.prepare_application, root, python, threading.Event()
+        )
+        try:
+            assert entered.wait(5)
+            second = pool.submit(
+                runtime_application.prepare_application, root, python, threading.Event()
+            )
+            cancelled = pool.submit(runtime_application.prepare_application, root, python, cancel)
+            cancel.set()
+            with pytest.raises(Cancelled):
+                cancelled.result(timeout=5)
+        finally:
+            release.set()
+        assert first.result(timeout=5)["PYTHONPATH"] == second.result(timeout=5)["PYTHONPATH"]
+    assert len([c for c in calls if "--target" in c]) == 1
+
+
+def test_launch_environment_uses_only_current_app_and_retains_native_environment(
+    package, installer, monkeypatch
+):
+    from unittest.mock import Mock
+
+    from jp_overlay import runtime_restart
+    from jp_overlay.setup_process import run_setup_command
+
+    root = paths.state_root()
+    profile = runtime_setup.PROFILES[0]
+    runtime_setup.install_runtime(root, profile, lambda _: None, threading.Event())
+    ready = runtime_setup.ready_runtime(root, profile.key)
+    assert ready
+    monkeypatch.setenv("PYTHONPATH", "unrelated-code")
+    monkeypatch.setenv("PYTHONHOME", "unrelated-python")
+    monkeypatch.setenv("PYTHONINSPECT", "1")
+    monkeypatch.setenv("PYTHONHASHSEED", "invalid-seed")
+    monkeypatch.setenv("PYTHONUTF8", "invalid-utf8")
+    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", "unrelated-venv")
+    monkeypatch.setenv("VIRTUAL_ENV", "unrelated-venv")
+    process = Mock()
+    launch = Mock(return_value=process)
+    monkeypatch.setattr(runtime_restart, "OwnedProcess", launch)
+    restart = runtime_restart.RuntimeRestart(root, ready)
+    argv, cwd, env = launch.call_args.args
+    assert argv == [str(ready / "Scripts/pythonw.exe"), "-P", "-s", "-B", "-m", "jp_overlay"]
+    assert cwd == root
+    assert Path(env["PYTHONPATH"]).parent == root / ".applications"
+    assert not any(
+        k in env for k in ("PYTHONHOME", "PYTHONINSPECT", "UV_PROJECT_ENVIRONMENT", "VIRTUAL_ENV")
+    )
+    # App launch must also start a real interpreter with the clean baseline, preserving
+    # its intentionally supplied wheel path and UTF-8 setting.
+    try:
+        run_setup_command(
+            [
+                sys.executable,
+                *argv[1 : argv.index("-m")],
+                "-c",
+                "import os,sys; assert sys.flags.utf8_mode == 1; "
+                "assert not sys.flags.inspect; assert os.environ['PYTHONPATH'] in sys.path",
+            ],
+            cwd,
+            env,
+            threading.Event(),
+            lambda _: None,
+            timeout=5,
+        )
+    finally:
+        restart.cancel()
+
+
+@pytest.mark.parametrize("profile", runtime_setup.PROFILES, ids=lambda p: p.key)
+@pytest.mark.parametrize("reuse", [False, True], ids=["fresh", "reuse"])
+def test_python_environment_cannot_break_probes_or_trigger_dependency_repair(
+    package, installer, monkeypatch, profile, reuse
+):
+    from jp_overlay.setup_process import run_setup_command
+
+    root = paths.state_root()
+    calls, command = installer
+    cancel = threading.Event()
+    if reuse:
+        runtime_setup.install_runtime(root, profile, lambda _: None, cancel)
+    previous = runtime_setup.ready_runtime(root, profile.key)
+    if previous:
+        runtime_setup.select_runtime(root, previous)
+    for key, value in {
+        "PYTHONHASHSEED": "invalid-seed",
+        "PYTHONUTF8": "invalid-utf8",
+        "PYTHONINSPECT": "1",
+        "PYTHONOPTIMIZE": "2",
+        "PYTHONHOME": "unrelated-python",
+        "PYTHONPATH": "unrelated-code",
+    }.items():
+        monkeypatch.setenv(key, value)
+    probes = []
+
+    def probe(argv, cwd, environment, *args, **kwargs):
+        command(argv, cwd, environment, *args, **kwargs)
+        if "jp_overlay.runtime_probe" in argv:
+            # Exercise real interpreter startup with the exact environment and flags passed
+            # to either probe, without needing native inference packages in fast tests.
+            script = (
+                "import sys; assert sys.flags.utf8_mode == 1; "
+                "assert not sys.flags.inspect and not sys.flags.optimize; print('started')"
+            )
+            run_setup_command(
+                [sys.executable, *argv[1 : argv.index("-m")], "-c", script],
+                cwd,
+                environment,
+                cancel,
+                lambda _: None,
+                timeout=5,
+            )
+            probes.append("app" if "--application-only" in argv else "native")
+
+    monkeypatch.setattr(runtime_setup, "run_setup_command", probe)
+    monkeypatch.setattr(runtime_application, "run_setup_command", probe)
+    runtime_setup.install_runtime(root, profile, lambda _: None, cancel)
+    ready = runtime_setup.ready_runtime(root, profile.key)
+    assert ready
+    assert probes == (["native"] if reuse else ["app", "native"])
+    assert len([call for call in calls if "venv" in call]) == 1
+    assert list((root / ".runtimes").iterdir()) == [ready]
+    if reuse:
+        assert ready == previous == runtime_setup.selected_runtime(root)
+
+
+@pytest.mark.parametrize("damage", ["python", "wheels", "profile", "receipt"])
+def test_incompatible_or_incomplete_runtime_cannot_be_reused(package, installer, damage):
+    root = paths.state_root()
+    runtime_setup.install_runtime(
+        root, runtime_setup.PROFILES[0], lambda _: None, threading.Event()
+    )
+    ready = runtime_setup.ready_runtime(root, "nvidia")
+    assert ready
+    runtime_setup.select_runtime(root, ready)
+    if damage == "python":
+        (ready / "pyvenv.cfg").write_text("version_info = 3.13.0")
+    elif damage == "wheels":
+        (ready / "verified-wheels.txt").write_text("")
+    elif damage == "receipt":
+        (ready / "ready.json").write_text("[]")
+    else:
+        (root / "data/runtime.json").write_text(
+            json.dumps({"profile": "amd", "environment": ready.name})
+        )
+    assert runtime_setup.selected_runtime(root) is None

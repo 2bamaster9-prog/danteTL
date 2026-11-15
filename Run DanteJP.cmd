@@ -10,4 +10,4 @@ if not exist ".venv\Scripts\jp-overlay.exe" (
     exit /b 1
   )
 )
-start "" "%~dp0.venv\Scripts\pythonw.exe" "%~dp0tools\launch.py"
+start "" "%~dp0.venv\Scripts\pythonw.exe" "%~dp0tools\launch.py" %*

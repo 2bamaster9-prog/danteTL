@@ -1,10 +1,19 @@
 """Read-only app resources and writable user state, without changing source-checkout paths."""
 
 import os
+import sys
 from pathlib import Path
 
 
 def resource_root() -> Path:
+    if frozen := getattr(sys, "_MEIPASS", None):
+        return Path(frozen) / "app"
+    if resources := os.environ.get("DANTEJP_RESOURCE_DIR"):
+        # Managed Python imports its installed wheel. Only read-only assets belong to the ZIP.
+        root = Path(resources)
+        if not root.is_absolute() or not (root / "standalone.json").is_file():
+            raise ValueError("DANTEJP_RESOURCE_DIR must identify a complete standalone app.")
+        return root
     return Path(__file__).resolve().parents[2]
 
 
@@ -32,15 +41,14 @@ def runtime_project(state: Path) -> Path:
 
 
 def module_command(python: Path, module: str, *args: str) -> list[str]:
+    if getattr(sys, "frozen", False) and python.resolve() == Path(sys.executable).resolve():
+        return [str(python), "--module", module, *args]
     if is_standalone():
-        # Load the current app's source, never an editable install pointing at an older ZIP.
-        return [
-            str(python),
-            "-I",
-            "-B",
-            str(resource_root() / "bootstrap.py"),
-            "--module",
-            module,
-            *args,
-        ]
+        # Only our launch-scoped PYTHONPATH is admitted; exclude cwd and the user site.
+        return [str(python), "-P", "-s", "-B", "-m", module, *args]
     return [str(python), "-m", module, *args]
+
+
+def gui_executable() -> Path:
+    python = Path(sys.executable)
+    return python if getattr(sys, "frozen", False) else python.with_name("pythonw.exe")

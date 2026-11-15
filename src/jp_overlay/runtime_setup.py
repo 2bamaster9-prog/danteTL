@@ -7,51 +7,23 @@ import re
 import shutil
 import sys
 import threading
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
-from jp_overlay.model_store import Cancelled, ModelProgress, Progress
+from jp_overlay.model_store import Cancelled
 from jp_overlay.paths import is_standalone, module_command, runtime_project, state_root
+from jp_overlay.runtime_application import prepare_application
 from jp_overlay.runtime_downloads import prepare_wheels
-from jp_overlay.setup_process import run_setup_command
-
-
-@dataclass(frozen=True, slots=True)
-class RuntimeProfile:
-    key: str
-    name: str
-    groups: tuple[str, ...]
-    description: str
-
-
-PROFILES = (
-    RuntimeProfile(
-        "nvidia",
-        "NVIDIA GPU — CUDA",
-        ("gpu", "gemma"),
-        "Accelerates supported recognition and translation engines with CUDA 13. "
-        "Downloads about 1.3 GB "
-        "of NVIDIA/ONNX libraries, plus app dependencies. Model downloads are separate. "
-        "An up-to-date NVIDIA driver is required; system drivers are not changed.",
-    ),
-    RuntimeProfile(
-        "amd",
-        "GPU — Vulkan",
-        ("cpu", "gemma-vulkan"),
-        "Accelerates supported translation engines with Vulkan; recognition stays on CPU. "
-        "Requires a Vulkan-capable graphics driver. Radeon inference still needs testing "
-        "on your card; experimental DirectML OCR is not installed by this option.",
-    ),
-    RuntimeProfile(
-        "cpu",
-        "CPU",
-        ("cpu", "llm-cpu"),
-        "Runs local recognition and translation without GPU dependencies. "
-        "Larger language models may translate more slowly. CPU support is included in the "
-        "standalone app. Your downloaded models are kept when switching.",
-    ),
+from jp_overlay.runtime_requirements import (
+    RUNTIME_PYTHON,
+    dependencies_match,
+    dependency_fingerprint,
 )
+from jp_overlay.runtime_values import PROFILES as PROFILES
+from jp_overlay.runtime_values import RuntimeProfile as RuntimeProfile
+from jp_overlay.setup_process import clean_runtime_environment, run_setup_command
+from jp_overlay.setup_values import ModelProgress, Progress
 
 
 def project_root() -> Path:
@@ -59,7 +31,9 @@ def project_root() -> Path:
     return state_root()
 
 
-def _fingerprint(root: Path) -> str:
+def _fingerprint(root: Path, profile: str) -> str:
+    if is_standalone():
+        return dependency_fingerprint(runtime_project(root), profile)
     digest = hashlib.sha256(b"runtime-setup-v1")
     for name in ("uv.lock", "pyproject.toml"):
         digest.update((runtime_project(root) / name).read_bytes())
@@ -115,8 +89,15 @@ def verified_runtime(root: Path, key: str, name: str) -> Path | None:
         if (
             key in {p.key for p in PROFILES}
             and target.name.startswith(key + "-")
-            and receipt == {"environment": name, "fingerprint": _fingerprint(root)}
+            and isinstance(receipt, dict)
+            and receipt.get("environment") == name
+            and re.fullmatch(r"[a-f0-9]{64}", receipt.get("fingerprint", ""))
             and (target / "Scripts/pythonw.exe").is_file()
+            and (
+                dependencies_match(runtime_project(root), key, target)
+                if is_standalone()
+                else receipt == {"environment": name, "fingerprint": _fingerprint(root, key)}
+            )
         ):
             return target
     except (OSError, ValueError, KeyError, TypeError):
@@ -172,11 +153,7 @@ def install_runtime(
 def _install(
     root: Path, profile: RuntimeProfile, progress: Progress, cancel: threading.Event
 ) -> None:
-    environment = os.environ.copy()
-    # Do not inherit uv run's environment selection or an activated developer venv.
-    for key in tuple(environment):
-        if key.startswith("UV_") or key in ("VIRTUAL_ENV", "PYTHONHOME", "PYTHONPATH"):
-            environment.pop(key)
+    environment = clean_runtime_environment(os.environ)
     target = runtime_path(root, f"{profile.key}-{uuid4().hex}")
     environment.update(
         UV_PROJECT_ENVIRONMENT=str(target),
@@ -186,10 +163,12 @@ def _install(
         UV_NO_PROGRESS="1",
     )
     project = runtime_project(root)
+    fingerprint = _fingerprint(root, profile.key)
     if is_standalone():
         # Never bind an AppData runtime to an app folder which may be moved or replaced.
         environment["UV_PYTHON_PREFERENCE"] = "only-managed"
         environment["DANTEJP_DATA_DIR"] = str(root)
+        environment["DANTEJP_RESOURCE_DIR"] = str(project)
 
     def command(args: list[str], stage: str, timeout: float = 1800, step: int = 0) -> None:
         progress(ModelProgress(stage, stage=step, stages=4 if step else 0))
@@ -205,6 +184,8 @@ def _install(
         )
 
     if ready := ready_runtime(root, profile.key):
+        if is_standalone():
+            environment.update(prepare_application(root, ready / "Scripts/python.exe", cancel))
         try:
             command(
                 module_command(
@@ -257,16 +238,26 @@ def _install(
     # Keep the final path: Windows venv entry points must not be renamed after installation.
     try:
         command(
-            [str(uv), "venv", "--python", "3.12.16", str(target)],
+            [str(uv), "venv", "--python", RUNTIME_PYTHON, str(target)],
             "Preparing private Python… (installer-managed; byte progress unavailable)",
             step=1,
         )
-        command(args, "Reading locked dependencies…", step=2)
+        if is_standalone():
+            shutil.copyfile(project / "runtime-locks" / f"pylock.{profile.key}.toml", export)
+        else:
+            command(args, "Reading locked dependencies…", step=2)
         requirements = prepare_wheels(
             export,
             root / ".runtime-downloads/wheels",
             lambda value: progress(replace(value, stage=2, stages=4)),
             cancel,
+            cpu_wheel=(
+                project
+                / ("cpu-runtime" if is_standalone() else "build/cpu-runtime")
+                / "llama_cpp_python-0.3.37-py3-none-win_amd64.whl"
+            )
+            if profile.key == "cpu"
+            else None,
         )
         command(
             [
@@ -285,7 +276,10 @@ def _install(
             "Installing verified dependencies…",
             step=3,
         )
-        if not is_standalone():
+        if is_standalone():
+            progress(ModelProgress("Preparing the application wheel…", stage=3, stages=4))
+            environment.update(prepare_application(root, target / "Scripts/python.exe", cancel))
+        else:
             command(
                 [
                     str(uv),
@@ -308,7 +302,11 @@ def _install(
         )
         if cancel.is_set():
             raise Cancelled()
-        receipt = {"environment": target.name, "fingerprint": _fingerprint(root)}
+        if _fingerprint(root, profile.key) != fingerprint:
+            raise RuntimeError(
+                "The dependencies changed during setup. Retry with the current release."
+            )
+        receipt = {"environment": target.name, "fingerprint": fingerprint}
         _atomic_json(target / "ready.json", receipt)
         _atomic_json(root / "data/runtimes" / f"{profile.key}.json", receipt)
     except BaseException:

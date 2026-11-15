@@ -1,0 +1,13 @@
+DanteJP uses Python, PySide6/Qt, ONNX Runtime, MeikiOCR, OpenCV, NumPy,
+CTranslate2, llama.cpp/llama-cpp-python, uv and their dependencies.
+
+Upstream package metadata, source links and supplied license texts are retained
+in _internal/*.dist-info. Python's license is in _internal/licenses/python.
+MeikiOCR's bundled weights, pinned hashes, sources and license notices are in
+_internal/third-party/meiki. llama.cpp and optional compiler-runtime notices are in
+_internal/third-party/native; binding notices accompany its package metadata.
+PyInstaller supplies the executable bootloader under its distribution exception:
+https://pyinstaller.org/en/stable/license.html
+
+Translation weights are not included. Optional runtime/model downloads retain
+their upstream terms and require an explicit user action.

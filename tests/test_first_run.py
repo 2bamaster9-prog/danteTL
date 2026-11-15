@@ -19,6 +19,18 @@ def test_cpu_is_available_without_gpu_and_amd_does_not_require_gpu_ocr():
     assert first_run.needs_runtime(PROFILES[2], HardwareStatus(llama_device=None))
 
 
+def test_plamo_wizard_includes_upgrade_when_existing_hardware_engine_is_too_old(monkeypatch):
+    from jp_overlay.curated_models import MODELS
+
+    model = next(m.bundle() for m in MODELS if m.key == "plamo-0.8b")
+    hardware = HardwareStatus(cuda_ocr=True, llama_device="cuda")
+    monkeypatch.setattr(first_run, "supports_plamo", lambda: False)
+    assert first_run.needs_runtime(PROFILES[0], hardware, model)
+    assert not first_run.needs_runtime(PROFILES[0], hardware)
+    monkeypatch.setattr(first_run, "supports_plamo", lambda: True)
+    assert not first_run.needs_runtime(PROFILES[0], hardware, model)
+
+
 def test_setup_plan_has_no_side_effect_until_run_and_preserves_byte_progress(monkeypatch, tmp_path):
     order = []
     download = DownloadProgress("weights", 4, 10)
