@@ -1,45 +1,15 @@
 # Engineering guide
 
-DanteJP is a local Windows application that translates Japanese game text into English at the
-original text locations. The current slice uses cheap visual evidence to schedule OCR, mask closed
-text panels promptly, retain unchanged accepted labels through noisy OCR, and detect continuing
-dialogue before the next model result arrives. Changed areas now receive cropped OCR with periodic
-full discovery, while tracking retains the rest of the scene.
+DanteJP captures a selected Windows window, recognizes Japanese locally and overlays English from
+an explicitly selected local or cloud translator. These documents describe current behavior.
 
-Read these documents as relevant to the task:
-
-| Document | Purpose |
+| Read when changing | Guidance |
 | --- | --- |
-| [Agreed plan](plan.md) | Product behavior, scope, model choices, and milestones |
-| [Architecture](architecture.md) | Boundaries, coordinate contracts, concurrency, and ownership |
-| [Principles](principles.md) | Python and software design conventions |
-| [Verification](verification.md) | Fast checks, live checks, and manual acceptance |
-| [Performance](performance.md) | Budgets and measurement rules |
-| [Decisions](decisions/001-desktop-foundation.md) | Why the initial architecture was selected |
-| [OCR decision](decisions/002-local-ocr.md) | Offline models, CPU inference, and inspection policy |
-| [Tracking decision](decisions/003-stable-display.md) | Matching, confirmation, and repaint policy |
-| [Translation decision](decisions/004-local-translation.md) | Backend boundary, caching, and English layout |
-| [Confidence decision](decisions/005-confidence-stability.md) | Preferred readings and genuine-change safeguards |
-| [Content/grouping decision](decisions/006-text-content-and-dialogue.md) | Character bounds, icon evidence, and dialogue units |
-| [Persistence decision](decisions/007-evidence-based-persistence.md) | Slow OCR, missed detections, and pixel evidence |
-| [Responsive OCR decision](decisions/008-responsive-ocr.md) | Reveal readiness, GPU isolation, and fallback |
-| [Visual evidence decision](decisions/009-visual-evidence.md) | Change scheduling, occlusion, and readiness |
-| [Regional OCR decision](decisions/010-regional-ocr.md) | Partial coverage, coordinate mapping, and discovery |
-| [Gemma/debug decision](decisions/011-gemma-and-diagnostics.md) | Optional quality backend and diagnostic boundaries |
-| [Models/context decision](decisions/012-model-management-and-context.md) | Explicit setup, AMD boundaries, and bounded conversation memory |
-| [Runtime setup decision](decisions/013-in-app-runtime-setup.md) | Explicit installs, isolated environments, and restart |
-| [UI decision](decisions/014-settings-and-inspection.md) | Settings ownership, persistence, and independent inspection |
-| [Hotkey decision](decisions/015-global-hotkeys.md) | Native global actions, rebinding and lifecycle ownership |
-| [Standalone decision](decisions/016-standalone-windows.md) | Private Python, AppData and relocatable GPU runtimes |
-| [Shared CUDA decision](decisions/017-shared-cuda.md) | One NVIDIA library family for OCR and Gemma |
-| [CPU language-model decision](decisions/018-cpu-llm-runtime.md) | Bundled CPU translation and model-independent runtimes |
-| [First-run decision](decisions/019-first-run-setup.md) | Explicit guided setup and verified download progress |
-| [Bundled OCR decision](decisions/020-bundled-ocr.md) | Required recognition included, writable repairs kept separate |
-| [Imported model decision](decisions/021-imported-models.md) | Local GGUF registration, compatibility tests and prompt profiles |
-| [Session lifecycle decision](decisions/022-session-lifecycle.md) | Runtime selection, process ownership and request rejection |
-| [Curated model decision](decisions/023-curated-models.md) | Downloadable E4B/Qwen3.5 and honest model comparisons |
-| [Current slice](plans/023-curated-models.md) | Additional downloadable models and lifecycle verification |
+| Ownership, processing, UI, models, setup or security | [Architecture](architecture.md) |
+| Tests or native acceptance | [Verification](verification.md) |
+| Packaging, dependencies or CI | [Building](building.md) |
+| Performance or model comparisons | [Measurement](performance.md), [benchmark inputs](benchmarks/README.md) |
 
-The harness consists of these documents, executable checks, deterministic tests, and live capture
-verification. Add guidance when it resolves a concrete ambiguity; replace stale guidance instead
-of accumulating contradictory rules. Application code is the source of implementation truth.
+Keep each contract in one place. Code owns implementation constants; regression tests specify behavior.
+Docs explain ownership and constraints needed to change them safely. Update stale guidance rather
+than accumulating plans/results. Store disposable evidence under ignored `artifacts/`.

@@ -1,495 +1,258 @@
-# Architecture
-
-## Current implementation
-
-Product branding is DanteJP. Window titles, visible messages, launchers, documentation and new
-distribution archives use that name. Keep the `jp_overlay` Python namespace, `jp-overlay` package/
-CLI ID, `JP_OVERLAY_*` configuration and restart variables, and project-relative data/model paths
-stable for installed environments. Branding must not change the dependency fingerprint or force
-runtime installation. Logs now use `%LOCALAPPDATA%/DanteJP/logs`; old logs are not migrated/deleted.
-
-`app` assembles the Windows boundary, QApplication, main window, and lazy OCR/translation factories.
-`ui` owns Qt presentation and model/setup lifecycle. `live_session.LiveSession` owns the live
-capture/OCR/visual session, resets, accepted observations, tracking/grouping, acknowledgement order
-and published English. Its commands accept explicit time and return immutable scene values; replay
-checks require no window. Worker factories are explicit dependencies. Preparing/selecting a model
-remains separate; the coordinator supplies work to the active translation worker.
-`settings_window` owns nonmodal configuration/setup views; `preferences` owns validated settings
-and coalesced atomic persistence. `controls` and `theme` provide shared Qt presentation.
-`hotkeys` owns three registrations, transactional replacement and transient hold state behind a
-small registrar protocol. `hotkeys_windows` bridges RegisterHotKey/WM_HOTKEY to Qt, without keyboard
-hooks or idle polling. It checks only the active held chord for release every 16 ms, stopping when up.
-`hotkey_settings` owns drafts, active/conflict feedback and committed preference values. Composition
-in `app` installs one native event filter; MainWindow maps actions to its ordinary controls. Startup
-conflicts do not block capture. Shutdown releases bindings before runtime restart; a failed restart
-reacquires them and reports any new conflicts. See [decision 015](decisions/015-global-hotkeys.md).
-Main controls occupy a width-bounded top-left column. Advanced alone consumes surplus space;
-its disclosure does not resize a maximized window. Model badges separate download presence from
-runtime availability, and actionable warning banners remain outside Advanced.
-`inspection` owns the independent image/text inspector. `capture` owns native capture and shutdown.
-`overlay` owns rendering and display placement. `windows` owns Win32 identity, geometry, and
-overlay styles. `domain` contains immutable shared values and pure geometry/visibility policy.
-`demo` is an optional animated test target.
-
-The domain imports no Qt or Windows code. Capture does not depend on Qt and consumes a small
-geometry-source protocol. `recognition` owns the OCR worker, immutable observations, and lifecycle;
-it imports no Qt, Win32, or model runtime. `meiki` isolates pinned MeikiOCR details; `ocr_runtime`
-owns provider/session construction and process-local NVIDIA DLL loading. `models`
-defines and validates pinned local assets. `tracking` owns bounded text identities, matching,
-confirmation, and retirement; it stores no frame images and has no native/model dependencies.
-`presence` computes bounded exact crop digests; tracks retain only those digests and their bounds.
-`translation` owns scheduling, backend swaps, and result validity through a small backend protocol.
-`sugoi` owns SentencePiece/CTranslate2 and pinned translation assets; `gemma` owns optional embedded
-llama.cpp, local QAT weights, bounded prompt/output and process-local CUDA 13 library setup.
-`diagnostics` creates bounded read-only overlay snapshots from visual/OCR/translation state.
-`translation_cache` owns bounded
-memory/SQLite storage. `text_layout` owns measured English wrapping and viewport limits. Live coordination
-is extracted now because reconciliation/lifecycle ordering has become substantial application policy.
-See [decision 022](decisions/022-session-lifecycle.md).
-
-## Coordinates
-
-All rectangles crossing native/capture boundaries use physical pixels. Client and window bounds
-are desktop coordinates, including negative monitor origins. Startup requests per-monitor V2 DPI
-awareness before creating any windows. Capture checks actual image dimensions against DWM visible
-bounds, window bounds, and client bounds. It crops only a matching, containing rectangle; resize
-frames whose geometry does not agree are discarded.
-
-The overlay HWND is positioned with SetWindowPos in physical client coordinates. Painting scales
-by the inverse of the overlay's current devicePixelRatioF. This avoids incorrectly scaling desktop
-origins when monitors have different DPI. A retained frame may follow a window move but cannot be
-used to display an overlay after a client-size change until a compatible new frame arrives.
-
-## Ownership and lifecycle
-
-The GUI thread owns all Qt widgets. A Python capture-owner thread creates and stops the native
-capture session. The native callback obtains current geometry, throttles copies, crops, and copies
-borrowed native memory into owned immutable bytes before returning. It catches exceptions before
-crossing the native boundary.
-
-A lock protects one replaceable frame snapshot. The UI polls snapshots and redraws the preview
-only when its sequence changes. There is no growing frame queue. Native startup, imports, and
-shutdown never run on the GUI thread. Stop requests immediately hide the overlay and clear the
-preview; the UI polls completion before allowing another session or finishing application close.
-
-Each session is single-use and tied to HWND plus process ID. Terminal states reject late frame
-publication. Failure diagnostics survive cleanup. A new session receives a new mailbox, preventing
-old callbacks from modifying its state. Initial capture without a usable frame times out after ten
-seconds. An unchanged WGC source need not deliver repeated frames, so frame age alone is not a
-failure signal. Window validity, minimize state, focus, and current geometry are checked separately.
-
-## Overlay behavior
-
-Qt and Win32 both mark the overlay as input-transparent and nonactivating. The layered-window
-style supports mouse pass-through across processes. WDA_EXCLUDEFROMCAPTURE is required; failure
-stops the session with a visible explanation. The overlay is visible only for the selected foreground
-window with matching capture dimensions. It hides on focus loss, minimize, stop, or source failure.
-
-English mode draws translated text over a translucent background at committed track positions.
-Untranslated/pending regions leave the original game text visible. English always uses stabilization.
-Turning translation off leaves the game unobscured. Advanced's explicit Show OCR boxes switch
-enables numbered diagnostics; only this mode allows raw box comparison.
-The default stabilized mode retains committed positions through small OCR changes and brief misses.
-Processing delay never expires committed tracks. Equal crop pixels preserve a missed track;
-otherwise three completed negative observations spanning at least 350 ms retire it. A changed crop
-and a negative OCR result on a now-static source can settle 350 ms after completion without duplicate
-WGC frames. These are operational evidence rules, not proof of semantic absence.
-Visual masking and the combined visual/OCR early-retirement rule below refine this policy.
-Dimension mismatches always hide/clear them. The comparison checkbox displays raw boxes with the
-original 750 ms freshness policy. The original sample mode remains for the native regression harness.
-
-`OverlayWindow.set_tracks` and `set_translations` compare immutable display values rather than fresh
-OCR object identity. Changed display values/style request an application repaint. Qt/Windows can
-still repaint for expose, resize, DPI, and other native reasons. Holding a box is not a promise to
-suppress all paint events.
-
-## OCR ownership and inspection
-
-Each capture session gets one OCR worker and model instance. The worker imports the model runtime,
-validates files, and loads all three ONNX sessions off the GUI thread. It processes one frame at a
-time with at most one replaceable pending frame and one published result. No inference backlog
-accumulates. The CPU provider uses two intra-op threads per session, one inter-op thread, disabled
-idle spinning, OpenCV one thread, and recognition batches of four. Models execute sequentially.
-
-The optional GPU environment replaces the CPU ONNX distribution with its CUDA build; they are
-never co-installed. Auto mode tries CUDA, verifies actual session providers, and rebuilds the
-whole engine on CPU after initialization/inference failure. The fallback is visible and is attempted
-once per engine, not on every frame. Strict CUDA is reserved for verification. Missing/corrupt model
-files fail before fallback. The GPU uses the same model files and batches; CPU handles unsupported
-graph nodes. The per-session CUDA arena target is 512 MiB, not a total-process VRAM cap. Device and
-2–12 Hz capture settings are sampled when a session starts. Edits apply next capture, including
-when downloaded OCR models become available mid-session. Both providers default to 8 Hz; visual
-evidence, rather than every captured frame, schedules regional or full-frame inference.
-
-Resize and minimize increment a generation and clear pending/published work. Already-running
-native inference finishes, but cannot publish into an invalid generation. Each new capture has a
-separate worker. Stop clears the inspector and overlay immediately; the GUI polls all workers'
-completion before restarting or closing. Recognizers explicitly release native sessions on the
-owning worker; `finished` also requires that thread to exit. A model failure preserves its diagnostic while capture
-continues; stop/start retries loading. There is no forced interruption of an ONNX call.
-
-An `OcrResult` retains its exact source frame, text regions, character boxes/scores, inference duration,
-and completion time. OCR coordinates are client-relative physical pixels. Meiki performs internal
-detector scaling; its outputs already refer to the original input dimensions. The inspector uses
-one image transform for both pixels and boxes, including letterboxing and zoom. Recognition is not
-filtered to Japanese, so other visible text may also appear. Detector-only boxes survive empty
-recognition. Displayed confidence is the mean retained-character score; detection scores are not
-exposed by the pinned upstream implementation.
-
-The coordinator retains accepted OCR independently of inspector visibility. Collapsed inspection
-keeps only the newest source/result pair without image conversion or table work. Pause inspection
-freezes its displayed frame, Japanese and English; it does not clear generations, stop OCR, or hide
-the game overlay. Expanding/resuming renders the newest exact pair. An explicit frozen review may
-retain one additional displayed pair; resize/minimize/stop clears it too.
-An accepted model change revokes frozen English without replacing the reviewed Japanese/frame.
-
-Worker snapshots expose completed/skipped counts, capture-to-start delay, the mean of eight recent
-inference durations, and the start time of the active pass. The UI exposes these independently of
-capture frequency. This is bounded diagnostic state, not logging of source text or pixels.
-
-## Visual evidence between capture and OCR
-
-`visual.VisualSession` owns a second, lightweight worker. One replaceable job contains the latest
-frame, current tracks/assignments, activity, and the latest OCR/source pair. Snapshots contain current
-evidence and a coalesced request for OCR, acknowledged by UI polling. Expensive OpenCV/NumPy work
-and native imports stay off the GUI thread. Resize, minimize, stop, and source closure clear
-generations; late work cannot republish. Failure switches visibly to ordinary OCR until reset.
-
-`VisualAnalyzer` stores a 640 x 360 grayscale thumbnail, a 32 x 18 tile-motion map, at most 128 text
-anchors, and 128 expanded reading probes. Templates are capped at 256 x 48, never full-frame history;
-each crop samples at most 1024 x 192 source pixels before resizing.
-Area downsampling detects changed tiles, avoiding repeated crop work in unchanged tiles. Novel
-motion, settling, and quiet changed text prompt OCR, with a 120 ms minimum request interval and a
-three-second full refresh on advancing frames. One follow-up helps uncertain initial confirmation.
-Continuously growing dialogue defers only its region, never unrelated new labels or full discovery.
-Skipped captures are not negative OCR observations. Raw inspection remains frame/result matched.
-
-Anchors compare signed edges and spatial pattern correlation with a one-template-pixel tolerance.
-Brightness and polarity changes are tolerated. Strong pattern loss on two distinct captures masks
-the exact track/revision/geometry in rendering; it does not discard English or identity. Two positive
-captures can restore it. An actual OCR miss plus fresh two-frame visual absence can retire it early,
-freeing slots before new admissions. Exact unchanged pixels still override contradictory absence;
-incomplete OCR cannot vote for removal. Otherwise the prior three-miss policy remains.
-
-Expanded reading areas cover following characters and plausible lower lines. Append-like stroke
-additions block new translation of an older partial reading, including a small first character below
-it. General background replacement is not treated as typing. Matching stable expanded pixels can
-confirm the exact current OCR reading without a second inference; protected low-confidence candidates
-still obey their existing escape interval. UI translation scheduling waits until visual evidence has
-examined the latest OCR source, preventing a publication race. Retained English is independent of
-readiness. A single static WGC frame can still settle normally without another callback.
-Punctuation appended to an actively revealing line takes the normal confirmation path; ordinary
-static labels retain confidence protection for otherwise similar alternatives.
-
-These are bounded appearance heuristics, not game-panel detection or semantic absence proof. The
-three-second full refresh covers missed/ambiguous changes. Learned panel detection remains future
-work. See [decision 009](decisions/009-visual-evidence.md).
-
-## Regional OCR observations
-
-`regions` owns rectangle clipping, merging and whole-line closure. The visual worker accumulates
-novel/settled dirty tiles until serviced, pads their connected regions, and expands over known text.
-At most four disjoint areas covering up to 45% of the client are selected; broader requests use a
-full scan. Local dialogue probes add continuation context. Full discovery has an independent deadline.
-
-`OcrSession` unions pending coverage while replacing pixels with the newest frame. It crops only
-on its worker, calls the same recognizer, offsets line and character bounds exactly once, and retains
-the original source frame. Detections touching artificial crop edges trigger one full-scan fallback.
-`OcrResult.scanned` records actual coverage (`None` for full). The inspector never synthesizes old
-detections onto a new image. Tracking considers a miss only when that track was fully covered; a
-newer unrelated crop cannot settle an older miss. Grouping still uses all retained tracks.
-
-The application acknowledges a result after visual review and tracking reconciliation. Until then,
-the OCR worker holds its next bounded job; fast crops cannot overwrite an unconsumed observation.
-Invalidation clears both pending work and the acknowledgement gate. Retained dialogue probes carry
-their original per-line sequence/text, allowing confirmation after scans of other areas while
-rejecting stale positive/negative evidence. See [decision 010](decisions/010-regional-ocr.md).
-
-CUDA recognition uses a fixed batch of four: incomplete batches are padded and outputs sliced back
-to the actual count before postprocessing. This avoids measured half-second cuDNN replanning when
-switching full scans and one-line crops. CPU batching is unchanged. No dummy detection can publish.
-
-Pause freezes only the inspector image/table. Capture, reconciliation and translation continue;
-resume displays the latest source-matched observation without invalidating or resubmitting work. Resize/minimize/stop clear even a frozen inspection to prevent a stale
-source from appearing active. Tracking resets on these events and on failure; IDs are never reused
-during the tracker object's lifetime. The raw inspector remains independent of smoothed display data.
-
-## Text tracking
-
-`text_content.content_region` derives tracking observations without changing the raw `OcrResult`.
-When character metadata covers the whole recognized string, its union supplies text bounds instead
-of the detector's potentially icon-inclusive rectangle. For horizontal text, one or two isolated,
-weak edge glyphs beside a strong Japanese run may be excluded from that derived observation.
-Structural punctuation, numbers, interior characters, incomplete metadata, and uncertain cases
-remain intact. The inspector still displays original detector/character boxes, text, and scores.
-
-The GUI coordinator observes each completed OCR sequence once; repeated polling cannot count as
-confirmation. Capture/completion times are explicit monotonic values. No background timer, history
-queue, extra model, or image copy is introduced. Matching runs only on new OCR, bounded to 128 tracks
-and 512 candidate regions. Existing matches get priority over new admissions, so detector ordering
-cannot evict them merely by crossing the display limit. Truncated input cannot vote for absence.
-One-to-one greedy assignment uses overlap, spatial proximity, orientation,
-and exact/approximate normalized text; ties are deterministic. Identical distant labels cannot match
-on text alone. The raw inspector receives the assigned IDs in original detector row order.
-
-Each track separates the latest observed geometry from committed display geometry and content.
-Small edge changes inside a glyph-scaled deadband retain exactly the same `TextTrack` object.
-Persistent modest shifts/crop changes require two observations; a large coherent translation of a
-similarly-sized box moves immediately. Ordinary text edits require two consecutive observations
-before incrementing `text_revision`. A near-identical reading at nearly the same position also
-competes with the best character-mean confidence recorded for the committed text. Weaker/equal
-variants retain the exact committed text and geometry; confidence fluctuations stay private and
-cannot invalidate English or request a repaint. A confirmed higher-confidence variant becomes the
-new preference. Similarity is conservative; numeric edits, short labels, and typewriter growth
-keep the ordinary confirmation path.
-
-A weaker similar candidate can still replace the preference after 1.25 seconds of consistent
-evidence, resetting its confidence baseline. This prevents genuine one-character dialogue edits
-from being hidden indefinitely. Returning to the winner, another candidate, or a miss breaks that
-evidence. Slow but consecutive completed observations still count. New content and retired/reset
-tracks do not inherit an old score.
-Missing/invalid confidence falls back to ordinary confirmation. Raw inspector text/scores are unchanged.
-If no newer frame arrives, ordinary pending changes settle after 350 ms on that latest captured
-frame; protected weaker variants use the longer 1.25-second interval. WGC does not need to repeat
-identical pixels. A long pause or slow inference preserves IDs; duplicate polling never adds votes.
-
-New recognized regions display immediately in diagnostic mode. Translation waits for a second
-consistent observation, exact crop presence in a second observation, or 350 ms on an unchanged latest
-frame. Previously confirmed content remains
-displayable through pending edits, slow processing, and the two-miss grace period, keeping English visible.
-A committed new revision invalidates its old English. Empty recognition remains visible in the raw
-inspector. A missed track whose crop is identical to its accepted reference stays present even after
-repeated misses. Exact-pixel checks use BLAKE2b digests, at most 65,536 pixels per crop and 1,000,000
-pixels per observation, without retaining frames. Missing checks take priority over reference refresh.
-Unknown/oversized/out-of-bounds crops fall back to OCR votes. Rejected source candidates cannot replace
-references; committing a new source clears its old reference. Pixel changes alone never remove text.
-A stalled OCR worker keeps the last state until recovery/failure/reset; current-pass elapsed time
-remains visible. Text tracking does not yet implement visual scene-cut detection,
-optical flow, or split/merge reconciliation.
-See [the policy decision](decisions/003-stable-display.md) for thresholds and tradeoffs.
-The [confidence decision](decisions/005-confidence-stability.md) refines text acceptance without
-changing public track values, translation/cache identities, or model ownership. The
-[persistence decision](decisions/007-evidence-based-persistence.md) supersedes the old age timeout
-and defines removal evidence and its limits.
-
-## Translation and layout
-
-`grouping.DialogueGrouper` forms `TextBlock` values from stable lines. It requires nearby horizontal
-lines of comparable height and left alignment, continuation/punctuation evidence, and an unambiguous
-successor. Short/narrow speaker labels, marked choices, separate columns, and
-vertical lines stay separate. Limits are six lines and 512 source characters per group. Every member
-must be confirmed before translation. Tracking also exposes bounded `TextActivity`: the plausible
-latest reading/geometry, last substantive change time, growth evidence, and whether an edit is
-pending. Grouping can reserve a continuation using this evidence before it commits, but translation
-sources always use committed text. One-character prefix growth at the same origin retains identity.
-Minor confidence variants do not restart the quiet period. Growth can support grouping even before
-terminal punctuation appears. Geometric, speaker, choice, and size safeguards remain in force.
-
-Readiness is timed from source observations, not from the eventual committed group: 180 ms quiet
-after terminal punctuation, 550 ms for revealed/unfinished multiline text, and 350 ms for other
-long single lines. Ordinary short labels add no delay. Genuine pending edits block new work;
-turning grouping off still debounces growing lines. Timing is a heuristic: a long pause can make
-unfinished dialogue ready. The checkbox disables grouping without resetting OCR.
-Completed sentences stay separate unless observed reveal activity supports a continuing paragraph;
-this permits multiple sentences in a typewritten dialogue without generally merging static menu rows.
-
-```mermaid
-flowchart LR
-    A[Raw OCR and exact frame] --> B[Inspector]
-    A --> C[Character bounds and conservative icon cleanup]
-    C --> D[Stable text tracks]
-    D --> E[Confirmed dialogue blocks]
-    E --> F[Memory/SQLite and local Sugoi]
-    F --> G[Validate all member revisions]
-    G --> H[One English box per block]
-    G --> B
-```
-
-Japanese wrapped lines join without invented punctuation or spaces; Latin word boundaries retain a
-space. Requests contain the exact combined source plus every member's ID, revision, and individual
-source, so moving a block cannot cause retranslation. The first member is its display anchor, not
-its sole validity check. Splits, merges, member edits/removal, and toggle changes reject old replies.
-The memory/SQLite key uses the exact combined source and existing backend identity; member geometry
-does not enter that key. Resetting tracking also resets the bounded group-settling state.
-
-The UI supplies ready requests separately from revision-valid blocks whose already-published English
-may remain visible. Retained requests never initiate inference; new revisions/membership invalidate
-them. Desired plus retained requests are capped at 128. One worker owns
-one backend and one cache. It coalesces identical text into batches of at most four distinct sources;
-there is no historical job queue. Non-Japanese regions remain available in the raw inspector but are
-not submitted to the Japanese-to-English backend.
-
-The worker checks the memory/SQLite cache, translates missing entries, and publishes only requests
-still desired in the same generation. In-flight work can populate the cache after invalidation, but
-cannot repopulate obsolete display results. Reset, minimize, resize, and model switches
-invalidate generations. The renderer independently matches the full request, including all members.
-`TranslationSnapshot.backend_generation` also scopes `EnglishPresentation` retention together with
-worker identity: a translation cannot survive a model change just because source/track IDs match.
-Switches clear painted blocks and both live/frozen inspector English immediately; persistent cache
-entries remain separated by backend identity and are intentionally reusable when switching back.
-
-`TranslationBackend` exposes `cache_identity`, `batch_size`, batched `translate`, and `close`.
-`ContextualBackend` explicitly adds bounded contextual translation. Factories are passed
-from `app`; adding another engine needs an adapter and registration, not pipeline changes. The two
-initial choices are Sugoi decoding profiles, not different model weights. Switching drains the active
-call, unloads the old backend, then loads the latest selected backend on the same worker. No two
-loaded models are deliberately retained. Stop is nonblocking; native calls finish before teardown.
-Known input/answer rejection affects only that request and exposes a diagnostic. The worker retains
-unrelated results and suppresses repeated failed work using a bounded request/revision/context map.
-Session/backend resets clear that map. Fatal engine failure leaves OCR/capture running; toggle
-Translation overlay off/on to retry. See [decision 022](decisions/022-session-lifecycle.md).
-
-Sugoi uses pinned local weights, Japanese/English SentencePiece files, CPU int8, two threads, and
-beam size two (Fast CPU) or five (Wider search). The adapter rejects overlong input or missing output
-termination instead of silently truncating. There is no network fallback or automatic model setup.
-
-Automatic text size estimates glyph height from stable bounds (width for vertical text), measures
-Segoe UI in physical pixels, then allows limited shrinking/wrapping. Manual size fixes the pixel
-size. Overflow can widen the box by up to 50%, add lines, and shift it inside the client viewport;
-remaining overflow uses an ellipsis. Full English is retained in the inspector and clipboard.
-Groups use the median individual line height for automatic sizing, not the whole paragraph height.
-Layout is cached for 256 combinations. Adjacent-box collision resolution is not implemented.
-English is horizontal even when its source is vertical.
-
-The inspector continues to pair raw OCR with its exact frame. Its English column also requires
-matching track ID and derived source text for every member. The anchor row shows the English;
-continuation rows point to that group, and tooltips show its source and full translation. Copying
-English from any member copies the complete group; copying all rows deduplicates by request.
-A pending OCR edit may show no English in the table while the game holds the prior committed
-translation. Pause freezes both table languages. Raw Japanese/boxes always remain inspectable.
-
-## Accepted visual content and atomic English publication
-
-New OCR is held for a source-matched `VisualState` before the UI reconciles it. The visual worker
-compares each accepted template against that exact candidate frame, independently of the newest
-capture used for fast masking. Evidence contains full immutable track values plus the source
-sequence; late evidence cannot validate a newer revision. Templates/probes remain bounded and
-analysis stays off the Qt thread. The inspector receives the untouched OCR/frame once reconciled.
-
-Unchanged foreground patterns suppress misses, text substitutions and geometry jitter. Per-cell
-checks catch small numeric edits that whole-region similarity could conceal. High-contrast additions
-beyond the previous line unlock reveal growth; dim background texture does not. Scores below 0.90
-allow three matched reviews and require an improvement greater than 0.01. Strong readings lock;
-real visual changes return to ordinary change confirmation. Weak templates use OCR fallback.
-
-`presentation.EnglishPresentation` separates accepted source from painted source. Only explicit
-same-pixel correction lineage permits the previous block/English pair to remain while its successor
-is translated; new English swaps both together. Each member must validate. Real changes, regrouping,
-removal and resets revoke this permission. This bounded layer retains at most 128 publications and
-does not queue inference, change cache identities, or weaken the renderer's exact-request check.
-
-## Runtime data
-
-Images stay in memory. No screenshots are automatically saved. Bounded diagnostic logs live under
-`%LOCALAPPDATA%/DanteJP/logs`, with no normal logging of captured pixels or recognized text.
-Dependencies and the launcher environment are project-local when using the bundled setup script.
-Models live in ignored `models/meiki` (or `JP_OVERLAY_MODEL_DIR`) and `models/sugoi-v4`
-(or `JP_OVERLAY_SUGOI_DIR`). Explicit setup scripts or the Models dialog install them. Revisions, lengths, and
-SHA-256 digests are pinned; runtime rejects missing/corrupt files without a network fallback.
-
-Translation cache storage is ignored `data/translations.sqlite3`: at most 512 memory entries and
-20,000 SQLite rows. Keys hash exact source plus language pair, weights/tokenizer revision, runtime
-versions, decoding settings, and adapter version. English translations persist locally; screenshots
-and raw Japanese are not written into this database. SQLite uses WAL on its owning worker. Disk
-errors fall back to bounded memory with a visible warning and preserve the original file. There is
-no Redis service. Gemma context is hashed into its own cache-key namespace. Future glossaries must
-also extend cache identity before reuse.
-
-## Model setup and short conversation memory
-
-`model_store` owns the catalog, verified atomic downloads and preparation receipts; `model_manager`
-owns the Qt download view. Download workers expose immutable progress; the main UI polls them.
-Backend choices list downloaded files; entries without a usable runtime explain setup when selected
-and never start inference. Download completion reports runtime readiness separately. Capture can
-run without models.
-First-use Gemma preparation asks before draining the old worker; the prepared TranslationSession is
-reused for capture. Decline/failure restores the committed selection. Shutdown drains native work
-and cancels any active download before destroying the UI.
-
-`dialogue_context` owns two-turn/512-character memory for one likely dialogue panel. The translation
-owner freezes a bounded context for each ready request, hashes it for caching, and rejects outdated
-context on publication. Only valid published English seeds history. Menu labels and Sugoi receive
-no extra context. Existing context allocation/worker counts stay unchanged. See
-[decision 012](decisions/012-model-management-and-context.md) for expiry and classification rules.
-
-The AMD launcher isolates Vulkan Gemma and DirectML/CPU OCR. CPU OCR is recommended by default;
-DirectML remains experimental and checks numerical compatibility against temporary CPU sessions
-before use. Provider initialization alone was insufficient for the pinned Meiki models.
-
-## In-app runtime setup
-
-`runtime_dialog` presents detection, installation and restart separately from model downloads.
-`hardware` owns DXGI enumeration; `runtime_setup` owns pinned profiles, contained environment paths,
-OS installation locking, fingerprinted receipts, verified reuse and replacement repair. Latest
-prepared and committed selection are independent; selection/rollback validate the environment's
-own receipt. `owned_process` creates suspended, assigns its Windows job, then resumes. `setup_process`
-owns cancellation, deadlines and bounded output; termination drains owned descendants. Work uses the existing
-setup-operation snapshot; native libraries load only in a child probe or inference worker.
-At normal startup, one `HardwareCheck` worker reads adapters and installed package metadata without
-loading inference libraries, models or performing downloads. `setup_status` derives CPU-selection,
-missing-acceleration and actual-fallback advice. AMD Vulkan with CPU OCR is an intended configuration.
-The app drains this bounded check during shutdown; unavailable hardware detection permits manual
-setup and never invents GPU compatibility.
-
-`runtime_restart` waits for a new Qt startup acknowledgement after the main window drains active
-work. It distinguishes the real GUI PID from the Windows Python launcher PID. `tools/launch.py`
-uses the verified next-launch selection with CPU fallback. Models/cache remain shared at project
-level in source checkouts, while each native runtime environment lives in `.runtimes`. The in-app AMD profile uses
-Vulkan translation and CPU OCR; the older experimental DirectML package remains isolated.
-See [decision 013](decisions/013-in-app-runtime-setup.md). These views are embedded in Settings;
-closing that window can leave setup running or cancel it. App shutdown always cancels/drains.
-Versioned preferences are automatically saved in `data/preferences.json`, without HWNDs or debug
-state. Model IDs persist only after successful loading; unavailable/unprepared choices never load
-implicitly on startup. See [decision 014](decisions/014-settings-and-inspection.md).
-
-The NVIDIA profile now pins ONNX Runtime 1.30 and cuDNN for CUDA 13. OCR and Gemma include the
-same `cuda` dependency group for runtime/cuBLAS libraries. The legacy 1.26 OCR loader still selects
-CUDA 12 libraries when running an older development environment. Validate both initialization
-orders and actual loaded DLLs when changing native dependencies; see [decision 017](decisions/017-shared-cuda.md).
-
-Standalone releases use `paths` to keep translation models/data/runtimes in `%LOCALAPPDATA%/DanteJP`.
-The private CPU interpreter and pinned dependency project remain read-only beside the launcher.
-GPU environments use AppData-managed Python and load the current bundle's source through the shared
-bootstrap; neither moving the bundle nor updating UI code binds them to an obsolete app path.
-See [decision 016](decisions/016-standalone-windows.md).
-
-The private runtime also includes CPU llama.cpp. `llama_runtime` owns shared engine discovery and
-native loading; Gemma retains model-specific prompts and inference policy. CPU selection works
-without GPU setup and carries a performance notice. GPU profiles remain optional, explicitly
-installed and shared by compatible models. See [decision 018](decisions/018-cpu-llm-runtime.md).
-
-`setup_assistant` presents a skippable first-run review and consumes the same one-shot hardware
-snapshot as the main view. `first_run` runs the confirmed model/runtime plan on one `ModelOperation`;
-it does not load inference engines. Settings can reopen the guide while idle. `setup_seen` persists
-skip/completion, while `setup_model` is pending selection intent across restart, never a committed
-translation backend. The existing model selection/preparation path applies that intent.
-
-`runtime_downloads` selects Windows CPython 3.12 binary wheels from uv's locked PEP 751 export,
-streams them with pinned SHA-256 validation into `.runtime-downloads/wheels`, and writes hashed
-local-file requirements. uv installs these offline into the new environment before the existing
-native probe/receipt. No dependency versions are resolved in application code. `SetupProgressView`
-renders setup stages and an independent immutable current-download byte snapshot. Python bootstrap
-remains installer-managed/indeterminate. See [decision 019](decisions/019-first-run-setup.md).
-
-The three pinned MeikiOCR files ship under `_internal/app/models/meiki`, validated by the builder
-and recorded in the manifest. `models` resolves explicit overrides first, then complete AppData
-models, then the current bundle. Availability uses file sizes; the OCR worker still hashes before
-loading. No startup copying/download is required. `ModelBundle` separates the writable repair
-directory from the selected read directory and exposes included availability to Settings/the guide.
-Explicit repair verifies the bundled files in place, or atomically restores AppData files using
-valid bundled bytes before fetching missing/damaged assets. It never writes to app resources.
-The guide omits included OCR from its download plan. See [decision 020](decisions/020-bundled-ocr.md).
-
-`gguf_models` owns bounded metadata inspection, content identity and atomic registrations of
-user-owned local files. `gguf_probe` uses the existing cancellable process owner to test a model in
-the installed runtime. `model_import_dialog` presents progress/sample outputs and an explicit Add
-action through Models. Main drains its translator before releasing the probe gate; capture/OCR
-continue and the committed model choice remains unchanged. Settings/app close include probe drain.
-`gguf_backend` implements the existing translator contract with bounded prompt profiles/context.
-Built-in Gemma/Sugoi and runtime dependency versions are independent of imports. See
-[decision 021](decisions/021-imported-models.md).
-
-`curated_models` supplies pinned E4B/Qwen3.5 assets to the same downloader and uses `GgufBackend`
-without import registration. Catalog metadata declares language-engine requirements; explicit
-backend selection IDs survive device changes without conflating E2B and E4B. Existing preparation,
-history, cache and publication ownership apply unchanged. See [decision 023](decisions/023-curated-models.md).
+# Current architecture
+
+This document owns cross-module contracts. Read the affected sections; code/tests own exact thresholds,
+prompts and implementation details. See [building](building.md) and [verification](verification.md).
+
+## Application ownership
+
+| Owner | Responsibility |
+| --- | --- |
+| `composition` | Construct services, dependencies and desktop adapter |
+| `ApplicationSession` | Serialize commands/completions; coordinate capture, setup, translation and shutdown |
+| `CaptureLifecycle` | Freeze device/rate choices, validate capture targets/geometry, and gate capture teardown |
+| `TranslationCoordinator` / `ModelLifecycle` | Authoritative assignments, resolution, consent/preparation, route commitment, worker availability and prepared-worker adoption |
+| `application_presentation` | Pure scene-reset/status projection; no worker operations |
+| `CloudServices` | Backend/account/catalog services and credentials; no widgets |
+| `SetupCoordinator` | Download/import, runtime and guide operations, cancellation and probe permits |
+| `ModelInventory` | Cached model/runtime discovery and preparation receipts |
+| `LiveSession` | Visual/OCR reconciliation and acknowledgement order, scene resets, tracking, grouping, English publication |
+| `ShutdownCoordinator` | Cancel/drain owners, flush preferences, release hotkeys, then restart/close |
+| `DesktopDriver`, Qt views | Native events, presentation and commands through typed view ports |
+
+Views may retain drafts and last-rendered values, never backend factories, credentials or model policy.
+Rendering must not start work or scan files. `ApplicationCommands`, `CloudCommands`, `SetupCommands`
+expose commands and immutable snapshots. Import Linter enforces transitive view/service separation;
+public ports have strict type checks. Prefer headless explicit-time replays for coordination policy.
+
+`advance` adopts inventory/cloud/setup completions before integrating live owners. Nested Qt events
+request a coalesced follow-up, not reentrant coordination. Worker hints wake the same path; a 33 ms
+fallback services geometry/lifecycle. Image analysis and native/file work never run on that thread.
+Capture polling returns an explicit phase; the application does not infer it from several worker
+flags. Translation returns a typed activity (probe, preparation, standby, inactive, switching or
+active), with a publication worker only when usable. The application joins probe readiness with
+classifier cleanup, and sends current scene requests through `LiveSession` only. Capture teardown
+waits for translation before draining OCR/visual owners. Status formatting cannot advance workers.
+Inventory uses one bounded worker, explicit invalidation and a 30-second fallback scheduled from
+completed scan adoption. Invalidation during a scan discards stale results and requests one follow-up.
+Unchanged revisions do not rebuild routes/options. Cached badges never authorize native model loading.
+
+Consent/review replies carry monotonic tokens. Decline/failure preserves committed assignments;
+stale replies cannot adopt new proposals. Setup has three bounded lanes: models/imports, runtime,
+and guide. Import probes wait for both translator and classifier cleanup. The skippable guide offers
+downloadable bundles, not imported GGUF registrations; pending selection survives delayed discovery.
+Hiding Settings never cancels an operation implicitly; app close cancels/drains all owners.
+Shutdown waits for actual resource release and owner exit, not just a published result/failure.
+Preferences and hardware work drain and hotkeys release before restart; failed restart resumes services.
+
+## UI, identity and coordinates
+
+Preserve DanteJP branding and legacy `jp_overlay`, `jp-overlay`, `JP_OVERLAY_*` identifiers.
+Main/Settings/Advanced are views of one live session. Controls remain top-left and width-bounded;
+inspection expands without changing maximized state. Simple/advanced routing preserves assignments.
+Model selectors share styled nonselectable category headings. Unchanged lists preserve popup focus;
+missing selections never choose replacements. Persist validated IDs/values, never HWNDs, pause or debug.
+Badges distinguish files-present from engine-available. Device/rate edits apply next capture, including
+when models arrive mid-session. Worker-based hardware advice separates detection from verified inference.
+
+Native rectangles use physical pixels, including negative desktop origins; OCR is client-relative.
+Enable per-monitor V2 DPI awareness before windows. Validate/crop only dimension-matched containing
+frames. Position the overlay in physical coordinates; compensate its device pixel ratio when painting.
+Moves may reuse a compatible frame; resize needs a new size-matched source. Capture fixes HWND plus PID
+until explicit new selection. Never substitute windows/monitors after failure. Copy borrowed native
+pixels before callbacks return; use bounded mailboxes and generations to reject late work.
+Static WGC windows need not deliver repeated frames; frame age alone is not failure evidence.
+
+The overlay is nonactivating/input-transparent; hide on focus loss, minimize, stop, source failure or
+size mismatch. Border edits reopen only the same native source while retaining processing owners and
+sequence. Screen-capture inclusion changes overlay affinity only; report failure and restore settings.
+Raw game capture must exclude our overlay. Affinity is not a universal recording/security guarantee.
+
+Shortcuts use RegisterHotKey on Qt; no hooks or idle polling. Only a held show-original chord polls
+for release. This transient paint mask clears on focus loss/stop/close without resetting processing.
+Rebinding is transactional and rejects stale messages. Only the explicit capture shortcut may choose
+an eligible foreground HWND/PID; Start uses the selected target. Both honor modal/shutdown guards.
+
+## OCR, visual evidence and retention
+
+OCR owns imports, loading, inference and cleanup on its worker. Keep one active job, one replaceable
+pending frame with coalesced coverage and one unacknowledged result. Native calls are not forcibly
+interrupted; `finished` requires owner cleanup/exit. Failure leaves capture available. Raw `OcrResult`
+retains its exact frame, text/character bounds, scores, coverage and timing. Never overlay old raw rows
+on new pixels. `text_content` derives character-bounded tracking input without changing raw OCR;
+only isolated weak edge glyphs beside strong Japanese runs may be filtered, never low confidence globally.
+
+`LiveSession` waits for source-matched visual evidence, reconciles each completed OCR sequence once,
+then acknowledges and publishes. The worker cannot overwrite unconsumed observations. Accepted OCR
+lives outside inspection. Hidden inspection keeps the latest exact pair without conversion/table work;
+pause freezes both displayed languages only. Resume shows the newest pair. Model changes revoke frozen
+English; resize/minimize/stop also clear frozen source presentation.
+
+`VisualSession` owns bounded thumbnails, tiles, templates/probes and one pending job, never frame history.
+Reversible masking requires strong pattern loss on distinct captures. Retirement also needs completed
+negative OCR, matching revision/geometry and visual evidence at least as new as that OCR. Unchanged
+pixels override contradictory absence. Brightness/polarity/background motion are not semantic removal.
+Visual failure visibly falls back to ordinary OCR. New translations wait for visual examination of their
+OCR source; existing valid English is independent of readiness.
+
+Partial OCR has explicit coverage; unscanned tracks are not misses. Pending areas union while pixels
+are replaced. Retain per-line probe source sequences, whole-line closure and single coordinate offsets.
+Artificial-edge detections trigger full fallback. Independent full-discovery deadlines cannot be delayed
+by typewriter activity elsewhere. `ScanPlanner` evaluates partitions of at most four areas using provider
+costs and bounded geometry/confidence hints. Unknown/weak/small/vertical cases retain the baseline.
+Changed plans need savings and glyph/coverage safeguards. If expected lines are not preserved, discard
+the result and scan original demand on the same frame, temporarily reverting to baseline. Full discovery
+stays full. Publish only final raw output/actual coverage; reset hints with generation/provider/size.
+
+Empty small crops may receive one background-padding retry without magnifying glyphs. Severed-glyph
+recovery requires unambiguous adjacent detections and connecting ink; accept only strong complete
+characters and preservation of unrelated lines. Otherwise keep the raw original. At most one extra
+pass; subtract padding from both box types. CUDA recognition pads to batch four then slices actual
+outputs; dummy detections never publish. Ordinary successful/full scans keep their preprocessing.
+
+Tracking is deterministic and bounded (128 tracks, 512 candidate regions). Existing matches precede
+new admission; truncated input cannot vote for absence. Spatially gated bipartite components use optimal
+assignment with explicit unmatched costs, stable IDs and canonical tie ordering. Distant identical labels
+cannot match on text alone. Cutoff edit distance handles minor variants; approximation never permanently
+suppresses real edits. Confidence belongs to live content, not a screen-position cache.
+
+Observed and committed text/geometry are separate. Worker delay, skipped frames and repeated polls are
+not absence evidence. Bounded crop digests retain text through same-pixel misses; changed pixels alone
+never remove text. Negative OCR needs coverage and elapsed evidence. Source-time settling works on static
+WGC frames. New content/reset cannot inherit confidence. Accepted unchanged glyphs retain identity,
+geometry and English; below 90% confidence only three strictly improving reviews are allowed without
+real local change. Alternating spelling cannot reset this budget or duplicate unchanged detector fragments.
+`EnglishPresentation` bridges only explicit same-pixel correction lineage while translating the successor.
+Validate every member; edits/regrouping/removal/model changes revoke it. Consensus remains experimental.
+
+## Translation, grouping and layout
+
+`DialogueGrouper` forms bounded stable-line blocks with font-relative alignment/spacing and unambiguous
+continuity. Keep speakers, choices, vertical text and unrelated columns separate. Punctuation alone is
+not a hard break; avoid unrestricted proximity clustering. Pending growth can reserve a continuation
+but cannot become translation source before commitment. Readiness uses source time; short labels avoid
+dialogue delays. Group sizing uses individual line heights, not whole paragraph height.
+
+Requests identify combined text and every member's ID/source/revision. Moving a box cannot retranslate;
+geometry is not cache identity. Validate all members at publication/rendering. Splits/edits/removal/reset
+reject stale replies. Keep full English in inspector/clipboard on overlay overflow. `EnglishPlacement`
+uses bounded source-anchored candidates/spatial neighbors to reduce collisions deterministically; it
+never drops translations or changes grouping/work. Impossible crowding may still overlap.
+
+`TranslationPlan` assigns short and long text independently. Categories are structural/length-based,
+not semantic dialogue. Missing models/connections never switch provider or billing route. Unchanged
+requests stay pinned to their route. Switches revoke live/frozen English and drain before loading.
+Adopt the exact prepared worker; same model in both categories shares one owner. Different local models
+may coexist and consume additional RAM/VRAM.
+
+`TranslationSession` owns backend loading/inference/unloading and SQLite. `TranslationSchedule` owns
+bounded desired/retained work, exact source/context deduplication, cache-first lookup, serial dialogue
+and fair waiting order. Revisions join the tail; withdrawn requests leave. Retained-only requests never
+initiate inference. Futures only wake the owner. Revalidate after cache I/O and before dispatch/publication.
+Known `RequestRejected` failures are bounded to exact request/revision/context; fatal failures stop that
+translator while capture/OCR continue. Backend generation also scopes retained English.
+
+Cache keys include weights/tokenizers, runtime, languages, decoding, adapter and frozen context; future
+glossaries must extend identity. Serialize SQLite WAL/schema initialization, keeping connections on owners.
+Disk failure preserves files and falls back visibly to bounded memory. English caches are not encrypted;
+source text appears only through hashed keys. No routine logging/saving of frames or recognized text.
+`DialogueMemory` is two turns/512 characters for one unambiguous panel, separate from the reader. Freeze
+and hash context per request; only valid published English seeds it. Menus remain independent; reset on
+scene/session/layout/age. Turn identity follows exact members/growth/correction lineage, not similar words
+or reused position. Sugoi receives no conversational context.
+
+## Experimental dialogue reader
+
+Settings → Experimental → Dialogue history defaults off and remembers opt-in. Off hides the reader/button
+and stops collection/classification. Opening/closing it never alters translation. Its separate selector
+offers prepared instruction models, configured cloud models and explicit layout-only mode; never silently
+select, download or prepare a model. Text-only semantic judgments remain fallible.
+
+`DialogueHistory` observes ready exact-current blocks/English. `PanelLayout` supplies bounded nearby text
+and relative layout: stacked name/title metadata, headed dialogue and response groups/single options.
+No screenshots, transcript, game-specific rules or additional name translation. Speakers require current
+OCR confidence. Headers are metadata; choices cannot borrow a neighboring panel's speaker. New evidence
+may retract only an exact still-live false entry, never rewrite older turns.
+
+`ClassifierSession` has one owner/call, at most 128 candidates and bounded exact-input outcome caching,
+including invalid replies. FIFO waiting survives unchanged observations. Identity includes body/speaker/
+relevant panel text and structure, not coordinates, IDs, detector order or timestamps. Unchanged panels
+are not reclassified. Cached scene analysis still advances readiness/time. Withdrawn active calls may
+cache but cannot publish without current demand. Uncertain/failed model answers never fall back to
+layout admission. Choice exclusions last only for live content/panel; no permanent text blacklist.
+
+Translation never awaits classification. Disable/switch/stop/reset/shutdown cancels and drains its owner;
+import probes wait for it too. Native loading/prefill may finish before cancel. Separate local models
+consume resources; cloud checks share selected-profile limits. The reader holds at most 20 bounded turns
+in memory, newest first with scroll anchoring and exact copy controls. Clear suppresses unchanged current
+turns; growth/corrections update a turn, new capture clears history. Reader history never enters prompts.
+
+## Cloud and credential boundary
+
+Cloud use needs explicit configuration/route selection. Send bounded recognized text/context and optional
+game hint, never frames. Editing/testing does not commit routing. Validate complete answers and bounded
+streams; preserve per-backend concurrency/attempt/request budgets/deadlines without billing fallback.
+Auth exchange/refresh/discovery/rotation waits carry cancellation; successful rotation persists even if
+later discovery fails. `CloudServices` owns this work independently of widgets. Model removal retains
+connections; Forget/sign-out are explicit. Catalog failure preserves saved data and never selects a model.
+Draft Save commits; Cancel discards edits. Credentials never enter prompts, ordinary JSON, logs or fixtures.
+
+API keys use Windows Credential Manager; OAuth uses user-bound DPAPI/account-bound encrypted envelopes.
+OAuth uses the system browser, exclusive random loopback port, PKCE S256, state/nonce and validated
+issuer/signature/audience/expiry/identity. Rotation is atomic under an account lock; temporary failure
+preserves tokens. Logout clears local tokens even if remote revocation fails and reports the distinction.
+Native credential buffers are wiped; Python copy zeroization is not guaranteed. Provider HTTPS verifies
+certificates, disables redirects and ignores proxy environment; OAuth loopback is the local HTTP exception.
+OS protection is a Windows-user boundary, not an application sandbox. Same-user programs, malware,
+administrators and memory dumps are outside it. Forget does not revoke provider API keys; request limits
+are not monetary limits. Automated tests use disposable fake credentials and transports, never paid calls.
+
+## Models, downloads and native runtimes
+
+Missing models do not stop capture. Inference never downloads; setup is explicit, with pinned hashes/sizes,
+byte progress and atomic publication. Valid files survive retry/cancel; bundled repairs use writable state.
+Both installers share `download_transport`: one contained child per transfer, parent-enforced 30-minute
+deadline across DNS/connection/headers/body and cancellation polling at 100 ms. Terminate/drain before
+partial cleanup. Socket inactivity alone is insufficient. Parent validation precedes atomic replacement.
+Bundled restoration and verified cache reuse stay offline without a downloader child.
+
+`OwnedProcess` creates suspended, assigns its Windows job, then resumes. Never launch uncontained.
+Cancellation/deadlines drain descendants; output is bounded. Windowed download helpers attach their
+inherited output pipe; the application never redirects stdout. `llama_runtime` serializes DLL setup,
+import and legacy plugin registration, caching only successful initialization. Failure may retry.
+Loading stays on model workers/probes; preserve old fork APIs and current upstream PLaMo support.
+
+CPU/CUDA/Vulkan engines are complete upstream packages; CPU uses upstream PEP 517 build and standard
+DLL repair at release time, no player compiler. Never mix CPU/GPU ONNX or different llama wheels.
+NVIDIA OCR/Gemma share pinned CUDA 13 runtime/cuBLAS; preserve legacy ONNX 1.26/CUDA 12 loading. Select
+DLLs for the actual OCR build, not another model's installation. Strict GPU checks fail on fallback;
+automatic OCR reports fallback. Separate compilation from warm inference and keep the bounded CUDA cache.
+In-app AMD is Vulkan translation plus CPU OCR. Experimental DirectML retains its numerical compatibility
+probe; successful provider initialization is not validation.
+
+Imported GGUFs use a separate bounded adapter/profile and explicit review/register. Inspect/hash on a
+worker, test in a contained child after translator/classifier drain. Require actual GPU offload, complete
+outputs, supported templates and empty reasoning. Cache identity includes content/profile/template/device/
+decoding; recheck files on load. Never delete user-owned model files. Curated models reuse the adapter
+without import registration. Preserve built-in prompts and distinct IDs; separate download size from RAM.
+
+## Packaging, updates and persistence
+
+PyInstaller owns the folder release/EXE; uv/Hatchling own wheel/source archives. See [building](building.md).
+Bundle only three verified MeikiOCR assets/notices, CPU ONNX/llama and the app wheel, never translation
+weights, preferences/caches or development/GPU environments. `resource_root()` is read-only; `state_root()`
+is per-user AppData in releases, project-local in source. Optional environments use AppData-managed Python
+independent of movable bundle resources. Validate the selected environment's own receipt, not latest-prepared.
+Dependency identity compares exact wheel hashes/Python version independently of app version.
+
+App updates install the verified bundled wheel offline without resolution into immutable hash-specific
+AppData directories. Lock, probe and atomically publish the pointer. CPU/CUDA/Vulkan share app code while
+reusing dependencies. Old running instances/rollback retain old code; never overwrite loaded files.
+App preparation failure must not trigger dependency repair. Actual dependency changes need explicit
+isolated setup preserving models/selection. Source remains editable; no duplicated source/custom bootstrap.
+
+Setup and launch share `clean_runtime_environment`: clear all inherited `PYTHON*`, `UV_*`, `VIRTUAL_ENV`,
+then add intended values. Managed helpers use `-P -s -B -m` with the selected app/resource/state paths.
+Frozen helpers dispatch through the EXE's `--module`. Owned external launches temporarily clear the frozen
+DLL directory under serialization. Restart waits for new Qt acknowledgement from the actual GUI PID,
+not the Windows venv launcher. Normal launch honors saved selection and retains CPU fallback. Never bind
+managed runtimes to the bundled interpreter or repair loaded native libraries.

@@ -1,9 +1,9 @@
 # DanteJP
 
-A local Windows game translation overlay, being built in small milestones.
+A Windows game translation overlay with local OCR and optional cloud translation.
 
-**Current milestone:** capture a game window, recognize Japanese with MeikiOCR, translate stable
-text locally with Sugoi V4, Gemma 4 E2B/E4B or Qwen3.5 4B, and draw English in an aligned
+Capture a game window, recognize Japanese with MeikiOCR, translate stable
+text locally with Sugoi V4, Gemma 4 E2B/E4B, Qwen3.5 4B or PLaMo 3 Translate, and draw English in an aligned
 click-through overlay.
 The inspector keeps raw Japanese, bounding boxes, and English together for review.
 
@@ -16,7 +16,9 @@ EXE. **MeikiOCR is included**, so Japanese text recognition works immediately on
 downloading a model. Translation models, OCR repairs, settings, caches and optional runtimes go to
 **`%LOCALAPPDATA%\DanteJP`**, shared across
 app updates. Extract updates into a new folder after closing the app; your downloads stay in AppData.
-To uninstall, delete the app folder; delete its AppData folder only if you also want to remove your data.
+Before uninstalling, use **Forget key** / **Sign out** for any saved cloud connections. Then delete
+the app folder; delete its AppData folder only if you also want to remove your data. Deleting folders
+does not remove API keys from Windows Credential Manager or revoke access at a provider.
 
 First launch opens a skippable **Setup assistant**: choose a translation model, review the detected
 GPU recommendation (or keep CPU), then confirm the downloads. Nothing downloads before you choose
@@ -27,29 +29,125 @@ Existing installations with OCR and a translation model already downloaded skip 
 You can also use **Settings → Models** directly. MeikiOCR shows **Included with app**; its three
 pinned ONNX files total 46 MB before compression. **Verify / repair** checks them and restores
 damaged/missing files into AppData, reusing valid bundled files before downloading anything.
-Choose a translation model:
+Models opens with **Local translation** and recommends **Gemma 4 E2B**. Use the **Model type**
+menu to open **Text recognition (OCR)** separately. MeikiOCR reads Japanese text from images;
+it does not translate. Its **Included with app** badge means no download is needed.
+Saved translator choices are preserved. Compact ratings show dialogue, game terminology, speed
+and memory tradeoffs; CPU/GPU support is separate from the installed-runtime badge. These are
+qualitative judgments from local tests and player feedback, not benchmark scores.
 
 | Model | Download | Intended tradeoff |
 | --- | --- | --- |
-| Sugoi V4 | 1.11 GB | Lowest resource use, fast CPU-only translation; dialogue can be literal or miss meaning. |
-| Gemma 4 E2B | 3.35 GB | Our balanced starting point for dialogue, speed and resources. |
-| Qwen3.5 4B | 2.74 GB | Alternative dialogue model to compare against Gemma; Unsloth Q4_K_M conversion. |
-| Gemma 4 E4B | 5.15 GB | Larger Gemma option for users willing to spend more memory; Google QAT Q4_0. |
+| Gemma 4 E2B | 3.35 GB | Recommended balance of game terminology, quality and speed. |
+| Gemma 4 E4B | 5.15 GB | Higher-resource recommendation; good game terminology, with more memory needed. |
+| PLaMo 3 Translate 2B | 1.81 GB | Fast dialogue alternative; unreliable game stats/terms in player testing. |
+| PLaMo 3 Translate 0.8B | 0.57 GB | Smallest LLM and very fast; weaker wording and unreliable game terminology. |
+| Qwen3.5 4B | 2.74 GB | Optional alternative with useful results, but substantially slower in this app. |
+| Sugoi V4 | 1.11 GB | Lowest resource use and fast CPU-only translation; recurring meaning changes and no conversational prompt context. |
 
 These are download sizes, **not RAM/VRAM requirements**; inference needs additional working memory.
 Quality depends on the text and no general Japanese-game translation ranking is established.
 Gemma's E4B name denotes effective parameters, not a four-gigabyte memory limit.
-The standalone CPU engine supports all three language models without GPU setup. Optional NVIDIA
+The standalone CPU engine supports all offered models without GPU setup. Optional NVIDIA
 CUDA or Vulkan acceleration improves responsiveness. CPU translation can be slower and is labelled.
 The optional **Acceleration** tab installs GPU support for compatible engines, independently of
 model selection. If an older/source environment lacks the engine, downloaded models stay visible as
-**runtime setup needed**; choose CPU or GPU in setup. **No translation** is always available.
+**runtime setup needed**; choose CPU or GPU in setup. You can turn **Translation overlay** off at any time.
 Capture works even with no models; English appears only after selecting a translator.
 Downloads show byte progress, support cancellation, and check pinned SHA-256 hashes before files
 become usable. Retry keeps verified files; an interrupted individual file restarts. Processing works
-offline after setup. Source checkouts still use **Run DanteJP.cmd** and project-local models/data;
+offline after setup when using local translation. Source checkouts still use **Run DanteJP.cmd** and project-local models/data;
 those developer launchers require Python to bootstrap uv. The standalone release bundles its own
 private CPU runtime, including llama.cpp, and dependency installer. GPU setup manages any additional Python privately in AppData.
+
+## Dialogue history
+
+Dialogue history is **experimental and disabled by default**. Enable it in **Settings → Experimental**
+to show the **Dialogue history** button beside Settings, then choose a classifier in the reader.
+Dialogue and speaker detection can be inaccurate. Your opt-in is remembered; disabling it hides
+the reader and stops collection and classifier work.
+
+The reader shows the last 20 completed dialogue turns in Japanese and English, newest first, and
+keeps collecting while closed. **Clear** empties it; starting a new capture starts a fresh history.
+The transcript is not saved to disk or added to model context. It reuses existing translations;
+model-based classification makes separate requests and cloud classifiers use your plan/API allowance.
+The copy icon beside each Japanese or English paragraph copies its plain text and briefly shows a
+checkmark. Speaker headings are not included.
+
+Detection favors lower-screen dialogue with a nearby speaker label or clearly centered, isolated
+subtitles without a speaker. Names appear when OCR
+confidence is high enough; otherwise it shows **Unknown speaker**. If the current routing also
+translates the speaker label, it appears as **(translated name) Japanese name**. Menu/stat layouts
+and ambiguous paragraphs are skipped. Unusual layouts can still be missed; a description laid out
+exactly like a subtitle may be mistaken for dialogue. Grouping alone does not establish conversation.
+
+## Optional cloud translation
+
+In **Settings → Models → Model type → Cloud translation**, the list shows your configured models,
+connections and credential status. Choose **Add cloud model…** or select a row and **Edit…**.
+The editor keeps changes as a draft until **Save**; **Cancel** discards model/key edits.
+**Advanced** reveals request limits. **Test connection** explicitly sends a sample without saving
+the draft, and may consume plan usage or incur API charges. A **Key saved** badge does not mean
+the connection has been tested. Sign-in/out and Forget key are immediate shared-connection actions.
+
+**Refresh models** retrieves the provider's current list using your entered or saved key, without
+sending a translation. Lists are cached per saved connection for offline use; failed refreshes keep
+the previous list and never switch your selected model. Suggested choices remain available before
+the first refresh. Newly discovered models can use **Test connection** to check compatibility;
+being listed does not guarantee support for DanteJP's request format. Known presets keep their settings.
+
+Available connections:
+
+- **ChatGPT plan:** use **Continue with ChatGPT**, approve plan access, then choose from your
+  account's model catalog. This uses OpenAI's public sign-in preview and depends on account eligibility.
+  To test with included allowance only, disable credit use for DanteJP under **Manage ChatGPT usage**.
+  DanteJP never purchases credits or falls back to an API key. Exhausted/unavailable plan usage
+  leaves existing translations visible and reports the problem.
+- **OpenAI / DeepSeek API key:** save your own key. These use the provider's separate API billing;
+  an API key does not draw from ChatGPT Pro usage. Any eligible activated API-credit grant applies
+  according to OpenAI's billing rules.
+- **Gemini API key:** use a Google AI Studio API key. Suggested choices: Gemini 3.5 Flash-Lite,
+  3.8 Flash and 4 Hydrogen. Requests use the API project's quota/billing.
+- **Claude API key:** use a workspace-scoped Claude Console API key. Suggested choices: Claude Haiku 5.5
+  and Sonnet 5.5. These use Claude API billing. Gemini and Claude chat subscriptions are not
+  connected by these API-key options.
+
+Start with Flash-Lite or Haiku when comparing response times, then try the other models for quality.
+These are provider positioning and configuration choices, not DanteJP game-translation benchmarks.
+All five use low/minimal reasoning settings and the same game hint and bounded dialogue context.
+
+The main window separates **Game & overlay** from **Translation**, side by side on wide windows
+and stacked on smaller ones. The simple model picker lists local and saved cloud models together.
+**Advanced routing** replaces it with one model picker each for **Short labels** and **Long text &
+dialogue**. Either category can be switched off in either view. Changing views preserves assignments.
+Two different local models are supported, with a memory warning; assigning the same model to both
+categories loads it once. Long text includes grouped paragraphs and single lines over 40 characters,
+so it includes descriptions as well as speech. Cloud-only translation needs no downloaded translator
+or GPU runtime. The game name defaults to the selected window title; turn off **Use window title**
+to enter your own terminology hint. Only recognized text and at most two recent dialogue turns are
+sent; screenshots and OCR stay on the PC. Saving a connection alone does not enable cloud requests.
+
+Cloud replies use the existing text cache and scene validity checks. Partial streamed answers are
+never painted. Slow cloud work does not block the other assigned model or ready cache hits. Each
+cloud model permits at most two independent requests, while its dialogue stays ordered. Configure request
+rate and per-app-run attempt limits in Models; these are request limits, not dollar spending caps.
+Authentication is included in the request timeout and is cancelled and drained when switching
+models or closing the app. You can save up to 16 cloud models. Provider connections are remembered
+across models and app restarts. Choose a saved **Connection**
+when adding another model; leave the key field blank to reuse it. Replacing a connection's key
+updates every model using it. Removing a model keeps its connection; **Forget key** removes the
+saved API key separately. It does not revoke the key at the provider. ChatGPT models reuse the
+selected signed-in account; **Sign out** disconnects it.
+
+API keys use Windows Credential Manager; ChatGPT tokens use user-bound Windows DPAPI encryption
+in AppData. Credentials are excluded from ordinary configuration and app logs. This protects stored
+secrets, not against malware running as your Windows user or an administrator. See the
+[credential boundary](engineering/architecture.md#cloud-and-credential-boundary) for storage and limits.
+
+Cloud verification currently uses simulated provider responses, real loopback callbacks and Windows
+credential protection. Real-account eligibility, billing and translation quality require user testing.
+See OpenAI's [sign-in documentation](https://developers.openai.com/siwc/token-sharing-open-source)
+and [API-credit benefit](https://help.openai.com/en/articles/20001626-api-credits-benefit-for-eligible-chatgpt-subscriptions).
 
 **Downloaded model but no English / no Automatic OCR?** Model files and GPU runtimes are separate.
 Open **Settings → Acceleration**. The app detects graphics cards and recommends a runtime;
@@ -68,7 +166,7 @@ Acceleration and install the new runtime once, then restart. Existing model down
 the old runtime is retained until you choose to remove it.
 The **GPU — Vulkan** option accelerates supported translation engines and keeps **CPU OCR**. It does not install experimental DirectML:
 that provider produced incorrect Meiki results on the development machine. Vulkan setup and inference
-were checked on the RTX 5080; a discrete Radeon still needs testing. **CPU** provides MeikiOCR, Sugoi and llama.cpp for Gemma.
+were checked on the RTX 5080; a discrete Radeon still needs testing. **CPU** provides MeikiOCR, Sugoi and llama.cpp for all offered language models.
 Runtime libraries can be shared by compatible future models; installing them does not add models.
 No system CUDA toolkit or server is needed. Graphics drivers must already support the chosen runtime;
 setup never installs or updates drivers. Hardware detection is a recommendation, not a compatibility
@@ -81,7 +179,7 @@ Verified wheels are cached in `.runtime-downloads` for retry/reuse; an interrupt
 Cancel/failure keeps the running environment and model files. A failed install
 can be retried; **Verify / repair runtime** checks an existing install and creates a separate replacement
 if needed. A failed restart leaves the old app available. CPU fallback remains accessible through
-**Run DanteJP CPU.cmd**. Replaced runtimes are retained in `.runtimes` for recovery, so repeated
+**Run DanteJP.cmd --cpu** (or `DanteJP.exe --cpu`). Replaced runtimes are retained in `.runtimes` for recovery, so repeated
 repairs can consume extra disk space. All processing after setup stays local.
 
 Library checks do not load models. The first OCR GPU load can take about a minute to compile kernels;
@@ -90,18 +188,25 @@ its loading status stays visible. Gemma has the preparation flow below. A bounde
 remain available for development but are not required by the in-app acceleration flow.
 
 Selecting an unprepared language model asks **Prepare now?** Choosing No restores the previous model
-or No translation. Yes shows a responsive progress dialog while checking weights and running a
+or an unselected model. Yes shows a responsive progress dialog while checking weights and running a
 short test translation on the selected device. It uses an indeterminate bar because the runtime cannot report a reliable percentage. The
 prepared worker stays loaded for capture. Preparation receipts are local to the machine/runtime;
 driver changes can still require warm-up, shown as loading. Nothing downloads during preparation.
 
-Gemma and Qwen keep at most **two recent dialogue exchanges / 512 characters** within their
+Gemma, Qwen and PLaMo keep at most **two recent dialogue exchanges / 512 characters** within their
 2,048-token allocation. Only one likely dialogue panel owns history; short menu labels remain
 independent. History expires after 30 seconds, prolonged panel absence, panel relocation, broad
 scene changes, or session reset. It is a conservative heuristic, not a speaker/name glossary.
 Context is part of cache identity, so unrelated conversations cannot reuse contextual answers.
+Settings → Models also offers **PLaMo 3 Translate 2B** (1.81 GB) and **0.8B** (0.57 GB),
+Japanese–English specialists. These are download sizes, not total working memory. Both run on CPU,
+CUDA or Vulkan. PLaMo uses the PLaMo Community License; review the linked model-card terms for
+commercial use. If an older installation says Engine update required, install a runtime in
+Acceleration and restart; no model redownload is needed. The standalone includes the updated CPU
+engine. The small local comparison is documented in `engineering/benchmarks`.
+
 The offered Gemma/Qwen weights are Apache-2.0; Sugoi retains its separate licensing. See
-[the catalog decision](engineering/decisions/023-curated-models.md) for pinned sources and limits.
+[model/runtime contracts](engineering/architecture.md#models-downloads-and-native-runtimes) for setup and compatibility limits.
 
 **Settings → Models → Import GGUF…** adds a local single-file chat model by reference, without
 copying it or downloading anything. Choose a file, optionally name it, then **Test compatibility**.
@@ -110,26 +215,35 @@ in a cancellable child process using the installed CPU, CUDA or Vulkan engine. C
 translation resumes with the previous selection afterward. Review the sample English and timings,
 then **Add model**. Select the imported model on the main screen to use it.
 
-Automatic format uses Gemma 4's native prompt or the embedded GGUF chat template. Explicit ChatML
+Automatic format uses Gemma 4's native prompt, PLaMo Translate's PFML3 format, or the embedded GGUF chat template. Explicit ChatML
 and Llama 3 formats are available for models whose documentation requires them. Passing the test
 confirms local execution, not translation quality. Split files, embedding/projector-only models,
 and TranslateGemma's specialized input format are not supported in this first version. Translation
 remains Japanese → English. Imported models receive the same bounded dialogue history as Gemma;
-menu labels stay independent. Built-in Gemma/Sugoi adapters and runtime versions are unchanged.
+menu labels stay independent. Built-in Gemma/Sugoi prompts are kept separate from imported-model formatting.
 
 Registrations live in `data/imported-models.json` under the app's writable state (AppData in the
 standalone app). If a file moves, use **Locate file…**; changed contents need a new import/test.
 **Remove from list** never deletes your model file. Each model/profile has a separate translation
 cache identity. Only one language model is loaded at a time.
 
-To build the standalone release, run `python tools/build_standalone.py` on Windows with this
-checkout's uv 0.13.8, managed CPython 3.12.16 and Zig 0.14.1 available. `--offline` reuses cached
-dependencies. Send **`dist/DanteJP-windows-x64.zip`**. The builder creates a fresh CPU environment
-from `uv.lock`, bundles the interpreter/libraries, compiles the GUI launcher and verifies native
-imports before publishing the ZIP. It excludes model weights, personal data, GPU runtimes and
-development tools. Dependency notices and a SHA-256 file manifest are included. The EXE is unsigned.
-The older `python tools/package.py` still makes `dist/dantejp-windows.zip`, a separate source/setup kit
-for developers; it is not the standalone release.
+Releases use **PyInstaller** for the Windows app and **uv/Hatchling** for standard Python wheel
+and source distributions. With uv 0.13.8 installed, the local and GitHub Actions build command is:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/build.ps1 -DownloadOcr
+```
+
+`-DownloadOcr` explicitly prepares the three pinned OCR assets. Omit it when those files already
+exist; use `-Offline` when all dependencies/assets are cached. The build uses an isolated
+`.venv-build`, locked dependencies and CPython 3.12.16. It does not change your development or GPU
+environments. Send **`dist/DanteJP-windows-x64.zip`**; wheel, source archive and SHA-256 sidecars
+are also produced. Translation weights, personal data and optional GPU runtimes are excluded.
+The EXE remains unsigned. See [building and verification](engineering/building.md).
+
+The **Windows distributions** workflow runs the same command, fast checks and an offline OCR
+check of the relocated EXE. It uploads artifacts on version tags, manual runs and build-related
+pull requests. Desktop capture/GPU acceptance still runs locally.
 
 Alternatively, with uv installed:
 
@@ -146,19 +260,34 @@ The internal Python package (`jp_overlay`), CLI alias (`jp-overlay`) and `JP_OVE
 variables retain their original names for compatibility. New logs are in
 `%LOCALAPPDATA%/DanteJP/logs`; existing logs in the old folder are left intact.
 
-For Gemma with the CLI, add `--group gemma` to `uv sync` and `uv run`, and install its model with
-`uv run --group gemma python tools/setup_models.py --gemma`. The `.cmd` launchers use the installed
+For native language-model setup, close source app instances and use `tools/setup.ps1`
+(CPU), `tools/setup.ps1 -Gpu` (CUDA) or `tools/setup.ps1 -Amd` (experimental AMD development profile).
+These use uv's locked dependency groups. CUDA/Vulkan install complete upstream wheels; CPU builds
+the upstream source package and requires C++ Build Tools on the developer machine. Standalone
+players need no compiler: the release includes its finished CPU wheel. Source-checkout in-app CPU
+setup uses the wheel prepared by `tools/build.ps1 -CpuWheelOnly`. In-app Acceleration always creates
+a separate environment. Keep the appropriate group enabled when syncing (`llm-cpu`, `gemma`, or
+`gemma-vulkan`); a plain sync selects only the default groups.
+Install model weights explicitly through Settings → Models. The `.cmd` launchers use the installed
 environment directly. Keep CPU and GPU OCR dependency groups in their separate environments.
 
 Choose a window and select **Start capture**, then switch to the game. OCR and translation load in
 the background. **Translation overlay** is enabled by default; translated regions cover the original
 text with a translucent background. Regions awaiting translation leave the original text visible.
 
-The main window contains the game picker, Start/Stop, **Show game overlay**, **Translation overlay**,
-and the model selector. **Settings…** opens a separate window; **Advanced** expands the inspector and
-detailed diagnostics. Setup errors and model loading remain visible even with Advanced collapsed.
-The main controls stay together at the top left, with a bounded width even when maximized. Advanced
+The main window contains the game picker, Start/Stop, **Show game overlay**, **Translation overlay**, **Show border**,
+and the model selector. **Settings…** opens a separate window; **Inspection and diagnostics** expands
+the inspector and detailed diagnostics. Setup errors and model loading remain visible when collapsed.
+At the bottom, **Capture & Stability**, **Text Recognition**, and **Translation** separate live
+timings and work counts. Hover a label for its meaning. **Last batch** shows cached versus newly
+translated sources; **Model call** remains the most recent actual inference time. These are
+stage measurements, not a summed capture-to-English delay. Pausing inspection keeps them live.
+The main controls stay together at the top left, with a bounded width even when maximized. Inspection
 uses the extra space without changing the window's maximized state.
+Model dropdowns have sections for local models, ChatGPT plan models, and each cloud API provider.
+Headings are not selectable. Use **Translation overlay** or the text-category switches to turn
+translation off; model choices stay remembered. Empty/unavailable selections show a placeholder
+instead of automatically choosing another model.
 
 Global shortcuts work while the game has focus or DanteJP is minimized:
 
@@ -197,7 +326,7 @@ the normal OCR choice for the AMD runtime.
   Turn it off to set a fixed size in physical pixels. Opacity changes apply immediately.
 - **Settings → Recognition → OCR device** selects available NVIDIA/DirectML acceleration with CPU
   fallback, or CPU only. Device and capture-rate edits apply **next time capture starts**; current
-  capture continues uninterrupted. Advanced reports the actual provider and any fallback reason.
+  capture continues uninterrupted. Inspection reports the actual provider and any fallback reason.
   **Capture rate** ranges from two to twelve samples/second and defaults to eight. These captures
   feed cheap visual checks; they do not each trigger OCR. Increasing capture rate improves visual
   response but increases frame-copy/analysis cost and cannot make a busy OCR model faster.
@@ -210,7 +339,7 @@ the normal OCR choice for the AMD runtime.
 - **Gemma 4 E2B · NVIDIA/Vulkan GPU** uses an instruction-tuned LLM. It can produce more natural
   UI labels and dialogue, but quality still needs review in the actual game. Each completed label
   publishes immediately; the source-specific cache remains separate from Sugoi.
-- **Advanced → Debug overlay** adds amber cells for significant visual changes and cyan dashed outlines for
+- **Inspection and diagnostics → Debug overlay** adds amber cells for significant visual changes and cyan dashed outlines for
   the **last completed OCR scan**. The panel shows OCR/translation times, queue waits, active call
   age, cache/model counts, and dialogue settling/reveal holds. Cyan coverage can remain after the
   scene changes: read its result age. Debug does not change scheduling or save game text/images.
@@ -222,11 +351,13 @@ the normal OCR choice for the AMD runtime.
   becomes the new preference. Numbers, short labels, and typewriter growth use normal confirmation.
   A consistently changed alternative can still replace the old reading after about 1.25 seconds.
 - Turn **Translation overlay** off to unload translation and leave the game unobscured. To inspect
-  numbered game boxes, explicitly enable **Advanced → Show OCR boxes**. **Stabilize game boxes**
+  numbered game boxes, explicitly enable **Inspection and diagnostics → Show OCR boxes**. **Stabilize game boxes**
   in Settings can then be toggled for comparison. English always uses stable tracks.
-- **Settings → Recognition → Group dialogue lines**, on by default, joins likely wrapped dialogue before translation
+- **Settings → Recognition → Group dialogue lines**, on by default, joins likely wrapped dialogue and descriptions before translation
   and draws one English box. Disable it if unrelated lines group together. Short speaker names,
   marked choices, and separate columns remain separate under the conservative rules.
+  Short sentence endings and split OCR fragments inside an established paragraph are included.
+  Internal sentence punctuation helps reserve a group before the final line arrives.
 - Revealing dialogue waits for its text to settle before new translation work is scheduled. Likely
   continuation lines join while they are still appearing, avoiding a second grouping delay at the
   end. Existing, revision-valid English remains visible while readiness changes. A long pause in
@@ -247,7 +378,7 @@ without loading it at startup; first-use preparation still requires consent. Inf
 each setting on hover, keyboard focus or click. Closing Settings during setup offers background
 continuation or cancellation; closing the app always cancels/drains setup before exiting.
 
-The **Advanced** inspector displays the exact analyzed frame, numbered line boxes, raw OCR, and matching English:
+The **Inspection and diagnostics** panel displays the exact analyzed frame, numbered line boxes, raw OCR, and matching English:
 
 - Select a text row to highlight its box and see physical coordinates/orientation.
 - Use **Pause inspection** to freeze the frame and both languages while capture and translation continue. Resume picks up
@@ -270,7 +401,7 @@ The **Advanced** inspector displays the exact analyzed frame, numbered line boxe
 - IDs persist through OCR reordering and match between the inspector and game. They reset to new
   identities after resize, minimize, or capture restart. Unrecognized text has no ID.
 
-**Advanced → Open demo window** provides Japanese text and an animated target without needing a game. CPU
+**Inspection and diagnostics → Open demo window** provides Japanese text and an animated target without needing a game. CPU
 inference uses two threads per engine; optional GPU acceleration applies to OCR and Gemma, while
 Sugoi stays on CPU. OCR timing and
 capture-to-start delay, current-pass time, and skipped waiting frames are shown separately from
@@ -295,7 +426,14 @@ This is not a guarantee that
 every animation can be ignored. Visual failure is reported and falls back to ordinary OCR.
 
 Use windowed or borderless fullscreen. The overlay hides when the target loses focus, minimizes,
-or closes. Stop capture before changing sources. Windows may show its capture border.
+or closes. Stop capture before changing sources. **Show border** controls the yellow Windows capture
+indicator and is saved between launches. It can change during capture without resetting OCR or
+translations; Windows policy or another recorder may still require the border.
+For screenshots, videos and screen sharing with translations, capture the **display/entire screen**
+(for example, OBS Display Capture). Game-only or window-only sources may omit the separate overlay.
+**Include in screen capture** in Game & overlay defaults on. Turn it off to exclude the overlay
+from capture apps that respect Windows' display-affinity setting. The choice is saved and applies
+immediately; its own OCR still captures only the game window either way.
 This app does not inject into games, request administrator access, or save screenshots automatically.
 
 ## Development
@@ -322,9 +460,8 @@ The replay check renders an original Japanese fixture and blocks network connect
 loading/inference. Only its synthetic output is saved. The two Windows checks open temporary test
 windows on an unlocked desktop. See [verification](engineering/verification.md).
 
-Read the [agreed plan](engineering/plan.md), [engineering guide](engineering/README.md), and
-[milestone status](engineering/plans/010-regional-ocr.md). The application runs locally;
-only explicit setup downloads require a network connection.
+Read the [engineering guide](engineering/README.md) for current contracts and checks. Capture and
+OCR run locally; explicit downloads and selected cloud translators use a network connection.
 
 Source checkouts keep models in ignored `models/meiki` and `models/sugoi-v4`; set `JP_OVERLAY_MODEL_DIR` or
 `JP_OVERLAY_SUGOI_DIR` to use other directories. English cache entries persist in ignored
@@ -343,8 +480,8 @@ furigana, long lines, dense menus, and vertical text. Other visible languages ma
 are not the accuracy target. The inspector shows recognition errors as returned. Exclusive fullscreen,
 protected windows, HDR color fidelity, and untested game/anti-cheat combinations are not guaranteed.
 Mixed-DPI monitor behavior has automated coordinate coverage but requires real hardware verification.
-Windows 10 is not the initial validation target. The launcher is a development launcher; a portable
-executable package is a later milestone.
+Windows 10 is not the initial validation target. The portable Windows x64 release uses the same
+application and processing code as the source checkout.
 
 Tracking uses position/text heuristics, not semantic understanding or optical flow. Crossing labels,
 major layout changes, and multiline splits/merges can create new identities. A disappeared region
@@ -357,8 +494,8 @@ OCR confirmation and can behave less reliably.
 
 Dialogue grouping uses alignment, spacing, size, and punctuation; it does not identify actual game
 panel boundaries. Punctuation-free, centered, or unusual dialogue may stay separate, and similar
-menu layouts can still be ambiguous. Context covers the current group, without speaker history or
-a glossary. Icon filtering is conservative and cannot identify every high-confidence or overlapping
+menu layouts can still be ambiguous. Context-capable models can also use bounded recent dialogue;
+there is no glossary. Icon filtering is conservative and cannot identify every high-confidence or overlapping
 icon. Names and short labels can translate awkwardly. English boxes may expand over neighboring
 dense UI; collision-aware layout remains future work. Vertical source text stays ungrouped and
 renders as horizontal English. Toggle English off/on to retry a visible backend failure.

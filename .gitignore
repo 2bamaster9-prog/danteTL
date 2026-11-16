@@ -1,4 +1,5 @@
 .bootstrap/
+.idea/
 .venv/
 .venv-gpu/
 .venv-amd/
