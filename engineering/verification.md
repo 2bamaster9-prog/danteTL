@@ -72,6 +72,13 @@ checks once after changes settle; repeat only for new changes, failures or unres
 
 ## Processing and model acceptance
 
+`tools/benchmark_tracking.py --output artifacts/<slice>/tracking.json` measures completed dense
+4K OCR observations, including long text, reordering, edits, same-pixel misses, removals and partial
+coverage. It reports worker preparation separately from serialized tracking. Optional `--baseline`
+loads a trusted local copy of the preceding `tracking.py` and asserts identical assignments, visible
+tracks and translation readiness. This complements the Qt regression that blocks worker scoring after
+OCR completion while checking event processing, retained English and delayed acknowledgement.
+
 Small-crop preprocessing changes run `tools/verify_ocr_crops.py --device cpu --output
 artifacts/<slice>/crops-cpu.json` and strict CUDA with the GPU interpreter. Preserve its accuracy
 assertions. Before rebuilding, save the preceding local app wheel; then run

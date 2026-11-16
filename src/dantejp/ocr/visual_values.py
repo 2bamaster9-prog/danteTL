@@ -3,7 +3,8 @@
 from dataclasses import dataclass
 
 from dantejp.domain import CapturedFrame, Rect
-from dantejp.ocr.tracking import TextTrack
+from dantejp.ocr.presence import PixelEvidence
+from dantejp.ocr.tracking import MatchingEvidence, TextTrack
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,3 +25,5 @@ class VisualState:
     scan_areas: tuple[Rect, ...] | None = None
     stable_tracks: tuple[tuple[int, int, str], ...] = ()
     changed_areas: tuple[Rect, ...] = ()
+    pixel_evidence: PixelEvidence | None = None
+    matching: MatchingEvidence | None = None

@@ -240,7 +240,8 @@ def test_visual_initialization_failure_falls_back_and_still_finishes_shutdown(mo
     session = VisualSession()
     session.start()
     try:
-        session.submit(picture(1), None, (), (), ())
+        first = OcrResult(picture(1), (TextRegion(TEXT, BOX),), 20, 0.2)
+        session.submit(first.frame, None, (), (), (), first)
         deadline = time.monotonic() + 3
         while True:
             state = session.poll()
@@ -249,6 +250,8 @@ def test_visual_initialization_failure_falls_back_and_still_finishes_shutdown(mo
             assert time.monotonic() < deadline
             time.sleep(0.005)
         assert state.request_ocr and state.message
+        assert state.matching and state.matching.matches(first, ())
+        assert state.pixel_evidence and state.pixel_evidence.matches(first.frame)
         session.submit(picture(2), None, (), (), ())
         while True:
             state = session.poll()

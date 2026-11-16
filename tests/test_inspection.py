@@ -1487,8 +1487,14 @@ def test_inspector_disclosure_and_pause_do_not_change_the_injected_live_session(
         frame = CapturedFrame(sequence, sequence, geometry, b"\xff" * 64)
         result = OcrResult(frame, (TextRegion("猫", bounds),), 10, sequence)
         ocr.snapshot.return_value = OcrSnapshot(OcrState.READY, result)
+        from dantejp.ocr.tracking import prepare_matching
+
+        sources = visual.submit.call_args.args[-1] if visual.submit.called else ()
         visual.poll.return_value = VisualState(
-            frame=frame, request_ocr=True, checked_sequence=sequence
+            frame=frame,
+            request_ocr=True,
+            checked_sequence=sequence,
+            matching=prepare_matching(result, sources),
         )
         from dantejp.domain import CaptureSnapshot, CaptureState
 

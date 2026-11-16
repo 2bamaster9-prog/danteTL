@@ -10,8 +10,8 @@ from dataclasses import dataclass, replace
 from difflib import SequenceMatcher
 from math import isfinite
 
-from dantejp.domain import CapturedFrame, Rect
-from dantejp.ocr.presence import FrameEvidence
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.presence import EvidenceReader, PixelEvidence
 from dantejp.ocr.spatial import SpatialCandidates
 from dantejp.ocr.text_content import content_region
 from dantejp.ocr.text_distance import within_edits
@@ -202,13 +202,13 @@ def _commit_text(track: _Track) -> None:
     track.text_candidate = None
 
 
-def _match_score(track: _Track, region: TextRegion, old: str, new: str) -> float | None:
-    if track.value.vertical != region.vertical:
+def _match_score(track: TextTrack, region: TextRegion, old: str, new: str) -> float | None:
+    if track.vertical != region.vertical:
         return None
-    overlap = _overlap(track.observed, region.bounds)
-    distance = _edge_distance(track.observed, region.bounds)
-    thickness = max(1, min(track.observed.size), min(region.bounds.size))
-    a, b = track.observed, region.bounds
+    overlap = _overlap(track.bounds, region.bounds)
+    distance = _edge_distance(track.bounds, region.bounds)
+    thickness = max(1, min(track.bounds.size), min(region.bounds.size))
+    a, b = track.bounds, region.bounds
     tolerance = _deadband(a)
     same_origin = (
         abs(a.x - b.x) <= tolerance
@@ -243,6 +243,62 @@ def _match_score(track: _Track, region: TextRegion, old: str, new: str) -> float
     return overlap * 3 + similarity * 2 - min(distance / thickness, 3) * 0.15
 
 
+@dataclass(frozen=True, slots=True)
+class MatchingEvidence:
+    """Pure scoring output for one exact OCR source and immutable prior track state."""
+
+    sequence: int
+    captured_at: float
+    geometry: WindowGeometry
+    sources: tuple[TextTrack, ...]
+    limit: int
+    regions: tuple[tuple[int, TextRegion], ...]
+    normalized: tuple[tuple[int, str], ...]
+    candidates: tuple[tuple[float, int, int], ...]
+
+    def matches(self, result: OcrResult, sources: tuple[TextTrack, ...], limit: int = 512) -> bool:
+        frame = result.frame
+        return (self.sequence, self.captured_at, self.geometry, self.sources, self.limit) == (
+            frame.sequence,
+            frame.captured_at,
+            frame.geometry,
+            sources,
+            limit,
+        )
+
+
+def prepare_matching(
+    result: OcrResult, sources: tuple[TextTrack, ...], limit: int = 512
+) -> MatchingEvidence:
+    """Worker-side geometry gating and text scoring; does not own or mutate tracks."""
+    regions, normalized = [], {}
+    for index, raw in enumerate(result.regions[:limit]):
+        region = content_region(raw)
+        text = _normalized(region.text)
+        if text and min(region.bounds.size) > 0:
+            regions.append((index, region))
+            normalized[index] = text
+    nearby = SpatialCandidates(regions)
+    candidates = []
+    for track in sources:
+        old = _normalized(track.text)
+        for index, region in nearby.for_bounds(track.bounds):
+            score = _match_score(track, region, old, normalized[index])
+            if score is not None:
+                candidates.append((score, track.track_id, index))
+    frame = result.frame
+    return MatchingEvidence(
+        frame.sequence,
+        frame.captured_at,
+        frame.geometry,
+        sources,
+        limit,
+        tuple(regions),
+        tuple(normalized.items()),
+        tuple(candidates),
+    )
+
+
 class TextTracker:
     def __init__(self, policy: TrackingPolicy = TrackingPolicy()) -> None:
         self._policy = policy
@@ -265,6 +321,28 @@ class TextTracker:
         self._size = None
         self._assignments = ()
 
+    def matching_sources(self, frame: CapturedFrame) -> tuple[TextTrack, ...]:
+        if self._size != frame.geometry.client.size:
+            return ()  # A resize resets tracking before this observation is committed.
+        return tuple(replace(t.value, bounds=t.observed) for t in self._tracks.values())
+
+    def evidence_bounds(self) -> tuple[Rect, ...]:
+        """Bounded crop proposals, including geometry that may settle before OCR returns."""
+        return tuple(
+            dict.fromkeys(
+                box
+                for track in self._tracks.values()
+                for box in (
+                    track.value.bounds,
+                    track.observed,
+                    track.presence.bounds if track.presence else track.value.bounds,
+                    track.geometry_candidate.bounds
+                    if track.geometry_candidate
+                    else track.value.bounds,
+                )
+            )
+        )
+
     def observe(
         self,
         result: OcrResult,
@@ -274,11 +352,21 @@ class TextTracker:
         unchanged: frozenset[TextTrack] = frozenset(),
         visual_checked: frozenset[TextTrack] = frozenset(),
         checked_sequence: int = 0,
+        pixel_evidence: PixelEvidence | None = None,
+        matching: MatchingEvidence | None = None,
     ) -> tuple[int | None, ...]:
         """Return IDs in raw OCR row order. Repeated/late frames cannot confirm changes."""
         frame = result.frame
         if frame.sequence <= self._sequence or frame.captured_at < self._captured_at:
             return self._assignments
+        sources = self.matching_sources(frame)
+        if matching is not None and not matching.matches(
+            result, sources, self._policy.max_tracks * 4
+        ):
+            raise ValueError("Tracking evidence does not match the current source/state.")
+        # Direct deterministic replays may score inline. LiveSession always supplies
+        # source/state-checked worker evidence and never performs scoring on Qt.
+        matching = matching or prepare_matching(result, sources, self._policy.max_tracks * 4)
         if self._size != frame.geometry.client.size:
             self.reset()
             self._size = frame.geometry.client.size
@@ -289,16 +377,10 @@ class TextTracker:
         raw_regions = result.regions[: self._policy.max_tracks * 4]
         complete = len(raw_regions) == len(result.regions)
         self._complete_observation = complete
-        evidence = FrameEvidence(frame)
-        regions: list[tuple[int, TextRegion]] = []
-        normalized: dict[int, str] = {}
-        for index, raw in enumerate(raw_regions):
-            region = content_region(raw)
-            text = _normalized(region.text)
-            if text and min(region.bounds.size) > 0:
-                regions.append((index, region))
-                normalized[index] = text
-        candidates = []
+        evidence = EvidenceReader(frame, pixel_evidence)
+        regions = matching.regions
+        normalized = dict(matching.normalized)
+        candidates = list(matching.candidates)
         observations = dict(regions)
         # Evidence must describe the exact source being reconciled and the current
         # accepted revision. Evidence from a newer/older capture is not interchangeable.
@@ -309,13 +391,6 @@ class TextTracker:
             if track.value in checked and not track.visual_same:
                 track.review_attempts = 0
                 track.display_predecessor = None
-        nearby = SpatialCandidates(regions)
-        for key, track in self._tracks.items():
-            old = _normalized(track.value.text)
-            for index, region in nearby.for_bounds(track.observed):
-                score = _match_score(track, region, old, normalized[index])
-                if score is not None:
-                    candidates.append((score, key, index))
         assignments: list[int | None] = [None] * len(result.regions)
         used: set[int] = set()
         # Canonical columns make ties independent of detector order. Raw result rows

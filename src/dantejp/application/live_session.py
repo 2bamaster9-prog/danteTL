@@ -59,6 +59,8 @@ class VisualWorker(Protocol):
         assignments: tuple[int | None, ...],
         activity: tuple[TextActivity, ...],
         candidate: OcrResult | None = None,
+        evidence_bounds: tuple[Rect, ...] = (),
+        matching_sources: tuple[TextTrack, ...] = (),
     ) -> None: ...
 
 
@@ -255,19 +257,35 @@ class LiveSession:
             return snapshot
         if self.visual:
             state = self.visual.poll()
-            if snapshot.result and (
-                state.message or state.checked_sequence == snapshot.result.frame.sequence
+            candidate = (
+                snapshot.result
+                if snapshot.result
+                and (
+                    self.accepted is None
+                    or snapshot.result.frame.sequence > self.accepted.frame.sequence
+                )
+                else None
+            )
+            if candidate and (
+                state.checked_sequence == candidate.frame.sequence
+                and state.matching is not None
+                and state.matching.matches(
+                    candidate, self._tracker.matching_sources(candidate.frame)
+                )
             ):
                 self.assignments = self._tracker.observe(
-                    snapshot.result,
+                    candidate,
                     visually_absent=state.absent,
                     visual_sequence=state.frame.sequence if state.frame else 0,
                     unchanged=state.unchanged,
                     visual_checked=state.checked,
                     checked_sequence=state.checked_sequence,
+                    pixel_evidence=state.pixel_evidence,
+                    matching=state.matching,
                 )
-                self.accepted = snapshot.result
+                self.accepted = candidate
                 self.ocr.acknowledge(self.accepted.frame.sequence)
+                candidate = None
             if state.frame is not None:
                 self.visual_state = state
                 if state.request_ocr:
@@ -279,7 +297,9 @@ class LiveSession:
                 self._tracker.visible(frame, now),
                 self.assignments,
                 self._tracker.translation_activity(),
-                snapshot.result,
+                candidate,
+                self._tracker.evidence_bounds(),
+                self._tracker.matching_sources(snapshot.result.frame) if snapshot.result else (),
             )
         return snapshot
 

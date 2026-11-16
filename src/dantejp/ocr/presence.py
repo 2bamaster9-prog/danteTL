@@ -1,8 +1,65 @@
 """Bounded exact-pixel evidence for missed text; no image history or model calls."""
 
+from dataclasses import dataclass
 from hashlib import blake2b
 
-from dantejp.domain import CapturedFrame, Rect
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.text_content import content_region
+from dantejp.ocr.values import OcrResult
+
+
+@dataclass(frozen=True, slots=True)
+class PixelEvidence:
+    """Immutable exact-source digests; never retains pixels or a frame history."""
+
+    sequence: int
+    captured_at: float
+    geometry: WindowGeometry
+    crops: tuple[tuple[Rect, bytes], ...]
+
+    def matches(self, frame: CapturedFrame) -> bool:
+        return (self.sequence, self.captured_at, self.geometry) == (
+            frame.sequence,
+            frame.captured_at,
+            frame.geometry,
+        )
+
+
+def prepare_evidence(result: OcrResult, bounds: tuple[Rect, ...] = ()) -> PixelEvidence:
+    """Worker-only preparation of the bounded superset tracking may inspect.
+
+    Track references and pending geometry occupy at most 512 slots; OCR contributes
+    at most 512. Compute each eligible crop once. The reader enforces the original
+    one-million-pixel budget in *tracking's* query order, so unused proposals cannot
+    consume retention evidence ahead of missed tracks.
+    """
+    queries = dict.fromkeys(
+        (*bounds[:512], *(content_region(r).bounds for r in result.regions[:512]))
+    )
+    reader = FrameEvidence(result.frame, pixel_budget=1024 * 65_536)
+    crops = tuple(
+        (box, digest) for box in queries if (digest := reader.fingerprint(box)) is not None
+    )
+    frame = result.frame
+    return PixelEvidence(frame.sequence, frame.captured_at, frame.geometry, crops)
+
+
+class EvidenceReader:
+    """Cheap application-thread lookup with the original per-observation budget."""
+
+    def __init__(
+        self, frame: CapturedFrame, evidence: PixelEvidence | None, pixel_budget: int = 1_000_000
+    ) -> None:
+        self._crops = dict(evidence.crops) if evidence and evidence.matches(frame) else {}
+        self._remaining = pixel_budget
+
+    def fingerprint(self, bounds: Rect) -> bytes | None:
+        digest = self._crops.get(bounds)
+        area = bounds.width * bounds.height
+        if digest is None or area > self._remaining:
+            return None
+        self._remaining -= area
+        return digest
 
 
 class FrameEvidence:

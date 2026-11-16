@@ -23,7 +23,8 @@ from PySide6.QtWidgets import QApplication
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
 from dantejp.ocr.meiki import MeikiRecognizer
 from dantejp.ocr.models import model_directory
-from dantejp.ocr.tracking import TextTracker
+from dantejp.ocr.presence import prepare_evidence
+from dantejp.ocr.tracking import TextTracker, prepare_matching
 from dantejp.ocr.visual import VisualAnalyzer
 from dantejp.ocr.worker import OcrResult, recognize_regions
 from dantejp.ui.inspection import OcrInspector
@@ -103,12 +104,16 @@ def main() -> None:
         assert Rect(0, 0, frame.width, frame.height).contains(region.bounds)
         assert region.characters
     tracker = TextTracker()
-    tracking_timings = []
+    tracking_timings, preparation_timings = [], []
     for sequence in range(1, 7):
         source = replace(frame, sequence=sequence, captured_at=sequence * 0.25)
         result = OcrResult(source, regions, timings[-1], source.captured_at + timings[-1] / 1000)
         started = time.perf_counter()
-        tracker.observe(result)
+        pixels = prepare_evidence(result, tracker.evidence_bounds())
+        matching = prepare_matching(result, tracker.matching_sources(source))
+        preparation_timings.append((time.perf_counter() - started) * 1000)
+        started = time.perf_counter()
+        tracker.observe(result, pixel_evidence=pixels, matching=matching)
         tracker.visible(source, result.completed_at)
         tracking_timings.append((time.perf_counter() - started) * 1000)
     evidence = {
@@ -125,6 +130,9 @@ def main() -> None:
         "first_inference_ms": round(timings[0], 1),
         "warm_median_ms": round(statistics.median(timings[1:]), 1),
         "warm_max_ms": round(max(timings[1:]), 1),
+        "tracking_worker_preparation_median_ms": round(
+            statistics.median(preparation_timings[1:]), 2
+        ),
         "tracking_warm_median_ms": round(statistics.median(tracking_timings[1:]), 2),
         "tracking_warm_max_ms": round(max(tracking_timings[1:]), 2),
         "regions": [asdict(region) for region in regions],
@@ -145,7 +153,9 @@ def main() -> None:
     visual, tracker = VisualAnalyzer(), TextTracker()
     reference = replace(frame, sequence=1, captured_at=0)
     result = OcrResult(reference, regions, timings[-1], 0.05)
-    assignments = tracker.observe(result)
+    assignments = tracker.observe(
+        result, pixel_evidence=prepare_evidence(result), matching=prepare_matching(result, ())
+    )
     tracks = tracker.visible(reference, 0.05)
     visual_times, requests = [], 0
     for i in range(1, 17):

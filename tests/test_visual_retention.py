@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.presence import prepare_evidence
 from dantejp.ocr.tracking import TextTrack, TextTracker
 from dantejp.ocr.visual import VisualAnalyzer
 from dantejp.ocr.worker import OcrResult, TextCharacter, TextRegion
@@ -54,7 +55,7 @@ class Replay:
         self.visual = VisualAnalyzer()
         self.tracker = TextTracker()
         self.result = first
-        self.ids = self.tracker.observe(first)
+        self.ids = self.tracker.observe(first, pixel_evidence=prepare_evidence(first))
         self.tracks = self.tracker.translation_tracks(first.frame, first.completed_at + 0.5)
         self.visual.observe(first.frame, first, self.tracks, self.ids, candidate=first)
 
@@ -74,6 +75,7 @@ class Replay:
             checked_sequence=state.checked_sequence,
             visually_absent=state.absent,
             visual_sequence=incoming.frame.sequence,
+            pixel_evidence=prepare_evidence(incoming, self.tracker.evidence_bounds()),
         )
         self.tracks = self.tracker.translation_tracks(incoming.frame, incoming.completed_at + 0.5)
         self.result = incoming

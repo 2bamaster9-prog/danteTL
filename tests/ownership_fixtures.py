@@ -155,7 +155,8 @@ class Replay:
         self.translation = TranslationCoordinator(
             self.inventory, self.cloud, create, route, root / "cache", preferences
         )
-        self.ocr, self.visual, self.capture = Ocr(), Visual(), Capture()
+        self.ocr, self.capture = Ocr(), Capture()
+        self.visual = Visual(self.ocr)
         self.recognizer = Mock()
         self.recognizers = []
 

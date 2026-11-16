@@ -158,6 +158,16 @@ assignment with explicit unmatched costs, stable IDs and canonical tie ordering.
 cannot match on text alone. Cutoff edit distance handles minor variants; approximation never permanently
 suppresses real edits. Confidence belongs to live content, not a screen-position cache.
 
+The visual worker prepares immutable crop digests and geometric/text match scores for the exact OCR
+source and an immutable snapshot of prior track identities, text and observed bounds. Results carry
+source sequence/time/geometry and are discarded after worker invalidation. `LiveSession` rejects stale
+matching state before reconciliation; assignment, confirmation, retention and acknowledgement remain
+serialized on the application owner. No pixel hashing or text-pair scoring runs on Qt. Direct policy
+replays can calculate scores inline. Preparation caches only one bounded result, including on visual
+pattern-analysis failure. At most 1,024 proposed crops are hashed, each capped at 65,536 pixels; the
+application consumes digests under the original one-million-pixel observation budget in the original
+query order. Unused crop proposals cannot spend missed-track retention evidence.
+
 Observed and committed text/geometry are separate. Worker delay, skipped frames and repeated polls are
 not absence evidence. Bounded crop digests retain text through same-pixel misses; changed pixels alone
 never remove text. Negative OCR needs coverage and elapsed evidence. Source-time settling works on static

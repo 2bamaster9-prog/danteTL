@@ -11,9 +11,10 @@ from math import ceil
 from typing import TYPE_CHECKING, Any
 
 from dantejp.domain import CapturedFrame, Rect
+from dantejp.ocr.presence import PixelEvidence, prepare_evidence
 from dantejp.ocr.regions import padded, scan_regions
 from dantejp.ocr.text_content import content_region, has_japanese
-from dantejp.ocr.tracking import TextActivity, TextTrack
+from dantejp.ocr.tracking import MatchingEvidence, TextActivity, TextTrack, prepare_matching
 from dantejp.ocr.values import OcrResult
 from dantejp.ocr.visual_values import VisualState as VisualState
 
@@ -39,6 +40,8 @@ class _Job:
     assignments: tuple[int | None, ...]
     activity: tuple[TextActivity, ...]
     candidate: OcrResult | None = None
+    evidence_bounds: tuple[Rect, ...] = ()
+    matching_sources: tuple[TextTrack, ...] = ()
 
 
 def _pixels(frame: CapturedFrame) -> Bytes | None:
@@ -603,7 +606,10 @@ class VisualSession:
         self._notify = on_change or (lambda: None)
         self._condition = threading.Condition()
         self._pending: tuple[int, _Job] | None = None
-        self._last_key: tuple[int, int, tuple[TextTrack, ...], int] | None = None
+        self._last_key: (
+            tuple[int, int, tuple[TextTrack, ...], int, tuple[Rect, ...], tuple[TextTrack, ...]]
+            | None
+        ) = None
         self._generation = 0
         self._stop = False
         self._done = threading.Event()
@@ -621,13 +627,19 @@ class VisualSession:
         assignments: tuple[int | None, ...],
         activity: tuple[TextActivity, ...],
         candidate: OcrResult | None = None,
+        evidence_bounds: tuple[Rect, ...] = (),
+        matching_sources: tuple[TextTrack, ...] = (),
     ) -> None:
         tracks, assignments, activity = tracks[:128], assignments[:512], activity[:128]
+        evidence_bounds = evidence_bounds[:512]
+        matching_sources = matching_sources[:128]
         key = (
             frame.sequence,
             result.frame.sequence if result else 0,
             tracks,
             candidate.frame.sequence if candidate else 0,
+            evidence_bounds,
+            matching_sources,
         )
         with self._condition:
             if (
@@ -639,7 +651,16 @@ class VisualSession:
             self._last_key = key
             self._pending = (
                 self._generation,
-                _Job(frame, result, tracks, assignments, activity, candidate),
+                _Job(
+                    frame,
+                    result,
+                    tracks,
+                    assignments,
+                    activity,
+                    candidate,
+                    evidence_bounds,
+                    matching_sources,
+                ),
             )
             self._condition.notify()
 
@@ -670,6 +691,9 @@ class VisualSession:
     def _run(self) -> None:
         analyzer, generation = None, -1
         failed = False
+        evidence: PixelEvidence | None = None
+        evidence_bounds: tuple[Rect, ...] = ()
+        matching: MatchingEvidence | None = None
         try:
             while True:
                 with self._condition:
@@ -679,8 +703,11 @@ class VisualSession:
                     pending, self._pending = self._pending, None
                 assert pending is not None
                 current, job = pending
+                started = time.perf_counter()
                 if current != generation:
                     analyzer, generation, failed = None, current, False
+                    evidence = None
+                    matching = None
                 try:
                     if analyzer is None and not failed:
                         analyzer = VisualAnalyzer()
@@ -700,6 +727,26 @@ class VisualSession:
                     logger.exception("Visual checks failed; using ordinary OCR")
                     failed = True
                     state = VisualState(job.frame, True, message="Visual checks failed; using OCR.")
+                # Independent of visual pattern-analysis success. Always hash the OCR
+                # source, never the latest capture, and discard cached evidence on reset.
+                if job.candidate:
+                    if matching is None or not matching.matches(
+                        job.candidate, job.matching_sources
+                    ):
+                        matching = prepare_matching(job.candidate, job.matching_sources)
+                    if (
+                        evidence is None
+                        or not evidence.matches(job.candidate.frame)
+                        or evidence_bounds != job.evidence_bounds
+                    ):
+                        evidence = prepare_evidence(job.candidate, job.evidence_bounds)
+                        evidence_bounds = job.evidence_bounds
+                    state = replace(
+                        state,
+                        pixel_evidence=evidence,
+                        checked_sequence=job.candidate.frame.sequence,
+                        matching=matching,
+                    )
                 with self._condition:
                     published = not self._stop and current == self._generation
                     if published:
@@ -716,6 +763,7 @@ class VisualSession:
                             )
                         self._snapshot = replace(
                             state,
+                            duration_ms=(time.perf_counter() - started) * 1000,
                             request_ocr=state.request_ocr or old.request_ocr,
                             scan_areas=areas,
                         )

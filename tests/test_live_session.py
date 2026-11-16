@@ -16,6 +16,7 @@ from dantejp.domain import (
     WindowGeometry,
     WindowTarget,
 )
+from dantejp.ocr.tracking import prepare_matching
 from dantejp.ocr.visual import VisualState
 from dantejp.ocr.worker import OcrResult, OcrSnapshot, OcrState, TextCharacter, TextRegion
 from dantejp.translation.dialogue.classifier import Classification
@@ -81,16 +82,39 @@ class Ocr(Worker):
 class Visual(Worker):
     current = VisualState()
 
+    def __init__(self, ocr=None):
+        super().__init__()
+        self.ocr = ocr
+        self.sources = ()
+
     def poll(self):
+        if (
+            self.ocr
+            and (result := self.ocr.current.result)
+            and self.current.checked_sequence == result.frame.sequence
+        ):
+            self.current = replace(self.current, matching=prepare_matching(result, self.sources))
         return self.current
 
-    def submit(self, frame, result, tracks, assignments, activity, candidate=None):
+    def submit(
+        self,
+        frame,
+        result,
+        tracks,
+        assignments,
+        activity,
+        candidate=None,
+        evidence_bounds=(),
+        matching_sources=(),
+    ):
+        self.sources = matching_sources
         self.submitted = (frame, result, tracks, assignments, activity, candidate)
 
 
 class Replay:
     def __init__(self):
-        self.ocr, self.visual, self.capture = Ocr(), Visual(), Capture()
+        self.ocr, self.capture = Ocr(), Capture()
+        self.visual = Visual(self.ocr)
         self.live = LiveSession(ocr_factory=lambda _: self.ocr, visual_factory=lambda: self.visual)
         self.live.start(self.capture, Mock())
 
