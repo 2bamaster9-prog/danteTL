@@ -162,6 +162,12 @@ real local change. Alternating spelling cannot reset this budget or duplicate un
 `EnglishPresentation` bridges only explicit same-pixel correction lineage while translating the successor.
 Validate every member; edits/regrouping/removal/model changes revoke it. Consensus remains experimental.
 
+Tracker evidence has independent optional records for pending text, pending geometry, crop presence
+and completed absence. Each record owns its associated counts, time or source bounds; clearing a
+candidate clears that evidence together. Accepted display and confidence review state survive pending
+edits. Partial scans affect only covered tracks; delayed confirmation still validates each track's
+own source sequence and reading. These records do not change confirmation or retirement policy.
+
 ## Translation, grouping and layout
 
 `DialogueGrouper` forms bounded stable-line blocks with font-relative alignment/spacing and unambiguous

@@ -55,32 +55,70 @@ class TrackingPolicy:
 
 
 @dataclass(slots=True)
+class _TextCandidate:
+    text: str
+    confidence: float | None
+    since: float
+    protected: bool
+    hits: int = 1
+
+    def ready(self, now: float, weaker_reading_seconds: float) -> bool:
+        # A high accepted score must not permanently suppress a real, similar edit.
+        return not self.protected or now - self.since >= weaker_reading_seconds
+
+
+@dataclass(slots=True)
+class _GeometryCandidate:
+    bounds: Rect
+    hits: int = 1
+
+
+@dataclass(frozen=True, slots=True)
+class _PresenceReference:
+    digest: bytes
+    bounds: Rect
+
+
+@dataclass(slots=True)
+class _Absence:
+    since: float
+    sequence: int
+    pixels_changed: bool
+    misses: int = 1
+
+
+@dataclass(slots=True)
 class _Track:
+    """Accepted display and independent evidence for text, geometry and absence.
+
+    Pending evidence never replaces accepted text until its confirmation rule succeeds.
+    None means no candidate/evidence; there are no orphan counters or timestamps.
+    """
+
     value: TextTrack
     observed: Rect
     last_seen: float
     last_sequence: int
-    misses: int = 0
-    missing_since: float | None = None
-    pending_text: str = ""
-    text_hits: int = 0
-    pending_bounds: Rect | None = None
-    position_hits: int = 0
+    absence: _Absence | None = None
+    text_candidate: _TextCandidate | None = None
+    geometry_candidate: _GeometryCandidate | None = None
     confirmed: bool = False
     best_confidence: float | None = None
-    pending_confidence: float | None = None
-    pending_since: float = 0
-    pending_protected: bool = False
-    fingerprint: bytes | None = None
-    fingerprint_bounds: Rect | None = None
-    pixels_changed: bool = False
+    presence: _PresenceReference | None = None
     reading: str = ""
     changed_at: float = 0
     growing: bool = False
     review_attempts: int = 0
     visual_same: bool = False
     display_predecessor: TextTrack | None = None
-    missed_sequence: int = 0
+
+    def seen(self, frame: CapturedFrame) -> None:
+        self.last_seen, self.last_sequence = frame.captured_at, frame.sequence
+        self.absence = None
+
+    def discard_candidates(self) -> None:
+        self.text_candidate = None
+        self.geometry_candidate = None
 
 
 def _normalized(text: str) -> str:
@@ -148,23 +186,20 @@ def _inside_line(fragment: Rect, line: Rect) -> bool:
     return width * height >= fragment.width * fragment.height * 0.9
 
 
-def _clear_text_candidate(track: _Track) -> None:
-    track.pending_text, track.text_hits = "", 0
-    track.pending_confidence, track.pending_since, track.pending_protected = None, 0, False
-
-
 def _commit_text(track: _Track) -> None:
+    candidate = track.text_candidate
+    assert candidate is not None
     track.value = replace(
         track.value,
-        text=track.pending_text,
+        text=candidate.text,
         bounds=track.observed,
         text_revision=track.value.text_revision + 1,
     )
     # A genuinely new reading starts a new confidence baseline, even if it scores lower.
-    track.best_confidence = track.pending_confidence
-    track.fingerprint, track.fingerprint_bounds = None, None
+    track.best_confidence = candidate.confidence
+    track.presence = None
     track.confirmed = True
-    _clear_text_candidate(track)
+    track.text_candidate = None
 
 
 def _match_score(track: _Track, region: TextRegion, old: str, new: str) -> float | None:
@@ -312,29 +347,28 @@ class TextTracker:
         for key in list(self._tracks):
             track = self._tracks[key]
             if key not in used and complete and result.covers(track.value.bounds):
-                current = (
-                    evidence.fingerprint(track.fingerprint_bounds)
-                    if track.fingerprint is not None and track.fingerprint_bounds is not None
-                    else None
+                reference = track.presence
+                current = evidence.fingerprint(reference.bounds) if reference else None
+                changed = (
+                    current is not None and reference is not None and current != reference.digest
                 )
-                track.pixels_changed = current is not None and current != track.fingerprint
-                if track.visual_same or (current is not None and current == track.fingerprint):
+                if track.visual_same or (reference and current == reference.digest):
                     # The same crop still contains the pixels that produced this text.
                     # A missed detector result cannot erase or split its translation.
-                    track.misses, track.missing_since = 0, None
+                    track.absence = None
                     track.confirmed = True
-                    _clear_text_candidate(track)
-                    track.position_hits, track.pending_bounds = 0, None
+                    track.discard_candidates()
                     continue
-                track.misses += 1
-                track.missed_sequence = frame.sequence
-                if track.missing_since is None:
-                    track.missing_since = frame.captured_at
-                _clear_text_candidate(track)
-                track.position_hits, track.pending_bounds = 0, None
+                if track.absence is None:
+                    track.absence = _Absence(frame.captured_at, frame.sequence, changed)
+                else:
+                    track.absence.misses += 1
+                    track.absence.sequence = frame.sequence
+                    track.absence.pixels_changed = changed
+                track.discard_candidates()
                 if (
-                    track.misses >= self._policy.missing_frames
-                    and frame.captured_at - track.missing_since >= self._policy.missing_seconds
+                    track.absence.misses >= self._policy.missing_frames
+                    and frame.captured_at - track.absence.since >= self._policy.missing_seconds
                 ) or (track.value in visually_absent and visual_sequence >= frame.sequence):
                     del self._tracks[key]
         for index, region in regions:
@@ -381,7 +415,9 @@ class TextTracker:
             track = self._tracks[key]
             if _normalized(observations[index].text) == _normalized(track.value.text):
                 digest = evidence.fingerprint(track.value.bounds)
-                track.fingerprint, track.fingerprint_bounds = digest, track.value.bounds
+                track.presence = (
+                    _PresenceReference(digest, track.value.bounds) if digest is not None else None
+                )
         self._assignments = tuple(assignments)
         return self._assignments
 
@@ -391,12 +427,10 @@ class TextTracker:
         Confidence is OCR confidence, not translation quality. Retries belong to this
         visual content lifetime and do not reset when OCR alternates or a review wins.
         """
-        track.last_seen, track.last_sequence = frame.captured_at, frame.sequence
-        track.misses, track.missing_since, track.pixels_changed = 0, None, False
-        track.pending_bounds, track.position_hits = None, 0
+        track.seen(frame)
+        track.discard_candidates()
         track.observed = track.value.bounds
         track.confirmed = True
-        _clear_text_candidate(track)
         score = _confidence(region)
         same_text = _normalized(region.text) == _normalized(track.value.text)
         eligible = track.review_attempts < 3 and (
@@ -434,9 +468,7 @@ class TextTracker:
         # Completed observations count as evidence regardless of inference speed.
         # Actual misses, rather than elapsed processing time, break candidate runs.
         track.observed = region.bounds
-        track.last_seen, track.last_sequence, track.misses = frame.captured_at, frame.sequence, 0
-        track.missing_since = None
-        track.pixels_changed = False
+        track.seen(frame)
         track.display_predecessor = None
         previous, new = _normalized(track.reading), _normalized(region.text)
         if previous != new and not _minor_variant(previous, new):
@@ -453,14 +485,14 @@ class TextTracker:
             )
         track.reading = region.text
         text_changed = self._observe_text(track, region, frame.captured_at)
-        if track.pending_protected:
+        if track.text_candidate and track.text_candidate.protected:
             # An icon/crop variant must not move the winning box while its text is rejected.
-            track.pending_bounds, track.position_hits = None, 0
+            track.geometry_candidate = None
             return
         distance = _edge_distance(track.value.bounds, region.bounds)
         tolerance = _deadband(track.value.bounds)
         if distance <= tolerance and not text_changed:
-            track.pending_bounds, track.position_hits = None, 0
+            track.geometry_candidate = None
             return
         # Coherent translation of a similarly-sized box should follow immediately;
         # a sudden width/height change can instead be a one-frame detector crop error.
@@ -470,63 +502,58 @@ class TextTracker:
         )
         if moved or text_changed:
             track.value = replace(track.value, bounds=region.bounds)
-            track.pending_bounds, track.position_hits = None, 0
+            track.geometry_candidate = None
             return
         if (
-            track.pending_bounds
-            and _edge_distance(track.pending_bounds, region.bounds) <= tolerance
+            track.geometry_candidate
+            and _edge_distance(track.geometry_candidate.bounds, region.bounds) <= tolerance
         ):
-            track.position_hits += 1
+            track.geometry_candidate.hits += 1
         else:
-            track.pending_bounds, track.position_hits = region.bounds, 1
-        if track.position_hits >= self._policy.confirmation_frames:
+            track.geometry_candidate = _GeometryCandidate(region.bounds)
+        if track.geometry_candidate.hits >= self._policy.confirmation_frames:
             track.value = replace(track.value, bounds=region.bounds)
-            track.pending_bounds, track.position_hits = None, 0
+            track.geometry_candidate = None
 
     def _observe_text(self, track: _Track, region: TextRegion, captured_at: float) -> bool:
         old, new = _normalized(track.value.text), _normalized(region.text)
         score = _confidence(region)
         if old == new:
-            _clear_text_candidate(track)
+            track.text_candidate = None
             track.best_confidence = _best_score(track.best_confidence, score)
             track.confirmed = True
             return False
-        if new == _normalized(track.pending_text):
-            track.text_hits += 1
-            track.pending_confidence = _best_score(track.pending_confidence, score)
+        candidate = track.text_candidate
+        if candidate and new == _normalized(candidate.text):
+            candidate.hits += 1
+            candidate.confidence = _best_score(candidate.confidence, score)
         else:
-            track.pending_text, track.text_hits = region.text, 1
-            track.pending_confidence, track.pending_since = score, captured_at
             revealed_ending = (
                 track.growing
                 and new.startswith(old)
                 and len(new) > len(old)
                 and all(char in "。、！？!?」』" for char in new[len(old) :])
             )
-            track.pending_protected = _same_location(track.value.bounds, region.bounds) and (
+            protected = _same_location(track.value.bounds, region.bounds) and (
                 _minor_variant(old, new) and not revealed_ending
             )
-        track.pending_protected = (
-            track.pending_protected
+            candidate = track.text_candidate = _TextCandidate(
+                region.text, score, captured_at, protected
+            )
+        candidate.protected = (
+            candidate.protected
             and track.best_confidence is not None
-            and track.pending_confidence is not None
+            and candidate.confidence is not None
             # Mean scores can differ by floating-point rounding when an icon adds a character.
-            and track.pending_confidence <= track.best_confidence + 1e-6
+            and candidate.confidence <= track.best_confidence + 1e-6
             and _same_location(track.value.bounds, region.bounds)
         )
-        if track.text_hits >= self._policy.confirmation_frames and self._text_ready(
-            track, captured_at
+        if candidate.hits >= self._policy.confirmation_frames and candidate.ready(
+            captured_at, self._policy.weaker_reading_seconds
         ):
             _commit_text(track)
             return True
         return False
-
-    def _text_ready(self, track: _Track, now: float) -> bool:
-        # Never let an old high score permanently suppress a genuine, similar-looking edit.
-        return (
-            not track.pending_protected
-            or now - track.pending_since >= self._policy.weaker_reading_seconds
-        )
 
     def visible(self, latest: CapturedFrame, now: float) -> tuple[TextTrack, ...]:
         """Retain committed state between observations; time alone cannot prove absence."""
@@ -535,24 +562,26 @@ class TextTracker:
             return ()
         for key in list(self._tracks):
             track = self._tracks[key]
-            static = track.last_sequence == latest.sequence and track.misses == 0
+            static = track.last_sequence == latest.sequence and track.absence is None
             if static and now - track.last_seen >= self._policy.static_settle_seconds:
                 track.confirmed = True
                 # WGC need not emit the same pixels twice. Time on an unchanged latest
                 # frame can settle its final edit; repeated polls never count as frames.
-                if track.pending_text and self._text_ready(track, now):
+                if track.text_candidate and track.text_candidate.ready(
+                    now, self._policy.weaker_reading_seconds
+                ):
                     _commit_text(track)
-                if track.pending_bounds is not None:
+                if track.geometry_candidate is not None:
                     track.value = replace(track.value, bounds=track.observed)
-                    track.pending_bounds, track.position_hits = None, 0
-                    track.fingerprint, track.fingerprint_bounds = None, None
+                    track.geometry_candidate = None
+                    track.presence = None
             # Changed crop pixels AND a completed miss can settle on a now-static
             # source without duplicate WGC frames. Time/unchanged pixels alone cannot.
             if (
-                track.misses
+                track.absence
                 and self._complete_observation
-                and track.pixels_changed
-                and track.missed_sequence == self._sequence
+                and track.absence.pixels_changed
+                and track.absence.sequence == self._sequence
                 and latest.sequence == self._sequence
                 and now - max(latest.captured_at, self._completed_at)
                 >= self._policy.static_settle_seconds
@@ -573,12 +602,12 @@ class TextTracker:
         """Expose reveal timing without allowing candidate text to alter displayed English."""
         return tuple(
             TextActivity(
-                replace(track.value, text=track.pending_text, bounds=track.observed)
-                if track.pending_text and not track.pending_protected
+                replace(track.value, text=track.text_candidate.text, bounds=track.observed)
+                if track.text_candidate and not track.text_candidate.protected
                 else track.value,
                 track.changed_at,
                 track.growing,
-                bool(track.pending_text) and not track.pending_protected,
+                track.text_candidate is not None and not track.text_candidate.protected,
             )
             for track in self._tracks.values()
         )
@@ -594,10 +623,12 @@ class TextTracker:
         for index in indices:
             key = self._assignments[index] if 0 <= index < len(self._assignments) else None
             track = self._tracks.get(key) if key is not None else None
-            if track is None or track.last_sequence != sequence or track.misses:
+            if track is None or track.last_sequence != sequence or track.absence:
                 continue
             track.confirmed = True
-            if track.pending_text and self._text_ready(track, now):
+            if track.text_candidate and track.text_candidate.ready(
+                now, self._policy.weaker_reading_seconds
+            ):
                 _commit_text(track)
 
     def confirm_observations(
@@ -613,10 +644,12 @@ class TextTracker:
             if (
                 track is None
                 or track.last_sequence != sequence
-                or track.misses
+                or track.absence
                 or track.reading != text
             ):
                 continue
             track.confirmed = True
-            if track.pending_text and self._text_ready(track, now):
+            if track.text_candidate and track.text_candidate.ready(
+                now, self._policy.weaker_reading_seconds
+            ):
                 _commit_text(track)

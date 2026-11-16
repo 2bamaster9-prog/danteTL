@@ -45,6 +45,50 @@ class Replay:
         return self.tracker.visible(frame, self.now + 0.02)
 
 
+def test_pending_text_and_geometry_survive_partial_scan_and_delayed_confirmation():
+    replay = Replay()
+    original = replay.step(region())[0]
+    replay.step(region())
+    growth = region(original.text + "一緒に行こう。", width=500)
+    assert replay.step(growth) == (original,)
+    assert replay.result is not None
+    source = replay.result.frame
+    # Another region completes OCR while this line's visual confirmation is pending.
+    latest = replace(source, sequence=source.sequence + 1, captured_at=source.captured_at + 0.1)
+    partial = OcrResult(latest, (), 900, latest.captured_at + 0.9, (Rect(0, 0, 100, 100),))
+    replay.tracker.observe(partial)
+    for now in (partial.completed_at, partial.completed_at + 10):
+        assert replay.tracker.translation_tracks(latest, now) == (original,)
+        assert replay.tracker.translation_activity()[0].pending
+    replay.tracker.confirm_observations(((original.track_id, source.sequence, growth.text),), 12)
+    committed = replay.tracker.translation_tracks(latest, 12)[0]
+    assert committed.text == growth.text and committed.bounds == growth.bounds
+    assert committed.track_id == original.track_id
+    assert committed.text_revision == original.text_revision + 1
+    replay.tracker.reset()
+    replay.tracker.confirm_observations(((original.track_id, source.sequence, growth.text),), 13)
+    assert replay.tracker.visible(latest, 13) == ()
+
+
+def test_completed_miss_discards_text_and_geometry_candidates_without_revoking_accepted_text():
+    replay = Replay()
+    original = replay.step(region())[0]
+    replay.step(region())
+    growth = region(original.text + "一緒に行こう。", width=500)
+    assert replay.step(growth) == (original,)
+    assert replay.step(dt=0.1) == (original,)
+    assert replay.result is not None
+    assert replay.tracker.translation_tracks(replay.result.frame, replay.now + 10) == (original,)
+    assert not replay.tracker.translation_activity()[0].pending
+    # The next positive observation begins fresh evidence, rather than completing
+    # either discarded candidate with its pre-miss hit count.
+    assert replay.step(growth, dt=0.9) == (original,)
+    committed = replay.step(growth, dt=0.9)[0]
+    assert committed.text == growth.text and committed.bounds == growth.bounds
+    assert committed.track_id == original.track_id
+    assert committed.text_revision == original.text_revision + 1
+
+
 def test_jitter_and_character_score_changes_keep_exact_display_objects() -> None:
     replay = Replay()
     original = replay.step(region())
