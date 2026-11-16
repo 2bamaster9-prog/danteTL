@@ -75,6 +75,45 @@ def test_incomplete_models_stay_absent(catalog, monkeypatch):
     assert not app.translation_backends()
 
 
+def test_broken_optional_registry_keeps_healthy_inventory_and_recovers(
+    catalog, tmp_path, monkeypatch
+):
+    from test_model_inventory import settle
+
+    from dantejp.application.model_inventory import ModelInventory, inspect_models
+    from dantejp.translation.models import gguf
+
+    registry = tmp_path / "imported-models.json"
+    broken = b'{"version": 1, "models": broken'
+    registry.write_bytes(broken)
+    monkeypatch.setattr(gguf, "registry_path", lambda: registry)
+    monkeypatch.setattr(llama_runtime, "installed_device", lambda: "cpu")
+    monkeypatch.setattr(llama_runtime, "supports_plamo", lambda: True)
+    for key in ("ocr", "gemma"):
+        catalog[key].directory.mkdir()
+        (catalog[key].directory / "weights").write_bytes(b"good")
+    owner = ModelInventory(
+        lambda: inspect_models(tuple(catalog.values()), app.translation_backends), lambda _: None
+    )
+    try:
+        owner.advance(0)
+        settle(owner, lambda: owner.finished)
+        snapshot = owner.snapshot()
+        assert snapshot.loaded and snapshot.data.ocr_ready
+        assert [choice.preference_key for choice in snapshot.data.backends] == ["gemma"]
+        assert snapshot.data.import_problem and "imported models" in snapshot.problem
+        assert registry.read_bytes() == broken
+        registry.write_text('{"version":1,"models":[]}', encoding="utf-8")
+        owner.invalidate()
+        owner.advance(2)
+        settle(owner, lambda: owner.finished, now=2)
+        assert owner.snapshot().loaded and not owner.snapshot().problem
+        assert owner.snapshot().data.backends == snapshot.data.backends
+    finally:
+        owner.close()
+        settle(owner, lambda: owner.finished)
+
+
 def test_automatic_ocr_depends_on_runtime_not_downloaded_meiki(catalog, monkeypatch):
     catalog["ocr"].directory.mkdir()
     (catalog["ocr"].directory / "weights").write_bytes(b"good")

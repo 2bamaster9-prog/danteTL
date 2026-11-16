@@ -25,6 +25,7 @@ class InventoryData:
     files: tuple[ModelFile, ...] = ()
     prepared: frozenset[str] = frozenset()
     device: str | None = None
+    import_problem: str = ""
 
     @property
     def ocr_ready(self) -> bool:
@@ -73,7 +74,13 @@ def inspect_models(
         )
         for b in bundles
     )
-    for model in read_registry() if include_imports else ():
+    import_problem = ""
+    try:
+        imported = read_registry() if include_imports else ()
+    except (OSError, ValueError) as error:
+        imported = ()
+        import_problem = f"Cannot read imported models: {error}"
+    for model in imported:
         present = available(model)
         files += (
             ModelFile(
@@ -105,6 +112,7 @@ def inspect_models(
         files,
         frozenset(c.preparation_id for c in choices if is_prepared(c.preparation_id)),
         device,
+        import_problem,
     )
 
 
@@ -201,7 +209,9 @@ class ModelInventory:
                     logger.warning("Could not save preparation receipt: %s", error)
                     self._receipt_problem = f"Could not save model preparation: {error}"
             try:
-                result = (epoch, self._inspect(), self._receipt_problem)
+                data = self._inspect()
+                problem = "\n".join(p for p in (self._receipt_problem, data.import_problem) if p)
+                result = (epoch, data, problem)
             except Exception as error:
                 result = (epoch, None, str(error))
             self._result = result

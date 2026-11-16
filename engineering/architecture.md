@@ -69,6 +69,8 @@ while the native owner is still reporting its last running snapshot.
 Inventory uses one bounded worker, explicit invalidation and a 30-second fallback scheduled from
 completed scan adoption. Invalidation during a scan discards stale results and requests one follow-up.
 Unchanged revisions do not rebuild routes/options. Cached badges never authorize native model loading.
+Imported-registry discovery has its own failure boundary. A malformed/unreadable registry is preserved
+and reported while healthy built-in choices and OCR assets remain available; a later refresh can recover.
 
 Consent/review replies carry monotonic tokens. Decline/failure preserves committed assignments;
 stale replies cannot adopt new proposals. Setup has three bounded lanes: models/imports, runtime,
