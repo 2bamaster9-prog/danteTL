@@ -105,7 +105,7 @@ class ApplicationSession:
             else prior.translate_long,
         )
         if prior.group_dialogue != values.group_dialogue:
-            self.live.change_grouping(self.translation.session)
+            self.live.change_grouping(self.translation.lifecycle.publication)
             self.clear_english()
         if prior.show_border != values.show_border and self.live.capture:
             self.live.capture.set_border(values.show_border)
@@ -137,7 +137,7 @@ class ApplicationSession:
         self.preferences.save(self.values)
 
     def remember_model(self) -> None:
-        choice = self.translation.selected
+        choice = self.translation.lifecycle.snapshot().selected
         key = choice.preference_key if choice else "none"
         if key != self.values.model:
             self.values = replace(self.values, model=key)
@@ -160,7 +160,7 @@ class ApplicationSession:
         if (
             self.shutdown.active
             or not self.translation.restored
-            or self.translation.preparing
+            or self.translation.lifecycle.snapshot().preparing
             or self.setup.probing
             or self._consent
         ):
@@ -188,7 +188,7 @@ class ApplicationSession:
         if self._consent is None or token != self._consent.token or self.shutdown.active:
             return
         self._consent = None
-        self.translation.consent(accepted)
+        self.translation.lifecycle.consent(accepted)
         if accepted:
             self.clear_english()
         else:
@@ -205,9 +205,9 @@ class ApplicationSession:
 
     def _reset_scene(self, *, invalidate: bool = False) -> None:
         if invalidate:
-            self.live.invalidate(self.translation.session)
+            self.live.invalidate(self.translation.lifecycle.publication)
         else:
-            self.live.reset(self.translation.session)
+            self.live.reset(self.translation.lifecycle.publication)
         self.view = reset_scene(self.view)
 
     def start_capture(self, target: WindowTarget, now: float) -> bool:
@@ -231,7 +231,7 @@ class ApplicationSession:
 
     def stop(self, message: str = "Capture stopped.") -> None:
         self.original = False
-        self.translation.stop_capture(closing=self.shutdown.active)
+        self.translation.lifecycle.stop_capture(closing=self.shutdown.active)
         self._reset_scene()
         self.capture.stop(message)
         if self.live.capture:
@@ -293,11 +293,12 @@ class ApplicationSession:
     @property
     def controls(self) -> ApplicationControls:
         capture = self.live.capture
+        model = self.translation.lifecycle.snapshot()
         return ApplicationControls(
             self.translation.options(),
             self.translation.plan,
-            bool(self.translation.preparing),
-            self.translation.snapshot().message if self.translation.preparing else "",
+            model.preparing,
+            model.message if model.preparing else "",
             capture is not None,
             self.capture.can_stop,
             self.capture.started_at,
@@ -362,12 +363,13 @@ class ApplicationSession:
             or self.live.capture
             or self.setup.busy
             or self.cloud.busy
-            or self.translation.preparing
+            or self.translation.lifecycle.snapshot().preparing
         )
 
     def notices(self) -> Notices:
         ocr = self.live.ocr.snapshot() if self.live.ocr else None
-        translation = self.translation.session.snapshot() if self.translation.session else None
+        model = self.translation.lifecycle.snapshot()
+        translation = model.worker
         return project_notices(
             NoticeInput(
                 self.translation.options(),
@@ -378,7 +380,7 @@ class ApplicationSession:
                 or self.cloud.snapshot().problem
                 or self.inventory.snapshot().problem,
                 self.setup.busy or self.cloud.busy,
-                bool(self.translation.preparing),
+                model.preparing,
                 str(ocr.state) if ocr else "",
                 self.view.ocr_status,
                 str(translation.state) if translation else "",
@@ -396,9 +398,9 @@ class ApplicationSession:
         )
 
     def _advance_preparation(self) -> None:
-        if not self.translation.preparing:
+        if not self.translation.lifecycle.snapshot().preparing:
             return
-        outcome = self.translation.advance_preparation(closing=self.shutdown.active)
+        outcome = self.translation.lifecycle.advance_preparation(closing=self.shutdown.active)
         if outcome is None:
             return
         if outcome.committed:
@@ -542,7 +544,7 @@ class ApplicationSession:
             if step.phase == CapturePhase.DRAINING:
                 assert step.snapshot is not None
                 message = self.capture.drain(
-                    translation_drained=self.translation.capture_drained,
+                    translation_drained=self.translation.lifecycle.capture_drained,
                     snapshot=step.snapshot,
                 )
                 self.view = replace(
@@ -558,7 +560,7 @@ class ApplicationSession:
         frame = snapshot.frame
         if step.phase == CapturePhase.ACTIVE:
             assert frame is not None
-            if self.live.accept_size(geometry.client.size, self.translation.session):
+            if self.live.accept_size(geometry.client.size, self.translation.lifecycle.publication):
                 self.view = replace(
                     self.view,
                     observation=None,

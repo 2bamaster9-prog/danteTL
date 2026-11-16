@@ -75,8 +75,8 @@ class Routes:
 
     def close(self):
         self.release.set()
-        self.owner.shutdown()
-        until(self.owner.finish_shutdown)
+        self.owner.lifecycle.shutdown()
+        until(self.owner.lifecycle.finish_shutdown)
 
 
 def test_cloud_switch_keeps_local_loaded_and_republishes_exact_results(tmp_path):
@@ -188,8 +188,8 @@ def test_shutdown_drains_retirement_without_starting_pending_model(tmp_path):
         routes.worker.update((block(2, "説明" * 24),))
         until(lambda: routes.worker.snapshot().processing_since is not None)
         routes.assign(TranslationPlan("local:local", remote_ref("b")), remote_ref("b"))
-        routes.owner.shutdown()
-        assert not routes.owner.finish_shutdown()
+        routes.owner.lifecycle.shutdown()
+        assert not routes.owner.lifecycle.finish_shutdown()
         assert not routes.worker.finished and not routes.remote["b"].called
     finally:
         routes.close()

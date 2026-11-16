@@ -59,11 +59,13 @@ def test_consent_preserves_committed_worker_and_preparation_waits_for_teardown_t
     assert original
     assert lifecycle.snapshot().phase == ModelPhase.LOADING
     assert not lifecycle.request_model(candidate, local_route=True)
-    assert lifecycle.snapshot().phase == ModelPhase.CONSENT and lifecycle.selected == base
+    assert (
+        lifecycle.snapshot().phase == ModelPhase.CONSENT and lifecycle.snapshot().selected == base
+    )
     assert lifecycle.advance_activity(running=True, enabled=True).worker is original
     assert created[0].stops == 0
     lifecycle.consent(False)
-    assert lifecycle.selected == base and not lifecycle.preparing
+    assert lifecycle.snapshot().selected == base and not lifecycle.snapshot().preparing
     assert not lifecycle.request_model(candidate, local_route=True)
     lifecycle.consent(True)
     assert lifecycle.snapshot().proposed == candidate
@@ -74,9 +76,9 @@ def test_consent_preserves_committed_worker_and_preparation_waits_for_teardown_t
     ready.state = TranslationState.READY
     outcome = lifecycle.advance_preparation()
     assert outcome and outcome.committed and outcome.local_route
-    assert lifecycle.selected == candidate and receipts == ["new"]
+    assert lifecycle.snapshot().selected == candidate and receipts == ["new"]
     assert lifecycle.advance_activity(running=False, enabled=True).worker is None
-    assert lifecycle.session is ready
+    assert lifecycle.publication is ready
     assert (
         lifecycle.advance_activity(running=True, enabled=True).worker is ready and len(created) == 2
     )
@@ -92,7 +94,7 @@ def test_failure_and_shutdown_wait_for_preparation_cleanup_without_committing():
     created[0].ended = True
     outcome = lifecycle.advance_preparation()
     assert outcome and not outcome.committed and outcome.error
-    assert lifecycle.selected == base and not receipts
+    assert lifecycle.snapshot().selected == base and not receipts
     lifecycle.request_model(candidate)
     lifecycle.consent(True)
     lifecycle.advance_preparation()
@@ -101,7 +103,7 @@ def test_failure_and_shutdown_wait_for_preparation_cleanup_without_committing():
     created[1].ended = True
     outcome = lifecycle.advance_preparation(closing=True)
     assert outcome and not outcome.committed and not receipts
-    assert lifecycle.selected == base and lifecycle.session is None
+    assert lifecycle.snapshot().selected == base and lifecycle.publication is None
 
 
 def test_route_change_drains_old_worker_and_refresh_during_preparation_does_not_stop_it():
@@ -142,7 +144,7 @@ def test_import_probe_waits_for_unload_and_resumes_committed_selection_afterward
     assert len(created) == 1 and created[0].stops
     created[0].ended = True
     assert lifecycle.suspend_for_probe(True)
-    assert lifecycle.selected == base and lifecycle.session is None
+    assert lifecycle.snapshot().selected == base and lifecycle.publication is None
     assert lifecycle.advance_activity(running=True, enabled=True, probing=True).probe_ready
     lifecycle.suspend_for_probe(False)
     assert lifecycle.advance_activity(running=True, enabled=True).worker is not original
@@ -158,7 +160,7 @@ def test_shutdown_during_preparation_does_not_commit_or_load_another_worker():
     assert lifecycle.advance_activity(running=True, enabled=True).worker is None
     created[0].ended = True
     assert lifecycle.finish_shutdown()
-    assert lifecycle.selected == base and not receipts and len(created) == 1
+    assert lifecycle.snapshot().selected == base and not receipts and len(created) == 1
 
 
 def test_category_assignment_consent_and_failed_preparation_keep_previous_plan():
@@ -169,19 +171,23 @@ def test_category_assignment_consent_and_failed_preparation_keep_previous_plan()
     proposed = TranslationPlan("local:new", "cloud:configured")
     assert lifecycle.request_assignment(original, base)
     assert not lifecycle.request_assignment(proposed, candidate)
-    assert lifecycle.assignment == original
+    assert lifecycle.snapshot().assignment == original
     lifecycle.consent(False)
-    assert lifecycle.assignment == original and lifecycle.selected == base
+    assert lifecycle.snapshot().assignment == original and lifecycle.snapshot().selected == base
     assert not lifecycle.request_assignment(proposed, candidate)
     lifecycle.consent(True)
     lifecycle.advance_preparation()
     created[0].state = TranslationState.FAILED
     assert lifecycle.advance_preparation() is None
-    assert lifecycle.assignment == original
+    assert lifecycle.snapshot().assignment == original
     created[0].ended = True
     outcome = lifecycle.advance_preparation()
     assert outcome and not outcome.committed
-    assert lifecycle.assignment == original and lifecycle.selected == base and not receipts
+    assert (
+        lifecycle.snapshot().assignment == original
+        and lifecycle.snapshot().selected == base
+        and not receipts
+    )
 
 
 def test_category_assignment_commits_atomically_after_preparation():
@@ -194,8 +200,10 @@ def test_category_assignment_commits_atomically_after_preparation():
     assert not lifecycle.request_assignment(proposed, candidate)
     lifecycle.consent(True)
     lifecycle.advance_preparation()
-    assert lifecycle.assignment == original
+    assert lifecycle.snapshot().assignment == original
     created[0].state = TranslationState.READY
     outcome = lifecycle.advance_preparation()
-    assert outcome and outcome.committed and lifecycle.assignment == proposed
-    assert lifecycle.session is created[0] and lifecycle.standby and receipts == ["new"]
+    assert outcome and outcome.committed and lifecycle.snapshot().assignment == proposed
+    assert (
+        lifecycle.publication is created[0] and lifecycle.snapshot().standby and receipts == ["new"]
+    )

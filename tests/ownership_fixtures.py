@@ -174,7 +174,7 @@ class Replay:
 
         self.shutdown = ShutdownCoordinator(
             self.live,
-            self.translation,
+            self.translation.lifecycle,
             setup_busy=lambda: self.setup.busy or self.cloud.busy or not self.inventory.finished,
             cancel_setup=cancel,
             preferences_idle=lambda: self.preferences.idle,
@@ -225,12 +225,12 @@ class Replay:
             worker.ended = True
         for worker in self.route_workers:
             worker.finish()
-        if self.translation.session:
+        if self.translation.lifecycle.publication:
             # Route fakes and local worker fakes expose distinct completion fields.
-            if isinstance(self.translation.session, Worker):
-                self.translation.session.ended = True
-            elif isinstance(self.translation.session, Mock):
-                self.translation.session.finished = True
+            if isinstance(self.translation.lifecycle.publication, Worker):
+                self.translation.lifecycle.publication.ended = True
+            elif isinstance(self.translation.lifecycle.publication, Mock):
+                self.translation.lifecycle.publication.finished = True
         for operation in self.operations:
             operation.finish(cancelled=True)
         self.setup.advance()

@@ -81,7 +81,7 @@ def main() -> None:
         window = MainWindow(application, windows, driver)
         application = app_owner(window)
         try:
-            drain(app, lambda: application.cloud._worker is None)
+            drain(app, lambda: not application.cloud.busy)
             window.windows_combo.clear()
             window.windows_combo.addItem("DanteJP Demo · 日本語のテスト")
             window.routing.simple.setCurrentIndex(
@@ -96,7 +96,7 @@ def main() -> None:
             window.grab().save(str(args.output / "main-simple.png"))
             assert window.routing.plan_notice.isVisible()
             assert tuple(c.key for c in window.routing.active_cloud) == (profile.key,)
-            assert application.translation.session is None
+            assert application.translation.lifecycle.publication is None
             evidence["configuration_without_capture_makes_no_requests"] = True
             window.routing.simple.showPopup()
             app.processEvents()
@@ -134,6 +134,20 @@ def main() -> None:
             assert saved and saved.text() == "✓ Key saved"
             assert missing and "Connection needed" in missing.text()
             window._settings.grab().save(str(args.output / "models-list.png"))
+            # Simulate reported usage at the application-owned meter, without sending
+            # any provider request or changing the configuration revision.
+            service.allowance(profile.key).reserve(profile, time.monotonic())
+            service.allowance(profile.key).record({"input_tokens": 123, "output_tokens": 7})
+            drain(app, lambda: "123 input / 7 output" in panel.usage.text())
+            assert profile.name in panel.usage.text() and "1/1000" in panel.usage.text()
+            panel.usage.grab().save(str(args.output / "usage.png"))
+            panel.table.selectRow(1)
+            assert api_profile.name in panel.usage.text() and "0/1000" in panel.usage.text()
+            panel.table.selectRow(0)
+            assert "1/1000" in panel.usage.text()
+            evidence["usage_refreshes_without_configuration_change_and_follows_selected_model"] = (
+                True
+            )
             panel.edit.click()
             editor = panel.editor
             assert editor
@@ -174,7 +188,7 @@ def main() -> None:
                 window.routing.simple.setCurrentIndex(index)
                 assert (
                     tuple(c.key for c in window.routing.active_cloud) == (selected.key,)
-                    and application.translation.session is None
+                    and application.translation.lifecycle.publication is None
                 )
             evidence["gemini_and_claude_saved_connections_and_model_choices"] = True
             panel.open_editor(gemini)

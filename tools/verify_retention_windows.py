@@ -196,7 +196,7 @@ def main() -> int:
                     assert (
                         application.live.visual is None
                         and application.live.ocr is None
-                        and application.translation.session is None
+                        and application.translation.lifecycle.publication is None
                     )
                     evidence["all_workers_stopped"] = True
                     evidence["publication_checks"] = publication_checks
@@ -255,8 +255,8 @@ def main() -> int:
             if baseline is None:
                 if (
                     len(showing[1]) < 6
-                    or not application.translation.session
-                    or application.translation.session.snapshot().pending
+                    or not application.translation.lifecycle.publication
+                    or application.translation.lifecycle.publication.snapshot().pending
                 ):
                     return
                 baseline = showing

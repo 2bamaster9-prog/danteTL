@@ -194,16 +194,17 @@ def main() -> int:
             if application.live.ocr and application.live.ocr.snapshot().state == OcrState.FAILED:
                 raise RuntimeError(application.live.ocr.snapshot().message)
             if (
-                application.translation.session
-                and application.translation.session.snapshot().state == TranslationState.FAILED
+                application.translation.lifecycle.publication
+                and application.translation.lifecycle.publication.snapshot().state
+                == TranslationState.FAILED
             ):
-                raise RuntimeError(application.translation.session.snapshot().message)
+                raise RuntimeError(application.translation.lifecycle.publication.snapshot().message)
             result = window.inspector.result
             if (
                 args.typewriter
                 and reveal_finished
                 and not swapped
-                and application.translation.session
+                and application.translation.lifecycle.publication
                 and any(
                     t.request.source == translation_source for t in window._overlay._translations
                 )
@@ -214,8 +215,10 @@ def main() -> int:
             if stage == 0 and args.typewriter and result is not None:
                 demo.reveal_active = True
                 if demo.revealed < sum(map(len, DIALOGUE_LINES)):
-                    if application.translation.session:
-                        for translated in application.translation.session.snapshot().results:
+                    if application.translation.lifecycle.publication:
+                        for (
+                            translated
+                        ) in application.translation.lifecycle.publication.snapshot().results:
                             assert translated.request.source == "旅人", (
                                 "Premature dialogue translation: " + translated.request.source
                             )
@@ -232,10 +235,10 @@ def main() -> int:
                         "Track blinked between OCR passes"
                     )
                 if continuity_request is not None:
-                    assert application.translation.session is not None
+                    assert application.translation.lifecycle.publication is not None
                     assert any(
                         t.request == continuity_request
-                        for t in application.translation.session.snapshot().results
+                        for t in application.translation.lifecycle.publication.snapshot().results
                     ), "English disappeared between slow OCR passes"
                     assert any(
                         t.request == continuity_request for t in window._overlay._translations
@@ -280,9 +283,9 @@ def main() -> int:
                 phrase = next(t for t in tracks if t.track_id == phrase_id)
                 assert phrase.bounds == phrase_bounds, "Stationary dialogue box changed bounds"
                 if args.translation:
-                    if application.translation.session is None:
+                    if application.translation.lifecycle.publication is None:
                         return
-                    translated = application.translation.session.snapshot()
+                    translated = application.translation.lifecycle.publication.snapshot()
                     if not translated.results or translated.pending:
                         return
                     if not swapped:
@@ -349,7 +352,7 @@ def main() -> int:
                                 border_owners = (
                                     capture,
                                     application.live.ocr,
-                                    application.translation.session,
+                                    application.translation.lifecycle.publication,
                                 )
                                 window.border_check.setChecked(False)
                         continuity_polls += 1
@@ -360,7 +363,7 @@ def main() -> int:
                             assert border_owners == (
                                 application.live.capture,
                                 application.live.ocr,
-                                application.translation.session,
+                                application.translation.lifecycle.publication,
                             ), "Border change replaced a processing owner"
                             capture = application.live.capture
                             assert capture is not None
@@ -399,7 +402,7 @@ def main() -> int:
                             assert len(history) == 1, (
                                 "Grouping/model swaps duplicated the same turn"
                             )
-                            before = application.translation.session
+                            before = application.translation.lifecycle.publication
                             window.history_button.click()
                             app.processEvents()
                             assert not window.history_panel.isModal()
@@ -418,7 +421,7 @@ def main() -> int:
                                     str(args.output.with_name("capture-running.png"))
                                 )
                             window.history_panel.hide()
-                            assert application.translation.session is before
+                            assert application.translation.lifecycle.publication is before
                             evidence["history_panel_independent"] = True
                             demo.raise_()
                             demo.activateWindow()
@@ -502,7 +505,7 @@ def main() -> int:
                         application.live.capture,
                         application.live.ocr,
                         application.live.visual,
-                        application.translation.session,
+                        application.translation.lifecycle.publication,
                     )
                     english = window._overlay._translations
                     window._original_changed(True)
@@ -518,7 +521,7 @@ def main() -> int:
                         application.live.capture,
                         application.live.ocr,
                         application.live.visual,
-                        application.translation.session,
+                        application.translation.lifecycle.publication,
                     ), "Original hold replaced processing workers"
                     window.overlay_check.setChecked(False)
                     window._original_changed(True)
@@ -554,7 +557,7 @@ def main() -> int:
             elif stage == 5 and application.live.capture is None:
                 assert window.start_button.property("tone") == "idle"
                 assert application.live.ocr is None
-                assert application.translation.session is None
+                assert application.translation.lifecycle.publication is None
                 assert application.live.visual is None
                 assert window.inspector.result is None
                 if args.device != "cpu":
@@ -573,7 +576,7 @@ def main() -> int:
                 stage = 7
             elif stage == 7 and application.shutdown.snapshot().phase == "ready":
                 assert application.live.ocr is None
-                assert application.translation.session is None
+                assert application.translation.lifecycle.publication is None
                 assert application.live.visual is None
                 assert not window.isVisible()
                 evidence["close_finishes_all_workers"] = True

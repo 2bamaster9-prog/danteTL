@@ -712,7 +712,7 @@ def test_original_hold_is_transient_and_focus_loss_cancels_it(app, tmp_path):
     workers = (
         application.live.capture,
         application.live.ocr,
-        application.translation.session,
+        application.translation.lifecycle.publication,
     )
     before = application.view.reset
     window._overlay.show()
@@ -722,7 +722,7 @@ def test_original_hold_is_transient_and_focus_loss_cancels_it(app, tmp_path):
     assert (
         application.live.capture,
         application.live.ocr,
-        application.translation.session,
+        application.translation.lifecycle.publication,
     ) == workers
     hotkeys.hold_changed(False)
     assert not application.original
@@ -838,7 +838,10 @@ def test_downloaded_model_without_runtime_stays_visible_and_explains_setup(
     assert "runtime setup" in window.translation_status.text()
     window.backend_combo.setCurrentIndex(find_model(window.backend_combo, choice))
     setup.assert_called_once()
-    assert window.backend_combo.currentData() is None and application.translation.session is None
+    assert (
+        window.backend_combo.currentData() is None
+        and application.translation.lifecycle.publication is None
+    )
     factory.assert_not_called()
     window.close()
     window.deleteLater()
@@ -974,7 +977,10 @@ def test_cpu_model_selection_is_usable_and_notice_does_not_request_setup(app, mo
     window.backend_combo.setCurrentIndex(find_model(window.backend_combo, choice))
     window.backend_combo.activated.emit(window.backend_combo.currentIndex())
     window.driver.refresh(inspect=True)
-    assert application.translation.selected == choice and window.translate_check.isEnabled()
+    assert (
+        application.translation.lifecycle.snapshot().selected == choice
+        and window.translate_check.isEnabled()
+    )
     assert choice.performance_notice in window.notice.text()
     assert window.models_button.text() == "Acceleration options"
     setup.assert_not_called()
@@ -1071,7 +1077,10 @@ def test_switch_clears_painted_and_paused_english_rejects_late_reply_and_keeps_m
         window.close()
         drain(
             window,
-            lambda: not application.shutdown.active or application.translation.session is None,
+            lambda: (
+                not application.shutdown.active
+                or application.translation.lifecycle.publication is None
+            ),
         )
         window.deleteLater()
 
@@ -1096,16 +1105,29 @@ def test_app_shutdown_drains_startup_hardware_check(app, tmp_path):
 def test_runtime_restart_waits_for_translation_and_recovers_if_launch_fails(
     app, tmp_path, monkeypatch
 ):
+    from ownership_fixtures import Route
+
     from dantejp.application.hotkeys import HotkeyAction, Hotkeys
 
     windows = Mock()
     windows.list_targets.return_value = []
     native = Mock()
     hotkeys = Hotkeys(native)
-    window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache", hotkeys=hotkeys)
+    worker = Route()
+    monkeypatch.setattr(
+        "dantejp.composition.RoutedTranslationSession.assigned", lambda *a, **k: worker
+    )
+    window = MainWindow(
+        windows,
+        Mock(),
+        (BackendChoice("Fixture", Mock(), "fixture"),),
+        scene_feed=True,
+        cache_path=tmp_path / "cache",
+        hotkeys=hotkeys,
+    )
     application = app_owner(window)
-    worker = Mock(finished=False)
-    application.translation.session = worker
+    show_scene(window)
+    assert application.translation.lifecycle.publication is worker
 
     def fail_restart(*args, **kwargs):
         assert not hotkeys.shortcut(HotkeyAction.OVERLAY)
@@ -1118,9 +1140,9 @@ def test_runtime_restart_waits_for_translation_and_recovers_if_launch_fails(
     monkeypatch.setattr(QMessageBox, "warning", lambda *a: warnings.append(a[-1]))
     settings(window).restart_requested.emit(tmp_path)
     assert application.shutdown.active
-    worker.request_stop.assert_called()
+    assert worker.stops
     restart.assert_not_called()
-    worker.finished = True
+    worker.finish()
     window.close()
     drain(window, lambda: not application.shutdown.active)
     restart.assert_called_once()
@@ -1209,16 +1231,16 @@ def test_preparation_decline_preserves_selection_and_accept_loads_once_off_ui(
     drain(window, entered.is_set)
     progress = window.findChild(QProgressDialog)
     assert progress is not None and progress.maximum() == 0
-    assert not receipts and application.translation.preparing == gemma
-    assert isinstance(application.translation.session, TranslationSession)
+    assert not receipts and application.translation.lifecycle.snapshot().proposed == gemma
+    assert isinstance(application.translation.lifecycle.publication, TranslationSession)
     assert len(calls) == 1 and calls[0] != threading.get_ident()
     release.set()
-    drain(window, lambda: application.translation.preparing is None)
+    drain(window, lambda: not application.translation.lifecycle.snapshot().preparing)
     drain(window, lambda: receipts == ["new"])
     assert len(calls) == 1
     assert (
         window.backend_combo.currentData() == window.routing.resolve(model_reference(gemma))
-        and application.translation.session is not None
+        and application.translation.lifecycle.publication is not None
     )
     window.close()
     drain(window, lambda: not window.driver.timer.isActive())
@@ -1240,7 +1262,7 @@ def test_failed_preparation_restores_previous_selection_without_a_receipt(
     window = MainWindow(windows, Mock(), (base, bad), cache_path=tmp_path / "cache")
     application = app_owner(window)
     window.backend_combo.setCurrentIndex(find_model(window.backend_combo, bad))
-    drain(window, lambda: application.translation.preparing is None)
+    drain(window, lambda: not application.translation.lifecycle.snapshot().preparing)
     assert window.backend_combo.currentData() == window.routing.resolve(model_reference(base))
     assert not receipts and errors == ["GPU unavailable"]
     window.close()
@@ -1248,31 +1270,36 @@ def test_failed_preparation_restores_previous_selection_without_a_receipt(
 
 
 def test_nested_consent_event_loop_does_not_unload_previous_model(app, tmp_path, monkeypatch):
+    from ownership_fixtures import Route
+
     windows = Mock()
     windows.list_targets.return_value = []
     base = BackendChoice("E4B fixture", Mock(), "gemma-e4b")
     gemma = BackendChoice("Gemma", Mock(), "gemma", "new")
     monkeypatch.setattr("dantejp.runtime.model_store.is_prepared", lambda key: not key)
+    session = Route()
+    monkeypatch.setattr(
+        "dantejp.composition.RoutedTranslationSession.assigned", lambda *a, **k: session
+    )
     window = MainWindow(
         windows, Mock(), (base, gemma), scene_feed=True, cache_path=tmp_path / "cache"
     )
     application = app_owner(window)
-    session = Mock(finished=False)
-    session.snapshot.return_value = TranslationSnapshot(TranslationState.READY)
-    application.translation.session = session
+    show_scene(window)
+    assert application.translation.lifecycle.publication is session
 
     def question(*args):
         show_scene(window)
-        session.request_stop.assert_not_called()
+        assert session.stops == 0
         return QMessageBox.StandardButton.No
 
     monkeypatch.setattr(QMessageBox, "question", question)
     window.backend_combo.setCurrentIndex(find_model(window.backend_combo, gemma))
     assert (
         window.backend_combo.currentData() == window.routing.resolve(model_reference(base))
-        and application.translation.session == session
+        and application.translation.lifecycle.publication == session
     )
-    application.translation.session = None
+    session.finish()
     window.close()
     window.deleteLater()
 

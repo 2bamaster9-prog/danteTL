@@ -136,8 +136,8 @@ class ProfileWindow(MainWindow):
             if any(normalized(block.text) in self.expected for block in tracks):
                 trial.setdefault("eligible_at", now)
         super()._render_application(inspect)
-        if trial is not None and application.translation.session:
-            snapshot = application.translation.session.snapshot()
+        if trial is not None and application.translation.lifecycle.publication:
+            snapshot = application.translation.lifecycle.publication.snapshot()
             translated = tuple(
                 item
                 for item in self._overlay._translations
@@ -292,8 +292,8 @@ def main() -> int:
                 return
             assert now - started < 120 * args.repeats, "Profile timed out"
             snapshot = (
-                application.translation.session.snapshot()
-                if application.translation.session
+                application.translation.lifecycle.publication.snapshot()
+                if application.translation.lifecycle.publication
                 else None
             )
             assert snapshot is None or snapshot.state != TranslationState.FAILED, snapshot

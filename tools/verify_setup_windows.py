@@ -83,7 +83,10 @@ def main() -> int:
             if stage == 0:
                 if not application.live.capture or not application.live.capture.snapshot().frame:
                     return
-                assert application.live.ocr is None and application.translation.session is None
+                assert (
+                    application.live.ocr is None
+                    and application.translation.lifecycle.publication is None
+                )
                 assert not window._overlay._translations
                 window.grab().save(str(output / "capture-only.png"))
                 evidence["capture_without_models"] = True
@@ -152,8 +155,8 @@ def main() -> int:
                     window._runtime_dialog.close()
                     assert window.backend_combo.currentData() is None
                     assert (
-                        application.translation.session is None
-                        and application.translation.preparing is None
+                        application.translation.lifecycle.publication is None
+                        and not application.translation.lifecycle.snapshot().preparing
                     )
                     evidence["downloaded_gemma_visible_without_runtime"] = True
                     evidence["missing_runtime_explained_without_loading"] = True
@@ -196,7 +199,7 @@ def main() -> int:
                     window.backend_combo.setCurrentIndex(index)
                 stage = 3
             elif stage == 3:
-                if application.translation.preparing:
+                if application.translation.lifecycle.snapshot().preparing:
                     preparation_ticks += 1
                     if preparation_ticks == 3:
                         assert window._progress_dialog
@@ -204,8 +207,9 @@ def main() -> int:
                     return
                 assert len(loads) == 1
                 assert (
-                    application.translation.session
-                    and application.translation.session.snapshot().state == TranslationState.READY
+                    application.translation.lifecycle.publication
+                    and application.translation.lifecycle.publication.snapshot().state
+                    == TranslationState.READY
                 )
                 # Preparation commits immediately; inventory persists its receipt on
                 # the background worker. Readiness does not wait for that disk write.
@@ -214,9 +218,8 @@ def main() -> int:
                 evidence["responsive_preparation_ui_polls"] = preparation_ticks
                 evidence["prepared_worker_reused"] = True
                 if (
-                    application.translation.selected
-                    and application.translation.selected.key == "gemma-cpu"
-                ):
+                    selected := application.translation.lifecycle.snapshot().selected
+                ) and selected.key == "gemma-cpu":
                     window._update_notice()
                     assert "CPU translation" in window.notice.text()
                     evidence["cpu_performance_notice"] = True
@@ -224,8 +227,8 @@ def main() -> int:
                 stage = 4
             elif stage == 4:
                 if (
-                    not application.translation.session
-                    or not application.translation.session.snapshot().results
+                    not application.translation.lifecycle.publication
+                    or not application.translation.lifecycle.publication.snapshot().results
                 ):
                     return
                 assert len(loads) == 1
@@ -233,7 +236,7 @@ def main() -> int:
                 window.translate_check.setChecked(False)
                 stage = 5
             elif stage == 5:
-                if application.translation.session:
+                if application.translation.lifecycle.publication:
                     return
                 assert not window._overlay._translations
                 evidence[
@@ -254,10 +257,10 @@ def main() -> int:
             evidence["ocr"] = window.ocr_status.text()
             evidence["translation"] = window.translation_status.text()
             evidence["assignment"] = repr(window.routing.selection)
-            evidence["model_lifecycle"] = str(application.translation.snapshot().phase)
+            evidence["model_lifecycle"] = str(application.translation.lifecycle.snapshot().phase)
             evidence["worker_state"] = (
-                str(application.translation.session.snapshot().state)
-                if application.translation.session
+                str(application.translation.lifecycle.publication.snapshot().state)
+                if application.translation.lifecycle.publication
                 else None
             )
             evidence["error"] = traceback.format_exc()

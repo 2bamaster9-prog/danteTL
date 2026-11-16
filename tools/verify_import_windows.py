@@ -21,7 +21,8 @@ from dantejp.capture.windows import Windows
 from dantejp.domain import WindowTarget
 from dantejp.runtime.model_store import model_catalog
 from dantejp.translation.models import gguf as gguf_models
-from dantejp.translation.worker import TranslationState
+from dantejp.translation.routing import RoutedTranslationSession
+from dantejp.translation.worker import TranslationSession, TranslationState
 from dantejp.ui.demo import DemoWindow
 
 
@@ -85,16 +86,17 @@ def main() -> None:
             window.backend_combo.setCurrentIndex(gemma_index)
             wait(
                 lambda: (
-                    application.translation.session
-                    and application.translation.session.snapshot().state == TranslationState.READY
-                    and application.translation.preparing is None
+                    application.translation.lifecycle.publication
+                    and application.translation.lifecycle.publication.snapshot().state
+                    == TranslationState.READY
+                    and not application.translation.lifecycle.snapshot().preparing
                 )
             )
             old_choice, old_worker = (
-                application.translation.selected,
-                application.translation.session,
+                application.translation.lifecycle.snapshot().selected,
+                application.translation.lifecycle.publication,
             )
-            assert old_worker is not None
+            assert isinstance(old_worker, (TranslationSession, RoutedTranslationSession))
             wait(lambda: window._overlay._translations)
             window._settings.show_models()
             manager._import()
@@ -107,18 +109,21 @@ def main() -> None:
             dialog.cancel()
             wait(lambda: not dialog.busy)
             assert not dialog.add_button.isEnabled() and not registry.exists()
-            assert application.translation.selected == old_choice
+            assert application.translation.lifecycle.snapshot().selected == old_choice
             dialog.start_test()
             wait(lambda: not dialog.busy)
             assert dialog.add_button.isEnabled(), dialog.status.text()
-            assert old_worker.finished and application.translation.selected == old_choice
+            assert (
+                old_worker.finished
+                and application.translation.lifecycle.snapshot().selected == old_choice
+            )
             assert not registry.exists(), "Testing must not register or select the model"
             dialog.grab().save(str(output / "import-review.png"))
             assert dialog.service.probe_result
             result = dialog.service.probe_result
             dialog.add_button.click()
             wait(lambda: not dialog.busy and registry.exists())
-            assert application.translation.selected == old_choice
+            assert application.translation.lifecycle.snapshot().selected == old_choice
             model = gguf_models.read_registry()[0]
             # Registration completes before the bounded inventory worker publishes it.
             wait(
@@ -135,21 +140,23 @@ def main() -> None:
             window.backend_combo.setCurrentIndex(index)
             wait(
                 lambda: (
-                    application.translation.selected
-                    and application.translation.selected.key == model.key
-                    and application.translation.session
-                    and application.translation.session.snapshot().state == TranslationState.READY
+                    (selected := application.translation.lifecycle.snapshot().selected)
+                    and selected.key == model.key
+                    and application.translation.lifecycle.publication
+                    and application.translation.lifecycle.publication.snapshot().state
+                    == TranslationState.READY
                 )
             )
             wait(lambda: window._overlay._translations)
             window.grab().save(str(output / "imported-active.png"))
-            imported_worker = application.translation.session
+            imported_worker = application.translation.lifecycle.publication
             window.backend_combo.setCurrentIndex(gemma_index)
             wait(
                 lambda: (
-                    application.translation.session
-                    and application.translation.session.snapshot().state == TranslationState.READY
-                    and application.translation.selected == old_choice
+                    application.translation.lifecycle.publication
+                    and application.translation.lifecycle.publication.snapshot().state
+                    == TranslationState.READY
+                    and application.translation.lifecycle.snapshot().selected == old_choice
                 )
             )
             assert imported_worker is not None
@@ -165,7 +172,10 @@ def main() -> None:
             manager.grab().save(str(output / "registered-model.png"))
             manager._remove()
             wait(lambda: not manager.busy and not gguf_models.read_registry())
-            assert args.model.is_file() and application.translation.selected == old_choice
+            assert (
+                args.model.is_file()
+                and application.translation.lifecycle.snapshot().selected == old_choice
+            )
             assert not warning.called, warning.call_args
             (output / "results.json").write_text(
                 json.dumps(

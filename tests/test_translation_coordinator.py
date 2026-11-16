@@ -14,6 +14,75 @@ from dantejp.translation.selection import AssignmentChange
 from dantejp.translation.worker import BackendChoice
 
 
+def test_prepared_worker_adoption_uses_loaded_identity_after_other_category_changes(tmp_path):
+    from dantejp.translation.values import TranslationState
+
+    first = BackendChoice("First", Mock(), "first", "first-weights")
+    second = BackendChoice("Second", Mock(), "second")
+    replay = Replay(tmp_path, data=InventoryData((first, second)))
+    try:
+        owner = replay.translation
+        assert not owner.assign(
+            AssignmentChange(TranslationPlan("local:first", "local:first"), "local:first")
+        )
+        owner.lifecycle.consent(True)
+        owner.lifecycle.advance_preparation()
+        prepared = replay.workers[-1]
+        prepared.state = TranslationState.READY
+        outcome = owner.lifecycle.advance_preparation()
+        assert outcome and outcome.committed
+        # The other category can change before the prepared worker joins a router.
+        plan = TranslationPlan("local:first", "local:second")
+        assert owner.assign(AssignmentChange(plan, "local:second"))
+        assert owner.lifecycle.snapshot().selected == second
+        owner.refresh_route(preserve_prepared=True)
+        assert owner.advance_activity(running=True, enabled=True).worker
+        _, arguments = replay.routes[-1]
+        assert arguments["prepared"] == ("local:first", prepared)
+        assert len(replay.workers) == 1 and prepared.stops == 0
+        assert owner.plan == plan
+    finally:
+        replay.close()
+
+
+def test_successful_preparation_updates_options_even_if_receipt_write_fails(tmp_path):
+    from dantejp.translation.values import TranslationState
+
+    choice = BackendChoice("New", Mock(), "new", "new-weights")
+    replay = Replay(tmp_path, data=InventoryData((choice,)))
+    try:
+        # A transient persistence failure must not hide readiness in the running app.
+        replay.receipts.clear()
+        replay.inventory.record_prepared = Mock(side_effect=OSError("read-only"))
+        from test_model_lifecycle import Worker
+
+        from dantejp.application.translation_coordinator import TranslationCoordinator
+
+        worker = Worker(choice)
+        owner = TranslationCoordinator(
+            replay.inventory,
+            replay.cloud,
+            lambda _: worker,
+            Mock(),
+            tmp_path / "cache",
+            Preferences(),
+        )
+        assert not owner.options()[0].prepared
+        owner.assign(AssignmentChange(TranslationPlan("local:new", "local:new"), "local:new"))
+        owner.lifecycle.consent(True)
+        owner.lifecycle.advance_preparation()
+        worker.state = TranslationState.READY
+        outcome = owner.lifecycle.advance_preparation()
+        assert outcome and outcome.committed
+        assert owner.options()[0].prepared
+        assert owner.lifecycle.snapshot().preparation_revision == 1
+        owner.lifecycle.shutdown()
+        worker.ended = True
+        assert owner.lifecycle.finish_shutdown()
+    finally:
+        replay.close()
+
+
 @pytest.mark.parametrize(
     "values,expected",
     [

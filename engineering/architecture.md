@@ -30,7 +30,8 @@ Shared asset validation belongs in `runtime.assets`; OCR owns only its pinned mo
 | `composition` | Construct services, dependencies and desktop adapter |
 | `ApplicationSession` | Serialize commands/completions; coordinate capture, setup, translation and shutdown |
 | `CaptureLifecycle` | Freeze device/rate choices, validate capture targets/geometry, and gate capture teardown |
-| `TranslationCoordinator` / `ModelLifecycle` | Authoritative assignments, resolution, consent/preparation, route commitment, worker availability and prepared-worker adoption |
+| `TranslationCoordinator` | Resolve selections, model identities, backend recipes and classifier configuration |
+| `ModelLifecycle` | Commit assignments; own consent/preparation, route commitment, worker availability and adoption |
 | `application.presentation` | Pure scene-reset/status projection; no worker operations |
 | `CloudServices` | Backend/account/catalog services and credentials; no widgets |
 | `SetupCoordinator` | Download/import, runtime and guide operations, cancellation and probe permits |
@@ -52,8 +53,11 @@ flags. Translation returns a typed activity (probe, preparation, standby, inacti
 active), with a publication worker only when usable. The application joins probe readiness with
 classifier cleanup, and sends current scene requests through `LiveSession` only. Capture teardown
 waits for translation before draining OCR/visual owners. Status formatting cannot advance workers.
-`ModelLifecycle` gates route activation, consent, probing and shutdown. The translation coordinator
-resolves per-model identities and recipes; the routed owner retains unchanged workers during committed
+`TranslationCoordinator` owns a `ModelLifecycle` through composition. Lifecycle state is private;
+commands change it and immutable snapshots expose it. Assignment/readiness revisions can be read
+without polling workers. Prepared-worker handoff pairs the worker with the model it loaded; a later
+selection cannot relabel that resource. `ModelLifecycle` gates route activation, consent, probing and
+shutdown. The coordinator resolves per-model identities and recipes; the routed owner retains unchanged workers during committed
 assignment changes. It drains replaced workers before starting replacements and coalesces rapid edits
 to the latest plan. Unchanged lanes keep processing; retired replies cannot publish. Active plus retiring
 owners remain bounded to two. Identity includes local weights/runtime preparation or cloud profile,

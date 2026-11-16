@@ -227,7 +227,9 @@ def main() -> int:
                     return
                 assert window._runtime_dialog and window._runtime_dialog.isVisible()
                 assert settings.tabs.tabText(settings.tabs.currentIndex()) == "Acceleration"
-                assert not application.translation.session and not application.live.ocr
+                assert (
+                    not application.translation.lifecycle.publication and not application.live.ocr
+                )
                 settings.grab().save(str(args.output / "runtime.png"))
                 runtime = settings.runtime
                 settings.show_hotkeys()

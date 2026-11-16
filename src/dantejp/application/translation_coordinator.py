@@ -8,7 +8,12 @@ from pathlib import Path
 from dantejp.application.cloud_services import CloudServices
 from dantejp.application.live_session import LiveSession
 from dantejp.application.model_inventory import ModelInventory
-from dantejp.application.model_lifecycle import ModelLifecycle, RouteSelection
+from dantejp.application.model_lifecycle import (
+    ModelLifecycle,
+    PreparedWorker,
+    RouteInput,
+    RouteSelection,
+)
 from dantejp.application.preference_values import Preferences
 from dantejp.application.translation_activity import (
     InactiveReason,
@@ -35,8 +40,8 @@ def model_reference(choice: BackendChoice | CloudProfile | None) -> str:
     return "cloud:" + choice.key if choice else ""
 
 
-class TranslationCoordinator(ModelLifecycle):
-    """The existing transition state machine, with the policy formerly owned by widgets."""
+class TranslationCoordinator:
+    """Resolve model policy; an owned lifecycle exclusively commits and operates workers."""
 
     def __init__(
         self,
@@ -49,7 +54,7 @@ class TranslationCoordinator(ModelLifecycle):
         *,
         on_change: Callable[[], None] = lambda: None,
     ) -> None:
-        super().__init__(create, inventory.prepared, inventory.record_prepared)
+        self._lifecycle = ModelLifecycle(create, inventory.prepared, inventory.record_prepared)
         self.inventory, self.cloud = inventory, cloud
         self._route_create, self._cache, self._notify = route_create, cache, on_change
         self._preferences = preferences
@@ -64,12 +69,16 @@ class TranslationCoordinator(ModelLifecycle):
         self.restore()
 
     @property
+    def lifecycle(self) -> ModelLifecycle:
+        return self._lifecycle
+
+    @property
     def choices(self) -> tuple[BackendChoice, ...]:
         return self.inventory.snapshot().data.backends
 
     @property
     def plan(self) -> TranslationPlan:
-        return self.assignment or TranslationPlan()
+        return self._lifecycle.assignment or TranslationPlan()
 
     def restore(self) -> None:
         if self._restored or not self.inventory.snapshot().loaded:
@@ -77,19 +86,20 @@ class TranslationCoordinator(ModelLifecycle):
         p = self._preferences
         initial = next((c for c in self.choices if c.preference_key == p.model), None)
         if p.model == "auto":
-            initial = next((c for c in self.choices if self.is_prepared(c)), None)
-        self.restore_selection(initial)
+            initial = next((c for c in self.choices if self._lifecycle.is_prepared(c)), None)
+        selected = initial if initial and self._lifecycle.is_prepared(initial) else None
         legacy = TranslationPlan.legacy(
             p.translation_route,
-            self.selected.preference_key if self.selected else "",
+            selected.preference_key if selected else "",
             p.cloud_model,
         )
-        self.assignment = TranslationPlan(
+        plan = TranslationPlan(
             legacy.short if p.short_model == "legacy" else p.short_model,
             legacy.long if p.long_model == "legacy" else p.long_model,
             p.translate_short,
             p.translate_long,
         )
+        self._lifecycle.restore_selection(initial, assignment=plan)
         self._restored = True
 
     @property
@@ -109,7 +119,7 @@ class TranslationCoordinator(ModelLifecycle):
             cloud.profiles,
             cloud.available,
             cloud.revision,
-            frozenset(self._prepared_this_run),
+            self._lifecycle.preparation_revision,
         )
         if key == self._options_key:
             return self._options
@@ -119,7 +129,7 @@ class TranslationCoordinator(ModelLifecycle):
                 model_reference(c),
                 c.name,
                 c.key,
-                prepared=self.is_prepared(c),
+                prepared=self._lifecycle.is_prepared(c),
                 unavailable_reason=c.unavailable_reason,
                 performance_notice=c.performance_notice,
                 classifies=c.classifies,
@@ -154,20 +164,20 @@ class TranslationCoordinator(ModelLifecycle):
 
     def assign(self, change: AssignmentChange) -> bool:
         choice = self.resolve(change.reference)
-        return self.request_assignment(
+        return self._lifecycle.request_assignment(
             change.plan, choice if isinstance(choice, BackendChoice) else None
         )
 
     def refresh_route(self, *, preserve_prepared: bool = False) -> bool:
         self.restore()
-        self.refresh_choices(self.choices)
+        self._lifecycle.refresh_choices(self.choices)
         choices = tuple(self.resolve(key) for key in self.plan.active_models)
         remote = any(isinstance(c, CloudProfile) for c in choices)
         route = RouteSelection(
             "assigned",
             game=self.game if remote else "",
             available=any(
-                self.is_prepared(c)
+                self._lifecycle.is_prepared(c)
                 if isinstance(c, BackendChoice)
                 else self.cloud.available(c.key)
                 if isinstance(c, CloudProfile)
@@ -184,21 +194,21 @@ class TranslationCoordinator(ModelLifecycle):
                 for c in choices
             ),
         )
-        return self.configure_route(
+        return self._lifecycle.configure_route(
             route, partial(self._create_route, route), preserve_prepared=preserve_prepared
         )
 
     def _create_route(
         self,
         route: RouteSelection,
-        local: TranslationSession | RoutedTranslationSession | None,
+        local: RouteInput,
     ) -> RoutedTranslationSession:
         assert route.plan is not None
         factories = {}
         identities: dict[str, ModelIdentity] = {}
         names = {}
         for choice in route.identities:
-            if isinstance(choice, BackendChoice) and self.is_prepared(choice):
+            if isinstance(choice, BackendChoice) and self._lifecycle.is_prepared(choice):
                 factories[model_reference(choice)] = choice.create
                 identities[model_reference(choice)] = LocalIdentity(
                     choice.key, choice.preparation_id
@@ -219,7 +229,9 @@ class TranslationCoordinator(ModelLifecycle):
             route.plan,
             factories,
             self._cache,
-            prepared=(model_reference(self.selected), local) if local else None,
+            prepared=(model_reference(local.choice), local.worker)
+            if isinstance(local, PreparedWorker)
+            else None,
             on_change=self._notify,
             identities=identities,
             names=names,
@@ -232,7 +244,11 @@ class TranslationCoordinator(ModelLifecycle):
         choice = self.resolve(reference)
         factory: Callable[[], TranslationBackend] | None = None
         identity = ClassifierIdentity(reference, None)
-        if isinstance(choice, BackendChoice) and choice.classifies and self.is_prepared(choice):
+        if (
+            isinstance(choice, BackendChoice)
+            and choice.classifies
+            and self._lifecycle.is_prepared(choice)
+        ):
             factory = choice.create
             identity = ClassifierIdentity(
                 reference, LocalIdentity(choice.key, choice.preparation_id), available=True
@@ -245,7 +261,9 @@ class TranslationCoordinator(ModelLifecycle):
     def advance_activity(
         self, *, running: bool, enabled: bool, probing: bool = False
     ) -> TranslationActivity:
-        activity = super().advance_activity(running=running, enabled=enabled, probing=probing)
+        activity = self._lifecycle.advance_activity(
+            running=running, enabled=enabled, probing=probing
+        )
         if (
             activity.mode == TranslationMode.INACTIVE
             and activity.reason != InactiveReason.UNLOADING

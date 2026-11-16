@@ -121,16 +121,23 @@ def test_import_capability_does_not_depend_on_downloaded_model_rows(tmp_path):
 
 
 def test_probe_permit_requires_both_translation_and_classifier_cleanup(tmp_path):
-    replay = Replay(tmp_path, data=InventoryData(device="cpu"))
+    from dantejp.translation.worker import BackendChoice
+
+    replay = Replay(
+        tmp_path, data=InventoryData((BackendChoice("Fixture", Mock(), "fixture"),), device="cpu")
+    )
     try:
+        replay.translation.refresh_route()
+        replay.translation.advance_activity(running=True, enabled=True)
+        worker = replay.route_workers[-1]
         assert replay.setup.test_import("user.gguf", "auto")
         assert isinstance(replay.dependencies.probe, Mock)
         gate = replay.dependencies.probe.call_args.args[3]
-        replay.translation.suspend_for_probe = Mock(return_value=False)
         replay.live.suspend_history = Mock(return_value=False)
         replay.app.advance(1)
         assert not gate.is_set()
-        replay.translation.suspend_for_probe.return_value = True
+        assert worker.stops and not worker.finished
+        worker.finish()
         replay.app.advance(2)
         assert not gate.is_set()
         replay.live.suspend_history.return_value = True

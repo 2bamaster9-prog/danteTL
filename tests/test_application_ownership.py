@@ -130,7 +130,7 @@ def test_consent_is_one_shot_and_stale_responses_cannot_commit(replay):
     ready.state = TranslationState.READY
     replay.app.advance(3)
     assert replay.translation.plan == plan
-    assert replay.translation.session is ready
+    assert replay.translation.lifecycle.publication is ready
     replay.app.start_capture(replay.capture.target, 4)
     replay.app.advance(4)
     assert len(replay.routes) == 1

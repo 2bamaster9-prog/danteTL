@@ -231,65 +231,84 @@ def test_cloud_only_needs_no_local_model_and_keeps_english_until_real_change(
             calls.append(request)
             return httpx2.Response(
                 200,
-                json={"choices": [{"finish_reason": "stop", "message": {"content": "Settings"}}]},
+                json={
+                    "choices": [{"finish_reason": "stop", "message": {"content": "Settings"}}],
+                    "usage": {"prompt_tokens": 123, "completion_tokens": 7},
+                },
             )
 
         monkeypatch.setattr(
-            cloud_owner(panel),
-            "create_backend",
-            lambda p, game: CloudBackend(
-                p, "fixture", game=game, transport=httpx2.MockTransport(handle)
+            "dantejp.application.cloud_services.CloudBackend",
+            lambda *args, **kwargs: CloudBackend(
+                *args, **kwargs, transport=httpx2.MockTransport(handle)
             ),
         )
         window.routing.simple.setCurrentIndex(
             find_model(window.routing.simple, window.routing.resolve("cloud:" + profile.key))
         )
-        assert not application.translation.selected
+        assert not application.translation.lifecycle.snapshot().selected
         assert application.controls.assignment.active_models == ("cloud:" + profile.key,)
         block = TextBlock((TextTrack(1, "設定", Rect(10, 10, 100, 30)),))
         show_scene(window, (block,))
-        assert isinstance(application.translation.session, RoutedTranslationSession)
-        assert application.translation.session.local is None
+        assert isinstance(application.translation.lifecycle.publication, RoutedTranslationSession)
+        assert application.translation.lifecycle.publication.local is None
         drain(
             app,
             lambda: bool(
-                application.translation.session
-                and application.translation.session.snapshot().results
+                application.translation.lifecycle.publication
+                and application.translation.lifecycle.publication.snapshot().results
             ),
         )
         show_scene(window, (block,))
         before = application.view.english
         assert before and before[0].english == "Settings"
+        assert profile.name in panel.usage.text()
+        assert "1/1000 reserved requests" in panel.usage.text()
+        assert "123 input / 7 output" in panel.usage.text()
         for _ in range(30):
             show_scene(window, (block,))
             assert application.view.english == before
         assert len(calls) == 1
-        session = application.translation.session
+        assert service.usage(profile.key).requests == 1
+        session = application.translation.lifecycle.publication
         for _ in range(4):
             window.routing.advanced.setChecked(not window.routing.advanced.isChecked())
             show_scene(window, (block,))
-            assert application.translation.session is session and application.view.english == before
+            assert (
+                application.translation.lifecycle.publication is session
+                and application.view.english == before
+            )
         assert len(calls) == 1
         panel.open_editor(profile)
         assert panel.editor
         panel.editor.name.setText("Unsaved rename")
         panel.editor.reject()
         show_scene(window, (block,))
-        assert application.translation.session is session and application.view.english == before
+        assert (
+            application.translation.lifecycle.publication is session
+            and application.view.english == before
+        )
         assert len(calls) == 1
         window.routing.game_from_window.setChecked(False)
         window.routing.game.setText("Different game")
         window.routing.game.editingFinished.emit()
         assert not application.view.english
-        assert application.translation.session.snapshot().results == ()
+        assert application.translation.lifecycle.publication.snapshot().results == ()
+
+        def translated_after_switch():
+            show_scene(window, (block,))
+            return service.usage(profile.key).output_tokens == 14
+
+        drain(app, translated_after_switch)
+        show_scene(window, (block,))
+        assert "2/1000 reserved requests" in panel.usage.text()
+        assert "246 input / 14 output" in panel.usage.text()
     finally:
-        if application.translation.session:
-            application.translation.session.request_stop()
+        if application.translation.lifecycle.publication:
+            application.translation.lifecycle.shutdown()
             drain(
                 app,
-                lambda: (
-                    not application.translation.session or application.translation.session.finished
-                ),
+                lambda: application.translation.lifecycle.finish_shutdown(),
             )
         window.close()
         window.deleteLater()
@@ -341,7 +360,10 @@ def test_simple_selection_declined_preparation_and_custom_disclosure_preserve_ro
         assert window.routing.simple.currentData() == window.routing.resolve(
             model_reference(profile)
         )
-        assert not application.translation.preparing and not application.translation.session
+        assert (
+            not application.translation.lifecycle.snapshot().preparing
+            and not application.translation.lifecycle.publication
+        )
         window.routing.advanced.setChecked(True)
         window.routing.short_enabled.setChecked(False)
         selected = window.routing.selection
@@ -353,7 +375,8 @@ def test_simple_selection_declined_preparation_and_custom_disclosure_preserve_ro
         )
         window.routing.long_enabled.setChecked(False)
         assert (
-            not window.routing.selection.active_models and application.translation.selected is None
+            not window.routing.selection.active_models
+            and application.translation.lifecycle.snapshot().selected is None
         )
     finally:
         window.close()
@@ -537,31 +560,32 @@ def test_simple_local_preparation_commits_only_when_ready_and_reuses_worker(
         window.driver.timer.stop()
         previous = window.routing.selection
         window.routing.simple.setCurrentIndex(find_model(window.routing.simple, backend))
-        assert application.translation.preparing == backend and window.routing.selection == previous
+        assert (
+            application.translation.lifecycle.snapshot().proposed == backend
+            and window.routing.selection == previous
+        )
         window.driver.refresh(inspect=True)
-        prepared = application.translation.session
+        prepared = application.translation.lifecycle.publication
         assert prepared
         drain(app, lambda: prepared.snapshot().state.value == "ready")
         window.driver.refresh(inspect=True)
-        assert not app_owner(
-            window
-        ).translation.preparing and window.routing.selection == TranslationPlan(
-            "local:local-fixture", "local:local-fixture"
+        assert (
+            not app_owner(window).translation.lifecycle.snapshot().preparing
+            and window.routing.selection
+            == TranslationPlan("local:local-fixture", "local:local-fixture")
         )
         assert (
-            application.translation.session is prepared
-            and application.translation.standby
+            application.translation.lifecycle.publication is prepared
+            and application.translation.lifecycle.snapshot().standby
             and not engine.closed
         )
         assert factory.call_count == 1
     finally:
-        if application.translation.session:
-            application.translation.session.request_stop()
+        if application.translation.lifecycle.publication:
+            application.translation.lifecycle.shutdown()
             drain(
                 app,
-                lambda: (
-                    not application.translation.session or application.translation.session.finished
-                ),
+                lambda: application.translation.lifecycle.finish_shutdown(),
             )
         window.close()
         window.deleteLater()
@@ -589,7 +613,7 @@ def test_unconfigured_cloud_route_cannot_silently_use_local_or_start_network(
         drain(app, lambda: not application.cloud.busy)
         window.driver.timer.stop()
         show_scene(window)
-        assert not application.translation.session and not local_factory.called
+        assert not application.translation.lifecycle.publication and not local_factory.called
         assert "unavailable" in window.notice.text()
         focus_model = Mock()
         monkeypatch.setattr(window.routing, "focus_model", focus_model)

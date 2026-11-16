@@ -67,7 +67,7 @@ def application_session(
 
     shutdown = ShutdownCoordinator(
         live,
-        translation,
+        translation.lifecycle,
         setup_busy=lambda: setup.busy or cloud.busy or not inventory.finished,
         cancel_setup=cancel_setup,
         preferences_idle=lambda: preferences.idle,
