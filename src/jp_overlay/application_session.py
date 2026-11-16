@@ -5,7 +5,12 @@ from dataclasses import replace
 from pathlib import Path
 
 from jp_overlay.application_notice import NoticeInput, Notices, project_notices
-from jp_overlay.application_presentation import ocr_status, reset_scene, translation_status
+from jp_overlay.application_presentation import (
+    ocr_status,
+    processing_progress,
+    reset_scene,
+    translation_status,
+)
 from jp_overlay.application_values import (
     ApplicationControls,
     ShutdownPhase,
@@ -419,6 +424,11 @@ class ApplicationSession:
         if activity.clears_english:
             self.clear_english()
         if activity.mode == TranslationMode.SWITCHING:
+            self.view = replace(
+                self.view,
+                translation_mode=activity.mode,
+                translation_status=translation_status(activity, None, now),
+            )
             return
         snapshot = activity.snapshot
         if activity.worker is not None:
@@ -443,6 +453,7 @@ class ApplicationSession:
             if activity.mode not in (TranslationMode.PROBING, TranslationMode.PREPARING)
             else self.view.translation,
             translation_status=translation_status(activity, snapshot, now),
+            translation_mode=activity.mode,
         )
 
     def _update_ocr(self, frame: CapturedFrame, now: float) -> None:
@@ -477,6 +488,12 @@ class ApplicationSession:
                 self.view,
                 capture=self.live.capture.snapshot() if self.live.capture else None,
                 visual=self.live.visual_state,
+            )
+            self.view = replace(
+                self.view,
+                progress=processing_progress(
+                    self.view, translation_enabled=self.values.translation
+                ),
             )
             return self.view
         finally:

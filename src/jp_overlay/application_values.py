@@ -8,6 +8,7 @@ from jp_overlay.grouping import TextBlock
 from jp_overlay.model_selection import ModelOption
 from jp_overlay.ocr_values import OcrResult, OcrSnapshot
 from jp_overlay.tracking import TextTrack
+from jp_overlay.translation_activity import TranslationMode
 from jp_overlay.translation_plan import TranslationPlan
 from jp_overlay.translation_values import TranslatedText, TranslationSnapshot
 from jp_overlay.visual_values import VisualState
@@ -42,10 +43,19 @@ class ModelConsent:
 
 
 @dataclass(frozen=True)
+class ProcessingProgress:
+    message: str = ""
+    busy: bool = False
+    tone: str = "info"
+
+
+@dataclass(frozen=True)
 class ApplicationView:
     status: str = "Select a window, then start capture."
     ocr_status: str = ""
     translation_status: str = ""
+    translation_mode: TranslationMode = TranslationMode.INACTIVE
+    progress: ProcessingProgress = ProcessingProgress()
     scene: Scene = Scene()
     blocks: tuple[TextBlock, ...] = ()
     english: tuple[TranslatedText, ...] = ()

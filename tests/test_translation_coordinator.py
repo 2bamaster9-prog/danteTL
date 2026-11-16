@@ -43,7 +43,7 @@ def test_restore_legacy_explicit_none_disabled_and_unavailable_ids(tmp_path, val
         replay.close()
 
 
-def test_route_revision_revokes_old_worker_without_factory_calls_on_render(tmp_path):
+def test_route_revision_reconfigures_owner_without_factory_calls_on_render(tmp_path):
     replay = Replay(tmp_path)
     try:
         remote = CloudProfile.new("deepseek")
@@ -62,8 +62,8 @@ def test_route_revision_revokes_old_worker_without_factory_calls_on_render(tmp_p
         assert worker.stops == 0
         replay.cloud.revision += 1
         replay.app.refresh_routes()
-        assert worker.stops == 1
-        assert len(replay.routes) == 1  # adoption waits for resource teardown
+        assert worker.stops == 0 and len(worker.changes) == 1
+        assert len(replay.routes) == 1  # The router owns selective resource teardown.
         replay.cloud._available.clear()
         replay.app.refresh_routes()
         assert replay.translation.advance_activity(running=True, enabled=True).worker is None

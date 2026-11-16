@@ -32,8 +32,13 @@ flags. Translation returns a typed activity (probe, preparation, standby, inacti
 active), with a publication worker only when usable. The application joins probe readiness with
 classifier cleanup, and sends current scene requests through `LiveSession` only. Capture teardown
 waits for translation before draining OCR/visual owners. Status formatting cannot advance workers.
-`ModelLifecycle.advance_activity` alone decides whether to retain, drain or activate a worker;
-the translation coordinator only adds catalog availability information. The publication port exposes
+`ModelLifecycle` gates route activation, consent, probing and shutdown. The translation coordinator
+resolves per-model identities and recipes; the routed owner retains unchanged workers during committed
+assignment changes. It drains replaced workers before starting replacements and coalesces rapid edits
+to the latest plan. Unchanged lanes keep processing; retired replies cannot publish. Active plus retiring
+owners remain bounded to two. Identity includes local weights/runtime preparation or cloud profile,
+game hint and credential revision. Consent/preparation and import probes retain their full-drain safety
+boundary. The publication port exposes
 update/invalidate/snapshot, without load/stop/routing operations. A separate import contract keeps
 status projection independent of worker implementations. Capture Stop intent remains authoritative
 while the native owner is still reporting its last running snapshot.
@@ -58,6 +63,10 @@ Model selectors share styled nonselectable category headings. Unchanged lists pr
 missing selections never choose replacements. Persist validated IDs/values, never HWNDs, pause or debug.
 Badges distinguish files-present from engine-available. Device/rate edits apply next capture, including
 when models arrive mid-session. Worker-based hardware advice separates detection from verified inference.
+Capture status lives in Game & overlay. Its indeterminate loading bar and stage text project actual
+capture/OCR/per-model readiness, including a partially loaded route and the first translation. They
+remain visible with inspection collapsed and clear on readiness, stop or failure; no estimated
+percentage or extra polling is introduced.
 
 Native rectangles use physical pixels, including negative desktop origins; OCR is client-relative.
 Enable per-monitor V2 DPI awareness before windows. Validate/crop only dimension-matched containing

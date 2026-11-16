@@ -52,6 +52,14 @@ class TranslationState(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class TranslationLaneSnapshot:
+    reference: str
+    name: str
+    state: TranslationState
+    message: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class TranslationSnapshot:
     state: TranslationState
     results: tuple[TranslatedText, ...] = ()
@@ -66,6 +74,7 @@ class TranslationSnapshot:
     last_inference_ms: float = 0
     backend_generation: int = 0
     rejected: tuple[TranslationRejection, ...] = ()
+    lanes: tuple[TranslationLaneSnapshot, ...] = ()
 
 
 class TranslationWorker(Protocol):

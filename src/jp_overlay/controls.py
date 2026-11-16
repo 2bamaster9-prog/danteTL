@@ -23,12 +23,14 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLayout,
+    QProgressBar,
     QPushButton,
     QSizePolicy,
     QStyle,
     QStyleOptionFocusRect,
     QToolButton,
     QToolTip,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -63,22 +65,47 @@ class StatusBanner(QWidget):
         super().__init__()
         self.setObjectName("statusBanner")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 10, 12, 10)
+        body = QVBoxLayout(self)
+        body.setContentsMargins(12, 10, 12, 10)
+        layout = QHBoxLayout()
+        body.addLayout(layout)
         self.label = QLabel()
         self.label.setTextFormat(Qt.TextFormat.PlainText)
         self.label.setWordWrap(True)
         layout.addWidget(self.label, 1)
         self.action = QPushButton()
         layout.addWidget(self.action)
+        self.detail = QLabel()
+        self.detail.setTextFormat(Qt.TextFormat.PlainText)
+        self.detail.setWordWrap(True)
+        body.addWidget(self.detail)
+        self.progress = QProgressBar()
+        self.progress.setRange(0, 0)
+        self.progress.setTextVisible(False)
+        self.progress.setFixedHeight(4)
+        self.progress.setAccessibleName("Loading progress")
+        body.addWidget(self.progress)
+        self.detail.hide()
+        self.progress.hide()
         self.hide()
 
-    def set_message(self, text: str, *, tone: str = "warning", action: str = "") -> None:
+    def set_message(
+        self,
+        text: str,
+        *,
+        tone: str = "warning",
+        action: str = "",
+        detail: str = "",
+        busy: bool = False,
+    ) -> None:
         symbol = "⚠" if tone in ("warning", "error") else "ⓘ"
         self.label.setText(f"{symbol}  {text[:400]}" if text else "")
         self.label.setToolTip(text)
         self.action.setText(action)
         self.action.setVisible(bool(action))
+        self.detail.setText(detail)
+        self.detail.setVisible(bool(detail))
+        self.progress.setVisible(busy)
         set_tone(self, tone)
         self.setVisible(bool(text))
 

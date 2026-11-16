@@ -145,9 +145,6 @@ class MainWindow(QMainWindow):
         heading = QLabel("DanteJP")
         heading.setObjectName("heading")
         title.addWidget(heading)
-        self.subtitle = QLabel("Stay for the story.")
-        self.subtitle.setObjectName("muted")
-        title.addWidget(self.subtitle)
         header.addLayout(title, 1)
         self.history_panel = HistoryPanel(
             lambda: self.application.history_turns, self.application.clear_history, self
@@ -210,6 +207,10 @@ class MainWindow(QMainWindow):
             "may omit it either way; this does not affect DanteJP's OCR."
         )
         game_layout.addWidget(self.capture_overlay_check, 0, Qt.AlignmentFlag.AlignLeft)
+        self.capture_status = StatusBanner()
+        self.capture_status.set_message("Select a window, then start capture.", tone="info")
+        self.status = self.capture_status.label
+        game_layout.addWidget(self.capture_status)
         self._overlay.set_capture_included(preferences.include_overlay_in_capture)
         self.routing = RoutingControls(preferences)
         self.sections.translation_layout.addWidget(self.routing)
@@ -273,9 +274,6 @@ class MainWindow(QMainWindow):
         body.addWidget(self.advanced_panel, 1)
         self._compact_space = QWidget()
         body.addWidget(self._compact_space, 1)
-        self.status = QLabel("Select a window, then start capture.")
-        self.status.setWordWrap(True)
-        layout.addWidget(self.status)
         self.advanced.toggled.connect(self._advanced_changed)
         self.overlay_check.toggled.connect(self._settings_changed)
         self.border_check.toggled.connect(self._border_changed)
@@ -750,7 +748,13 @@ class MainWindow(QMainWindow):
         self.start_button.setEnabled(
             self.application.controls.can_stop if active else bool(self.windows_combo.count())
         )
-        self.status.setText(self.application.view.status)
+        progress = self.application.view.progress
+        self.capture_status.set_message(
+            self.application.view.status,
+            tone=progress.tone,
+            detail=progress.message,
+            busy=progress.busy,
+        )
         self.ocr_status.setText(self.application.view.ocr_status)
         self.translation_status.setText(self.application.view.translation_status)
         self._render_history()

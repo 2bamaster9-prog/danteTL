@@ -2,7 +2,8 @@
 
 from dataclasses import replace
 
-from jp_overlay.application_values import ApplicationView, Scene
+from jp_overlay.application_values import ApplicationView, ProcessingProgress, Scene
+from jp_overlay.domain import CaptureState
 from jp_overlay.ocr_values import OcrSnapshot, OcrState
 from jp_overlay.translation_activity import InactiveReason, TranslationActivity, TranslationMode
 from jp_overlay.translation_values import TranslationSnapshot, TranslationState
@@ -56,6 +57,8 @@ def translation_status(
         return "Testing imported model; previous translation selection resumes afterward."
     if activity.mode == TranslationMode.PREPARING:
         return "Preparing translation model for this PC…"
+    if activity.mode == TranslationMode.SWITCHING:
+        return "Waiting for the previous translation model to unload…"
     if activity.mode == TranslationMode.INACTIVE:
         return {
             InactiveReason.UNLOADING: "Unloading translation model…",
@@ -89,3 +92,64 @@ def translation_status(
         if snapshot.processing_since is not None
         else f"Ready · {len(snapshot.results)} English blocks"
     )
+
+
+def processing_progress(view: ApplicationView, *, translation_enabled: bool) -> ProcessingProgress:
+    """Visible startup stages, including partially ready routes; no invented percentage."""
+    capture = view.capture
+    if capture is None or capture.state not in (CaptureState.STARTING, CaptureState.RUNNING):
+        return ProcessingProgress()
+    if capture.state == CaptureState.STARTING or capture.frame is None:
+        return ProcessingProgress("Waiting for the first captured frame…", busy=True)
+    if view.frame is None:  # Minimized or waiting for matching geometry.
+        return ProcessingProgress()
+    messages: list[str] = []
+    busy = False
+    tone = "info"
+    ocr = view.ocr
+    if ocr and ocr.state == OcrState.LOADING:
+        messages.append("Loading MeikiOCR… First GPU initialization can take longer.")
+        busy = True
+    elif ocr and ocr.state == OcrState.FAILED:
+        messages.append(view.ocr_status)
+        tone = "error"
+    elif ocr and ocr.result is None and ocr.state == OcrState.READY:
+        messages.append("Reading the first frame…")
+        busy = True
+    if translation_enabled:
+        translation = view.translation
+        if view.translation_mode in (
+            TranslationMode.PREPARING,
+            TranslationMode.SWITCHING,
+            TranslationMode.PROBING,
+        ):
+            messages.append(view.translation_status)
+            busy = True
+        elif translation and view.translation_mode == TranslationMode.ACTIVE:
+            for lane in translation.lanes:
+                if lane.state in (TranslationState.LOADING, TranslationState.STOPPING):
+                    messages.append(f"Loading {lane.name}… {lane.message}".strip())
+                    busy = True
+                elif lane.state == TranslationState.FAILED:
+                    messages.append(f"{lane.name} unavailable: {lane.message}")
+                    tone = "error"
+            if not translation.lanes and translation.state in (
+                TranslationState.LOADING,
+                TranslationState.STOPPING,
+                TranslationState.FAILED,
+            ):
+                messages.append(view.translation_status)
+                busy |= translation.state != TranslationState.FAILED
+                if translation.state == TranslationState.FAILED:
+                    tone = "error"
+            if (
+                not messages
+                and not view.english
+                and (translation.pending or translation.processing_since is not None)
+            ):
+                messages.append("Translating recognized text…")
+                busy = True
+        if not messages and view.scene.waiting_blocks and not view.english:
+            messages.append("Waiting for text to finish appearing…")
+            busy = True
+    return ProcessingProgress("\n".join(messages), busy, tone)

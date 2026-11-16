@@ -79,9 +79,7 @@ class ModelLifecycle:
         self.assignment: TranslationPlan | None = None
         self._pending_assignment: TranslationPlan | None = None
         self._route = RouteSelection()
-        self._route_factory: (
-            Callable[[TranslationSession | None], RoutedTranslationSession] | None
-        ) = None
+        self._route_factory: Callable[[Worker | None], RoutedTranslationSession] | None = None
 
     def snapshot(self) -> ModelSnapshot:
         phase, message = self._phase, self._message
@@ -246,15 +244,24 @@ class ModelLifecycle:
     def configure_route(
         self,
         route: RouteSelection,
-        factory: Callable[[TranslationSession | None], RoutedTranslationSession],
+        factory: Callable[[Worker | None], RoutedTranslationSession],
         *,
         preserve_prepared: bool = False,
     ) -> bool:
-        changed = route != self._route
+        previous = self._route
+        changed = route != previous
         self._route, self._route_factory = route, factory
         if changed and not preserve_prepared and not self.preparing:
             self.standby = False
-            self.drain()
+            if (
+                route.plan is not None
+                and previous.plan is not None
+                and isinstance(self.session, RoutedTranslationSession)
+                and not self.session.stopping
+            ):
+                self.session = factory(self.session)
+            else:
+                self.drain()
         return changed
 
     def drain(self) -> None:
@@ -358,6 +365,7 @@ class ModelLifecycle:
             if session is None or isinstance(session, TranslationSession):
                 assert self._route_factory
                 self.session = session = self._route_factory(session)
+            session.advance()
             return session
         if self._route.available and isinstance(session, TranslationSession):
             if self._route.mode == "cloud":

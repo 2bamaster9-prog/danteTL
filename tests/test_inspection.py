@@ -83,6 +83,45 @@ def test_capture_visibility_applies_before_show_and_live_failure_preserves_state
         shiboken6.delete(overlay)
 
 
+def test_capture_status_and_loading_stay_inside_game_panel_without_inspection(app, tmp_path):
+    from ownership_fixtures import Replay
+    from PySide6.QtWidgets import QLabel
+    from test_application_transitions import observe
+
+    from jp_overlay.desktop_driver import DesktopDriver
+    from jp_overlay.model_inventory import InventoryData
+    from jp_overlay.ocr_values import OcrSnapshot, OcrState
+    from jp_overlay.ui import MainWindow as View
+
+    replay = Replay(tmp_path, data=InventoryData((BackendChoice("Local", Mock(), "base"),)))
+    replay.windows.list_targets.return_value = []
+    driver = DesktopDriver()
+    window = View(replay.app, replay.windows, driver)
+    window.show()
+    try:
+        assert window.sections.game.isAncestorOf(window.status)
+        assert all(
+            "Stay for the story" not in label.text() for label in window.findChildren(QLabel)
+        )
+        replay.app.start_capture(replay.capture.target, 1)
+        observe(replay)
+        replay.ocr.current = OcrSnapshot(OcrState.LOADING)
+        driver.refresh(inspect=False)
+        assert window.capture_status.progress.isVisible()
+        assert "MeikiOCR" in window.capture_status.detail.text()
+        observe(replay, 2)
+        driver.refresh(inspect=False)
+        assert not window.capture_status.progress.isVisible()
+        assert window.capture_status.isVisible()
+        replay.app.stop()
+        driver.refresh(inspect=False)
+        assert not window.capture_status.progress.isVisible()
+    finally:
+        driver.close()
+        replay.close()
+        window.close()
+
+
 def test_capture_visibility_ui_remembers_choice_and_rolls_back_native_failure(app, monkeypatch):
     windows, preferences = Mock(), Mock()
     from jp_overlay.preferences import Preferences

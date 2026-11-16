@@ -44,6 +44,8 @@ class Route(RoutedTranslationSession):
         self.results = ()
         self.updates = []
         self.stops = 0
+        self.changes = []
+        self.generation = 0
 
     def start(self):
         pass
@@ -59,7 +61,19 @@ class Route(RoutedTranslationSession):
         self.results = ()
 
     def snapshot(self):
-        return TranslationSnapshot(self.state, self.results)
+        return TranslationSnapshot(self.state, self.results, backend_generation=self.generation)
+
+    @property
+    def stopping(self):
+        return self.state == TranslationState.STOPPING
+
+    def reconfigure(self, plan, factories, **kwargs):
+        self.changes.append((plan, factories, kwargs))
+        self.results = ()
+        self.generation += 1
+
+    def advance(self):
+        pass
 
     def request_stop(self):
         self.stops += 1

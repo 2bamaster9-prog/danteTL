@@ -13,6 +13,7 @@ from jp_overlay.model_lifecycle import ModelLifecycle, RouteSelection
 from jp_overlay.model_selection import (
     AssignmentChange,
     ClassifierIdentity,
+    CloudIdentity,
     LocalIdentity,
     ModelOption,
 )
@@ -21,7 +22,7 @@ from jp_overlay.translation import BackendChoice, TranslationSession
 from jp_overlay.translation_activity import InactiveReason, TranslationActivity, TranslationMode
 from jp_overlay.translation_backend import TranslationBackend
 from jp_overlay.translation_plan import TranslationPlan
-from jp_overlay.translation_routing import RoutedTranslationSession
+from jp_overlay.translation_routing import ModelIdentity, RoutedTranslationSession
 
 
 def model_reference(choice: BackendChoice | CloudProfile | None) -> str:
@@ -186,23 +187,38 @@ class TranslationCoordinator(ModelLifecycle):
     def _create_route(
         self,
         route: RouteSelection,
-        local: TranslationSession | None,
+        local: TranslationSession | RoutedTranslationSession | None,
     ) -> RoutedTranslationSession:
         assert route.plan is not None
         factories = {}
+        identities: dict[str, ModelIdentity] = {}
+        names = {}
         for choice in route.identities:
             if isinstance(choice, BackendChoice) and self.is_prepared(choice):
                 factories[model_reference(choice)] = choice.create
+                identities[model_reference(choice)] = LocalIdentity(
+                    choice.key, choice.preparation_id
+                )
+                names[model_reference(choice)] = choice.name
             elif isinstance(choice, CloudProfile) and self.cloud.available(choice.key):
                 factories[model_reference(choice)] = partial(
                     self.cloud.create_backend, choice, route.game
                 )
+                identities[model_reference(choice)] = CloudIdentity(
+                    choice, route.game, route.credential_revision
+                )
+                names[model_reference(choice)] = choice.name
+        if isinstance(local, RoutedTranslationSession):
+            local.reconfigure(route.plan, factories, identities=identities, names=names)
+            return local
         result = self._route_create(
             route.plan,
             factories,
             self._cache,
             prepared=(model_reference(self.selected), local) if local else None,
             on_change=self._notify,
+            identities=identities,
+            names=names,
         )
         result.start()
         return result

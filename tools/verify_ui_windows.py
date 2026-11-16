@@ -82,7 +82,7 @@ def main() -> int:
                 QTest.keyClick(window.capture_overlay_check, Qt.Key.Key_Space)
                 assert not window.capture_overlay_check.isChecked()
                 evidence["compact_size"] = [window.width(), window.height()]
-                assert window.subtitle.text() == "Stay for the story."
+                assert window.sections.game.isAncestorOf(window.status)
                 assert window.start_button.property("tone") == "idle"
                 assert not window.start_button.icon().isNull()
                 evidence["capture_icon_and_idle_state"] = True

@@ -47,6 +47,13 @@ class LocalIdentity:
 
 
 @dataclass(frozen=True)
+class CloudIdentity:
+    profile: CloudProfile
+    game: str
+    credential_revision: int
+
+
+@dataclass(frozen=True)
 class ClassifierIdentity:
     reference: str
     model: LocalIdentity | CloudProfile | None

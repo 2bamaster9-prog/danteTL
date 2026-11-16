@@ -106,7 +106,7 @@ def test_same_model_uses_one_prepared_owner_and_disabled_text_is_never_requested
         until(lambda: session.finished)
 
 
-def test_reassign_waits_for_all_owners_and_rejects_previous_inflight_reply(tmp_path):
+def test_reassign_drains_changed_owner_and_rejects_previous_inflight_reply(tmp_path):
     release = threading.Event()
     old, other, new = Engine("old", release), Engine("other"), Engine("new")
     choices = {
@@ -118,8 +118,14 @@ def test_reassign_waits_for_all_owners_and_rejects_previous_inflight_reply(tmp_p
     factories = {"local:" + k: c.create for k, c in choices.items()}
 
     def configure(plan):
+        def reconfigure(existing):
+            if isinstance(existing, RoutedTranslationSession):
+                existing.reconfigure(plan, factories)
+                return existing
+            return start(plan)
+
         lifecycle.configure_route(
-            RouteSelection("assigned", available=True, plan=plan), lambda prepared: start(plan)
+            RouteSelection("assigned", available=True, plan=plan), reconfigure
         )
 
     def start(plan):
@@ -136,12 +142,13 @@ def test_reassign_waits_for_all_owners_and_rejects_previous_inflight_reply(tmp_p
         assert old.entered.wait(2)
         assert other.entered.wait(2)
         configure(TranslationPlan("local:c", "local:b"))
-        assert lifecycle.advance_activity(running=True, enabled=True).worker is None
+        assert lifecycle.advance_activity(running=True, enabled=True).worker is first
         assert not new.entered.is_set() and first.snapshot().results == ()
         release.set()
-        until(lambda: first.finished)
+        until(old.closed.is_set)
         current = lifecycle.advance_activity(running=True, enabled=True).worker
-        assert current and current is not first and old.closed.is_set() and other.closed.is_set()
+        assert current is first and not other.closed.is_set()
+        assert current is not None
         current.update((text,))
         until(lambda: bool(current.snapshot().results))
         assert current.snapshot().results[0].english == "new: 設定"
