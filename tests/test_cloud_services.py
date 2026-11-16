@@ -156,3 +156,37 @@ while service.busy:
 assert not service.snapshot().problem
 """
     subprocess.run([sys.executable, "-c", script, str(tmp_path)], check=True, timeout=10)
+
+
+def test_account_refresh_scopes_recovery_even_if_later_discovery_fails(tmp_path, monkeypatch):
+    from dantejp.translation.cloud.values import ChatGPTAccount
+
+    service, _ = create(tmp_path)
+    accounts = tuple(
+        ChatGPTAccount("account-" + c * 32, c, True, (("fixture", "Fixture"),)) for c in ("a", "b")
+    )
+    profiles = tuple(
+        CloudProfile("cloud-" + c * 32, c, "chatgpt", "fixture", account=a.key)
+        for c, a in zip(("a", "b"), accounts, strict=True)
+    )
+    service.catalog.write(profiles)
+    monkeypatch.setattr(service.connections, "accounts", lambda: accounts)
+    monkeypatch.setattr(service.connections, "refresh_models", lambda *_: ())
+    service.start()
+    finish(service)
+    assert all(service.available(p.key) for p in profiles)
+    service.refresh_account(accounts[1].key)
+    finish(service)
+    assert service.credential_revision(profiles[0]) == 0
+    revision = service.credential_revision(profiles[1])
+    assert revision > 0
+
+    def failed_discovery():
+        raise ValueError("Catalog read failed after credential recovery")
+
+    monkeypatch.setattr(service.connections, "accounts", failed_discovery)
+    service.refresh_account(accounts[1].key)
+    assert finish(service).problem
+    assert service.credential_revision(profiles[1]) > revision
+    assert service.credential_revision(profiles[0]) == 0
+    service.close()

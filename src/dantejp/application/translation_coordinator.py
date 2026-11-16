@@ -174,7 +174,6 @@ class TranslationCoordinator:
         choices = tuple(self.resolve(key) for key in self.plan.active_models)
         remote = any(isinstance(c, CloudProfile) for c in choices)
         route = RouteSelection(
-            "assigned",
             game=self.game if remote else "",
             available=any(
                 self._lifecycle.is_prepared(c)
@@ -184,13 +183,14 @@ class TranslationCoordinator:
                 else False
                 for c in choices
             ),
-            credential_revision=self.cloud.revision if remote else 0,
             plan=self.plan,
             identities=choices,
             model_keys=tuple(
                 LocalIdentity(c.key, c.preparation_id, c.unavailable_reason)
                 if isinstance(c, BackendChoice)
-                else c
+                else CloudIdentity.from_profile(c, self.game, self.cloud.credential_revision(c))
+                if isinstance(c, CloudProfile)
+                else None
                 for c in choices
             ),
         )
@@ -203,7 +203,6 @@ class TranslationCoordinator:
         route: RouteSelection,
         local: RouteInput,
     ) -> RoutedTranslationSession:
-        assert route.plan is not None
         factories = {}
         identities: dict[str, ModelIdentity] = {}
         names = {}
@@ -218,8 +217,8 @@ class TranslationCoordinator:
                 factories[model_reference(choice)] = partial(
                     self.cloud.create_backend, choice, route.game
                 )
-                identities[model_reference(choice)] = CloudIdentity(
-                    choice, route.game, route.credential_revision
+                identities[model_reference(choice)] = CloudIdentity.from_profile(
+                    choice, route.game, self.cloud.credential_revision(choice)
                 )
                 names[model_reference(choice)] = choice.name
         if isinstance(local, RoutedTranslationSession):
@@ -255,7 +254,11 @@ class TranslationCoordinator:
             )
         elif isinstance(choice, CloudProfile) and self.cloud.available(choice.key):
             factory = partial(self.cloud.create_backend, choice, "")
-            identity = ClassifierIdentity(reference, choice, self.cloud.revision, True)
+            identity = ClassifierIdentity(
+                reference,
+                CloudIdentity.from_profile(choice, "", self.cloud.credential_revision(choice)),
+                available=True,
+            )
         live.configure_history(enabled, identity, factory, layout_only=reference == "layout")
 
     def advance_activity(

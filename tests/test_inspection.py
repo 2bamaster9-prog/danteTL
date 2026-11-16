@@ -1114,9 +1114,7 @@ def test_runtime_restart_waits_for_translation_and_recovers_if_launch_fails(
     native = Mock()
     hotkeys = Hotkeys(native)
     worker = Route()
-    monkeypatch.setattr(
-        "dantejp.composition.RoutedTranslationSession.assigned", lambda *a, **k: worker
-    )
+    monkeypatch.setattr("dantejp.composition.RoutedTranslationSession", lambda *a, **k: worker)
     window = MainWindow(
         windows,
         Mock(),
@@ -1278,9 +1276,7 @@ def test_nested_consent_event_loop_does_not_unload_previous_model(app, tmp_path,
     gemma = BackendChoice("Gemma", Mock(), "gemma", "new")
     monkeypatch.setattr("dantejp.runtime.model_store.is_prepared", lambda key: not key)
     session = Route()
-    monkeypatch.setattr(
-        "dantejp.composition.RoutedTranslationSession.assigned", lambda *a, **k: session
-    )
+    monkeypatch.setattr("dantejp.composition.RoutedTranslationSession", lambda *a, **k: session)
     window = MainWindow(
         windows, Mock(), (base, gemma), scene_feed=True, cache_path=tmp_path / "cache"
     )

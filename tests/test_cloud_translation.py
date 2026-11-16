@@ -328,7 +328,14 @@ def test_hybrid_groups_dialogue_and_local_work_is_not_blocked(tmp_path, provider
     engine = CloudBackend(
         CloudProfile.new(provider), "fixture", transport=httpx2.MockTransport(handle)
     )
-    session = RoutedTranslationSession(local, lambda: engine, tmp_path / "cache", mode="long")
+    from dantejp.translation.plan import TranslationPlan
+
+    session = RoutedTranslationSession(
+        TranslationPlan("local", "cloud"),
+        {"local": Local, "cloud": lambda: engine},
+        tmp_path / "cache",
+        prepared=("local", local),
+    )
     session.start()
     dialogue = TextBlock(
         (track("一緒に駅へ", key=2), track("行きましょう。", key=3)), dialogue=True

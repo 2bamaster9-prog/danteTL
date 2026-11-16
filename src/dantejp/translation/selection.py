@@ -48,14 +48,33 @@ class LocalIdentity:
 
 @dataclass(frozen=True)
 class CloudIdentity:
-    profile: CloudProfile
+    provider: str
+    model: str
+    connection: str
+    decoding: str
+    model_revision: str
+    requests_per_minute: int
+    request_limit: int
     game: str
     credential_revision: int
+
+    @classmethod
+    def from_profile(cls, profile: CloudProfile, game: str, revision: int) -> "CloudIdentity":
+        return cls(
+            profile.provider,
+            profile.model,
+            profile.account if profile.provider == "chatgpt" else profile.credential_key,
+            profile.decoding,
+            profile.model_revision,
+            profile.requests_per_minute,
+            profile.request_limit,
+            game,
+            revision,
+        )
 
 
 @dataclass(frozen=True)
 class ClassifierIdentity:
     reference: str
-    model: LocalIdentity | CloudProfile | None
-    credential_revision: int = 0
+    model: LocalIdentity | CloudIdentity | None
     available: bool = False

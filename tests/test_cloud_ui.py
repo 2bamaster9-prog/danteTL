@@ -251,7 +251,10 @@ def test_cloud_only_needs_no_local_model_and_keeps_english_until_real_change(
         block = TextBlock((TextTrack(1, "設定", Rect(10, 10, 100, 30)),))
         show_scene(window, (block,))
         assert isinstance(application.translation.lifecycle.publication, RoutedTranslationSession)
-        assert application.translation.lifecycle.publication.local is None
+        assert tuple(
+            lane.reference
+            for lane in application.translation.lifecycle.publication.snapshot().lanes
+        ) == ("cloud:" + profile.key,)
         drain(
             app,
             lambda: bool(

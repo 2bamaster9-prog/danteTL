@@ -6,7 +6,7 @@ from pathlib import Path
 from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.backend import TranslationBackend
 from dantejp.translation.grouping import TextBlock
-from dantejp.translation.plan import TranslationPlan, is_long_text
+from dantejp.translation.plan import TranslationPlan
 from dantejp.translation.selection import CloudIdentity, LocalIdentity
 from dantejp.translation.values import (
     TranslationLaneSnapshot,
@@ -18,18 +18,6 @@ from dantejp.translation.worker import TranslationSession
 
 type ModelIdentity = LocalIdentity | CloudIdentity | str
 
-ROUTES = {
-    "local": "Local only",
-    "cloud": "Cloud for all text",
-    "long": "Cloud for dialogue & longer text",
-    "short": "Cloud for short labels",
-}
-
-
-def use_cloud(item: TextTrack | TextBlock, mode: str) -> bool:
-    long = is_long_text(item)
-    return mode == "cloud" or (mode == "long" and long) or (mode == "short" and not long)
-
 
 class RoutedTranslationSession:
     """At most two model workers, with unchanged request routes pinned.
@@ -40,33 +28,6 @@ class RoutedTranslationSession:
 
     def __init__(
         self,
-        local: TranslationSession | None,
-        cloud: Callable[[], TranslationBackend],
-        cache_path: Path,
-        *,
-        mode: str,
-        on_change: Callable[[], None] | None = None,
-    ) -> None:
-        self.local = local
-        self.cloud: TranslationSession | None = TranslationSession(
-            cloud, cache_path, on_change=on_change
-        )
-        self._cache_path, self._notify = cache_path, on_change
-        self._mode = mode
-        self._routes: dict[TranslationRequest, str] = {}
-        self._stopping = False
-        self._generation = 0
-        self._plan: TranslationPlan | None = None
-        self._workers = {"local": local, "cloud": self.cloud}
-        self._unstarted = (self.cloud,)
-        self._retiring: list[TranslationSession] = []
-        self._factories: dict[str, Callable[[], TranslationBackend]] = {}
-        self._identities: dict[str, ModelIdentity] = {}
-        self._names: dict[str, str] = {}
-
-    @classmethod
-    def assigned(
-        cls,
         plan: TranslationPlan,
         factories: dict[str, Callable[[], TranslationBackend]],
         cache_path: Path,
@@ -75,35 +36,28 @@ class RoutedTranslationSession:
         on_change: Callable[[], None] | None = None,
         identities: dict[str, ModelIdentity] | None = None,
         names: dict[str, str] | None = None,
-    ) -> "RoutedTranslationSession":
-        """Adopt one prepared owner and share one worker for identical assignments.
-
-        Missing models remain unavailable; never silently change a billing route.
-        Reconfiguration retains identical owners and drains only replaced workers.
-        """
+    ) -> None:
+        """Adopt one prepared owner and share one worker for identical assignments."""
         if prepared and prepared[0] not in plan.active_models:
             raise ValueError("Prepared model does not belong to the active translation plan.")
-        result = cls.__new__(cls)
-        result._cache_path, result._notify = cache_path, on_change
-        result._mode, result._plan = "assigned", plan
-        result._routes = {}
-        result._stopping, result._generation = False, 0
-        result._workers = {}
-        result._retiring = []
-        result._factories = {k: factories[k] for k in plan.active_models if k in factories}
-        result._identities = {k: (identities or {}).get(k, k) for k in plan.active_models}
-        result._names = {k: (names or {}).get(k, k) for k in plan.active_models}
+        self._cache_path, self._notify = cache_path, on_change
+        self._plan = plan
+        self._routes: dict[TranslationRequest, str] = {}
+        self._stopping, self._generation = False, 0
+        self._workers: dict[str, TranslationSession] = {}
+        self._retiring: list[TranslationSession] = []
+        self._factories = {k: factories[k] for k in plan.active_models if k in factories}
+        self._identities = {k: (identities or {}).get(k, k) for k in plan.active_models}
+        self._names = {k: (names or {}).get(k, k) for k in plan.active_models}
         unstarted = []
         for key in plan.active_models:
             if prepared and prepared[0] == key:
-                result._workers[key] = prepared[1]
+                self._workers[key] = prepared[1]
             elif key in factories:
                 worker = TranslationSession(factories[key], cache_path, on_change=on_change)
-                result._workers[key] = worker
+                self._workers[key] = worker
                 unstarted.append(worker)
-        result._unstarted = tuple(unstarted)
-        result.local = result.cloud = None
-        return result
+        self._unstarted = tuple(unstarted)
 
     def start(self) -> None:
         for worker in self._unstarted:
@@ -128,19 +82,25 @@ class RoutedTranslationSession:
         so repeated edits cannot accumulate native models or cloud clients. Existing
         workers keep processing while a changed lane drains.
         """
-        if self._plan is None or self._stopping:
-            raise ValueError("Cannot reconfigure an unassigned or stopping session.")
+        if self._stopping:
+            raise ValueError("Cannot reconfigure a stopping session.")
         desired = {k: factories[k] for k in plan.active_models if k in factories}
         next_identities = {k: (identities or {}).get(k, k) for k in plan.active_models}
+        self._names = {k: (names or {}).get(k, k) for k in plan.active_models}
+        if (
+            plan == self._plan
+            and desired.keys() == self._factories.keys()
+            and next_identities == self._identities
+        ):
+            self._factories = desired
+            return  # Display names/recipes can change without revoking live results.
         for key, worker in tuple(self._workers.items()):
             if key not in desired or self._identities.get(key) != next_identities[key]:
                 del self._workers[key]
-                if worker:
-                    worker.request_stop()
-                    self._retiring.append(worker)
+                worker.request_stop()
+                self._retiring.append(worker)
         self._plan, self._factories = plan, desired
         self._identities = next_identities
-        self._names = {k: (names or {}).get(k, k) for k in plan.active_models}
         self._generation += 1
         self._routes.clear()
         self.advance()
@@ -148,7 +108,7 @@ class RoutedTranslationSession:
     def advance(self) -> None:
         """Adopt completed cleanup without making snapshot reads change resource state."""
         self._retiring = [worker for worker in self._retiring if not worker.finished]
-        if self._stopping or self._plan is None or self._retiring:
+        if self._stopping or self._retiring:
             return
         for key, factory in self._factories.items():
             if key not in self._workers:
@@ -179,47 +139,28 @@ class RoutedTranslationSession:
             for request, item in list(current.items())[:128]
         }
         for remote, worker in self._workers.items():
-            if worker is not None:
-                worker.update(
-                    tuple(item for item in tracks[:128] if self._routes.get(key(item)) == remote),
-                    retain=tuple(
-                        item for item in retain[:128] if self._routes.get(key(item)) == remote
-                    ),
-                    reset_context=reset_context,
-                    corrections=corrections,
-                )
+            worker.update(
+                tuple(item for item in tracks[:128] if self._routes.get(key(item)) == remote),
+                retain=tuple(
+                    item for item in retain[:128] if self._routes.get(key(item)) == remote
+                ),
+                reset_context=reset_context,
+                corrections=corrections,
+            )
 
     def _destination(self, item: TextTrack | TextBlock) -> str:
-        if self._plan:
-            return self._plan.model_for(item)
-        return "cloud" if use_cloud(item, self._mode) else "local"
+        return self._plan.model_for(item)
 
     def invalidate(self) -> None:
         self._routes.clear()
         for worker in self._workers.values():
-            if worker:
-                worker.invalidate()
-
-    def switch_backend(self, factory: Callable[[], TranslationBackend]) -> None:
-        if self._plan:
-            raise ValueError("Assigned model changes require reconfigure().")
-        self._generation += 1
-        self.invalidate()
-        if self._mode == "cloud":
-            return
-        if self.local is None:
-            self.local = TranslationSession(factory, self._cache_path, on_change=self._notify)
-            self._workers["local"] = self.local
-            self.local.start()
-        else:
-            self.local.switch_backend(factory)
+            worker.invalidate()
 
     def request_stop(self) -> None:
         self._stopping = True
         self.invalidate()
         for worker in self._workers.values():
-            if worker:
-                worker.request_stop()
+            worker.request_stop()
         for worker in self._retiring:
             worker.request_stop()
 
@@ -227,12 +168,12 @@ class RoutedTranslationSession:
     def finished(self) -> bool:
         return (
             self._stopping
-            and all(worker.finished for worker in self._workers.values() if worker)
+            and all(worker.finished for worker in self._workers.values())
             and all(worker.finished for worker in self._retiring)
         )
 
     def snapshot(self) -> TranslationSnapshot:
-        lanes = {key: worker.snapshot() for key, worker in self._workers.items() if worker}
+        lanes = {key: worker.snapshot() for key, worker in self._workers.items()}
         snapshots = list(lanes.values())
         pending_models = tuple(k for k in self._factories if k not in self._workers)
         if self._stopping:

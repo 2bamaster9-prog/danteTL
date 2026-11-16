@@ -54,7 +54,7 @@ def application_session(
         inventory,
         cloud,
         lambda choice: TranslationSession(choice.create, cache, on_change=notify),
-        RoutedTranslationSession.assigned,
+        RoutedTranslationSession,
         cache,
         preferences.initial,
         on_change=notify,

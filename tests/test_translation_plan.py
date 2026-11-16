@@ -55,7 +55,7 @@ class Engine:
 def test_two_assignments_progress_independently_and_remain_stable(tmp_path, keys):
     release = threading.Event()
     fast, slow = Engine("fast"), Engine("slow", release)
-    session = RoutedTranslationSession.assigned(
+    session = RoutedTranslationSession(
         TranslationPlan(*keys), {keys[0]: lambda: fast, keys[1]: lambda: slow}, tmp_path / "cache"
     )
     session.start()
@@ -89,7 +89,7 @@ def test_same_model_uses_one_prepared_owner_and_disabled_text_is_never_requested
     prepared.start()
     until(lambda: prepared.snapshot().state == TranslationState.READY)
     plan = TranslationPlan("local:a", "local:a", short_enabled=False)
-    session = RoutedTranslationSession.assigned(
+    session = RoutedTranslationSession(
         plan, {"local:a": factory}, tmp_path / "cache", prepared=("local:a", prepared)
     )
     session.start()
@@ -124,12 +124,10 @@ def test_reassign_drains_changed_owner_and_rejects_previous_inflight_reply(tmp_p
                 return existing
             return start(plan)
 
-        lifecycle.configure_route(
-            RouteSelection("assigned", available=True, plan=plan), reconfigure
-        )
+        lifecycle.configure_route(RouteSelection(available=True, plan=plan), reconfigure)
 
     def start(plan):
-        result = RoutedTranslationSession.assigned(plan, factories, tmp_path / "cache")
+        result = RoutedTranslationSession(plan, factories, tmp_path / "cache")
         result.start()
         return result
 
@@ -164,7 +162,7 @@ def test_failed_lane_does_not_take_down_other_and_missing_model_never_falls_back
     def fail():
         raise RuntimeError("fixture load failure")
 
-    session = RoutedTranslationSession.assigned(
+    session = RoutedTranslationSession(
         TranslationPlan("local:a", "cloud:b"),
         {"local:a": lambda: engine, "cloud:b": fail},
         tmp_path / "cache",

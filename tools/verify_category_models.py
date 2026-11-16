@@ -86,7 +86,7 @@ def main():
     ):
         plan = TranslationPlan("local:" + args.short, "local:" + args.long)
         factories = {"local:" + c.preference_key: lambda c=c: factory(c) for c in selected}
-        session = RoutedTranslationSession.assigned(plan, factories, Path(folder) / "cache")
+        session = RoutedTranslationSession(plan, factories, Path(folder) / "cache")
         session.start()
         try:
 

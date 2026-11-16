@@ -1,6 +1,6 @@
 from unittest.mock import Mock
 
-from dantejp.application.model_lifecycle import ModelLifecycle, ModelPhase, RouteSelection
+from dantejp.application.model_lifecycle import ModelPhase
 from dantejp.translation.worker import (
     BackendChoice,
     TranslationSession,
@@ -36,174 +36,133 @@ class Worker(TranslationSession):
         self.state = TranslationState.LOADING
 
 
-def setup():
-    created, receipts = [], []
+def setup(tmp_path):
+    from ownership_fixtures import Replay
 
-    def create(choice):
-        worker = Worker(choice)
-        created.append(worker)
-        return worker
+    from dantejp.application.model_inventory import InventoryData
 
-    lifecycle = ModelLifecycle(create, lambda c: not c.preparation_id, receipts.append)
-    base, candidate = (
-        BackendChoice("Base", Mock(), "base"),
-        BackendChoice("New", Mock(), "new", "new"),
-    )
-    lifecycle.request_model(base)
-    return lifecycle, base, candidate, created, receipts
+    base = BackendChoice("Base", Mock(), "base")
+    candidate = BackendChoice("New", Mock(), "new", "new")
+    return Replay(tmp_path, data=InventoryData((base, candidate))), base, candidate
 
 
-def test_consent_preserves_committed_worker_and_preparation_waits_for_teardown_then_reuses():
-    lifecycle, base, candidate, created, receipts = setup()
-    original = lifecycle.advance_activity(running=True, enabled=True).worker
-    assert original
-    assert lifecycle.snapshot().phase == ModelPhase.LOADING
-    assert not lifecycle.request_model(candidate, local_route=True)
-    assert (
-        lifecycle.snapshot().phase == ModelPhase.CONSENT and lifecycle.snapshot().selected == base
-    )
-    assert lifecycle.advance_activity(running=True, enabled=True).worker is original
-    assert created[0].stops == 0
-    lifecycle.consent(False)
-    assert lifecycle.snapshot().selected == base and not lifecycle.snapshot().preparing
-    assert not lifecycle.request_model(candidate, local_route=True)
-    lifecycle.consent(True)
-    assert lifecycle.snapshot().proposed == candidate
-    assert lifecycle.advance_preparation() is None and len(created) == 1
-    created[0].ended = True
-    assert lifecycle.advance_preparation() is None and len(created) == 2
-    ready = created[1]
-    ready.state = TranslationState.READY
-    outcome = lifecycle.advance_preparation()
-    assert outcome and outcome.committed and outcome.local_route
-    assert lifecycle.snapshot().selected == candidate and receipts == ["new"]
-    assert lifecycle.advance_activity(running=False, enabled=True).worker is None
-    assert lifecycle.publication is ready
-    assert (
-        lifecycle.advance_activity(running=True, enabled=True).worker is ready and len(created) == 2
-    )
-
-
-def test_failure_and_shutdown_wait_for_preparation_cleanup_without_committing():
-    lifecycle, base, candidate, created, receipts = setup()
-    lifecycle.request_model(candidate)
-    lifecycle.consent(True)
-    lifecycle.advance_preparation()
-    created[0].state = TranslationState.FAILED
-    assert lifecycle.advance_preparation() is None  # Error alone is not completion.
-    created[0].ended = True
-    outcome = lifecycle.advance_preparation()
-    assert outcome and not outcome.committed and outcome.error
-    assert lifecycle.snapshot().selected == base and not receipts
-    lifecycle.request_model(candidate)
-    lifecycle.consent(True)
-    lifecycle.advance_preparation()
-    assert lifecycle.advance_preparation(closing=True) is None
-    assert created[1].stops and lifecycle.snapshot().phase == ModelPhase.CLOSING
-    created[1].ended = True
-    outcome = lifecycle.advance_preparation(closing=True)
-    assert outcome and not outcome.committed and not receipts
-    assert lifecycle.snapshot().selected == base and lifecycle.publication is None
-
-
-def test_route_change_drains_old_worker_and_refresh_during_preparation_does_not_stop_it():
-    lifecycle, base, candidate, created, receipts = setup()
-    old = lifecycle.advance_activity(running=True, enabled=True).worker
-    remote = Mock()
-    factory = Mock(return_value=remote)
-    assert lifecycle.configure_route(RouteSelection("cloud", available=True), factory)
-    assert lifecycle.advance_activity(running=True, enabled=True).worker is None
-    factory.assert_not_called()
-    created[0].ended, created[0].state = True, TranslationState.STOPPED
-    assert lifecycle.advance_activity(running=True, enabled=True).worker is remote
-    remote.finished = False
-    lifecycle.request_model(candidate)
-    lifecycle.consent(True)
-    remote.finished = True
-    lifecycle.advance_preparation()
-    prepared = created[-1]
-    lifecycle.configure_route(
-        RouteSelection("cloud", available=True, credential_revision=1), factory
-    )
-    assert prepared.stops == 0
-    prepared.state = TranslationState.READY
-    outcome = lifecycle.advance_preparation()
-    assert outcome and outcome.committed
-    lifecycle.configure_route(RouteSelection(), factory, preserve_prepared=True)
-    assert (
-        lifecycle.advance_activity(running=True, enabled=True).worker is prepared
-        and old is not prepared
-    )
-
-
-def test_import_probe_waits_for_unload_and_resumes_committed_selection_afterward():
-    lifecycle, base, candidate, created, receipts = setup()
-    original = lifecycle.advance_activity(running=True, enabled=True).worker
-    assert original
-    assert not lifecycle.advance_activity(running=True, enabled=True, probing=True).probe_ready
-    assert len(created) == 1 and created[0].stops
-    created[0].ended = True
-    assert lifecycle.suspend_for_probe(True)
-    assert lifecycle.snapshot().selected == base and lifecycle.publication is None
-    assert lifecycle.advance_activity(running=True, enabled=True, probing=True).probe_ready
-    lifecycle.suspend_for_probe(False)
-    assert lifecycle.advance_activity(running=True, enabled=True).worker is not original
-    assert created[1].choice == base and not receipts
-
-
-def test_shutdown_during_preparation_does_not_commit_or_load_another_worker():
-    lifecycle, base, candidate, created, receipts = setup()
-    lifecycle.request_model(candidate)
-    lifecycle.consent(True)
-    lifecycle.advance_preparation()
-    assert not lifecycle.finish_shutdown()
-    assert lifecycle.advance_activity(running=True, enabled=True).worker is None
-    created[0].ended = True
-    assert lifecycle.finish_shutdown()
-    assert lifecycle.snapshot().selected == base and not receipts and len(created) == 1
-
-
-def test_category_assignment_consent_and_failed_preparation_keep_previous_plan():
+def propose(replay, choice):
     from dantejp.translation.plan import TranslationPlan
 
-    lifecycle, base, candidate, created, receipts = setup()
-    original = TranslationPlan("local:base", "cloud:configured")
-    proposed = TranslationPlan("local:new", "cloud:configured")
-    assert lifecycle.request_assignment(original, base)
-    assert not lifecycle.request_assignment(proposed, candidate)
-    assert lifecycle.snapshot().assignment == original
-    lifecycle.consent(False)
-    assert lifecycle.snapshot().assignment == original and lifecycle.snapshot().selected == base
-    assert not lifecycle.request_assignment(proposed, candidate)
-    lifecycle.consent(True)
-    lifecycle.advance_preparation()
-    created[0].state = TranslationState.FAILED
-    assert lifecycle.advance_preparation() is None
-    assert lifecycle.snapshot().assignment == original
-    created[0].ended = True
-    outcome = lifecycle.advance_preparation()
-    assert outcome and not outcome.committed
-    assert (
-        lifecycle.snapshot().assignment == original
-        and lifecycle.snapshot().selected == base
-        and not receipts
+    return replay.translation.lifecycle.request_assignment(
+        TranslationPlan("local:" + choice.key, "local:" + choice.key), choice
     )
 
 
-def test_category_assignment_commits_atomically_after_preparation():
-    from dantejp.translation.plan import TranslationPlan
+def activate(replay):
+    replay.translation.refresh_route()
+    return replay.translation.advance_activity(running=True, enabled=True).worker
 
-    lifecycle, base, candidate, created, receipts = setup()
-    original = TranslationPlan("local:base", "local:base")
-    proposed = TranslationPlan("local:base", "local:new")
-    lifecycle.request_assignment(original, base)
-    assert not lifecycle.request_assignment(proposed, candidate)
-    lifecycle.consent(True)
-    lifecycle.advance_preparation()
-    assert lifecycle.snapshot().assignment == original
-    created[0].state = TranslationState.READY
-    outcome = lifecycle.advance_preparation()
-    assert outcome and outcome.committed and lifecycle.snapshot().assignment == proposed
-    assert (
-        lifecycle.publication is created[0] and lifecycle.snapshot().standby and receipts == ["new"]
-    )
+
+def test_consent_preserves_worker_then_preparation_waits_for_cleanup_and_is_adopted(tmp_path):
+    replay, base, candidate = setup(tmp_path)
+    lifecycle = replay.translation.lifecycle
+    try:
+        original = activate(replay)
+        assert original is replay.route_workers[0]
+        assert not propose(replay, candidate)
+        assert lifecycle.snapshot().phase == ModelPhase.CONSENT
+        assert lifecycle.snapshot().selected == base
+        assert activate(replay) is original and replay.route_workers[0].stops == 0
+        lifecycle.consent(False)
+        assert lifecycle.snapshot().selected == base and not lifecycle.snapshot().preparing
+        assert not propose(replay, candidate)
+        lifecycle.consent(True)
+        assert lifecycle.advance_preparation() is None and not replay.workers
+        replay.route_workers[0].finish()
+        lifecycle.advance_preparation()
+        prepared = replay.workers[0]
+        prepared.state = TranslationState.READY
+        outcome = lifecycle.advance_preparation()
+        assert outcome and outcome.committed and lifecycle.snapshot().selected == candidate
+        assert replay.translation.plan.active_models == ("local:new",)
+        assert lifecycle.advance_activity(running=False, enabled=True).worker is None
+        assert lifecycle.publication is prepared
+        replay.translation.refresh_route(preserve_prepared=True)
+        assert replay.translation.advance_activity(running=True, enabled=True).worker
+        assert replay.routes[-1][1]["prepared"] == ("local:new", prepared)
+        assert len(replay.workers) == 1 and prepared.stops == 0
+    finally:
+        replay.close()
+
+
+def test_failed_preparation_waits_for_cleanup_and_preserves_committed_assignment(tmp_path):
+    replay, base, candidate = setup(tmp_path)
+    lifecycle = replay.translation.lifecycle
+    try:
+        original = replay.translation.plan
+        assert not propose(replay, candidate)
+        lifecycle.consent(True)
+        lifecycle.advance_preparation()
+        prepared = replay.workers[0]
+        prepared.state = TranslationState.FAILED
+        assert lifecycle.advance_preparation() is None
+        assert replay.translation.plan == original
+        prepared.ended = True
+        outcome = lifecycle.advance_preparation()
+        assert outcome and not outcome.committed and outcome.error
+        assert replay.translation.plan == original and lifecycle.snapshot().selected == base
+        assert lifecycle.publication is None and not replay.receipts
+    finally:
+        replay.close()
+
+
+def test_route_refresh_during_preparation_cannot_stop_prepared_owner(tmp_path):
+    replay, _, candidate = setup(tmp_path)
+    lifecycle = replay.translation.lifecycle
+    try:
+        assert not propose(replay, candidate)
+        lifecycle.consent(True)
+        lifecycle.advance_preparation()
+        prepared = replay.workers[0]
+        replay.translation.refresh_route()
+        assert prepared.stops == 0
+        prepared.state = TranslationState.READY
+        outcome = lifecycle.advance_preparation()
+        assert outcome and outcome.committed
+        replay.translation.refresh_route(preserve_prepared=True)
+        assert replay.translation.advance_activity(running=True, enabled=True).worker
+        assert replay.routes[-1][1]["prepared"] == ("local:new", prepared)
+    finally:
+        replay.close()
+
+
+def test_import_probe_waits_for_unload_then_resumes_committed_assignment(tmp_path):
+    replay, base, _ = setup(tmp_path)
+    lifecycle = replay.translation.lifecycle
+    try:
+        original = activate(replay)
+        plan = replay.translation.plan
+        assert not lifecycle.advance_activity(running=True, enabled=True, probing=True).probe_ready
+        assert replay.route_workers[0].stops
+        replay.route_workers[0].finish()
+        assert lifecycle.suspend_for_probe(True)
+        assert lifecycle.publication is None and lifecycle.snapshot().selected == base
+        assert lifecycle.advance_activity(running=True, enabled=True, probing=True).probe_ready
+        lifecycle.suspend_for_probe(False)
+        assert activate(replay) is not original and replay.translation.plan == plan
+        assert len(replay.route_workers) == 2
+    finally:
+        replay.close()
+
+
+def test_shutdown_during_preparation_never_commits_or_starts_another_owner(tmp_path):
+    replay, base, candidate = setup(tmp_path)
+    lifecycle = replay.translation.lifecycle
+    try:
+        assert not propose(replay, candidate)
+        lifecycle.consent(True)
+        lifecycle.advance_preparation()
+        assert not lifecycle.finish_shutdown()
+        assert lifecycle.advance_activity(running=True, enabled=True).worker is None
+        replay.workers[0].ended = True
+        assert lifecycle.finish_shutdown()
+        assert lifecycle.snapshot().selected == base and not replay.receipts
+        assert len(replay.workers) == 1 and not replay.routes
+    finally:
+        replay.close()

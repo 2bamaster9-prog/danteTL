@@ -13,7 +13,7 @@ from dantejp.application.translation_activity import (
 from dantejp.translation.cloud.values import CloudProfile
 from dantejp.translation.plan import TranslationPlan
 from dantejp.translation.routing import RoutedTranslationSession
-from dantejp.translation.selection import LocalIdentity
+from dantejp.translation.selection import CloudIdentity, LocalIdentity
 from dantejp.translation.values import TranslationSnapshot, TranslationState, TranslationWorker
 from dantejp.translation.worker import BackendChoice, TranslationSession
 
@@ -34,14 +34,11 @@ class ModelPhase(StrEnum):
 
 @dataclass(frozen=True)
 class RouteSelection:
-    mode: str = "local"
-    profile: CloudProfile | None = None
     game: str = ""
     available: bool = False
-    credential_revision: int = 0
-    plan: TranslationPlan | None = None
+    plan: TranslationPlan = TranslationPlan()
     identities: tuple[BackendChoice | CloudProfile | None, ...] = field(default=(), compare=False)
-    model_keys: tuple[LocalIdentity | CloudProfile | None, ...] = ()
+    model_keys: tuple[LocalIdentity | CloudIdentity | None, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -61,7 +58,6 @@ class ModelSnapshot:
 @dataclass(frozen=True)
 class PreparationOutcome:
     committed: bool
-    local_route: bool
     error: str = ""
 
 
@@ -89,7 +85,6 @@ class ModelLifecycle:
         self._preparing: BackendChoice | None = None
         self._standby = False
         self._proposal: BackendChoice | None = None
-        self._local_intent = False
         self._started = False
         self._prepared_this_run: set[str] = set()
         self._preparation_revision = 0
@@ -165,49 +160,33 @@ class ModelLifecycle:
             self._selected = next((b for b in choices if b.key == self._selected.key), None)
 
     def _allows_translation(self, *, running: bool, enabled: bool) -> bool:
-        usable = (
-            self._route.available
-            if self._route.mode != "local"
-            else bool(self._selected and self.is_prepared(self._selected))
-        )
         return (
             running
             and enabled
-            and usable
+            and self._route.available
             and not self._preparing
             and not self._probing
             and self._phase != ModelPhase.CLOSING
         )
 
-    def request_model(self, choice: BackendChoice | None, *, local_route: bool = False) -> bool:
-        """False requests consent, without revoking the committed worker or selection."""
+    def request_assignment(self, plan: TranslationPlan, choice: BackendChoice | None) -> bool:
+        """Stage assignments for consent without touching the committed route/worker."""
         if self._preparing or self._probing or self._phase == ModelPhase.CLOSING:
             raise ValueError("Wait for the current model operation to finish.")
         if choice and choice.unavailable_reason:
             raise ValueError(choice.unavailable_reason)
-        self._local_intent = local_route
         if choice and not self.is_prepared(choice):
-            self._proposal = choice
+            self._pending_assignment, self._proposal = plan, choice
             self._phase = ModelPhase.CONSENT
             return False
-        self._commit(choice)
+        self._assignment, self._pending_assignment = plan, None
+        self._proposal = None
+        if choice:
+            self._selected, self._standby = choice, True
+            self._phase, self._message = ModelPhase.READY, ""
+        elif not plan.active_models:
+            self._selected, self._standby = None, False
         return True
-
-    def request_assignment(self, plan: TranslationPlan, choice: BackendChoice | None) -> bool:
-        """Stage a category change until its local model is prepared; decline rolls it back."""
-        if self._preparing or self._probing or self._phase == ModelPhase.CLOSING:
-            raise ValueError("Wait for the current model operation to finish.")
-        self._pending_assignment = plan
-        if choice is None:
-            self._assignment, self._pending_assignment = plan, None
-            if not plan.short and not plan.long:
-                self._selected, self._standby = None, False
-            return True
-        try:
-            return self.request_model(choice)
-        except ValueError:
-            self._pending_assignment = None
-            raise
 
     def consent(self, accepted: bool) -> None:
         choice, self._proposal = self._proposal, None
@@ -216,7 +195,6 @@ class ModelLifecycle:
         if not accepted:
             self._pending_assignment = None
             self._phase = ModelPhase.READY if self._selected else ModelPhase.IDLE
-            self._local_intent = False
             return
         self._preparing = choice
         self._started = False
@@ -224,24 +202,6 @@ class ModelLifecycle:
         self._phase = ModelPhase.DRAINING
         self._message = "Finishing the previous model…"
         if self._session:
-            self._session.request_stop()
-
-    def _commit(self, choice: BackendChoice | None) -> None:
-        self._proposal = None
-        self._selected = choice
-        self._standby = choice is not None
-        self._phase = ModelPhase.READY if choice else ModelPhase.IDLE
-        self._message = ""
-        if self._pending_assignment is not None:
-            self._assignment, self._pending_assignment = self._pending_assignment, None
-            return  # configure_route owns draining and replacement for the complete plan.
-        if self._session and choice:
-            if self._session.finished:
-                self._session = None
-            else:
-                self._session.switch_backend(choice.create)
-                self._worker_choice = choice
-        elif self._session:
             self._session.request_stop()
 
     def advance_preparation(self, *, closing: bool = False) -> PreparationOutcome | None:
@@ -290,8 +250,7 @@ class ModelLifecycle:
         self._message = error
         self._preparing, self._started = None, False
         self._pending_assignment = None
-        outcome = PreparationOutcome(committed, self._local_intent, error)
-        self._local_intent = False
+        outcome = PreparationOutcome(committed, error)
         return outcome
 
     def configure_route(
@@ -306,15 +265,17 @@ class ModelLifecycle:
         self._route, self._route_factory = route, factory
         if changed and not preserve_prepared and not self._preparing:
             self._standby = False
-            if (
-                route.plan is not None
-                and previous.plan is not None
-                and isinstance(self._session, RoutedTranslationSession)
-                and not self._session.stopping
-            ):
+            if isinstance(self._session, RoutedTranslationSession) and not self._session.stopping:
                 self._session = factory(self._route_input())
             else:
                 self.drain()
+        elif (
+            not changed
+            and previous.identities != route.identities
+            and isinstance(self._session, RoutedTranslationSession)
+            and not self._session.stopping
+        ):
+            factory(self._session)  # Presentation-only changes preserve worker/result generations.
         return changed
 
     def drain(self) -> None:
@@ -401,46 +362,21 @@ class ModelLifecycle:
 
     def _activate_route(self) -> Worker | None:
         """Adopt/start the committed route only after advance_activity permits activation."""
-        session, choice = self._session, self._selected
+        session = self._session
         if session and session.finished and session.snapshot().state == TranslationState.STOPPED:
             self._session = session = None
-        if self._route.plan is not None:
-            # No new native owners until every previous lane has finished teardown.
-            if session and session.snapshot().state == TranslationState.STOPPING:
-                return None
-            if isinstance(session, TranslationSession):
-                key = "local:" + self._worker_choice.preference_key if self._worker_choice else ""
-                if key not in self._route.plan.active_models:
-                    self.drain()
-                    if self._session:
-                        return None
-                    session = None
-            if session is None or isinstance(session, TranslationSession):
-                assert self._route_factory
-                self._session = session = self._route_factory(self._route_input())
-            session.advance()
-            return session
-        if self._route.available and isinstance(session, TranslationSession):
-            if self._route.mode == "cloud":
+        # No new native owners until every previous lane has finished teardown.
+        if session and session.snapshot().state == TranslationState.STOPPING:
+            return None
+        if isinstance(session, TranslationSession):
+            key = "local:" + self._worker_choice.preference_key if self._worker_choice else ""
+            if key not in self._route.plan.active_models:
                 self.drain()
                 if self._session:
                     return None
                 session = None
-            else:
-                assert self._route_factory
-                self._session = session = self._route_factory(self._route_input())
-        if session is None:
-            local = None
-            if self._route.mode != "cloud" and choice and self.is_prepared(choice):
-                local = self._create(choice)
-                local.start()
-                self._worker_choice = choice
-            if self._route.available:
-                assert self._route_factory
-                session = self._route_factory(
-                    PreparedWorker(choice, local) if choice and local else None
-                )
-            else:
-                session = local
-            self._session = session
+        if session is None or isinstance(session, TranslationSession):
+            assert self._route_factory
+            self._session = session = self._route_factory(self._route_input())
+        session.advance()
         return session

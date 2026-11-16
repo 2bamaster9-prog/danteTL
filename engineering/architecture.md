@@ -60,8 +60,11 @@ selection cannot relabel that resource. `ModelLifecycle` gates route activation,
 shutdown. The coordinator resolves per-model identities and recipes; the routed owner retains unchanged workers during committed
 assignment changes. It drains replaced workers before starting replacements and coalesces rapid edits
 to the latest plan. Unchanged lanes keep processing; retired replies cannot publish. Active plus retiring
-owners remain bounded to two. Identity includes local weights/runtime preparation or cloud profile,
-game hint and credential revision. Consent/preparation and import probes retain their full-drain safety
+owners remain bounded to two. One assignment-plan constructor owns runtime routing; older saved
+preferences are decoded only at the input boundary. Identity includes local weights/runtime preparation
+or cloud inference settings, limits, game hint and connection/account credential revision. Display names
+are presentation only: renaming an active model or editing an unrelated model preserves workers and
+published results. Consent/preparation and import probes retain their full-drain safety
 boundary. The publication port exposes
 update/invalidate/snapshot, without load/stop/routing operations. A separate import contract keeps
 status projection independent of worker implementations. Capture Stop intent remains authoritative

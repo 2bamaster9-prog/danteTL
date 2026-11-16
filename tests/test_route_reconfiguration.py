@@ -49,13 +49,14 @@ class Routes:
         self.cloud = Mock(spec=CloudServices)
         self.cloud.profiles = self.profiles
         self.cloud.revision = 0
+        self.cloud.credential_revision.return_value = 0
         self.cloud.available.return_value = True
         self.cloud.create_backend.side_effect = lambda profile, game: self.remote[profile.key[-1]]()
         self.owner = TranslationCoordinator(
             self.inventory,
             self.cloud,
             lambda choice: TranslationSession(choice.create, root / "cache"),
-            RoutedTranslationSession.assigned,
+            RoutedTranslationSession,
             root / "cache",
             Preferences(model="none", short_model="local:local", long_model=remote_ref("a")),
         )
@@ -153,7 +154,7 @@ def test_identity_changes_replace_only_the_affected_model(tmp_path, change):
                 ),
             )
         elif change == "credentials":
-            routes.cloud.revision += 1
+            routes.cloud.credential_revision.return_value += 1
         else:
             routes.owner.set_game(automatic=False, manual="A new game", title="")
         assert routes.owner.refresh_route()
@@ -194,3 +195,96 @@ def test_shutdown_drains_retirement_without_starting_pending_model(tmp_path):
     finally:
         routes.close()
     assert not routes.remote["b"].called
+
+
+def test_cloud_edits_preserve_unaffected_work_and_scope_credential_changes(tmp_path, monkeypatch):
+    from collections import Counter
+
+    from test_cloud_services import create, finish
+
+    from dantejp.translation.cloud.state import CloudDraft
+
+    service, _ = create(tmp_path)
+    a, b, c = (replace(CloudProfile.new("deepseek"), name=name) for name in ("A", "B", "C"))
+
+    def save(profile, connection="", secret=""):
+        service.save(CloudDraft(profile, connection, secret))
+        snapshot = finish(service)
+        assert not snapshot.problem
+        return next(p for p in service.profiles if p.key == profile.key)
+
+    a = save(a, secret="first-key")
+    b = save(b, a.credential_key)  # Unassigned B shares A's credentials.
+    c = save(c, secret="separate-key")
+    release = threading.Event()
+    counts = Counter()
+    engines = []
+
+    def create_backend(profile, game):
+        counts[profile.key] += 1
+        engine = Engine(
+            profile.key, release if profile.key == a.key and counts[a.key] == 1 else None
+        )
+        engines.append(engine)
+        return engine
+
+    monkeypatch.setattr(service, "create_backend", create_backend)
+    inventory = ModelInventory(lambda: InventoryData(), lambda _: None, initial=InventoryData())
+    owner = TranslationCoordinator(
+        inventory,
+        service,
+        Mock(),
+        RoutedTranslationSession,
+        tmp_path / "cache",
+        Preferences(model="none", short_model="cloud:" + a.key, long_model="cloud:" + c.key),
+    )
+    owner.refresh_route()
+    worker = owner.advance_activity(running=True, enabled=True).worker
+    assert isinstance(worker, RoutedTranslationSession)
+    history = Mock()
+    owner.configure_history(history, enabled=True, reference="cloud:" + a.key)
+    classifier_identity = history.configure_history.call_args.args[1]
+    short, long = block(1, "設定"), block(2, "説明" * 24)
+    try:
+        worker.update((short, long))
+        until(lambda: any(e.cache_identity == a.key and e.entered.is_set() for e in engines))
+        until(lambda: counts[c.key] == 1)
+        generation = worker.snapshot().backend_generation
+        b = save(replace(b, name="B renamed"), b.credential_key)
+        assert not owner.refresh_route()
+        assert counts[a.key] == counts[c.key] == 1
+        assert not any(e.closed.is_set() for e in engines)
+        release.set()
+        until(lambda: len(worker.snapshot().results) == 2)
+        results = worker.snapshot().results
+        a = save(replace(a, name="A renamed"), a.credential_key)
+        assert not owner.refresh_route()
+        assert worker.snapshot().results == results
+        assert worker.snapshot().backend_generation == generation
+        assert any(lane.name == "A renamed" for lane in worker.snapshot().lanes)
+        owner.configure_history(history, enabled=True, reference="cloud:" + a.key)
+        assert history.configure_history.call_args.args[1] == classifier_identity
+        # Actual credential replacement affects every assigned model on that connection.
+        b = save(b, b.credential_key, "replacement-key")
+        assert owner.refresh_route()
+        owner.configure_history(history, enabled=True, reference="cloud:" + a.key)
+        assert history.configure_history.call_args.args[1] != classifier_identity
+
+        def ready():
+            owner.advance_activity(running=True, enabled=True)
+            return all(lane.state == TranslationState.READY for lane in worker.snapshot().lanes)
+
+        until(ready)
+        assert counts[a.key] == 2 and counts[c.key] == 1 and counts[b.key] == 0
+        # Re-saving the same secret is not a credential change.
+        b = save(b, b.credential_key, "replacement-key")
+        assert not owner.refresh_route()
+        a = save(replace(a, request_limit=20), a.credential_key)
+        assert owner.refresh_route()  # Active safety limits must reach the backend.
+        until(ready)
+        assert counts[a.key] == 3 and counts[c.key] == 1
+    finally:
+        release.set()
+        owner.lifecycle.shutdown()
+        until(owner.lifecycle.finish_shutdown)
+        service.close()

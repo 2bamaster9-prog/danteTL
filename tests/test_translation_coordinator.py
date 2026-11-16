@@ -131,7 +131,7 @@ def test_route_revision_reconfigures_owner_without_factory_calls_on_render(tmp_p
         assert worker.stops == 0
         replay.cloud.revision += 1
         replay.app.refresh_routes()
-        assert worker.stops == 0 and len(worker.changes) == 1
+        assert worker.stops == 0 and not worker.changes
         assert len(replay.routes) == 1  # The router owns selective resource teardown.
         replay.cloud._available.clear()
         replay.app.refresh_routes()

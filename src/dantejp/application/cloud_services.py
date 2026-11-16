@@ -37,6 +37,7 @@ class SetupResult:
     failed: bool
     catalogs: dict[str, tuple[CatalogModel, ...]] = field(default_factory=dict)
     discovered: tuple[CatalogModel, ...] | None = None
+    changed_credentials: frozenset[tuple[str, str]] = frozenset()
 
 
 class CloudServices:
@@ -62,6 +63,8 @@ class CloudServices:
         self._welcome = ""
         self._select_after = ""
         self.revision = 0
+        self._credential_revisions: dict[tuple[str, str], int] = {}
+        self._credential_changes: set[tuple[str, str]] = set()
         self._mutating = False
         self._saving = False
         self.profiles: tuple[CloudProfile, ...] = ()
@@ -148,6 +151,10 @@ class CloudServices:
     def available(self, key: str) -> bool:
         return key in self._available
 
+    def credential_revision(self, profile: CloudProfile) -> int:
+        key = profile.account if profile.provider == "chatgpt" else profile.credential_key
+        return self._credential_revisions.get((profile.provider, key), 0)
+
     def create_backend(self, profile: CloudProfile, game: str) -> CloudBackend:
         return CloudBackend(
             profile,
@@ -198,6 +205,7 @@ class CloudServices:
         self._message = message
         self._saved = False
         self._new_account = ""
+        self._credential_changes = set()
         self._changed()
 
         def work() -> None:
@@ -244,6 +252,7 @@ class CloudServices:
                         if (models := self.catalog_cache.read(c.provider, c.key)) is not None
                     },
                     self._discovered,
+                    frozenset(self._credential_changes),
                 )
             except Exception as error:
                 completed = SetupResult(
@@ -255,6 +264,7 @@ class CloudServices:
                     str(error) or "Operation cancelled.",
                     True,
                     self._catalogs,
+                    changed_credentials=frozenset(self._credential_changes),
                 )
             with self._lock:
                 self._result = completed
@@ -285,6 +295,21 @@ class CloudServices:
         )
         if self._mutating and not result.failed:
             self.revision += 1
+        # A credential operation can change durable state before a later discovery
+        # step fails. Revoke that connection's old worker identity in either case.
+        if result.changed_credentials:
+            self.revision += int(result.failed)
+            for key in result.changed_credentials:
+                self._credential_revisions[key] = self.revision
+        referenced = {
+            (p.provider, p.account if p.provider == "chatgpt" else p.credential_key)
+            for p in self.profiles
+        }
+        referenced.update((c.provider, c.key) for c in self.api_accounts)
+        referenced.update(("chatgpt", a.key) for a in self.accounts)
+        self._credential_revisions = {
+            k: v for k, v in self._credential_revisions.items() if k in referenced
+        }
         self.problem = result.message if result.failed else ""
         self._message = result.message
         self._saved = self._saving and not result.failed
@@ -302,9 +327,14 @@ class CloudServices:
                 raise ValueError("Save cancelled.")
             profile = draft.profile
             if profile.provider != "chatgpt":
+                previous_secret = (
+                    secrets.read(draft.connection) if draft.secret and draft.connection else None
+                )
                 saved = self.api_connections.save_model(
                     profile, draft.connection, draft.secret, secrets
                 )
+                if draft.secret and draft.secret != previous_secret:
+                    self._credential_changes.add((profile.provider, saved.credential_key))
                 if draft.models is not None:
                     try:
                         self.catalog_cache.write(
@@ -413,6 +443,9 @@ class CloudServices:
         self._changed()
 
         def forget(secrets: Secrets) -> str:
+            self._credential_changes.update(
+                (c.provider, key) for c in self.api_accounts if c.key == key
+            )
             self.api_connections.forget(key, secrets)
             return "Key forgotten on this PC. Revoke it at the provider if no longer needed."
 
@@ -424,6 +457,7 @@ class CloudServices:
 
         def sign_in(_: Secrets) -> str:
             key = self.connections.sign_in(selected, self._open_browser, self._cancelled)
+            self._credential_changes.add(("chatgpt", key))
             record = self.connections.store.read(key)
             self._new_account = key
             if not record.get("welcomed") and PLAN_SCOPE in record.get("scopes", []):
@@ -448,8 +482,13 @@ class CloudServices:
         if account:
             self._available.difference_update(p.key for p in self.profiles if p.account == account)
             self._changed()
+
+            def sign_out(_: Secrets) -> str:
+                self._credential_changes.add(("chatgpt", account))
+                return self.connections.sign_out(account, AuthWork(self._cancelled))
+
             self._run(
-                lambda _: self.connections.sign_out(account, AuthWork(self._cancelled)),
+                sign_out,
                 "Signing out…",
                 mutating=True,
             )
@@ -460,6 +499,7 @@ class CloudServices:
         if account:
 
             def refresh(_: Secrets) -> str:
+                self._credential_changes.add(("chatgpt", account))
                 self.connections.refresh_models(account, AuthWork(self._cancelled))
                 return "ChatGPT models refreshed."
 
