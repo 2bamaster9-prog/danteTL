@@ -95,6 +95,13 @@ class CloudSettings(QWidget):
         self.usage = QLabel()
         self.usage.setWordWrap(True)
         self.usage.setObjectName("muted")
+        self.usage.setTextFormat(Qt.TextFormat.PlainText)
+        self.usage.setToolTip(
+            "Counts belong to the selected saved model, including translation and "
+            "classifier requests. Cache hits make no requests. Token totals include only "
+            "usage reported by the provider; "
+            "these are not billing totals. Counts reset when DanteJP exits."
+        )
         layout.addWidget(self.usage)
         layout.addStretch()
         self._render()
@@ -124,7 +131,18 @@ class CloudSettings(QWidget):
         self.add.setEnabled(not self.busy and self.editor is None)
         self.edit.setEnabled(bool(selected) and not self.busy and self.editor is None)
         self.remove.setEnabled(self.edit.isEnabled())
-        if not selected:
+        self._refresh_usage()
+
+    def _refresh_usage(self) -> None:
+        profile = self.selected_profile()
+        if profile:
+            usage = self.service.usage(profile.key)
+            self.usage.setText(
+                f"{profile.name} · This app run: "
+                f"{usage.requests}/{profile.request_limit} reserved requests · "
+                f"{usage.input_tokens:,} input / {usage.output_tokens:,} output tokens reported"
+            )
+        else:
             self.usage.clear()
 
     def _render(self, selected: str = "") -> None:
@@ -272,13 +290,7 @@ class CloudSettings(QWidget):
                 "DanteJP never falls back to an API key.",
             )
             self.service.acknowledge_welcome(account)
-        profile = self.selected_profile()
-        if profile:
-            usage = self.service.usage(profile.key)
-            self.usage.setText(
-                f"This app run: {usage.requests}/{profile.request_limit} reserved requests · "
-                f"{usage.input_tokens:,} input / {usage.output_tokens:,} output tokens reported"
-            )
+        self._refresh_usage()
 
     def _test(self, draft: CloudDraft) -> None:
         profile = draft.profile

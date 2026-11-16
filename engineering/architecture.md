@@ -229,6 +229,9 @@ Auth exchange/refresh/discovery/rotation waits carry cancellation; successful ro
 later discovery fails. `CloudServices` owns this work independently of widgets. Model removal retains
 connections; Forget/sign-out are explicit. Catalog failure preserves saved data and never selects a model.
 Draft Save commits; Cancel discards edits. Credentials never enter prompts, ordinary JSON, logs or fixtures.
+Usage is per saved model for the current app run, shared across backend recreation, translation and
+classification. The selected model's label updates independently of configuration revisions. Cache
+hits reserve no requests; token totals count only provider-reported usage and are not billing totals.
 
 API keys use Windows Credential Manager; OAuth uses user-bound DPAPI/account-bound encrypted envelopes.
 OAuth uses the system browser, exclusive random loopback port, PKCE S256, state/nonce and validated

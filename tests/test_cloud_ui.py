@@ -63,6 +63,35 @@ def drain(app, predicate):
         time.sleep(0.005)
 
 
+def test_usage_label_names_selected_model_and_switches_without_configuration_change(app, tmp_path):
+    first = replace(CloudProfile.new("deepseek"), name="Translation")
+    second = replace(CloudProfile.new("openai"), name="Classifier")
+    catalog = CloudProfiles(tmp_path / "cloud.json")
+    catalog.write((first, second))
+    panel = CloudSettings(
+        catalog=catalog,
+        secrets=MemorySecrets,
+        connections=ChatGPTConnections(ProtectedStore(tmp_path / "accounts")),
+    )
+    try:
+        service = cloud_owner(panel)
+        revision = service.revision
+        service.allowance(second.key).reserve(second, 1)
+        service.allowance(second.key).record({"input_tokens": 25, "output_tokens": 3})
+        panel.refresh_view()
+        panel.table.selectRow(0)
+        assert "Translation" in panel.usage.text() and "0/1000" in panel.usage.text()
+        panel.table.selectRow(1)
+        assert "Classifier" in panel.usage.text() and "1/1000" in panel.usage.text()
+        assert "25 input / 3 output" in panel.usage.text()
+        panel.table.selectRow(0)
+        assert "Translation" in panel.usage.text() and "0/1000" in panel.usage.text()
+        assert service.revision == revision
+    finally:
+        panel.close()
+        panel.deleteLater()
+
+
 def test_model_refresh_preserves_draft_and_route_caches_offline_and_keeps_old_list_on_error(
     app, tmp_path, monkeypatch
 ):
