@@ -1,0 +1,99 @@
+name: Windows build and release
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - "packaging/**"
+      - "tools/build.ps1"
+      - "tools/verify_standalone_windows.py"
+      - "tools/verification_isolation.py"
+      - "tests/fixtures/**"
+      - "src/**"
+      - ".python-version"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/build.yml"
+      - ".github/workflows/check.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: distributions-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  checks:
+    uses: ./.github/workflows/check.yml
+
+  build:
+    needs: checks
+    runs-on: windows-2025
+    timeout-minutes: 45
+    env:
+      PYTHONUTF8: "1"
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.8"
+          enable-cache: true
+      - name: Install locked check dependencies
+        run: uv sync --locked
+      - name: Require release tag to match the app version
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          uv run --locked --offline python -c "import os,tomllib; v=tomllib.load(open('pyproject.toml','rb'))['project']['version']; assert os.environ['RELEASE_TAG']=='v'+v, 'Tag must equal v'+v"
+      - name: Build standard distributions and explicitly prepare bundled OCR
+        shell: powershell
+        run: ./tools/build.ps1 -DownloadOcr
+      - name: Verify relocated executable and offline bundled OCR
+        run: uv run --no-sync python tools/verify_standalone_windows.py --headless --output artifacts/ci-standalone
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: DanteJP-windows-x64
+          if-no-files-found: error
+          path: |
+            dist/*.zip
+            dist/*.whl
+            dist/*.tar.gz
+            dist/*.sha256
+      - name: Preserve packaged verification evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: standalone-verification
+          if-no-files-found: ignore
+          path: artifacts/ci-standalone/results.json
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_ID: ${{ github.run_id }}
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      # No checkout or project code executes with the release-writing token.
+      - name: Download this run's verified distributions
+        run: gh run download "$RUN_ID" --name DanteJP-windows-x64 --dir release
+      - name: Verify artifact checksums
+        working-directory: release
+        run: sha256sum --check --strict *.sha256
+      - name: Publish downloadable GitHub Release
+        working-directory: release
+        run: gh release create "$RELEASE_TAG" ./*.zip ./*.whl ./*.tar.gz ./*.sha256 --verify-tag --generate-notes --title "DanteJP $RELEASE_TAG"

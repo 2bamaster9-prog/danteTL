@@ -32,7 +32,7 @@ $cpuHash = (Get-FileHash -LiteralPath $cpuWheel.FullName -Algorithm SHA256).Hash
 if ($Offline -and (Get-Content -LiteralPath ($cpuWheel.FullName + '.sha256')) -ne "$cpuHash  $($cpuWheel.Name)") {
     throw 'Offline CPU wheel checksum mismatch. Run an online build again.'
 }
-"$cpuHash  $($cpuWheel.Name)" | Set-Content -LiteralPath ($cpuWheel.FullName + '.sha256') -Encoding ascii
+"$cpuHash  $($cpuWheel.Name)`n" | Set-Content -LiteralPath ($cpuWheel.FullName + '.sha256') -Encoding ascii -NoNewline
 & $uv pip install --offline --no-deps --python $python $cpuWheel.FullName
 if ($LASTEXITCODE -ne 0) { throw 'Upstream CPU wheel installation failed.' }
 if ($CpuWheelOnly) { Write-Host "Built $($cpuWheel.FullName)"; exit 0 }
@@ -49,7 +49,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Python distribution build failed.' }
 $appVersion = & $python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"
 $appWheel = Get-Item "dist/jp_overlay-$appVersion-py3-none-any.whl"
 $appHash = (Get-FileHash -LiteralPath $appWheel.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-"$appHash  $($appWheel.Name)" | Set-Content -LiteralPath ($appWheel.FullName + '.sha256') -Encoding ascii
+"$appHash  $($appWheel.Name)`n" | Set-Content -LiteralPath ($appWheel.FullName + '.sha256') -Encoding ascii -NoNewline
 # Dependency-only exports stay stable across application versions and are also runtime inputs.
 New-Item -ItemType Directory -Force build/runtime-locks | Out-Null
 foreach ($profile in @('cpu', 'nvidia', 'amd')) {
@@ -64,6 +64,7 @@ Compress-Archive -LiteralPath dist/DanteJP -DestinationPath dist/DanteJP-windows
 $outputs = @(Get-Item dist/DanteJP-windows-x64.zip) + @(Get-ChildItem dist/jp_overlay-*.whl,dist/jp_overlay-*.tar.gz)
 foreach ($file in $outputs) {
     $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-    "$hash  $($file.Name)" | Set-Content -LiteralPath ($file.FullName + '.sha256') -Encoding ascii
+    # LF sidecars also work with GNU sha256sum in the Linux release job.
+    "$hash  $($file.Name)`n" | Set-Content -LiteralPath ($file.FullName + '.sha256') -Encoding ascii -NoNewline
 }
 Write-Host 'Built dist/DanteJP-windows-x64.zip and standard wheel/source distributions.'

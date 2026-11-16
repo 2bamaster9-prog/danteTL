@@ -63,11 +63,44 @@ It hashes the distribution before/after to catch writes into packaged resources.
 check additionally observes Qt welcome/startup acknowledgement and clean shutdown. Model tests
 and real capture checks are separate; see [verification](verification.md).
 
-`.github/workflows/build.yml` runs fast checks, the same build command and the headless check on
-`windows-2025`, then uploads ZIP/wheel/source/checksums. Triggers are version tags, manual runs
-and packaging-related PRs. It does not publish a release or require provider credentials.
-Action revisions and tool versions are pinned. This is a repeatable build recipe, not a claim of
-byte-identical ZIPs across all hosts: Windows images, signing and archive timestamps can differ.
+## GitHub Actions and releases
+
+`check.yml` runs the same fast gate on pushes and pull requests: Ruff formatting/lint, Pyright,
+Import Linter ownership contracts and model-free tests. `build.yml` reuses that gate, builds on
+`windows-2025`, then verifies the relocated EXE and bundled offline OCR. Packaging or app changes
+on pull requests also exercise the build; manual runs produce downloadable Actions artifacts.
+The workflows need no provider credentials, personal tokens or preinstalled models.
+
+After creating the GitHub repository, push this checkout and enable Actions. Set the default
+branch's required check to **Windows fast checks / check** (select the actual reported check name
+in GitHub). Run **Windows build and release** manually once to verify the clean hosted build.
+For a release:
+
+1. Update `project.version` in `pyproject.toml`, run `uv lock`, and commit both.
+2. Complete the relevant native/hardware acceptance in [verification](verification.md).
+3. Create and push a matching tag, for example `git tag v0.1.0` and `git push origin v0.1.0`.
+
+A tag must exactly equal `v` plus the project version. Only a successful tagged build publishes a
+GitHub Release, with the portable ZIP, wheel, source archive and SHA-256 sidecars. Extract the ZIP
+and launch `DanteJP.exe`; keep its `_internal` directory beside it. Failed checks/build/smoke tests
+prevent publication. The release job downloads only that run's artifact, checks its hashes and
+uses GitHub CLI with `--verify-tag`; it cannot silently create a tag. No project code or checkout
+runs with its write token. PR/manual runs cannot publish. Existing releases are never overwritten;
+a failed upload can leave a draft to inspect before retrying. This initial recipe uses stable
+version tags; review release notes before sharing a release widely.
+
+Hosted CI does not prove live WGC, global hotkeys, interactive Qt behavior, CUDA/Vulkan inference,
+game compatibility or app-update/restart behavior on real PCs. Those remain explicit checks on an
+unlocked Windows desktop with the appropriate installed runtimes/models. Do not attach privileged
+self-hosted desktop/GPU runners to untrusted PRs. The packaged smoke test supplies real CPU OCR
+coverage without pretending that it covers those hardware paths.
+
+Action revisions, uv and Python/build dependencies are pinned. This is a repeatable build recipe,
+not a claim of byte-identical ZIPs: Windows images, compiler versions, signing and archive timestamps
+can differ. The portable executable is currently unsigned.
+
+Workflow references: [reusable checks](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows),
+[GitHub CLI releases](https://cli.github.com/manual/gh_release_create).
 
 The normal source shortcut remains `Run DanteJP.cmd`; `--cpu` bypasses a saved runtime for recovery.
 Model and optional runtime setup live in the app. `tools/setup.ps1` remains a developer environment
