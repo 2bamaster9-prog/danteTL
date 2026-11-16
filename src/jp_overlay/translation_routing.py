@@ -2,7 +2,6 @@
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Protocol
 
 from jp_overlay.grouping import TextBlock
 from jp_overlay.tracking import TextTrack
@@ -17,19 +16,6 @@ ROUTES = {
     "long": "Cloud for dialogue & longer text",
     "short": "Cloud for short labels",
 }
-
-
-class TranslationWorker(Protocol):
-    def update(
-        self,
-        tracks: tuple[TextTrack | TextBlock, ...],
-        *,
-        retain: tuple[TextBlock, ...] = (),
-        reset_context: bool = False,
-        corrections: tuple[tuple[TextTrack, TextTrack], ...] = (),
-    ) -> None: ...
-    def invalidate(self) -> None: ...
-    def snapshot(self) -> TranslationSnapshot: ...
 
 
 def use_cloud(item: TextTrack | TextBlock, mode: str) -> bool:

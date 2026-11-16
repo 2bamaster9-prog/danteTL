@@ -128,19 +128,19 @@ def test_reassign_waits_for_all_owners_and_rejects_previous_inflight_reply(tmp_p
         return result
 
     configure(TranslationPlan("local:a", "local:b"))
-    first = lifecycle.worker(running=True, enabled=True)
-    assert first
+    first = lifecycle.advance_activity(running=True, enabled=True).worker
+    assert isinstance(first, RoutedTranslationSession)
     text = block(1, "設定")
     try:
         first.update((text, block(2, "説明" * 24)))
         assert old.entered.wait(2)
         assert other.entered.wait(2)
         configure(TranslationPlan("local:c", "local:b"))
-        assert lifecycle.worker(running=True, enabled=True) is None
+        assert lifecycle.advance_activity(running=True, enabled=True).worker is None
         assert not new.entered.is_set() and first.snapshot().results == ()
         release.set()
         until(lambda: first.finished)
-        current = lifecycle.worker(running=True, enabled=True)
+        current = lifecycle.advance_activity(running=True, enabled=True).worker
         assert current and current is not first and old.closed.is_set() and other.closed.is_set()
         current.update((text,))
         until(lambda: bool(current.snapshot().results))

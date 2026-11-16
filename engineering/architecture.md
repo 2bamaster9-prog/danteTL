@@ -32,6 +32,11 @@ flags. Translation returns a typed activity (probe, preparation, standby, inacti
 active), with a publication worker only when usable. The application joins probe readiness with
 classifier cleanup, and sends current scene requests through `LiveSession` only. Capture teardown
 waits for translation before draining OCR/visual owners. Status formatting cannot advance workers.
+`ModelLifecycle.advance_activity` alone decides whether to retain, drain or activate a worker;
+the translation coordinator only adds catalog availability information. The publication port exposes
+update/invalidate/snapshot, without load/stop/routing operations. A separate import contract keeps
+status projection independent of worker implementations. Capture Stop intent remains authoritative
+while the native owner is still reporting its last running snapshot.
 Inventory uses one bounded worker, explicit invalidation and a 30-second fallback scheduled from
 completed scan adoption. Invalidation during a scan discards stale results and requests one follow-up.
 Unchanged revisions do not rebuild routes/options. Cached badges never authorize native model loading.

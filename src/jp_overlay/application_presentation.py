@@ -4,7 +4,7 @@ from dataclasses import replace
 
 from jp_overlay.application_values import ApplicationView, Scene
 from jp_overlay.ocr_values import OcrSnapshot, OcrState
-from jp_overlay.translation_activity import TranslationActivity, TranslationMode
+from jp_overlay.translation_activity import InactiveReason, TranslationActivity, TranslationMode
 from jp_overlay.translation_values import TranslationSnapshot, TranslationState
 
 
@@ -57,7 +57,17 @@ def translation_status(
     if activity.mode == TranslationMode.PREPARING:
         return "Preparing translation model for this PC…"
     if activity.mode == TranslationMode.INACTIVE:
-        return activity.message
+        return {
+            InactiveReason.UNLOADING: "Unloading translation model…",
+            InactiveReason.NEEDS_RUNTIME: (
+                "Translation needs runtime setup. Select a model for instructions."
+            ),
+            InactiveReason.OFF: "English translation is off.",
+            InactiveReason.NO_MODEL: (
+                "No translation model selected. Open Settings to download one."
+            ),
+            InactiveReason.STOPPED: "Translation stopped.",
+        }[activity.reason]
     assert snapshot is not None
     if activity.mode == TranslationMode.STANDBY:
         return (

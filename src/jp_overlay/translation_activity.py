@@ -3,8 +3,7 @@
 from dataclasses import dataclass
 from enum import StrEnum
 
-from jp_overlay.model_lifecycle import Worker
-from jp_overlay.translation_values import TranslationSnapshot
+from jp_overlay.translation_values import TranslationSnapshot, TranslationWorker
 
 
 class TranslationMode(StrEnum):
@@ -16,13 +15,21 @@ class TranslationMode(StrEnum):
     SWITCHING = "switching"
 
 
+class InactiveReason(StrEnum):
+    UNLOADING = "unloading"
+    NEEDS_RUNTIME = "needs_runtime"
+    OFF = "off"
+    NO_MODEL = "no_model"
+    STOPPED = "stopped"
+
+
 @dataclass(frozen=True, slots=True)
 class TranslationActivity:
     mode: TranslationMode
-    worker: Worker | None = None
+    worker: TranslationWorker | None = None
     snapshot: TranslationSnapshot | None = None
     probe_ready: bool = False
-    message: str = ""
+    reason: InactiveReason = InactiveReason.STOPPED
     model_name: str = "the translation model"
 
     @property

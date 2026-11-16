@@ -55,12 +55,12 @@ def setup():
 
 def test_consent_preserves_committed_worker_and_preparation_waits_for_teardown_then_reuses():
     lifecycle, base, candidate, created, receipts = setup()
-    original = lifecycle.worker(running=True, enabled=True)
+    original = lifecycle.advance_activity(running=True, enabled=True).worker
     assert original
     assert lifecycle.snapshot().phase == ModelPhase.LOADING
     assert not lifecycle.request_model(candidate, local_route=True)
     assert lifecycle.snapshot().phase == ModelPhase.CONSENT and lifecycle.selected == base
-    assert lifecycle.worker(running=True, enabled=True) is original
+    assert lifecycle.advance_activity(running=True, enabled=True).worker is original
     assert created[0].stops == 0
     lifecycle.consent(False)
     assert lifecycle.selected == base and not lifecycle.preparing
@@ -75,9 +75,11 @@ def test_consent_preserves_committed_worker_and_preparation_waits_for_teardown_t
     outcome = lifecycle.advance_preparation()
     assert outcome and outcome.committed and outcome.local_route
     assert lifecycle.selected == candidate and receipts == ["new"]
-    assert lifecycle.worker(running=False, enabled=True) is None
+    assert lifecycle.advance_activity(running=False, enabled=True).worker is None
     assert lifecycle.session is ready
-    assert lifecycle.worker(running=True, enabled=True) is ready and len(created) == 2
+    assert (
+        lifecycle.advance_activity(running=True, enabled=True).worker is ready and len(created) == 2
+    )
 
 
 def test_failure_and_shutdown_wait_for_preparation_cleanup_without_committing():
@@ -104,14 +106,14 @@ def test_failure_and_shutdown_wait_for_preparation_cleanup_without_committing():
 
 def test_route_change_drains_old_worker_and_refresh_during_preparation_does_not_stop_it():
     lifecycle, base, candidate, created, receipts = setup()
-    old = lifecycle.worker(running=True, enabled=True)
+    old = lifecycle.advance_activity(running=True, enabled=True).worker
     remote = Mock()
     factory = Mock(return_value=remote)
     assert lifecycle.configure_route(RouteSelection("cloud", available=True), factory)
-    assert lifecycle.worker(running=True, enabled=True) is None
+    assert lifecycle.advance_activity(running=True, enabled=True).worker is None
     factory.assert_not_called()
     created[0].ended, created[0].state = True, TranslationState.STOPPED
-    assert lifecycle.worker(running=True, enabled=True) is remote
+    assert lifecycle.advance_activity(running=True, enabled=True).worker is remote
     remote.finished = False
     lifecycle.request_model(candidate)
     lifecycle.consent(True)
@@ -126,22 +128,24 @@ def test_route_change_drains_old_worker_and_refresh_during_preparation_does_not_
     outcome = lifecycle.advance_preparation()
     assert outcome and outcome.committed
     lifecycle.configure_route(RouteSelection(), factory, preserve_prepared=True)
-    assert lifecycle.worker(running=True, enabled=True) is prepared and old is not prepared
+    assert (
+        lifecycle.advance_activity(running=True, enabled=True).worker is prepared
+        and old is not prepared
+    )
 
 
 def test_import_probe_waits_for_unload_and_resumes_committed_selection_afterward():
     lifecycle, base, candidate, created, receipts = setup()
-    original = lifecycle.worker(running=True, enabled=True)
+    original = lifecycle.advance_activity(running=True, enabled=True).worker
     assert original
-    assert not lifecycle.suspend_for_probe(True)
-    assert lifecycle.worker(running=True, enabled=True) is None
+    assert not lifecycle.advance_activity(running=True, enabled=True, probing=True).probe_ready
     assert len(created) == 1 and created[0].stops
     created[0].ended = True
     assert lifecycle.suspend_for_probe(True)
     assert lifecycle.selected == base and lifecycle.session is None
-    assert not lifecycle.allows_translation(running=True, enabled=True)
+    assert lifecycle.advance_activity(running=True, enabled=True, probing=True).probe_ready
     lifecycle.suspend_for_probe(False)
-    assert lifecycle.worker(running=True, enabled=True) is not original
+    assert lifecycle.advance_activity(running=True, enabled=True).worker is not original
     assert created[1].choice == base and not receipts
 
 
@@ -151,7 +155,7 @@ def test_shutdown_during_preparation_does_not_commit_or_load_another_worker():
     lifecycle.consent(True)
     lifecycle.advance_preparation()
     assert not lifecycle.finish_shutdown()
-    assert lifecycle.worker(running=True, enabled=True) is None
+    assert lifecycle.advance_activity(running=True, enabled=True).worker is None
     created[0].ended = True
     assert lifecycle.finish_shutdown()
     assert lifecycle.selected == base and not receipts and len(created) == 1

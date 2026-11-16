@@ -102,7 +102,7 @@ class CaptureLifecycle:
         snapshot = capture.snapshot()
         if capture.finished:
             return CaptureStep(CapturePhase.DRAINING, snapshot)
-        if snapshot.state in (CaptureState.STOPPING, CaptureState.FAILED):
+        if self.stopping or snapshot.state in (CaptureState.STOPPING, CaptureState.FAILED):
             if self.live.ocr:
                 self.live.ocr.request_stop()
             return CaptureStep(CapturePhase.STOPPING, snapshot)

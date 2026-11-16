@@ -17,8 +17,7 @@ from jp_overlay.ocr_values import OcrResult, OcrSnapshot, OcrState
 from jp_overlay.presentation import EnglishPresentation
 from jp_overlay.recognition import OcrSession, Recognizer, overlay_result_ready
 from jp_overlay.tracking import TextActivity, TextTrack, TextTracker
-from jp_overlay.translation_routing import TranslationWorker
-from jp_overlay.translation_values import TranslatedText, TranslationSnapshot
+from jp_overlay.translation_values import TranslatedText, TranslationSnapshot, TranslationWorker
 from jp_overlay.visual import VisualSession
 from jp_overlay.visual_values import VisualState
 

@@ -66,7 +66,7 @@ def test_route_revision_revokes_old_worker_without_factory_calls_on_render(tmp_p
         assert len(replay.routes) == 1  # adoption waits for resource teardown
         replay.cloud._available.clear()
         replay.app.refresh_routes()
-        assert not replay.translation.allows_translation(running=True, enabled=True)
+        assert replay.translation.advance_activity(running=True, enabled=True).worker is None
     finally:
         replay.close()
 
@@ -81,7 +81,7 @@ def test_two_local_categories_keep_distinct_lazy_recipes_and_one_committed_plan(
     try:
         plan = TranslationPlan("local:short", "local:long")
         replay.app.assign(AssignmentChange(plan, "local:long"))
-        replay.translation.worker(running=True, enabled=True)
+        assert replay.translation.advance_activity(running=True, enabled=True).worker
         assert len(replay.routes) == 1
         args, _ = replay.routes[0]
         assert args[0] == plan

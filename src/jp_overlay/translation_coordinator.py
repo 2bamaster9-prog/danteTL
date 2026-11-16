@@ -1,6 +1,7 @@
 """Authoritative assignment, route and classifier resolution, independent of presentation."""
 
 from collections.abc import Callable
+from dataclasses import replace
 from functools import partial
 from pathlib import Path
 
@@ -17,7 +18,7 @@ from jp_overlay.model_selection import (
 )
 from jp_overlay.preference_values import Preferences
 from jp_overlay.translation import BackendChoice, TranslationSession
-from jp_overlay.translation_activity import TranslationActivity, TranslationMode
+from jp_overlay.translation_activity import InactiveReason, TranslationActivity, TranslationMode
 from jp_overlay.translation_backend import TranslationBackend
 from jp_overlay.translation_plan import TranslationPlan
 from jp_overlay.translation_routing import RoutedTranslationSession
@@ -222,45 +223,14 @@ class TranslationCoordinator(ModelLifecycle):
         live.configure_history(enabled, identity, factory, layout_only=reference == "layout")
 
     def advance_activity(
-        self, *, running: bool, enabled: bool, probing: bool
+        self, *, running: bool, enabled: bool, probing: bool = False
     ) -> TranslationActivity:
-        """Resolve worker availability once, before LiveSession publishes any sources.
-
-        Preparation, probe suspension, standby reuse and route teardown are model policy.
-        The application only joins the probe permit with classifier cleanup and publishes
-        through the returned worker; it never reconstructs these lifecycle decisions.
-        """
-        ready = self.suspend_for_probe(probing)
-        if probing:
-            return TranslationActivity(TranslationMode.PROBING, probe_ready=ready)
-        if self.preparing:
-            return TranslationActivity(TranslationMode.PREPARING)
-        session = self.session
-        if not running and self.standby and enabled and session and not session.finished:
-            return TranslationActivity(TranslationMode.STANDBY, snapshot=session.snapshot())
-        if not self.allows_translation(running=running, enabled=enabled):
-            self.worker(running=running, enabled=enabled)
-            message = (
-                "Unloading translation model…"
-                if session and not session.finished
-                else "Translation needs runtime setup. Select a model for instructions."
-                if self.choices and all(c.unavailable_reason for c in self.choices)
-                else "English translation is off."
-                if running
-                else "No translation model selected. Open Settings to download one."
-                if self.selected is None
-                else "Translation stopped."
-            )
-            return TranslationActivity(
-                TranslationMode.INACTIVE,
-                snapshot=session.snapshot() if session else None,
-                message=message,
-            )
-        session = self.worker(running=running, enabled=enabled)
-        if session is None:
-            return TranslationActivity(TranslationMode.SWITCHING)
-        return TranslationActivity(
-            TranslationMode.ACTIVE,
-            worker=session,
-            model_name=self.selected.name if self.selected else "the translation model",
-        )
+        activity = super().advance_activity(running=running, enabled=enabled, probing=probing)
+        if (
+            activity.mode == TranslationMode.INACTIVE
+            and activity.reason != InactiveReason.UNLOADING
+            and self.choices
+            and all(c.unavailable_reason for c in self.choices)
+        ):
+            return replace(activity, reason=InactiveReason.NEEDS_RUNTIME)
+        return activity

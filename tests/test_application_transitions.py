@@ -101,6 +101,24 @@ def test_capture_stop_waits_for_translation_then_ocr_cleanup(replay):
     assert replay.app.view.status == "Capture stopped."
 
 
+def test_stop_intent_survives_delayed_capture_acknowledgement(replay):
+    replay.app.start_capture(replay.capture.target, 0)
+    observe(replay)
+    publish(replay)
+    replay.app.stop()
+    replay.route_workers[0].finish()
+    # The native owner can still report its last RUNNING snapshot until it handles stop.
+    assert replay.capture.current.state == CaptureState.RUNNING
+    for now in (2, 3, 4):
+        replay.app.advance(now)
+        assert not replay.app.view.scene.tracks and not replay.app.view.english
+        assert replay.app.view.overlay_bounds is None
+        assert len(replay.route_workers) == 1
+    replay.capture.finished = replay.ocr.finished = replay.visual.finished = True
+    replay.app.advance(5)
+    assert not replay.app.controls.capture_active
+
+
 @pytest.mark.parametrize("cause", ["minimized", "resized", "window_error", "ocr_error"])
 def test_invalid_capture_revokes_scene_and_english(replay, cause):
     replay.app.start_capture(replay.capture.target, 0)

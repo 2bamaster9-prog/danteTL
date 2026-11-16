@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Protocol
 
 from jp_overlay.grouping import TextBlock
 from jp_overlay.tracking import TextTrack
@@ -65,3 +66,16 @@ class TranslationSnapshot:
     last_inference_ms: float = 0
     backend_generation: int = 0
     rejected: tuple[TranslationRejection, ...] = ()
+
+
+class TranslationWorker(Protocol):
+    def update(
+        self,
+        tracks: tuple[TextTrack | TextBlock, ...],
+        *,
+        retain: tuple[TextBlock, ...] = (),
+        reset_context: bool = False,
+        corrections: tuple[tuple[TextTrack, TextTrack], ...] = (),
+    ) -> None: ...
+    def invalidate(self) -> None: ...
+    def snapshot(self) -> TranslationSnapshot: ...

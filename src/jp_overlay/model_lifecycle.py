@@ -8,6 +8,7 @@ from enum import StrEnum
 from jp_overlay.cloud_values import CloudProfile
 from jp_overlay.model_selection import LocalIdentity
 from jp_overlay.translation import BackendChoice, TranslationSession
+from jp_overlay.translation_activity import InactiveReason, TranslationActivity, TranslationMode
 from jp_overlay.translation_plan import TranslationPlan
 from jp_overlay.translation_routing import RoutedTranslationSession
 from jp_overlay.translation_values import TranslationState
@@ -116,7 +117,7 @@ class ModelLifecycle:
         if self.selected:
             self.selected = next((b for b in choices if b.key == self.selected.key), None)
 
-    def allows_translation(self, *, running: bool, enabled: bool) -> bool:
+    def _allows_translation(self, *, running: bool, enabled: bool) -> bool:
         usable = (
             self._route.available
             if self._route.mode != "local"
@@ -296,19 +297,51 @@ class ModelLifecycle:
     def resume_after_failed_restart(self) -> None:
         self._phase = ModelPhase.READY if self.selected else ModelPhase.IDLE
 
-    def worker(self, *, running: bool, enabled: bool) -> Worker | None:
-        """Ensure exactly the committed route is running; never overlap local model loads."""
-        if self._phase == ModelPhase.CLOSING or self._probing:
+    def advance_activity(
+        self, *, running: bool, enabled: bool, probing: bool = False
+    ) -> TranslationActivity:
+        """One decision owns probe, preparation, standby, teardown and route activation.
+
+        Only ACTIVE exposes the publication port. Inactive and switching workers remain
+        private until their native cleanup completes, even if their snapshot has failed.
+        """
+        probe_ready = self.suspend_for_probe(probing)
+        if self._phase == ModelPhase.CLOSING:
             self.drain()
-            return None
+            return TranslationActivity(TranslationMode.INACTIVE)
+        if probing:
+            return TranslationActivity(TranslationMode.PROBING, probe_ready=probe_ready)
         if self.preparing:
-            return None
-        session, choice = self.session, self.selected
+            return TranslationActivity(TranslationMode.PREPARING)
+        session = self.session
         if not running and self.standby and enabled and session and not session.finished:
-            return None  # Retain a prepared worker for capture to reuse.
-        if not self.allows_translation(running=running, enabled=enabled):
+            return TranslationActivity(TranslationMode.STANDBY, snapshot=session.snapshot())
+        if not self._allows_translation(running=running, enabled=enabled):
             self.drain()
-            return None
+            reason = (
+                InactiveReason.UNLOADING
+                if session and not session.finished
+                else InactiveReason.OFF
+                if running
+                else InactiveReason.NO_MODEL
+                if self.selected is None
+                else InactiveReason.STOPPED
+            )
+            return TranslationActivity(
+                TranslationMode.INACTIVE,
+                snapshot=session.snapshot() if session else None,
+                reason=reason,
+            )
+        worker = self._activate_route()
+        return TranslationActivity(
+            TranslationMode.ACTIVE if worker else TranslationMode.SWITCHING,
+            worker=worker,
+            model_name=self.selected.name if self.selected else "the translation model",
+        )
+
+    def _activate_route(self) -> Worker | None:
+        """Adopt/start the committed route only after advance_activity permits activation."""
+        session, choice = self.session, self.selected
         if session and session.finished and session.snapshot().state == TranslationState.STOPPED:
             self.session = session = None
         if self._route.plan is not None:

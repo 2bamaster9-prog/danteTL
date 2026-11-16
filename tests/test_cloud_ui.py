@@ -7,6 +7,7 @@ from unittest.mock import Mock
 import httpx2
 import pytest
 from ui_fixtures import app_owner, cloud_owner, show_scene
+from ui_fixtures import settings as window_settings
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -194,7 +195,7 @@ def test_cloud_only_needs_no_local_model_and_keeps_english_until_real_change(
         drain(app, lambda: not application.cloud.busy)
         window.driver.timer.stop()
         window.driver.wakeup.close()
-        panel = window._settings.models.cloud
+        panel = window_settings(window).models.cloud
         calls = []
 
         def handle(request):
@@ -536,7 +537,9 @@ def test_simple_local_preparation_commits_only_when_ready_and_reuses_worker(
         window.deleteLater()
 
 
-def test_unconfigured_cloud_route_cannot_silently_use_local_or_start_network(app, tmp_path):
+def test_unconfigured_cloud_route_cannot_silently_use_local_or_start_network(
+    app, tmp_path, monkeypatch
+):
     windows = Mock()
     windows.list_targets.return_value = []
     local_factory = Mock(side_effect=AssertionError("Unexpected local fallback"))
@@ -558,7 +561,10 @@ def test_unconfigured_cloud_route_cannot_silently_use_local_or_start_network(app
         show_scene(window)
         assert not application.translation.session and not local_factory.called
         assert "unavailable" in window.notice.text()
-        assert window._notice_destination == "selection"
+        focus_model = Mock()
+        monkeypatch.setattr(window.routing, "focus_model", focus_model)
+        window.onboarding.action.click()
+        focus_model.assert_called_once_with()
     finally:
         window.close()
         window.deleteLater()
@@ -592,7 +598,7 @@ def test_history_experimental_opt_in_persists_and_keeps_translation_independent(
     try:
         drain(app, lambda: not application.cloud.busy)
         panel = window.history_panel
-        settings = window._settings
+        settings = window_settings(window)
         assert "Experimental" in [settings.tabs.tabText(i) for i in range(settings.tabs.count())]
         assert settings.history_enabled.isChecked() is previously_enabled
         assert panel.model.isEnabled() is previously_enabled

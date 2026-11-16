@@ -118,6 +118,12 @@ source_modules = ["jp_overlay.capture_lifecycle", "jp_overlay.translation_activi
 forbidden_modules = ["PySide6", "shiboken6", "jp_overlay.ui", "jp_overlay.settings_window", "jp_overlay.composition", "jp_overlay.app", "jp_overlay.desktop_driver"]
 
 [[tool.importlinter.contracts]]
+name = "Status projection depends on values and ports, not resource owners"
+type = "forbidden"
+source_modules = ["jp_overlay.application_presentation", "jp_overlay.translation_activity"]
+forbidden_modules = ["jp_overlay.application_session", "jp_overlay.model_lifecycle", "jp_overlay.translation_coordinator", "jp_overlay.translation", "jp_overlay.translation_routing", "jp_overlay.live_session", "jp_overlay.recognition", "jp_overlay.cloud_services", "jp_overlay.setup_coordinator"]
+
+[[tool.importlinter.contracts]]
 name = "Views cannot reach backend implementations, credential stores or installers"
 type = "forbidden"
 source_modules = ["jp_overlay.ui", "jp_overlay.settings_window", "jp_overlay.cloud_settings", "jp_overlay.cloud_editor", "jp_overlay.model_manager", "jp_overlay.model_import_dialog", "jp_overlay.runtime_dialog", "jp_overlay.setup_assistant", "jp_overlay.routing_controls", "jp_overlay.history_panel"]
