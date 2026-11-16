@@ -104,7 +104,9 @@ def validate_identity(token: str, jwks: dict, client_id: str, nonce: str) -> dic
         if not isinstance(token, str) or not 1 <= len(token) <= 16_384:
             raise ValueError
         header = jwt.get_unverified_header(token)
-        if header.get("alg") != "RS256" or len(token) > 16_384:
+        # This OIDC flow implements no critical JWS extensions. Keep this boundary
+        # explicit even in older optional runtimes awaiting a dependency update.
+        if header.get("alg") != "RS256" or "crit" in header:
             raise ValueError
         matches = [
             key

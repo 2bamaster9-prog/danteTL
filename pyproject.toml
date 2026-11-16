@@ -13,7 +13,7 @@ dependencies = [
   "numpy>=2,<=2.3.2",
   "packaging>=24,<27",
   "httpx2==2.16.0",
-  "PyJWT[crypto]==2.10.1",
+  "PyJWT[crypto]==2.15.1",
   "opencv-python>=4.10,<6",
   "PySide6-Essentials>=6.8,<7",
   "windows-capture>=2.0.0,<3; sys_platform == 'win32'",
@@ -67,6 +67,11 @@ conflicts = [
 # Installing both OpenCV distributions would overwrite shared package files.
 exclude-dependencies = ["opencv-python-headless"]
 build-constraint-dependencies = ["scikit-build-core==1.1.2", "cmake==4.4.5", "ninja==1.13.2"]
+
+[tool.uv.audit]
+# Required by upstream llama.cpp; its optional pickle cache is never enabled here.
+# This exception expires when the advisory lists a fix. See engineering/security.md.
+ignore-until-fixed = ["GHSA-w8v5-vhqr-4h9v"]
 
 [tool.uv.config-settings-package.llama-cpp-python]
 "cmake.define.GGML_NATIVE" = "OFF"

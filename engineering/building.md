@@ -66,7 +66,8 @@ and real capture checks are separate; see [verification](verification.md).
 ## GitHub Actions and releases
 
 `check.yml` runs the same fast gate on pushes and pull requests: Ruff formatting/lint, Pyright,
-Import Linter ownership contracts and model-free tests. `build.yml` reuses that gate, builds on
+Import Linter ownership contracts and model-free tests. `security.yml` adds dependency and secret
+scans on pushes/PRs and weekly. `build.yml` requires both workflows, builds on
 `windows-2025`, then verifies the relocated EXE and bundled offline OCR. Packaging or app changes
 on pull requests also exercise the build; manual runs produce downloadable Actions artifacts.
 The workflows need no provider credentials, personal tokens or preinstalled models.
@@ -97,7 +98,8 @@ coverage without pretending that it covers those hardware paths.
 
 Action revisions, uv and Python/build dependencies are pinned. This is a repeatable build recipe,
 not a claim of byte-identical ZIPs: Windows images, compiler versions, signing and archive timestamps
-can differ. The portable executable is currently unsigned.
+can differ. The portable executable is currently unsigned. See [security maintenance](security.md)
+for the scoped dependency exception and remaining repository/signing setup.
 
 Workflow references: [reusable checks](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows),
 [GitHub CLI releases](https://cli.github.com/manual/gh_release_create).

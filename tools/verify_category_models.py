@@ -18,11 +18,26 @@ from jp_overlay.translation_plan import TranslationPlan
 from jp_overlay.translation_routing import RoutedTranslationSession
 
 
+class CloudFixture:
+    """Offline route replacement; native workers still run their real inference."""
+
+    batch_size = 1
+
+    def __init__(self, key):
+        self.cache_identity = key
+
+    def translate(self, texts):
+        return tuple("Fixture translation: " + text for text in texts)
+
+    def close(self):
+        pass
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--short", default="gemma")
     parser.add_argument("--long", default="gemma-e4b")
-    parser.add_argument("--device", choices=("cpu", "cuda"), required=True)
+    parser.add_argument("--device", choices=("cpu", "cuda", "vulkan"), required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
@@ -37,9 +52,9 @@ def main():
         kwargs["verbose"] = True
         return original_load(*args, **kwargs)
 
-    if args.device == "cuda":
-        assert all(c.key.endswith("-cuda") for c in selected), (
-            "Strict GPU verification requires CUDA choices"
+    if args.device != "cpu":
+        assert all(c.key.endswith("-" + args.device) for c in selected), (
+            "Strict GPU verification requires matching GPU choices"
         )
     engines = []
 
@@ -63,34 +78,56 @@ def main():
     with (
         tempfile.TemporaryDirectory(dir=args.output) as folder,
         patch.object(runtime, "Llama", load),
+        patch("diskcache.Cache", side_effect=AssertionError("Unsafe pickle cache enabled")),
+        patch.object(
+            original_load, "set_cache", side_effect=AssertionError("Upstream prompt cache enabled")
+        ),
         patch.object(socket.socket, "connect", side_effect=AssertionError("Unexpected network")),
     ):
         plan = TranslationPlan("local:" + args.short, "local:" + args.long)
-        session = RoutedTranslationSession.assigned(
-            plan,
-            {"local:" + c.preference_key: lambda c=c: factory(c) for c in selected},
-            Path(folder) / "cache",
-        )
+        factories = {"local:" + c.preference_key: lambda c=c: factory(c) for c in selected}
+        session = RoutedTranslationSession.assigned(plan, factories, Path(folder) / "cache")
         session.start()
         try:
-            session.update((short, long))
-            while len(session.snapshot().results) != 2:
-                snapshot = session.snapshot()
-                assert snapshot.state != TranslationState.FAILED, snapshot.message
-                assert time.monotonic() - started < 180, snapshot.message
-                time.sleep(0.02)
+
+            def translate(label):
+                deadline = time.monotonic() + 180
+                while True:
+                    session.update((label, long))
+                    snapshot = session.snapshot()
+                    assert snapshot.state != TranslationState.FAILED, snapshot.message
+                    if len(snapshot.results) == 2:
+                        return snapshot.results
+                    assert time.monotonic() < deadline, snapshot.message
+                    time.sleep(0.02)
+
+            translate(short)
             results = session.snapshot().results
             for _ in range(40):
                 session.update((long, short))
                 assert session.snapshot().results == results
+            # A changed cloud lane must not reload the still-selected native model.
+            # Fresh labels require real inference, so stale cached results cannot pass.
+            for index, source in enumerate(("攻撃力", "防御力")):
+                remote = f"cloud:fixture-{index}"
+                session.reconfigure(
+                    TranslationPlan(plan.short, remote),
+                    {**factories, remote: lambda remote=remote: CloudFixture(remote)},
+                )
+                label = TextBlock((TextTrack(10 + index, source, short.bounds),))
+                switched = translate(label)
+                assert any(r.request.source == source for r in switched)
+                assert len(engines) == len(plan.active_models), "Unchanged native model reloaded"
             report = {
                 "models": [c.name for c in selected],
                 "device": args.device,
                 "network_blocked": True,
+                "upstream_disk_cache_disabled": True,
                 "elapsed_seconds": round(time.monotonic() - started, 2),
                 "loads": len(engines),
                 "results": [{"source": r.request.source, "english": r.english} for r in results],
                 "stable_replays": 40,
+                "cloud_switches_without_native_reload": 2,
             }
             assert len(engines) == len(plan.active_models)
             (args.output / "result.json").write_text(

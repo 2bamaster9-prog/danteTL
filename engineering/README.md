@@ -8,6 +8,7 @@ an explicitly selected local or cloud translator. These documents describe curre
 | Ownership, processing, UI, models, setup or security | [Architecture](architecture.md) |
 | Tests or native acceptance | [Verification](verification.md) |
 | Packaging, dependencies or CI | [Building](building.md) |
+| Dependency advisories, security scans or signing | [Security maintenance](security.md) |
 | Performance or model comparisons | [Measurement](performance.md), [benchmark inputs](benchmarks/README.md) |
 
 Keep each contract in one place. Code owns implementation constants; regression tests specify behavior.

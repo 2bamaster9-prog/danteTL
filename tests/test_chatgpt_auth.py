@@ -33,7 +33,7 @@ def signing():
     return private, {"keys": [key]}
 
 
-def identity(private, **changes):
+def identity(private, *, headers=None, **changes):
     claims = {
         "iss": ISSUER,
         "aud": "oaiapp_fixture",
@@ -43,7 +43,23 @@ def identity(private, **changes):
         "nonce": "expected",
         **changes,
     }
-    return jwt.encode(claims, private, algorithm="RS256", headers={"kid": "fixture"})
+    return jwt.encode(
+        claims, private, algorithm="RS256", headers={"kid": "fixture", **(headers or {})}
+    )
+
+
+@pytest.mark.parametrize("critical", [["x-policy"], "x-policy", [], [1], ["b64"]])
+def test_identity_rejects_critical_extensions_even_with_a_valid_rsa_signature(signing, critical):
+    private, jwks = signing
+    token = identity(private, headers={"crit": critical, "x-policy": "unsupported"})
+    with pytest.raises(ValueError, match="identity validation"):
+        validate_identity(token, jwks, "oaiapp_fixture", "expected")
+
+
+def test_identity_allows_ordinary_noncritical_headers(signing):
+    private, jwks = signing
+    token = identity(private, headers={"x-display-label": "ignored"})
+    assert validate_identity(token, jwks, "oaiapp_fixture", "expected")["sub"] == "fixture-subject"
 
 
 def test_identity_requires_real_signature_issuer_audience_nonce_and_expiry(signing):
