@@ -1,9 +1,9 @@
 from dataclasses import replace
 
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.grouping import DialogueGrouper
-from jp_overlay.recognition import OcrResult, TextRegion
-from jp_overlay.tracking import TextTracker
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.tracking import TextTracker
+from dantejp.ocr.worker import OcrResult, TextRegion
+from dantejp.translation.grouping import DialogueGrouper
 
 FIRST = "新しい冒険がここから始まりますが、"
 SECOND = "その前に旅の準備をしてください。"

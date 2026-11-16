@@ -33,5 +33,5 @@ if ($Amd) {
     & $uvCommand sync --locked --group llm-cpu
 }
 if ($LASTEXITCODE -ne 0) { throw 'Dependency setup failed. Check the network connection and retry.' }
-if ($Amd) { Write-Host 'Ready. Run .venv-amd/Scripts/pythonw.exe -m jp_overlay, then Models to choose downloads.' }
+if ($Amd) { Write-Host 'Ready. Run .venv-amd/Scripts/pythonw.exe -m dantejp, then Models to choose downloads.' }
 else { Write-Host 'Ready. Open Run DanteJP.cmd, then Models to choose downloads.' }

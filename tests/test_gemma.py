@@ -3,9 +3,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from jp_overlay import gemma
-from jp_overlay.dialogue_context import DialogueTurn
-from jp_overlay.translation_backend import RequestRejected
+from dantejp.translation.backend import RequestRejected
+from dantejp.translation.backends import gemma
+from dantejp.translation.dialogue.context import DialogueTurn
 
 
 @pytest.fixture
@@ -47,6 +47,7 @@ def test_gemma_uses_bounded_local_gpu_and_complete_answers(runtime, tmp_path):
     backend.close()
     backend.close()
     model.close.assert_called_once()
+    model.set_cache.assert_not_called()  # Upstream pickle-backed caching stays disabled.
     with pytest.raises(RuntimeError, match="closed"):
         backend.translate(("設定",))
 

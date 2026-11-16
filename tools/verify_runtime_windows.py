@@ -15,16 +15,22 @@ from PySide6.QtWidgets import QApplication
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
-from jp_overlay import composition, runtime_downloads, runtime_setup
-from jp_overlay.hotkeys import HotkeyAction, Hotkeys
-from jp_overlay.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
-from jp_overlay.model_factories import create_recognizer, ocr_backends, translation_backends
-from jp_overlay.model_store import model_catalog
-from jp_overlay.paths import is_standalone
-from jp_overlay.preferences import Preferences, PreferenceStore
-from jp_overlay.runtime_restart import RuntimeRestart
-from jp_overlay.setup_coordinator import SetupLane
-from jp_overlay.windows import Windows
+from dantejp import composition
+from dantejp.application.hotkeys import HotkeyAction, Hotkeys
+from dantejp.application.model_factories import (
+    create_recognizer,
+    ocr_backends,
+    translation_backends,
+)
+from dantejp.application.preferences import Preferences, PreferenceStore
+from dantejp.application.setup_coordinator import SetupLane
+from dantejp.capture.windows import Windows
+from dantejp.paths import is_standalone
+from dantejp.runtime import downloads as runtime_downloads
+from dantejp.runtime import setup as runtime_setup
+from dantejp.runtime.model_store import model_catalog
+from dantejp.runtime.restart import RuntimeRestart
+from dantejp.ui.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
 
 
 def main() -> int:

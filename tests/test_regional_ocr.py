@@ -5,18 +5,18 @@ from dataclasses import replace
 import cv2
 import numpy as np
 
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.grouping import DialogueGrouper
-from jp_overlay.recognition import (
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.regions import padded, scan_regions
+from dantejp.ocr.tracking import TextTrack, TextTracker
+from dantejp.ocr.visual import VisualAnalyzer, VisualSession, VisualState
+from dantejp.ocr.worker import (
     OcrResult,
     OcrSession,
     TextCharacter,
     TextRegion,
     recognize_regions,
 )
-from jp_overlay.regions import padded, scan_regions
-from jp_overlay.tracking import TextTrack, TextTracker
-from jp_overlay.visual import VisualAnalyzer, VisualSession, VisualState
+from dantejp.translation.grouping import DialogueGrouper
 
 
 def frame(sequence=1, *, size=(1000, 600), fill=30):
@@ -277,7 +277,7 @@ def test_unconsumed_visual_requests_union_coverage_on_the_newest_frame(monkeypat
         def observe(self, source, *args):
             return VisualState(source, True, scan_areas=(a if source.sequence == 1 else b,))
 
-    monkeypatch.setattr("jp_overlay.visual.VisualAnalyzer", Analyzer)
+    monkeypatch.setattr("dantejp.ocr.visual.VisualAnalyzer", Analyzer)
     session = VisualSession()
     session.start()
     try:

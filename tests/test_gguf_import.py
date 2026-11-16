@@ -9,12 +9,16 @@ from unittest.mock import Mock
 
 import pytest
 
-from jp_overlay import app, gguf_backend, gguf_models, gguf_probe, llama_runtime
-from jp_overlay.dialogue_context import DialogueTurn
-from jp_overlay.gguf_models import available
-from jp_overlay.model_store import Cancelled
-from jp_overlay.preferences import decode_preferences
-from jp_overlay.translation_backend import RequestRejected
+from dantejp import bootstrap as app
+from dantejp.application.preferences import decode_preferences
+from dantejp.runtime import llama as llama_runtime
+from dantejp.runtime.model_store import Cancelled
+from dantejp.translation.backend import RequestRejected
+from dantejp.translation.backends import gguf as gguf_backend
+from dantejp.translation.dialogue.context import DialogueTurn
+from dantejp.translation.models import gguf as gguf_models
+from dantejp.translation.models import probe as gguf_probe
+from dantejp.translation.models.gguf import available
 
 
 def gguf_file(tmp_path, *, architecture="qwen3", template="{{ messages[0].content }}", split=1):
@@ -121,9 +125,9 @@ def test_hashing_cancel_and_same_size_changes_are_detected(tmp_path):
 def test_curated_models_use_pinned_hash_without_registering_or_loading_corrupt_weights(
     tmp_path, monkeypatch, architecture, fake_runtime
 ):
-    from jp_overlay.curated_models import CuratedModel
-    from jp_overlay.model_store import ModelBundle
-    from jp_overlay.models import ModelAsset
+    from dantejp.runtime.assets import ModelAsset
+    from dantejp.runtime.model_store import ModelBundle
+    from dantejp.translation.models.curated import CuratedModel
 
     path = gguf_file(tmp_path, architecture=architecture)
     asset = ModelAsset(
@@ -224,6 +228,7 @@ def test_imported_context_is_bounded_and_source_is_never_truncated(tmp_path, fak
     backend.close()
     backend.close()
     fake_runtime.Llama.return_value.close.assert_called_once()
+    fake_runtime.Llama.return_value.set_cache.assert_not_called()
 
 
 @pytest.mark.parametrize(

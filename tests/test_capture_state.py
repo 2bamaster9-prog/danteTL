@@ -2,8 +2,8 @@ import threading
 
 import pytest
 
-from jp_overlay.capture import CaptureSession, FrameMailbox
-from jp_overlay.domain import CapturedFrame, CaptureState, Rect, WindowGeometry, WindowTarget
+from dantejp.capture.worker import CaptureSession, FrameMailbox
+from dantejp.domain import CapturedFrame, CaptureState, Rect, WindowGeometry, WindowTarget
 
 
 class FakeWindows:

@@ -3,7 +3,7 @@
 import argparse
 import threading
 
-from jp_overlay.model_store import ModelProgress, install_model, model_catalog
+from dantejp.runtime.model_store import ModelProgress, install_model, model_catalog
 
 
 def main() -> None:

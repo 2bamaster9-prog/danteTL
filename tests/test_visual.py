@@ -6,10 +6,10 @@ import cv2
 import numpy as np
 import pytest
 
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.recognition import OcrResult, TextRegion
-from jp_overlay.tracking import TextTrack, TextTracker, TrackingPolicy
-from jp_overlay.visual import VisualAnalyzer, VisualSession, VisualState
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.tracking import TextTrack, TextTracker, TrackingPolicy
+from dantejp.ocr.visual import VisualAnalyzer, VisualSession, VisualState
+from dantejp.ocr.worker import OcrResult, TextRegion
 
 BOX = Rect(20, 50, 180, 24)
 TEXT = "新しい冒険がここから始まります"
@@ -236,7 +236,7 @@ def test_visual_initialization_failure_falls_back_and_still_finishes_shutdown(mo
         calls.append(1)
         raise RuntimeError("Visual initialization unavailable")
 
-    monkeypatch.setattr("jp_overlay.visual.VisualAnalyzer", fail)
+    monkeypatch.setattr("dantejp.ocr.visual.VisualAnalyzer", fail)
     session = VisualSession()
     session.start()
     try:
@@ -277,7 +277,7 @@ def test_worker_coalesces_frames_and_rejects_evidence_after_invalidation(monkeyp
                 assert release.wait(3)
             return VisualState(frame, True)
 
-    monkeypatch.setattr("jp_overlay.visual.VisualAnalyzer", Analyzer)
+    monkeypatch.setattr("dantejp.ocr.visual.VisualAnalyzer", Analyzer)
     notified = []
 
     def notification():

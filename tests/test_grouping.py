@@ -2,10 +2,10 @@ from dataclasses import replace
 
 import pytest
 
-from jp_overlay.domain import Rect
-from jp_overlay.grouping import DialogueGrouper, TextBlock, join_lines
-from jp_overlay.tracking import TextTrack
-from jp_overlay.translation import TranslationRequest
+from dantejp.domain import Rect
+from dantejp.ocr.tracking import TextTrack
+from dantejp.translation.grouping import DialogueGrouper, TextBlock, join_lines
+from dantejp.translation.worker import TranslationRequest
 
 
 def line(

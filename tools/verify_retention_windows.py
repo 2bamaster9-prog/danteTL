@@ -20,13 +20,13 @@ from PySide6.QtWidgets import QApplication, QWidget
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
-from jp_overlay.domain import CapturedFrame, Rect, WindowTarget
-from jp_overlay.grouping import TextBlock
-from jp_overlay.model_factories import create_recognizer, translation_backends
-from jp_overlay.recognition import OcrChoice, OcrState, TextCharacter, TextRegion
-from jp_overlay.text_content import has_japanese
-from jp_overlay.translation import TranslatedText
-from jp_overlay.windows import Windows
+from dantejp.application.model_factories import create_recognizer, translation_backends
+from dantejp.capture.windows import Windows
+from dantejp.domain import CapturedFrame, Rect, WindowTarget
+from dantejp.ocr.text_content import has_japanese
+from dantejp.ocr.worker import OcrChoice, OcrState, TextCharacter, TextRegion
+from dantejp.translation.grouping import TextBlock
+from dantejp.translation.worker import TranslatedText
 
 
 class CharacterScreen(QWidget):

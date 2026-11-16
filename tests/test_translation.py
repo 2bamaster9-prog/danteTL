@@ -4,14 +4,14 @@ from dataclasses import replace
 
 import pytest
 
-from jp_overlay.dialogue_context import DialogueTurn
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.grouping import DialogueGrouper, TextBlock
-from jp_overlay.recognition import OcrResult, TextCharacter, TextRegion
-from jp_overlay.tracking import TextTrack, TextTracker
-from jp_overlay.translation import TranslationRequest, TranslationSession, TranslationState
-from jp_overlay.translation_backend import RequestRejected
-from jp_overlay.translation_cache import TranslationCache
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.tracking import TextTrack, TextTracker
+from dantejp.ocr.worker import OcrResult, TextCharacter, TextRegion
+from dantejp.translation.backend import RequestRejected
+from dantejp.translation.cache import TranslationCache
+from dantejp.translation.dialogue.context import DialogueTurn
+from dantejp.translation.grouping import DialogueGrouper, TextBlock
+from dantejp.translation.worker import TranslationRequest, TranslationSession, TranslationState
 
 
 def track(text="日本語", revision=1, key=1) -> TextTrack:

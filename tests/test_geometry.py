@@ -1,6 +1,6 @@
 import pytest
 
-from jp_overlay.domain import (
+from dantejp.domain import (
     CapturedFrame,
     CaptureSnapshot,
     CaptureState,

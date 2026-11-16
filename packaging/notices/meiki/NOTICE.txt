@@ -18,11 +18,11 @@ upstream, with the pinned model cards and available inference source here.
 See COPYING.LESSER.txt and COPYING.txt for the license texts. No warranty is given.
 
 The models are separate files in _internal/app/models/meiki. Integrity hashes,
-revisions and sizes appear in jp_overlay/models.py inside the standard application
+revisions and sizes appear in dantejp/ocr/models.py inside the standard application
 wheel under _internal/app/application. Wheels are ZIP archives; the application
 source, model validation, paths and loader can be inspected and modified there.
 There is no restriction on
 modifying/replacing these components or reverse engineering to debug modifications.
-JP_OVERLAY_MODEL_DIR selects an explicit model directory. Modified model hashes
+DANTEJP_MODEL_DIR selects an explicit model directory. Modified model hashes
 must also be updated in models.py; the default loader checks the pinned hashes.
 Normal Verify / repair keeps the app's resources unchanged and writes to AppData.

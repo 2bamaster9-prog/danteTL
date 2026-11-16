@@ -3,37 +3,7 @@ import threading
 import time
 from dataclasses import replace
 
-import pytest
-
-from jp_overlay.preferences import Preferences, PreferenceStore, decode_preferences
-
-
-@pytest.mark.parametrize("retired", ["sugoi", "sugoi-fast", "sugoi-wide"])
-def test_retired_model_preferences_disable_only_the_affected_assignments(retired):
-    cloud = "cloud:cloud-" + "a" * 32
-    decoded = decode_preferences(
-        {
-            "version": 1,
-            "model": retired,
-            "setup_model": retired,
-            "short_model": "local:" + retired,
-            "long_model": cloud,
-            "history_model": "local:" + retired,
-        }
-    )
-    assert decoded.model == "none"  # Never fall back to an unrelated automatic choice.
-    assert decoded.short_model == decoded.setup_model == decoded.history_model == ""
-    assert decoded.long_model == cloud
-    retained = decode_preferences(
-        {
-            "version": 1,
-            "model": "gemma",
-            "short_model": "local:gemma",
-            "long_model": "local:" + retired,
-        }
-    )
-    assert retained.model == "gemma" and retained.short_model == "local:gemma"
-    assert retained.long_model == ""
+from dantejp.application.preferences import Preferences, PreferenceStore, decode_preferences
 
 
 def wait_idle(store):

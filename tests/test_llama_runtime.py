@@ -8,7 +8,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from jp_overlay import llama_runtime
+from dantejp.runtime import llama as llama_runtime
 
 
 @pytest.fixture(autouse=True)

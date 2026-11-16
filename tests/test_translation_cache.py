@@ -1,6 +1,6 @@
 import sqlite3
 
-from jp_overlay.translation_cache import TranslationCache, translation_key
+from dantejp.translation.cache import TranslationCache, translation_key
 
 
 def test_cache_key_separates_backend_settings_and_exact_source() -> None:

@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jp_overlay import ocr_runtime
+from dantejp.runtime import ocr as ocr_runtime
 
 
 def test_cuda_setup_reuses_an_explicit_cache_without_overwriting_user_limits(

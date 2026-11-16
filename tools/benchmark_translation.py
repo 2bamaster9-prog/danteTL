@@ -21,11 +21,11 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
-from jp_overlay.dialogue_context import DialogueTurn
-from jp_overlay.model_store import ModelBundle, ModelProgress, install_model
-from jp_overlay.models import ModelAsset, validate_asset
-from jp_overlay.setup_process import run_setup_command
-from jp_overlay.translation_backend import ContextualBackend, RequestRejected, TranslationBackend
+from dantejp.runtime.assets import ModelAsset, validate_asset
+from dantejp.runtime.model_store import ModelBundle, ModelProgress, install_model
+from dantejp.runtime.setup_process import run_setup_command
+from dantejp.translation.backend import ContextualBackend, RequestRejected, TranslationBackend
+from dantejp.translation.dialogue.context import DialogueTurn
 from tools.benchmark_profiles import SpecialistBackend
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -119,12 +119,12 @@ def load_backend(key: str, device: str) -> TranslationBackend:
         validate_asset(path, asset, None)
         return SpecialistBackend(path, candidates()[key]["profile"], device)
     if key == "gemma":
-        from jp_overlay.gemma import GemmaBackend, model_directory
+        from dantejp.translation.backends.gemma import GemmaBackend, model_directory
 
         return GemmaBackend(model_directory(), device=device)
-    from jp_overlay.curated_models import MODELS
-    from jp_overlay.gguf_backend import GgufBackend
-    from jp_overlay.gguf_models import describe
+    from dantejp.translation.backends.gguf import GgufBackend
+    from dantejp.translation.models.curated import MODELS
+    from dantejp.translation.models.gguf import describe
 
     model = next(m for m in MODELS if m.key == key)
     for asset in model.assets:
@@ -139,7 +139,7 @@ def load_backend(key: str, device: str) -> TranslationBackend:
 
 
 def child(args: argparse.Namespace) -> None:
-    from jp_overlay.llama_runtime import installed_device
+    from dantejp.runtime.llama import installed_device
     from tools.verify_translation import process_memory
 
     if installed_device() != args.device:

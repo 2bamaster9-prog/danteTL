@@ -7,23 +7,23 @@ from dataclasses import replace
 import httpx2
 import pytest
 
-from jp_overlay.cloud import CloudAllowance, CloudBackend
-from jp_overlay.cloud_profiles import CloudProfile
-from jp_overlay.dialogue_classifier import (
+from dantejp.application.live_session import LiveSession
+from dantejp.application.preferences import Preferences, decode_preferences
+from dantejp.domain import Rect
+from dantejp.ocr.tracking import TextTrack
+from dantejp.translation.backend import RequestRejected
+from dantejp.translation.cloud.backend import CloudAllowance, CloudBackend
+from dantejp.translation.cloud.profiles import CloudProfile
+from dantejp.translation.dialogue.classifier import (
     Classification,
     ClassificationInput,
     ClassifierSession,
     parse_classification,
 )
-from jp_overlay.dialogue_history import DialogueHistory
-from jp_overlay.domain import Rect
-from jp_overlay.grouping import TextBlock
-from jp_overlay.history_layout import PanelContext
-from jp_overlay.live_session import LiveSession
-from jp_overlay.preferences import Preferences, decode_preferences
-from jp_overlay.tracking import TextTrack
-from jp_overlay.translation import TranslatedText, TranslationRequest
-from jp_overlay.translation_backend import RequestRejected
+from dantejp.translation.dialogue.history import DialogueHistory
+from dantejp.translation.dialogue.layout import PanelContext
+from dantejp.translation.grouping import TextBlock
+from dantejp.translation.worker import TranslatedText, TranslationRequest
 
 
 def until(predicate):

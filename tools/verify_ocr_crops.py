@@ -13,10 +13,10 @@ from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QColor, QFont, QImage, QPainter
 from PySide6.QtWidgets import QApplication
 
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.meiki import MeikiRecognizer
-from jp_overlay.models import model_directory
-from jp_overlay.recognition import recognize_regions
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.meiki import MeikiRecognizer
+from dantejp.ocr.models import model_directory
+from dantejp.ocr.worker import recognize_regions
 
 
 def fixture(font_size: int, light: bool, kind: str) -> tuple[CapturedFrame, Rect, tuple[str, ...]]:

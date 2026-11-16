@@ -12,13 +12,17 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
-from jp_overlay import gguf_models
-from jp_overlay.demo import DemoWindow
-from jp_overlay.domain import WindowTarget
-from jp_overlay.model_factories import create_recognizer, ocr_backends, translation_backends
-from jp_overlay.model_store import model_catalog
-from jp_overlay.translation import TranslationState
-from jp_overlay.windows import Windows
+from dantejp.application.model_factories import (
+    create_recognizer,
+    ocr_backends,
+    translation_backends,
+)
+from dantejp.capture.windows import Windows
+from dantejp.domain import WindowTarget
+from dantejp.runtime.model_store import model_catalog
+from dantejp.translation.models import gguf as gguf_models
+from dantejp.translation.worker import TranslationState
+from dantejp.ui.demo import DemoWindow
 
 
 def main() -> None:
@@ -47,8 +51,8 @@ def main() -> None:
 
     with (
         patch.object(gguf_models, "registry_path", return_value=registry),
-        patch("jp_overlay.model_store.is_prepared", return_value=False),
-        patch("jp_overlay.model_store.mark_prepared"),
+        patch("dantejp.runtime.model_store.is_prepared", return_value=False),
+        patch("dantejp.runtime.model_store.mark_prepared"),
         patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes),
         patch.object(QMessageBox, "warning") as warning,
     ):

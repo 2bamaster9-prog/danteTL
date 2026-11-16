@@ -15,12 +15,12 @@ from PySide6.QtWidgets import QApplication
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
-from jp_overlay import model_store
-from jp_overlay.hardware import Adapter, HardwareStatus
-from jp_overlay.model_store import ModelBundle
-from jp_overlay.models import ModelAsset
-from jp_overlay.preferences import PreferenceStore
-from jp_overlay.windows import Windows
+from dantejp.application.preferences import PreferenceStore
+from dantejp.capture.windows import Windows
+from dantejp.runtime import model_store
+from dantejp.runtime.assets import ModelAsset
+from dantejp.runtime.hardware import Adapter, HardwareStatus
+from dantejp.runtime.model_store import ModelBundle
 
 
 def main() -> int:

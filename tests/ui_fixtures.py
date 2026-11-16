@@ -8,14 +8,14 @@ from tempfile import TemporaryDirectory
 
 from test_live_session import Capture, frame
 
-from jp_overlay.application_values import Scene
-from jp_overlay.chatgpt_auth import ChatGPTConnections
-from jp_overlay.cloud_profiles import CloudProfiles
-from jp_overlay.cloud_services import CloudServices
-from jp_overlay.domain import CaptureSnapshot, CaptureState
-from jp_overlay.grouping import TextBlock
-from jp_overlay.live_session import LiveSession
-from jp_overlay.protected_store import ProtectedStore
+from dantejp.application.cloud_services import CloudServices
+from dantejp.application.live_session import LiveSession
+from dantejp.application.values import Scene
+from dantejp.domain import CaptureSnapshot, CaptureState
+from dantejp.translation.cloud.chatgpt_auth import ChatGPTConnections
+from dantejp.translation.cloud.profiles import CloudProfiles
+from dantejp.translation.cloud.protected_store import ProtectedStore
+from dantejp.translation.grouping import TextBlock
 
 _applications = weakref.WeakKeyDictionary()
 _sources = weakref.WeakKeyDictionary()
@@ -81,7 +81,7 @@ def create_window(windows, recognizer, *backends_args, cloud=None, **kwargs):
     if kwargs.pop("scene_feed", False):
         kwargs["live_session"] = SceneFeed()
     args = (windows, recognizer, *backends_args)
-    from jp_overlay.ui import MainWindow
+    from dantejp.ui.main_window import MainWindow
 
     temporary = TemporaryDirectory(prefix="dantejp-test-")
     root = Path(temporary.name)
@@ -93,8 +93,8 @@ def create_window(windows, recognizer, *backends_args, cloud=None, **kwargs):
     )
     from functools import partial
 
-    from jp_overlay.model_inventory import ModelInventory, inspect_models
-    from jp_overlay.model_store import mark_prepared
+    from dantejp.application.model_inventory import ModelInventory, inspect_models
+    from dantejp.runtime.model_store import mark_prepared
 
     backends = args[2] if len(args) > 2 else kwargs.get("backends", ())
     bundles = kwargs.get("models", ())
@@ -107,8 +107,8 @@ def create_window(windows, recognizer, *backends_args, cloud=None, **kwargs):
     )
     source = InventoryFeed(probe)
     inventory = ModelInventory(source, mark_prepared, initial=initial_probe())
-    from jp_overlay.composition import application_session, setup_coordinator
-    from jp_overlay.desktop_driver import DesktopDriver
+    from dantejp.composition import application_session, setup_coordinator
+    from dantejp.ui.desktop_driver import DesktopDriver
 
     setup = setup_coordinator(inventory, bundles, root)
     driver = DesktopDriver()
@@ -129,7 +129,7 @@ def create_window(windows, recognizer, *backends_args, cloud=None, **kwargs):
 def cloud_panel(**kwargs):
     from PySide6.QtCore import QTimer
 
-    from jp_overlay.cloud_settings import CloudSettings
+    from dantejp.ui.cloud_settings import CloudSettings
 
     panel = CloudSettings(cloud_service(**kwargs))
     timer = QTimer(panel)
@@ -139,7 +139,7 @@ def cloud_panel(**kwargs):
 
 
 def model_manager(*args, **kwargs):
-    from jp_overlay.model_manager import ModelManager
+    from dantejp.ui.model_manager import ModelManager
 
     temporary = TemporaryDirectory(prefix="dantejp-test-")
     root = Path(temporary.name)
@@ -148,8 +148,8 @@ def model_manager(*args, **kwargs):
         secrets=NoCredentials,
         connections=ChatGPTConnections(ProtectedStore(root / "accounts")),
     )
-    from jp_overlay.composition import setup_coordinator
-    from jp_overlay.model_inventory import ModelInventory, inspect_models
+    from dantejp.application.model_inventory import ModelInventory, inspect_models
+    from dantejp.composition import setup_coordinator
 
     inventory = ModelInventory(
         lambda: inspect_models(args[0], lambda: ()),
@@ -163,8 +163,8 @@ def model_manager(*args, **kwargs):
 
 
 def find_model(combo, choice):
-    from jp_overlay.model_selection import ModelOption
-    from jp_overlay.translation_coordinator import model_reference
+    from dantejp.application.translation_coordinator import model_reference
+    from dantejp.translation.selection import ModelOption
 
     reference = choice.reference if isinstance(choice, ModelOption) else model_reference(choice)
     return next(
@@ -230,7 +230,7 @@ def app_owner(window):
 
 
 def settings(window):
-    from jp_overlay.settings_window import SettingsWindow
+    from dantejp.ui.settings_window import SettingsWindow
 
     panel = window.findChild(SettingsWindow)
     assert panel is not None
@@ -240,7 +240,7 @@ def settings(window):
 def cloud_owner(panel):
     from typing import cast
 
-    from jp_overlay.cloud_services import CloudServices
+    from dantejp.application.cloud_services import CloudServices
 
     return cast(CloudServices, panel.service)
 
@@ -248,14 +248,14 @@ def cloud_owner(panel):
 def setup_owner(panel):
     from typing import cast
 
-    from jp_overlay.setup_coordinator import SetupCoordinator
+    from dantejp.application.setup_coordinator import SetupCoordinator
 
     return cast(SetupCoordinator, panel.service)
 
 
 def set_ocr_available(window, ready):
 
-    from jp_overlay.model_values import ModelFile
+    from dantejp.application.model_values import ModelFile
 
     ocr = ModelFile(
         "ocr",

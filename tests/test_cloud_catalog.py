@@ -5,9 +5,9 @@ from dataclasses import replace
 import httpx2
 import pytest
 
-from jp_overlay.cloud_catalog import CatalogCache, CatalogModel, fetch_models
-from jp_overlay.cloud_profiles import CloudProfile, CloudProfiles
-from jp_overlay.cloud_protocol import decoding_identity, request_body
+from dantejp.translation.cloud.catalog import CatalogCache, CatalogModel, fetch_models
+from dantejp.translation.cloud.profiles import CloudProfile, CloudProfiles
+from dantejp.translation.cloud.protocol import decoding_identity, request_body
 
 
 @pytest.mark.parametrize("provider", ["openai", "deepseek", "gemini", "claude"])

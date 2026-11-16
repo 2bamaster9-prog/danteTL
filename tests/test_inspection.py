@@ -15,8 +15,8 @@ from ui_fixtures import (
     show_scene,
 )
 
-from jp_overlay.setup_assistant import SetupAssistant
-from jp_overlay.setup_coordinator import SetupLane
+from dantejp.application.setup_coordinator import SetupLane
+from dantejp.ui.setup_assistant import SetupAssistant
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -26,15 +26,12 @@ from PySide6.QtWidgets import QApplication, QMessageBox, QProgressDialog  # noqa
 from ui_fixtures import create_window as MainWindow  # noqa: E402
 from ui_fixtures import find_model
 
-from jp_overlay.diagnostics import DebugDisplay  # noqa: E402
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry  # noqa: E402
-from jp_overlay.grouping import TextBlock  # noqa: E402
-from jp_overlay.inspection import OcrInspector, image_target  # noqa: E402
-from jp_overlay.overlay import OverlayWindow  # noqa: E402
-from jp_overlay.recognition import OcrResult, TextCharacter, TextRegion  # noqa: E402
-from jp_overlay.text_layout import layout_english  # noqa: E402
-from jp_overlay.tracking import TextTrack  # noqa: E402
-from jp_overlay.translation import (  # noqa: E402
+from dantejp.application.translation_coordinator import model_reference
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry  # noqa: E402
+from dantejp.ocr.tracking import TextTrack  # noqa: E402
+from dantejp.ocr.worker import OcrResult, TextCharacter, TextRegion  # noqa: E402
+from dantejp.translation.grouping import TextBlock  # noqa: E402
+from dantejp.translation.worker import (  # noqa: E402
     BackendChoice,
     TranslatedText,
     TranslationRequest,
@@ -42,7 +39,10 @@ from jp_overlay.translation import (  # noqa: E402
     TranslationSnapshot,
     TranslationState,
 )
-from jp_overlay.translation_coordinator import model_reference
+from dantejp.ui.diagnostics import DebugDisplay  # noqa: E402
+from dantejp.ui.inspection import OcrInspector, image_target  # noqa: E402
+from dantejp.ui.overlay import OverlayWindow  # noqa: E402
+from dantejp.ui.text_layout import layout_english  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -88,10 +88,10 @@ def test_capture_status_and_loading_stay_inside_game_panel_without_inspection(ap
     from PySide6.QtWidgets import QLabel
     from test_application_transitions import observe
 
-    from jp_overlay.desktop_driver import DesktopDriver
-    from jp_overlay.model_inventory import InventoryData
-    from jp_overlay.ocr_values import OcrSnapshot, OcrState
-    from jp_overlay.ui import MainWindow as View
+    from dantejp.application.model_inventory import InventoryData
+    from dantejp.ocr.values import OcrSnapshot, OcrState
+    from dantejp.ui.desktop_driver import DesktopDriver
+    from dantejp.ui.main_window import MainWindow as View
 
     replay = Replay(tmp_path, data=InventoryData((BackendChoice("Local", Mock(), "base"),)))
     replay.windows.list_targets.return_value = []
@@ -124,12 +124,12 @@ def test_capture_status_and_loading_stay_inside_game_panel_without_inspection(ap
 
 def test_capture_visibility_ui_remembers_choice_and_rolls_back_native_failure(app, monkeypatch):
     windows, preferences = Mock(), Mock()
-    from jp_overlay.preferences import Preferences
+    from dantejp.application.preferences import Preferences
 
     windows.list_targets.return_value = []
     preferences.initial = Preferences(include_overlay_in_capture=False)
     preferences.error = ""
-    monkeypatch.setattr("jp_overlay.composition.PreferenceStore", lambda path: preferences)
+    monkeypatch.setattr("dantejp.composition.PreferenceStore", lambda path: preferences)
     window = MainWindow(windows, Mock())
     try:
         assert not window.capture_overlay_check.isChecked()
@@ -153,12 +153,12 @@ def test_capture_visibility_ui_remembers_choice_and_rolls_back_native_failure(ap
 def test_first_run_is_explicit_skippable_and_does_not_change_manual_cpu_choice(
     app, tmp_path, monkeypatch
 ):
-    from jp_overlay.hardware import Adapter, HardwareStatus
-    from jp_overlay.model_store import model_catalog
-    from jp_overlay.setup_assistant import SetupAssistant
+    from dantejp.runtime.hardware import Adapter, HardwareStatus
+    from dantejp.runtime.model_store import model_catalog
+    from dantejp.ui.setup_assistant import SetupAssistant
 
     hardware = Mock()
-    monkeypatch.setattr("jp_overlay.first_run.supports_plamo", lambda: True)
+    monkeypatch.setattr("dantejp.runtime.first_run.supports_plamo", lambda: True)
     hardware.snapshot.return_value = None
     models = tuple(replace(b, directory=tmp_path / b.key) for b in model_catalog())
     windows = Mock()
@@ -191,8 +191,13 @@ def test_first_run_is_explicit_skippable_and_does_not_change_manual_cpu_choice(
 def test_first_run_close_drains_worker_and_progress_reports_actual_download(
     app, tmp_path, monkeypatch
 ):
-    from jp_overlay.hardware import HardwareStatus
-    from jp_overlay.model_store import Cancelled, DownloadProgress, ModelProgress, model_catalog
+    from dantejp.runtime.hardware import HardwareStatus
+    from dantejp.runtime.model_store import (
+        Cancelled,
+        DownloadProgress,
+        ModelProgress,
+        model_catalog,
+    )
 
     entered = threading.Event()
 
@@ -206,7 +211,7 @@ def test_first_run_close_drains_worker_and_progress_reports_actual_download(
         cancel.wait(2)
         raise Cancelled()
 
-    monkeypatch.setattr("jp_overlay.first_run.run_setup", setup)
+    monkeypatch.setattr("dantejp.runtime.first_run.run_setup", setup)
     hardware = Mock()
     hardware.snapshot.return_value = HardwareStatus(llama_device="cpu")
     windows = Mock()
@@ -240,9 +245,9 @@ def test_first_run_close_drains_worker_and_progress_reports_actual_download(
 
 
 def test_first_run_skip_persists_and_settings_can_reopen_it(app, tmp_path):
-    from jp_overlay.hardware import HardwareStatus
-    from jp_overlay.model_store import model_catalog
-    from jp_overlay.preferences import PreferenceStore
+    from dantejp.application.preferences import PreferenceStore
+    from dantejp.runtime.hardware import HardwareStatus
+    from dantejp.runtime.model_store import model_catalog
 
     windows, hardware = Mock(), Mock()
     windows.list_targets.return_value = []
@@ -268,7 +273,7 @@ def test_first_run_skip_persists_and_settings_can_reopen_it(app, tmp_path):
 
 
 def test_model_summary_separates_ratings_capabilities_and_unrated_imports(app):
-    from jp_overlay.model_summary import ModelSummary
+    from dantejp.ui.model_summary import ModelSummary
 
     summary = ModelSummary()
     summary.set_model("plamo-2b", 1_800_000_000, True)
@@ -286,10 +291,10 @@ def test_model_summary_separates_ratings_capabilities_and_unrated_imports(app):
 
 
 def test_processing_panel_distinguishes_cached_work_and_resets_stale_capture_metrics(app):
-    from jp_overlay.domain import CaptureSnapshot, CaptureState
-    from jp_overlay.processing_panel import ProcessingPanel
-    from jp_overlay.recognition import OcrSnapshot, OcrState
-    from jp_overlay.visual import VisualState
+    from dantejp.domain import CaptureSnapshot, CaptureState
+    from dantejp.ocr.visual import VisualState
+    from dantejp.ocr.worker import OcrSnapshot, OcrState
+    from dantejp.ui.processing_panel import ProcessingPanel
 
     panel = ProcessingPanel()
     panel.show()
@@ -338,7 +343,7 @@ def test_model_categories_share_one_worker_and_ocr_never_enters_translation_pick
 ):
     from ui_fixtures import model_manager as ModelManager
 
-    from jp_overlay.model_store import Cancelled, ModelBundle
+    from dantejp.runtime.model_store import Cancelled, ModelBundle
 
     ocr = ModelBundle("ocr", "MeikiOCR", tmp_path / "ocr", (), "Reads text", category="recognition")
     gemma = ModelBundle(
@@ -353,7 +358,7 @@ def test_model_categories_share_one_worker_and_ocr_never_enters_translation_pick
         assert cancel.wait(2)
         raise Cancelled()
 
-    monkeypatch.setattr("jp_overlay.model_store.install_model", install)
+    monkeypatch.setattr("dantejp.runtime.model_store.install_model", install)
     manager = ModelManager((ocr, other, gemma))
     assert manager.choice.currentData().key == gemma.key
     assert [manager.choice.itemData(i).key for i in range(manager.choice.count())] == [
@@ -403,7 +408,7 @@ def test_recommended_model_preserves_saved_choice_and_preparation_consent(
 ):
     import json
 
-    monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: not key or prepared)
+    monkeypatch.setattr("dantejp.runtime.model_store.is_prepared", lambda key: not key or prepared)
     path = tmp_path / "preferences.json"
     path.write_text(json.dumps({"version": 1, "model": saved}), encoding="utf-8")
     windows, factory = Mock(), Mock()
@@ -430,9 +435,9 @@ def test_recommended_model_preserves_saved_choice_and_preparation_consent(
 def test_included_ocr_has_ready_badge_and_is_not_in_first_run_download_plan(app, tmp_path, model):
     import hashlib
 
-    from jp_overlay.hardware import HardwareStatus
-    from jp_overlay.model_store import ModelBundle, model_catalog
-    from jp_overlay.models import ModelAsset
+    from dantejp.runtime.assets import ModelAsset
+    from dantejp.runtime.hardware import HardwareStatus
+    from dantejp.runtime.model_store import ModelBundle, model_catalog
 
     bundled = tmp_path / "app"
     bundled.mkdir()
@@ -470,7 +475,7 @@ def test_included_ocr_has_ready_badge_and_is_not_in_first_run_download_plan(app,
 def test_first_run_resumes_model_intent_after_restart_but_still_requires_consent(
     app, tmp_path, monkeypatch, key
 ):
-    from jp_overlay.preferences import Preferences, PreferenceStore
+    from dantejp.application.preferences import Preferences, PreferenceStore
 
     path = tmp_path / "preferences.json"
     PreferenceStore(path)._write(
@@ -480,7 +485,7 @@ def test_first_run_resumes_model_intent_after_restart_but_still_requires_consent
     windows.list_targets.return_value = []
     base = BackendChoice("Imported fixture", factory, "imported-" + "f" * 64)
     gemma = BackendChoice("Language model", factory, f"{key}-cuda", "new-device", selection_id=key)
-    monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: not key)
+    monkeypatch.setattr("dantejp.runtime.model_store.is_prepared", lambda key: not key)
     consent = Mock(return_value=QMessageBox.StandardButton.No)
     monkeypatch.setattr(QMessageBox, "question", consent)
     window = MainWindow(windows, Mock(), (base, gemma), preferences_path=path)
@@ -499,8 +504,8 @@ def test_first_run_resumes_model_intent_after_restart_but_still_requires_consent
 
 
 def test_hotkey_settings_apply_conflict_disable_and_persistence(app, tmp_path):
-    from jp_overlay.hotkeys import HotkeyAction, Hotkeys
-    from jp_overlay.preferences import PreferenceStore
+    from dantejp.application.hotkeys import HotkeyAction, Hotkeys
+    from dantejp.application.preferences import PreferenceStore
 
     windows = Mock()
     windows.list_targets.return_value = []
@@ -541,7 +546,7 @@ def test_hotkey_settings_apply_conflict_disable_and_persistence(app, tmp_path):
 
 
 def test_startup_shortcut_conflict_is_visible_and_retryable(app, tmp_path):
-    from jp_overlay.hotkeys import HotkeyAction, Hotkeys
+    from dantejp.application.hotkeys import HotkeyAction, Hotkeys
 
     native = Mock()
     native.register.side_effect = OSError("Another app uses this shortcut")
@@ -567,8 +572,8 @@ def test_hotkeys_keep_selected_window_and_respect_stop_close_and_modal_guards(
     from PySide6.QtWidgets import QDialog
     from test_live_session import frame
 
-    from jp_overlay.domain import CaptureSnapshot, CaptureState, WindowTarget
-    from jp_overlay.hotkeys import HotkeyAction, Hotkeys
+    from dantejp.application.hotkeys import HotkeyAction, Hotkeys
+    from dantejp.domain import CaptureSnapshot, CaptureState, WindowTarget
 
     target = WindowTarget(101, 202, "Our fixture")
     windows = Mock()
@@ -578,7 +583,7 @@ def test_hotkeys_keep_selected_window_and_respect_stop_close_and_modal_guards(
     capture.return_value.snapshot.return_value = CaptureSnapshot(CaptureState.RUNNING, frame(1))
     windows.geometry.return_value = frame(1).geometry
     windows.is_foreground.return_value = True
-    monkeypatch.setattr("jp_overlay.composition.CaptureSession", capture)
+    monkeypatch.setattr("dantejp.composition.CaptureSession", capture)
     hotkeys = Hotkeys(Mock())
     window = MainWindow(windows, Mock(), hotkeys=hotkeys, cache_path=tmp_path / "cache")
     application = app_owner(window)
@@ -624,8 +629,8 @@ def test_native_hotkey_filter_accepts_both_qt_routes_and_rejects_stale_messages(
     import ctypes
     from ctypes import wintypes
 
-    from jp_overlay.hotkeys import HotkeyAction, Hotkeys
-    from jp_overlay.hotkeys_windows import WindowsHotkeyEvents
+    from dantejp.application.hotkeys import HotkeyAction, Hotkeys
+    from dantejp.ui.hotkeys_windows import WindowsHotkeyEvents
 
     registrar = Mock()
     hotkeys = Hotkeys(registrar)
@@ -647,16 +652,16 @@ def test_native_hotkey_filter_accepts_both_qt_routes_and_rejects_stale_messages(
 def test_capture_hotkey_picks_focused_window_but_never_retargets_running_capture(
     app, tmp_path, monkeypatch
 ):
-    from jp_overlay.domain import WindowTarget
-    from jp_overlay.hotkeys import HotkeyAction, Hotkeys
-    from jp_overlay.windows import WindowUnavailable
+    from dantejp.application.hotkeys import HotkeyAction, Hotkeys
+    from dantejp.capture.windows import WindowUnavailable
+    from dantejp.domain import WindowTarget
 
     target = WindowTarget(101, 202, "New focused game")
     windows = Mock()
     windows.list_targets.return_value = []  # The initial list can be empty or stale.
     windows.foreground_target.return_value = target
     capture = Mock()
-    monkeypatch.setattr("jp_overlay.composition.CaptureSession", capture)
+    monkeypatch.setattr("dantejp.composition.CaptureSession", capture)
     hotkeys = Hotkeys(Mock())
     window = MainWindow(windows, Mock(), hotkeys=hotkeys, cache_path=tmp_path / "cache")
     application = app_owner(window)
@@ -693,7 +698,7 @@ def test_capture_hotkey_picks_focused_window_but_never_retargets_running_capture
 
 
 def test_original_hold_is_transient_and_focus_loss_cancels_it(app, tmp_path):
-    from jp_overlay.hotkeys import Hotkeys
+    from dantejp.application.hotkeys import Hotkeys
 
     windows = Mock()
     windows.list_targets.return_value = []
@@ -747,8 +752,8 @@ def test_native_hold_checks_release_only_while_active_and_stops_after_release(ap
     import ctypes
     from ctypes import wintypes
 
-    from jp_overlay.hotkeys import HotkeyAction, Hotkeys
-    from jp_overlay.hotkeys_windows import WindowsHotkeyEvents
+    from dantejp.application.hotkeys import HotkeyAction, Hotkeys
+    from dantejp.ui.hotkeys_windows import WindowsHotkeyEvents
 
     registrar = Mock()
     hotkeys = Hotkeys(registrar)
@@ -792,7 +797,7 @@ def test_no_models_do_not_start_inference_and_refresh_never_prepares_implicitly(
     windows.list_targets.return_value = []
     factory = Mock()
     choice = BackendChoice("Gemma", factory, "gemma", "unprepared")
-    monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: not key)
+    monkeypatch.setattr("dantejp.runtime.model_store.is_prepared", lambda key: not key)
     window = MainWindow(
         windows, factory, cache_path=tmp_path / "cache", backend_provider=lambda: (choice,)
     )
@@ -824,7 +829,7 @@ def test_downloaded_model_without_runtime_stays_visible_and_explains_setup(
         unavailable_reason="Open Runtime setup.",
     )
     setup = Mock()
-    monkeypatch.setattr("jp_overlay.ui.MainWindow._manage_runtime", setup)
+    monkeypatch.setattr("dantejp.ui.main_window.MainWindow._manage_runtime", setup)
     window = MainWindow(windows, factory, (choice,), scene_feed=True, cache_path=tmp_path / "cache")
     application = app_owner(window)
     assert window.backend_combo.isEnabled() and window.translate_check.isEnabled()
@@ -848,13 +853,13 @@ def test_download_completion_reports_missing_runtime_instead_of_false_readiness(
     from download_fixtures import download_bytes
     from ui_fixtures import model_manager as ModelManager
 
-    from jp_overlay.model_store import ModelBundle
-    from jp_overlay.models import ModelAsset
+    from dantejp.runtime.assets import ModelAsset
+    from dantejp.runtime.model_store import ModelBundle
 
     asset = ModelAsset("fixture", "revision", "weights", hashlib.sha256(b"good").hexdigest(), 4)
     bundle = ModelBundle(key, key, tmp_path, (asset,), "", language_model=True)
-    monkeypatch.setattr("jp_overlay.model_store.download_file", download_bytes(b"good"))
-    monkeypatch.setattr("jp_overlay.llama_runtime.installed_device", lambda: None)
+    monkeypatch.setattr("dantejp.runtime.model_store.download_file", download_bytes(b"good"))
+    monkeypatch.setattr("dantejp.runtime.llama.installed_device", lambda: None)
     manager = ModelManager((bundle,))
     manager.download.click()
     assert manager.busy
@@ -875,13 +880,13 @@ def test_download_completion_reports_missing_runtime_instead_of_false_readiness(
 def test_runtime_setup_detects_without_installing_and_close_waits_for_cancel(
     app, tmp_path, monkeypatch
 ):
-    from jp_overlay.hardware import Adapter
-    from jp_overlay.model_store import Cancelled
+    from dantejp.runtime.hardware import Adapter
+    from dantejp.runtime.model_store import Cancelled
 
     calls = []
     entered = threading.Event()
     monkeypatch.setattr(
-        "jp_overlay.hardware.detect_adapters", lambda: (Adapter("RTX", 0x10DE, 16 * 2**30),)
+        "dantejp.runtime.hardware.detect_adapters", lambda: (Adapter("RTX", 0x10DE, 16 * 2**30),)
     )
 
     def install(root, profile, progress, cancel):
@@ -890,7 +895,7 @@ def test_runtime_setup_detects_without_installing_and_close_waits_for_cancel(
         assert cancel.wait(2)
         raise Cancelled()
 
-    monkeypatch.setattr("jp_overlay.runtime_setup.install_runtime", install)
+    monkeypatch.setattr("dantejp.runtime.setup.install_runtime", install)
     windows = Mock()
     windows.list_targets.return_value = []
     window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
@@ -920,9 +925,9 @@ def test_runtime_setup_detects_without_installing_and_close_waits_for_cancel(
 def test_model_download_badges_and_missing_selection_warnings_are_distinct(
     app, tmp_path, monkeypatch
 ):
-    from jp_overlay.hardware import Adapter, HardwareStatus
-    from jp_overlay.model_store import ModelBundle
-    from jp_overlay.models import ModelAsset
+    from dantejp.runtime.assets import ModelAsset
+    from dantejp.runtime.hardware import Adapter, HardwareStatus
+    from dantejp.runtime.model_store import ModelBundle
 
     asset = ModelAsset("test", "revision", "weights", "", 4)
     bundle = ModelBundle("gemma", "Gemma", tmp_path, (asset,), "Fixture", language_model=True)
@@ -930,7 +935,7 @@ def test_model_download_badges_and_missing_selection_warnings_are_distinct(
     windows.list_targets.return_value = []
     hardware = Mock(finished=True)
     hardware.snapshot.return_value = HardwareStatus((Adapter("RTX fixture", 0x10DE),))
-    monkeypatch.setattr("jp_overlay.llama_runtime.installed_device", lambda: None)
+    monkeypatch.setattr("dantejp.runtime.llama.installed_device", lambda: None)
     window = MainWindow(windows, Mock(), models=(bundle,), hardware=hardware)
     manager = settings(window).models
     assert "Download required" in manager.download_badge.text()
@@ -1091,7 +1096,7 @@ def test_app_shutdown_drains_startup_hardware_check(app, tmp_path):
 def test_runtime_restart_waits_for_translation_and_recovers_if_launch_fails(
     app, tmp_path, monkeypatch
 ):
-    from jp_overlay.hotkeys import HotkeyAction, Hotkeys
+    from dantejp.application.hotkeys import HotkeyAction, Hotkeys
 
     windows = Mock()
     windows.list_targets.return_value = []
@@ -1108,7 +1113,7 @@ def test_runtime_restart_waits_for_translation_and_recovers_if_launch_fails(
         raise OSError("Could not launch")
 
     restart = Mock(side_effect=fail_restart)
-    monkeypatch.setattr("jp_overlay.composition.RuntimeRestart", restart)
+    monkeypatch.setattr("dantejp.composition.RuntimeRestart", restart)
     warnings = []
     monkeypatch.setattr(QMessageBox, "warning", lambda *a: warnings.append(a[-1]))
     settings(window).restart_requested.emit(tmp_path)
@@ -1150,7 +1155,7 @@ def test_restart_cleanup_cannot_block_gui_or_report_finished_before_draining(
     windows.list_targets.return_value = []
     window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
     application = app_owner(window)
-    monkeypatch.setattr("jp_overlay.composition.RuntimeRestart", Restart)
+    monkeypatch.setattr("dantejp.composition.RuntimeRestart", Restart)
     monkeypatch.setattr(QMessageBox, "warning", lambda *a: warnings.append(a[-1]))
     try:
         settings(window).restart_requested.emit(tmp_path)
@@ -1190,8 +1195,8 @@ def test_preparation_decline_preserves_selection_and_accept_loads_once_off_ui(
 
     base = BackendChoice("E4B fixture", Mock(), "gemma-e4b")
     gemma = BackendChoice("Gemma", load, "gemma", "new")
-    monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: not key)
-    monkeypatch.setattr("jp_overlay.model_store.mark_prepared", receipts.append)
+    monkeypatch.setattr("dantejp.runtime.model_store.is_prepared", lambda key: not key)
+    monkeypatch.setattr("dantejp.runtime.model_store.mark_prepared", receipts.append)
     monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.No)
     window = MainWindow(windows, Mock(), (base, gemma), cache_path=tmp_path / "cache")
     application = app_owner(window)
@@ -1228,8 +1233,8 @@ def test_failed_preparation_restores_previous_selection_without_a_receipt(
     base = BackendChoice("E4B fixture", Mock(), "gemma-e4b")
     bad = BackendChoice("Gemma", Mock(side_effect=RuntimeError("GPU unavailable")), "gemma", "new")
     receipts, errors = [], []
-    monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: not key)
-    monkeypatch.setattr("jp_overlay.model_store.mark_prepared", receipts.append)
+    monkeypatch.setattr("dantejp.runtime.model_store.is_prepared", lambda key: not key)
+    monkeypatch.setattr("dantejp.runtime.model_store.mark_prepared", receipts.append)
     monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.Yes)
     monkeypatch.setattr(QMessageBox, "warning", lambda *a: errors.append(a[-1]))
     window = MainWindow(windows, Mock(), (base, bad), cache_path=tmp_path / "cache")
@@ -1247,7 +1252,7 @@ def test_nested_consent_event_loop_does_not_unload_previous_model(app, tmp_path,
     windows.list_targets.return_value = []
     base = BackendChoice("E4B fixture", Mock(), "gemma-e4b")
     gemma = BackendChoice("Gemma", Mock(), "gemma", "new")
-    monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: not key)
+    monkeypatch.setattr("dantejp.runtime.model_store.is_prepared", lambda key: not key)
     window = MainWindow(
         windows, Mock(), (base, gemma), scene_feed=True, cache_path=tmp_path / "cache"
     )
@@ -1275,7 +1280,7 @@ def test_nested_consent_event_loop_does_not_unload_previous_model(app, tmp_path,
 def test_closing_during_download_waits_for_cancellation_before_destroying_gui(
     app, tmp_path, monkeypatch
 ):
-    from jp_overlay.model_store import Cancelled, ModelBundle, ModelProgress
+    from dantejp.runtime.model_store import Cancelled, ModelBundle, ModelProgress
 
     windows = Mock()
     windows.list_targets.return_value = []
@@ -1287,7 +1292,7 @@ def test_closing_during_download_waits_for_cancellation_before_destroying_gui(
         assert cancel.wait(2)
         raise Cancelled()
 
-    monkeypatch.setattr("jp_overlay.model_store.install_model", install)
+    monkeypatch.setattr("dantejp.runtime.model_store.install_model", install)
     bundle = ModelBundle("fake", "Fixture", tmp_path, (), "")
     window = MainWindow(windows, Mock(), models=(bundle,), cache_path=tmp_path / "cache")
     settings(window).show_models()
@@ -1317,7 +1322,7 @@ def test_preview_letterboxing_maps_physical_pixels_once() -> None:
 
 
 def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_path, monkeypatch):
-    from jp_overlay.recognition import OcrChoice
+    from dantejp.ocr.worker import OcrChoice
 
     windows = Mock()
     windows.list_targets.return_value = []
@@ -1360,7 +1365,7 @@ def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_pat
 def test_hidden_inspector_does_no_frame_copy_or_table_build_and_resume_uses_latest_pair(
     app, monkeypatch
 ):
-    from jp_overlay import inspection
+    from dantejp.ui import inspection
 
     panel = OcrInspector()
     panel.set_active(False)
@@ -1402,7 +1407,7 @@ def test_hidden_inspector_does_no_frame_copy_or_table_build_and_resume_uses_late
 def test_saved_model_choice_survives_runtime_change_without_implicit_preparation(
     app, tmp_path, monkeypatch, prepared, key
 ):
-    from jp_overlay.preferences import Preferences, PreferenceStore
+    from dantejp.application.preferences import Preferences, PreferenceStore
 
     path = tmp_path / "preferences.json"
     store = PreferenceStore(path)
@@ -1414,7 +1419,7 @@ def test_saved_model_choice_survives_runtime_change_without_implicit_preparation
     gemma = BackendChoice(
         "Language model", factory, f"{key}-vulkan", "vulkan-receipt", selection_id=key
     )
-    monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: prepared or not key)
+    monkeypatch.setattr("dantejp.runtime.model_store.is_prepared", lambda key: prepared or not key)
     consent = Mock(return_value=QMessageBox.StandardButton.No)
     monkeypatch.setattr(QMessageBox, "question", consent)
     window = MainWindow(windows, factory, (base, gemma), preferences_path=path)
@@ -1442,9 +1447,9 @@ def test_saved_model_choice_survives_runtime_change_without_implicit_preparation
 
 
 def test_inspector_disclosure_and_pause_do_not_change_the_injected_live_session(app, tmp_path):
-    from jp_overlay.live_session import LiveSession
-    from jp_overlay.recognition import OcrSnapshot, OcrState
-    from jp_overlay.visual import VisualState
+    from dantejp.application.live_session import LiveSession
+    from dantejp.ocr.visual import VisualState
+    from dantejp.ocr.worker import OcrSnapshot, OcrState
 
     windows = Mock()
     windows.list_targets.return_value = []
@@ -1462,7 +1467,7 @@ def test_inspector_disclosure_and_pause_do_not_change_the_injected_live_session(
         visual.poll.return_value = VisualState(
             frame=frame, request_ocr=True, checked_sequence=sequence
         )
-        from jp_overlay.domain import CaptureSnapshot, CaptureState
+        from dantejp.domain import CaptureSnapshot, CaptureState
 
         windows.geometry.return_value = geometry
         windows.is_foreground.return_value = True
@@ -1509,7 +1514,7 @@ def test_translation_off_leaves_game_unobscured_until_ocr_boxes_are_requested(ap
 def test_settings_close_can_keep_setup_running_or_cancel_without_stopping_app(
     app, tmp_path, monkeypatch, cancel_operation
 ):
-    from jp_overlay.model_store import Cancelled, ModelBundle
+    from dantejp.runtime.model_store import Cancelled, ModelBundle
 
     windows = Mock()
     windows.list_targets.return_value = []
@@ -1520,7 +1525,7 @@ def test_settings_close_can_keep_setup_running_or_cancel_without_stopping_app(
         assert cancel.wait(2)
         raise Cancelled()
 
-    monkeypatch.setattr("jp_overlay.model_store.install_model", install)
+    monkeypatch.setattr("dantejp.runtime.model_store.install_model", install)
     monkeypatch.setattr(QMessageBox, "exec", lambda self: 0)
     selected = "Cancel operation" if cancel_operation else "Continue in background"
     monkeypatch.setattr(
@@ -1733,7 +1738,7 @@ def test_group_inspection_and_copy_map_to_raw_rows_without_duplicating_english(
     assert cell(panel, 1, 3).text() == "↳ Group #1"
     assert lines[1].text in cell(panel, 1, 3).toolTip()
     clipboard = Mock()
-    monkeypatch.setattr("jp_overlay.inspection.QGuiApplication.clipboard", lambda: clipboard)
+    monkeypatch.setattr("dantejp.ui.inspection.QGuiApplication.clipboard", lambda: clipboard)
     panel._copy_english()
     clipboard.setText.assert_called_with(translated.english)
     panel.table.selectRow(1)

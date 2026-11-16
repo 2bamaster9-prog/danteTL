@@ -9,8 +9,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from jp_overlay.capture import CaptureSession
-from jp_overlay.domain import CaptureState, Rect, WindowGeometry, WindowTarget
+from dantejp.capture.worker import CaptureSession
+from dantejp.domain import CaptureState, Rect, WindowGeometry, WindowTarget
 
 
 class Windows:

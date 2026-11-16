@@ -1,0 +1,256 @@
+"""Authoritative assignment, route and classifier resolution, independent of presentation."""
+
+from collections.abc import Callable
+from dataclasses import replace
+from functools import partial
+from pathlib import Path
+
+from dantejp.application.cloud_services import CloudServices
+from dantejp.application.live_session import LiveSession
+from dantejp.application.model_inventory import ModelInventory
+from dantejp.application.model_lifecycle import ModelLifecycle, RouteSelection
+from dantejp.application.preference_values import Preferences
+from dantejp.application.translation_activity import (
+    InactiveReason,
+    TranslationActivity,
+    TranslationMode,
+)
+from dantejp.translation.backend import TranslationBackend
+from dantejp.translation.cloud.values import CloudProfile
+from dantejp.translation.plan import TranslationPlan
+from dantejp.translation.routing import ModelIdentity, RoutedTranslationSession
+from dantejp.translation.selection import (
+    AssignmentChange,
+    ClassifierIdentity,
+    CloudIdentity,
+    LocalIdentity,
+    ModelOption,
+)
+from dantejp.translation.worker import BackendChoice, TranslationSession
+
+
+def model_reference(choice: BackendChoice | CloudProfile | None) -> str:
+    if isinstance(choice, BackendChoice):
+        return "local:" + choice.preference_key
+    return "cloud:" + choice.key if choice else ""
+
+
+class TranslationCoordinator(ModelLifecycle):
+    """The existing transition state machine, with the policy formerly owned by widgets."""
+
+    def __init__(
+        self,
+        inventory: ModelInventory,
+        cloud: CloudServices,
+        create: Callable[[BackendChoice], TranslationSession],
+        route_create: Callable[..., RoutedTranslationSession],
+        cache: Path,
+        preferences: Preferences,
+        *,
+        on_change: Callable[[], None] = lambda: None,
+    ) -> None:
+        super().__init__(create, inventory.prepared, inventory.record_prepared)
+        self.inventory, self.cloud = inventory, cloud
+        self._route_create, self._cache, self._notify = route_create, cache, on_change
+        self._preferences = preferences
+        self._restored = False
+        self._options_key = None
+        self._options: tuple[ModelOption, ...] = ()
+        self.game_from_window = preferences.game_from_window
+        self.manual_game = preferences.game_hint
+        self.window_title = ""
+        self.history_enabled = preferences.history_enabled
+        self.history_model = preferences.history_model
+        self.restore()
+
+    @property
+    def choices(self) -> tuple[BackendChoice, ...]:
+        return self.inventory.snapshot().data.backends
+
+    @property
+    def plan(self) -> TranslationPlan:
+        return self.assignment or TranslationPlan()
+
+    def restore(self) -> None:
+        if self._restored or not self.inventory.snapshot().loaded:
+            return
+        p = self._preferences
+        initial = next((c for c in self.choices if c.preference_key == p.model), None)
+        if p.model == "auto":
+            initial = next((c for c in self.choices if self.is_prepared(c)), None)
+        self.restore_selection(initial)
+        legacy = TranslationPlan.legacy(
+            p.translation_route,
+            self.selected.preference_key if self.selected else "",
+            p.cloud_model,
+        )
+        self.assignment = TranslationPlan(
+            legacy.short if p.short_model == "legacy" else p.short_model,
+            legacy.long if p.long_model == "legacy" else p.long_model,
+            p.translate_short,
+            p.translate_long,
+        )
+        self._restored = True
+
+    @property
+    def restored(self) -> bool:
+        return self._restored
+
+    def resolve(self, reference: str) -> BackendChoice | CloudProfile | None:
+        return next(
+            (c for c in (*self.choices, *self.cloud.profiles) if model_reference(c) == reference),
+            None,
+        )
+
+    def options(self) -> tuple[ModelOption, ...]:
+        cloud = self.cloud.snapshot()
+        key = (
+            self.inventory.snapshot().revision,
+            cloud.profiles,
+            cloud.available,
+            cloud.revision,
+            frozenset(self._prepared_this_run),
+        )
+        if key == self._options_key:
+            return self._options
+        self._options_key = key
+        self._options = tuple(
+            ModelOption(
+                model_reference(c),
+                c.name,
+                c.key,
+                prepared=self.is_prepared(c),
+                unavailable_reason=c.unavailable_reason,
+                performance_notice=c.performance_notice,
+                classifies=c.classifies,
+            )
+            for c in self.choices
+        ) + tuple(
+            ModelOption(
+                model_reference(p),
+                p.name,
+                p.key,
+                provider=p.provider,
+                prepared=self.cloud.available(p.key),
+                classifies=True,
+            )
+            for p in self.cloud.profiles
+        )
+        return self._options
+
+    @property
+    def active_options(self) -> tuple[ModelOption, ...]:
+        options = {c.reference: c for c in self.options()}
+        return tuple(options[key] for key in self.plan.active_models if key in options)
+
+    @property
+    def game(self) -> str:
+        return self.window_title if self.game_from_window else self.manual_game
+
+    def set_game(self, *, automatic: bool, manual: str, title: str) -> None:
+        self.game_from_window = automatic
+        self.manual_game = " ".join(manual.split())[:120]
+        self.window_title = " ".join(title.split())[:120]
+
+    def assign(self, change: AssignmentChange) -> bool:
+        choice = self.resolve(change.reference)
+        return self.request_assignment(
+            change.plan, choice if isinstance(choice, BackendChoice) else None
+        )
+
+    def refresh_route(self, *, preserve_prepared: bool = False) -> bool:
+        self.restore()
+        self.refresh_choices(self.choices)
+        choices = tuple(self.resolve(key) for key in self.plan.active_models)
+        remote = any(isinstance(c, CloudProfile) for c in choices)
+        route = RouteSelection(
+            "assigned",
+            game=self.game if remote else "",
+            available=any(
+                self.is_prepared(c)
+                if isinstance(c, BackendChoice)
+                else self.cloud.available(c.key)
+                if isinstance(c, CloudProfile)
+                else False
+                for c in choices
+            ),
+            credential_revision=self.cloud.revision if remote else 0,
+            plan=self.plan,
+            identities=choices,
+            model_keys=tuple(
+                LocalIdentity(c.key, c.preparation_id, c.unavailable_reason)
+                if isinstance(c, BackendChoice)
+                else c
+                for c in choices
+            ),
+        )
+        return self.configure_route(
+            route, partial(self._create_route, route), preserve_prepared=preserve_prepared
+        )
+
+    def _create_route(
+        self,
+        route: RouteSelection,
+        local: TranslationSession | RoutedTranslationSession | None,
+    ) -> RoutedTranslationSession:
+        assert route.plan is not None
+        factories = {}
+        identities: dict[str, ModelIdentity] = {}
+        names = {}
+        for choice in route.identities:
+            if isinstance(choice, BackendChoice) and self.is_prepared(choice):
+                factories[model_reference(choice)] = choice.create
+                identities[model_reference(choice)] = LocalIdentity(
+                    choice.key, choice.preparation_id
+                )
+                names[model_reference(choice)] = choice.name
+            elif isinstance(choice, CloudProfile) and self.cloud.available(choice.key):
+                factories[model_reference(choice)] = partial(
+                    self.cloud.create_backend, choice, route.game
+                )
+                identities[model_reference(choice)] = CloudIdentity(
+                    choice, route.game, route.credential_revision
+                )
+                names[model_reference(choice)] = choice.name
+        if isinstance(local, RoutedTranslationSession):
+            local.reconfigure(route.plan, factories, identities=identities, names=names)
+            return local
+        result = self._route_create(
+            route.plan,
+            factories,
+            self._cache,
+            prepared=(model_reference(self.selected), local) if local else None,
+            on_change=self._notify,
+            identities=identities,
+            names=names,
+        )
+        result.start()
+        return result
+
+    def configure_history(self, live: LiveSession, *, enabled: bool, reference: str) -> None:
+        self.history_enabled, self.history_model = enabled, reference
+        choice = self.resolve(reference)
+        factory: Callable[[], TranslationBackend] | None = None
+        identity = ClassifierIdentity(reference, None)
+        if isinstance(choice, BackendChoice) and choice.classifies and self.is_prepared(choice):
+            factory = choice.create
+            identity = ClassifierIdentity(
+                reference, LocalIdentity(choice.key, choice.preparation_id), available=True
+            )
+        elif isinstance(choice, CloudProfile) and self.cloud.available(choice.key):
+            factory = partial(self.cloud.create_backend, choice, "")
+            identity = ClassifierIdentity(reference, choice, self.cloud.revision, True)
+        live.configure_history(enabled, identity, factory, layout_only=reference == "layout")
+
+    def advance_activity(
+        self, *, running: bool, enabled: bool, probing: bool = False
+    ) -> TranslationActivity:
+        activity = super().advance_activity(running=running, enabled=enabled, probing=probing)
+        if (
+            activity.mode == TranslationMode.INACTIVE
+            and activity.reason != InactiveReason.UNLOADING
+            and self.choices
+            and all(c.unavailable_reason for c in self.choices)
+        ):
+            return replace(activity, reason=InactiveReason.NEEDS_RUNTIME)
+        return activity

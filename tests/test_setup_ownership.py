@@ -7,13 +7,13 @@ from unittest.mock import Mock
 import pytest
 from ownership_fixtures import Replay
 
-from jp_overlay.hardware_values import HardwareStatus
-from jp_overlay.model_inventory import InventoryData
-from jp_overlay.model_store import ModelBundle
-from jp_overlay.model_values import ModelFile
-from jp_overlay.runtime_values import PROFILES
-from jp_overlay.setup_coordinator import SetupCoordinator
-from jp_overlay.setup_values import SetupLane
+from dantejp.application.model_inventory import InventoryData
+from dantejp.application.model_values import ModelFile
+from dantejp.application.setup_coordinator import SetupCoordinator
+from dantejp.runtime.hardware_values import HardwareStatus
+from dantejp.runtime.model_store import ModelBundle
+from dantejp.runtime.setup_values import SetupLane
+from dantejp.runtime.values import PROFILES
 
 
 def configured(tmp_path):

@@ -7,7 +7,7 @@ import tomllib
 
 from PyInstaller.utils.hooks import collect_dynamic_libs, collect_submodules, copy_metadata, collect_delvewheel_libs_directory
 from uv import find_uv_bin
-from jp_overlay.models import local_model_paths
+from dantejp.ocr.models import local_model_paths
 
 root = Path(SPECPATH).parent
 assets = local_model_paths(root / "models/meiki")  # verify pinned hashes; never download
@@ -16,7 +16,7 @@ data = [
 ]
 data += [(str(root / "packaging/standalone.json"), "app")]
 app_version = tomllib.loads((root / "pyproject.toml").read_text("utf-8"))["project"]["version"]
-app_wheel = f"jp_overlay-{app_version}-py3-none-any.whl"
+app_wheel = f"dantejp-{app_version}-py3-none-any.whl"
 data += [(str(root / "dist" / name), "app/application") for name in (app_wheel, app_wheel + ".sha256")]
 data += [(str(root / "build/runtime-locks" / f"pylock.{profile}.toml"), "app/runtime-locks") for profile in ("cpu", "nvidia", "amd")]
 data += [(str(p), "app/models/meiki") for p in assets]
@@ -41,7 +41,7 @@ a = Analysis(
     pathex=[str(root / "src")],
     binaries=native_binaries + [(find_uv_bin(), ".")],
     datas=data,
-    hiddenimports=collect_submodules("jp_overlay") + ["llama_cpp", "_winapi"],
+    hiddenimports=collect_submodules("dantejp") + ["llama_cpp", "_winapi"],
     excludes=["pytest", "PyInstaller", "uv", "setuptools", "torch", "tensorflow"],
     noarchive=False,
 )

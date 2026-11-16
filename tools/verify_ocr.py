@@ -20,13 +20,13 @@ from PySide6.QtCore import QCoreApplication, QEvent, Qt
 from PySide6.QtGui import QColor, QFont, QImage, QPainter
 from PySide6.QtWidgets import QApplication
 
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.inspection import OcrInspector
-from jp_overlay.meiki import MeikiRecognizer
-from jp_overlay.models import model_directory
-from jp_overlay.recognition import OcrResult, recognize_regions
-from jp_overlay.tracking import TextTracker
-from jp_overlay.visual import VisualAnalyzer
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.meiki import MeikiRecognizer
+from dantejp.ocr.models import model_directory
+from dantejp.ocr.tracking import TextTracker
+from dantejp.ocr.visual import VisualAnalyzer
+from dantejp.ocr.worker import OcrResult, recognize_regions
+from dantejp.ui.inspection import OcrInspector
 
 EXPECTED = ("新しい冒険が、ここから始まる。", "旅の準備はできましたか？", "設定")
 

@@ -1,0 +1,318 @@
+"""One OCR worker, one pending frame, and generation-checked immutable results."""
+
+import logging
+import threading
+import time
+from collections import deque
+from collections.abc import Callable
+from dataclasses import dataclass, replace
+from typing import Protocol, runtime_checkable
+
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.regions import scan_regions
+from dantejp.ocr.scan_plan import ScanCosts, ScanLine, ScanPlan, ScanPlanner, preserves_lines
+from dantejp.ocr.values import OcrResult as OcrResult
+from dantejp.ocr.values import OcrSnapshot as OcrSnapshot
+from dantejp.ocr.values import OcrState as OcrState
+from dantejp.ocr.values import TextCharacter as TextCharacter
+from dantejp.ocr.values import TextRegion as TextRegion
+
+logger = logging.getLogger(__name__)
+
+
+class Recognizer(Protocol):
+    def recognize(
+        self, frame: CapturedFrame, /, *, cropped: bool = False
+    ) -> tuple[TextRegion, ...]: ...
+    def close(self) -> None: ...
+
+
+@runtime_checkable
+class CostedRecognizer(Protocol):
+    @property
+    def scan_costs(self) -> ScanCosts | None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class OcrChoice:
+    name: str
+    create: Callable[[], Recognizer]
+    capture_fps: int = 8
+    key: str = ""
+
+
+class OcrSession:
+    """Own models on a worker thread. No Qt, Windows calls, or unbounded job queues.
+
+    A new capture gets a new session. Invalidation discards in-flight results after
+    resize/minimize; inspection pause is independent. Shutdown drains inference and cleanup.
+    """
+
+    def __init__(
+        self,
+        factory: Callable[[], Recognizer],
+        *,
+        require_ack: bool = False,
+        on_change: Callable[[], None] | None = None,
+    ) -> None:
+        self._factory = factory
+        self._notify = on_change or (lambda: None)
+        self._condition = threading.Condition()
+        self._done = threading.Event()
+        self._stop = False
+        self._generation = 0
+        self._last_sequence = 0
+        self._pending: tuple[int, CapturedFrame, tuple[Rect, ...] | None] | None = None
+        self._require_ack = require_ack
+        self._acknowledged = 0
+        self._snapshot = OcrSnapshot(OcrState.LOADING)
+        self._processed = 0
+        self._skipped = 0
+        self._queue_ms = 0.0
+        self._durations: deque[float] = deque(maxlen=8)
+        self._processing_since: float | None = None
+        self._thread = threading.Thread(target=self._run, name="ocr-owner", daemon=True)
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def submit(self, frame: CapturedFrame, areas: tuple[Rect, ...] | None = None) -> None:
+        if areas == ():
+            return
+        with self._condition:
+            if (
+                self._stop
+                or self._snapshot.state == OcrState.FAILED
+                or frame.sequence <= self._last_sequence
+            ):
+                return
+            self._last_sequence = frame.sequence
+            if self._pending is not None:
+                self._skipped += 1
+                prior = self._pending[2]
+                areas = None if areas is None or prior is None else (*prior, *areas)
+            areas = scan_regions(areas, frame.geometry.client.size)
+            if areas == ():
+                return
+            self._pending = self._generation, frame, areas
+            self._condition.notify()
+
+    def acknowledge(self, sequence: int) -> None:
+        """Release the next job only after the current result reached tracking."""
+        with self._condition:
+            self._acknowledged = max(self._acknowledged, sequence)
+            self._condition.notify()
+
+    def invalidate(self) -> None:
+        with self._condition:
+            self._generation += 1
+            self._last_sequence = 0
+            self._acknowledged = 0
+            self._pending = None
+            self._snapshot = OcrSnapshot(self._snapshot.state, message=self._snapshot.message)
+
+    def request_stop(self) -> None:
+        with self._condition:
+            self._stop = True
+            self._pending = None
+            self._snapshot = OcrSnapshot(
+                self._snapshot.state
+                if self._snapshot.state in (OcrState.FAILED, OcrState.STOPPED)
+                else OcrState.STOPPING,
+                message=self._snapshot.message,
+            )
+            self._condition.notify()
+
+    @property
+    def finished(self) -> bool:
+        return self._done.is_set() and not self._thread.is_alive()
+
+    def snapshot(self) -> OcrSnapshot:
+        with self._condition:
+            return replace(
+                self._snapshot,
+                processed_frames=self._processed,
+                skipped_frames=self._skipped,
+                queue_ms=self._queue_ms,
+                mean_duration_ms=sum(self._durations) / len(self._durations)
+                if self._durations
+                else 0,
+                processing_since=self._processing_since,
+            )
+
+    def _ready(self, engine: Recognizer, result: OcrResult | None = None) -> OcrSnapshot:
+        return OcrSnapshot(
+            OcrState.READY,
+            result,
+            str(getattr(engine, "message", "")),
+            provider=str(getattr(engine, "provider", "")),
+        )
+
+    def _run(self) -> None:
+        engine: Recognizer | None = None
+        try:
+            with self._condition:
+                if self._stop:
+                    return
+            engine = self._factory()
+            planner = ScanPlanner()
+            with self._condition:
+                if self._stop:
+                    return
+                self._snapshot = self._ready(engine)
+            self._notify()
+            while True:
+                with self._condition:
+                    self._condition.wait_for(
+                        lambda: (
+                            self._stop
+                            or (
+                                self._pending is not None
+                                and (
+                                    not self._require_ack
+                                    or self._snapshot.result is None
+                                    or self._snapshot.result.frame.sequence <= self._acknowledged
+                                )
+                            )
+                        )
+                    )
+                    if self._stop:
+                        return
+                    job = self._pending
+                    self._pending = None
+                    self._processing_since = time.monotonic()
+                assert job is not None
+                generation, frame, areas = job
+                started = time.monotonic()
+                costs = engine.scan_costs if isinstance(engine, CostedRecognizer) else None
+                plan = planner.plan(areas, frame.geometry.client.size, generation, costs)
+                regions, scanned, rejected = recognize_planned(engine, frame, plan)
+                completed = time.monotonic()
+                result = OcrResult(frame, regions, (completed - started) * 1000, completed, scanned)
+                with self._condition:
+                    self._processing_since = None
+                    published = not self._stop and generation == self._generation
+                    if published:
+                        planner.observe(
+                            tuple(
+                                ScanLine(r.bounds, r.confidence, r.vertical)
+                                for r in regions
+                                if r.text.strip()
+                            ),
+                            scanned,
+                            plan,
+                            rejected=rejected,
+                        )
+                        self._processed += 1
+                        self._queue_ms = max(0, (started - frame.captured_at) * 1000)
+                        self._durations.append(result.duration_ms)
+                        self._snapshot = self._ready(engine, result)
+                if published:
+                    self._notify()
+                # Do not keep old frame buffers alive through the next idle wait.
+                del job, frame, result
+        except Exception as error:
+            logger.exception("Local OCR failed")
+            with self._condition:
+                self._snapshot = OcrSnapshot(OcrState.FAILED, message=str(error))
+            self._notify()
+        finally:
+            if engine is not None:
+                try:
+                    engine.close()
+                except Exception as error:
+                    logger.exception("OCR cleanup failed")
+                    with self._condition:
+                        self._snapshot = OcrSnapshot(OcrState.FAILED, message=str(error))
+                finally:
+                    engine = None
+            with self._condition:
+                self._pending = None
+                self._processing_since = None
+                if self._snapshot.state != OcrState.FAILED:
+                    self._snapshot = OcrSnapshot(OcrState.STOPPED)
+            self._done.set()
+            self._notify()
+
+
+def recognize_planned(
+    engine: Recognizer,
+    frame: CapturedFrame,
+    plan: ScanPlan,
+) -> tuple[tuple[TextRegion, ...], tuple[Rect, ...] | None, bool]:
+    """Evaluate a plan without publishing provisional output or false coverage.
+
+    A geometry/confidence loss or unexpected full retry discards the entire provisional
+    result and executes the original plan against the same source frame. No old OCR is
+    mixed into this observation. Planning remains separate from retention decisions.
+    """
+    regions, scanned = recognize_regions(engine, frame, plan.areas)
+    if plan.changed and (
+        (scanned is None and plan.areas is not None)
+        or not preserves_lines(
+            plan.expected,
+            tuple(ScanLine(r.bounds, r.confidence, r.vertical) for r in regions if r.text.strip()),
+        )
+    ):
+        regions, scanned = recognize_regions(engine, frame, plan.baseline)
+        return regions, scanned, True
+    return regions, scanned, False
+
+
+def recognize_regions(
+    engine: Recognizer, frame: CapturedFrame, areas: tuple[Rect, ...] | None
+) -> tuple[tuple[TextRegion, ...], tuple[Rect, ...] | None]:
+    """Crop on the model worker; map every line/character back to the exact source.
+
+    A detector box at an artificial crop edge may be an incomplete word. Discard
+    that provisional crop output and perform one full scan instead of publishing it.
+    """
+    areas = scan_regions(areas, frame.geometry.client.size)
+    if areas is None:
+        return engine.recognize(frame), None
+    if len(frame.bgra) != frame.width * frame.height * 4:
+        raise ValueError("Invalid source pixels for regional OCR")
+    pixels = memoryview(frame.bgra)
+    regions = []
+    for area in areas:
+        rows = (
+            pixels[(y * frame.width + area.x) * 4 : (y * frame.width + area.x + area.width) * 4]
+            for y in range(area.y, area.y + area.height)
+        )
+        bounds = Rect(0, 0, area.width, area.height)
+        crop = CapturedFrame(
+            frame.sequence,
+            frame.captured_at,
+            WindowGeometry(bounds, bounds, bounds, frame.geometry.dpi),
+            b"".join(rows),
+        )
+        for region in engine.recognize(crop, cropped=True):
+            b = region.bounds
+            if (
+                (area.x > 0 and b.x <= 3)
+                or (area.y > 0 and b.y <= 3)
+                or (area.x + area.width < frame.width and b.x + b.width >= area.width - 3)
+                or (area.y + area.height < frame.height and b.y + b.height >= area.height - 3)
+            ):
+                return engine.recognize(frame), None
+
+            def shifted(b: Rect, origin: Rect = area) -> Rect:
+                return replace(b, x=b.x + origin.x, y=b.y + origin.y)
+
+            regions.append(
+                replace(
+                    region,
+                    bounds=shifted(b),
+                    characters=tuple(
+                        replace(c, bounds=shifted(c.bounds)) for c in region.characters
+                    ),
+                )
+            )
+    return tuple(regions), areas
+
+
+def overlay_result_ready(result: OcrResult, latest: CapturedFrame, now: float) -> bool:
+    """Allow static frames; expire lagging diagnostics on a changing source after 750 ms."""
+    return result.frame.geometry.client.size == latest.geometry.client.size and (
+        result.frame.sequence == latest.sequence or now - result.frame.captured_at <= 0.75
+    )

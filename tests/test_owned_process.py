@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from jp_overlay.owned_process import OwnedProcess
+from dantejp.runtime.owned_process import OwnedProcess
 
 
 def test_child_cannot_execute_before_assignment_and_descendants_are_drained(tmp_path):

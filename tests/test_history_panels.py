@@ -6,13 +6,17 @@ from dataclasses import replace
 
 import pytest
 
-from jp_overlay.dialogue_classifier import Classification, ClassifierSession, parse_classification
-from jp_overlay.dialogue_history import DialogueHistory
-from jp_overlay.domain import Rect
-from jp_overlay.grouping import TextBlock
-from jp_overlay.history_layout import PanelLayout
-from jp_overlay.tracking import TextTrack
-from jp_overlay.translation import TranslatedText, TranslationRequest
+from dantejp.domain import Rect
+from dantejp.ocr.tracking import TextTrack
+from dantejp.translation.dialogue.classifier import (
+    Classification,
+    ClassifierSession,
+    parse_classification,
+)
+from dantejp.translation.dialogue.history import DialogueHistory
+from dantejp.translation.dialogue.layout import PanelLayout
+from dantejp.translation.grouping import TextBlock
+from dantejp.translation.worker import TranslatedText, TranslationRequest
 
 
 def block(key, text, x=300, y=300, width=600, height=40):

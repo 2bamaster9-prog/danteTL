@@ -21,7 +21,7 @@ build/
 dist/
 *.egg-info/
 artifacts/
-models/
+/models/
 *.sqlite*
 .env
 data/

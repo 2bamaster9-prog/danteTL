@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from jp_overlay.hotkeys import (
+from dantejp.application.hotkeys import (
     DEFAULT_CAPTURE,
     DEFAULT_OVERLAY,
     HotkeyAction,

@@ -17,12 +17,12 @@ from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 from verify_translation import process_memory
 
-from jp_overlay.demo import DIALOGUE_LINES, DemoWindow
-from jp_overlay.domain import CapturedFrame, WindowTarget
-from jp_overlay.model_factories import create_recognizer, translation_backends
-from jp_overlay.recognition import OcrChoice, OcrState, TextRegion
-from jp_overlay.translation import TranslationState
-from jp_overlay.windows import Windows
+from dantejp.application.model_factories import create_recognizer, translation_backends
+from dantejp.capture.windows import Windows
+from dantejp.domain import CapturedFrame, WindowTarget
+from dantejp.ocr.worker import OcrChoice, OcrState, TextRegion
+from dantejp.translation.worker import TranslationState
+from dantejp.ui.demo import DIALOGUE_LINES, DemoWindow
 
 
 def main() -> int:
@@ -59,7 +59,7 @@ def main() -> int:
     selected_model = selected_model or "gemma"
     alternate_model = "gemma" if selected_model != "gemma" else "gemma-e4b"
     if (args.gemma or args.model) and not args.translation:
-        parser.error("--gemma requires --translation")
+        parser.error("--gemma/--model requires --translation")
     if args.dialogue and not args.translation:
         parser.error("--dialogue requires --translation")
     if args.typewriter and not args.dialogue:

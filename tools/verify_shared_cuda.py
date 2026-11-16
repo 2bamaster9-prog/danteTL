@@ -14,11 +14,11 @@ from unittest.mock import patch
 from PySide6.QtWidgets import QApplication
 from verify_ocr import EXPECTED, fixture
 
-from jp_overlay.gemma import GemmaBackend
-from jp_overlay.gemma import model_directory as gemma_directory
-from jp_overlay.meiki import MeikiRecognizer
-from jp_overlay.models import model_directory
-from jp_overlay.ocr_runtime import CUDA
+from dantejp.ocr.meiki import MeikiRecognizer
+from dantejp.ocr.models import model_directory
+from dantejp.runtime.ocr import CUDA
+from dantejp.translation.backends.gemma import GemmaBackend
+from dantejp.translation.backends.gemma import model_directory as gemma_directory
 
 
 def loaded_libraries() -> dict[str, str]:

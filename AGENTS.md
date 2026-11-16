@@ -18,7 +18,9 @@ Read [engineering/README.md](engineering/README.md), then the contracts relevant
 - Preserve working native environments; test dependency changes in an isolated candidate.
   CPU/GPU ONNX and CPU/CUDA/Vulkan llama runtimes must not be mixed. Use `.venv-gpu/Scripts/python.exe`
   for strict CUDA checks; preserve the default CPU environment.
-- Preserve DanteJP branding and legacy `jp_overlay`, CLI and `JP_OVERLAY_*` IDs. Packaged resources
+- Use DanteJP for user-facing branding, `dantejp` for Python/CLI IDs and `DANTEJP_*` for app
+  environment variables. Keep modules in their owning subpackage; no compatibility aliases.
+  Packaged resources
   are read-only; writable release state belongs in per-user AppData.
 - Keep current guidance in one authoritative place. Update relevant contracts with behavior changes;
   do not add historical plans, dated reports or duplicated rules. Git records change history.

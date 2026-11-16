@@ -5,14 +5,14 @@ import time
 import httpx2
 import pytest
 
-from jp_overlay.auth_work import AuthInterrupted, AuthWork
-from jp_overlay.chatgpt_auth import PLAN_SCOPE, ChatGPTConnections
-from jp_overlay.cloud import CloudBackend
-from jp_overlay.cloud_profiles import CloudProfile
-from jp_overlay.domain import Rect
-from jp_overlay.protected_store import ProtectedStore
-from jp_overlay.tracking import TextTrack
-from jp_overlay.translation import TranslationSession, TranslationState
+from dantejp.domain import Rect
+from dantejp.ocr.tracking import TextTrack
+from dantejp.translation.cloud.auth_work import AuthInterrupted, AuthWork
+from dantejp.translation.cloud.backend import CloudBackend
+from dantejp.translation.cloud.chatgpt_auth import PLAN_SCOPE, ChatGPTConnections
+from dantejp.translation.cloud.profiles import CloudProfile
+from dantejp.translation.cloud.protected_store import ProtectedStore
+from dantejp.translation.worker import TranslationSession, TranslationState
 
 
 def until(predicate):

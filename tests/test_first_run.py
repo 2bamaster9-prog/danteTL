@@ -3,10 +3,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from jp_overlay import first_run
-from jp_overlay.hardware import HardwareStatus
-from jp_overlay.model_store import Cancelled, DownloadProgress, ModelOperation, ModelProgress
-from jp_overlay.runtime_setup import PROFILES
+from dantejp.runtime import first_run
+from dantejp.runtime.hardware import HardwareStatus
+from dantejp.runtime.model_store import Cancelled, DownloadProgress, ModelOperation, ModelProgress
+from dantejp.runtime.setup import PROFILES
 
 
 def test_cpu_is_available_without_gpu_and_amd_does_not_require_gpu_ocr():
@@ -20,7 +20,7 @@ def test_cpu_is_available_without_gpu_and_amd_does_not_require_gpu_ocr():
 
 
 def test_plamo_wizard_includes_upgrade_when_existing_hardware_engine_is_too_old(monkeypatch):
-    from jp_overlay.curated_models import MODELS
+    from dantejp.translation.models.curated import MODELS
 
     model = next(m.bundle() for m in MODELS if m.key == "plamo-0.8b")
     hardware = HardwareStatus(cuda_ocr=True, llama_device="cuda")

@@ -3,8 +3,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from jp_overlay.hardware import Adapter, HardwareCheck, HardwareStatus
-from jp_overlay.setup_status import acceleration_advice
+from dantejp.application.setup_status import acceleration_advice
+from dantejp.runtime.hardware import Adapter, HardwareCheck, HardwareStatus
 
 NVIDIA = Adapter("NVIDIA fixture", 0x10DE, 16 * 2**30)
 AMD = Adapter("AMD fixture", 0x1002, 8 * 2**30)
@@ -52,9 +52,9 @@ def test_hardware_check_is_once_off_thread_and_failure_is_reported(monkeypatch):
         assert release.wait(2)
         return (NVIDIA,)
 
-    monkeypatch.setattr("jp_overlay.hardware.detect_adapters", detect)
-    monkeypatch.setattr("jp_overlay.llama_runtime.installed_device", lambda: "cuda")
-    monkeypatch.setattr("jp_overlay.ocr_runtime.gpu_runtime_installed", lambda: True)
+    monkeypatch.setattr("dantejp.runtime.hardware.detect_adapters", detect)
+    monkeypatch.setattr("dantejp.runtime.llama.installed_device", lambda: "cuda")
+    monkeypatch.setattr("dantejp.runtime.ocr.gpu_runtime_installed", lambda: True)
     check = HardwareCheck()
     check.start()
     assert entered.wait(1) and check.snapshot() is None
@@ -62,7 +62,9 @@ def test_hardware_check_is_once_off_thread_and_failure_is_reported(monkeypatch):
     check._thread.join(2)
     assert check.snapshot() == HardwareStatus((NVIDIA,), True, "cuda")
     assert threads == [check._thread.ident] and threads[0] != threading.get_ident()
-    monkeypatch.setattr("jp_overlay.hardware.detect_adapters", Mock(side_effect=OSError("DXGI")))
+    monkeypatch.setattr(
+        "dantejp.runtime.hardware.detect_adapters", Mock(side_effect=OSError("DXGI"))
+    )
     failed = HardwareCheck()
     failed.start()
     failed._thread.join(2)

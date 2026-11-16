@@ -8,14 +8,14 @@ import time
 from pathlib import Path
 from unittest.mock import patch
 
-from jp_overlay.domain import Rect
-from jp_overlay.grouping import TextBlock
-from jp_overlay.llama_runtime import installed_device, load_runtime
-from jp_overlay.model_factories import translation_backends
-from jp_overlay.tracking import TextTrack
-from jp_overlay.translation import TranslationState
-from jp_overlay.translation_plan import TranslationPlan
-from jp_overlay.translation_routing import RoutedTranslationSession
+from dantejp.application.model_factories import translation_backends
+from dantejp.domain import Rect
+from dantejp.ocr.tracking import TextTrack
+from dantejp.runtime.llama import installed_device, load_runtime
+from dantejp.translation.grouping import TextBlock
+from dantejp.translation.plan import TranslationPlan
+from dantejp.translation.routing import RoutedTranslationSession
+from dantejp.translation.worker import TranslationState
 
 
 class CloudFixture:

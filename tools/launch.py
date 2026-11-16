@@ -9,8 +9,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from jp_overlay.runtime_restart import RuntimeRestart  # noqa: E402
-from jp_overlay.runtime_setup import selected_runtime  # noqa: E402
+from dantejp.runtime.restart import RuntimeRestart  # noqa: E402
+from dantejp.runtime.setup import selected_runtime  # noqa: E402
 
 
 def main() -> None:
@@ -23,7 +23,7 @@ def main() -> None:
                 time.sleep(0.1)
             return
         except (OSError, ValueError, RuntimeError) as error:
-            os.environ["JP_OVERLAY_STARTUP_NOTICE"] = f"Opened the fallback runtime. {error}"
+            os.environ["DANTEJP_STARTUP_NOTICE"] = f"Opened the fallback runtime. {error}"
     python = ROOT / ".venv/Scripts/pythonw.exe"
     # Preserve existing users' verified CUDA launcher until they choose an in-app runtime.
     if (
@@ -34,7 +34,7 @@ def main() -> None:
         candidate = ROOT / ".venv-gpu/Scripts/pythonw.exe"
         if candidate.is_file():
             python = candidate
-    subprocess.Popen([str(python), "-m", "jp_overlay"], cwd=ROOT)
+    subprocess.Popen([str(python), "-m", "dantejp"], cwd=ROOT)
 
 
 if __name__ == "__main__":

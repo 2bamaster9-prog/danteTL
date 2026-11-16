@@ -1,7 +1,7 @@
 from unittest.mock import Mock
 
-from jp_overlay.model_lifecycle import ModelLifecycle, ModelPhase, RouteSelection
-from jp_overlay.translation import (
+from dantejp.application.model_lifecycle import ModelLifecycle, ModelPhase, RouteSelection
+from dantejp.translation.worker import (
     BackendChoice,
     TranslationSession,
     TranslationSnapshot,
@@ -162,7 +162,7 @@ def test_shutdown_during_preparation_does_not_commit_or_load_another_worker():
 
 
 def test_category_assignment_consent_and_failed_preparation_keep_previous_plan():
-    from jp_overlay.translation_plan import TranslationPlan
+    from dantejp.translation.plan import TranslationPlan
 
     lifecycle, base, candidate, created, receipts = setup()
     original = TranslationPlan("local:base", "cloud:configured")
@@ -185,7 +185,7 @@ def test_category_assignment_consent_and_failed_preparation_keep_previous_plan()
 
 
 def test_category_assignment_commits_atomically_after_preparation():
-    from jp_overlay.translation_plan import TranslationPlan
+    from dantejp.translation.plan import TranslationPlan
 
     lifecycle, base, candidate, created, receipts = setup()
     original = TranslationPlan("local:base", "local:base")

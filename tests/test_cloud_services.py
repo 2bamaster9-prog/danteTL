@@ -6,11 +6,11 @@ import threading
 import time
 from dataclasses import replace
 
-from jp_overlay.chatgpt_auth import ChatGPTConnections
-from jp_overlay.cloud_profiles import CloudProfile, CloudProfiles
-from jp_overlay.cloud_services import CloudServices
-from jp_overlay.cloud_state import CloudDraft
-from jp_overlay.protected_store import ProtectedStore
+from dantejp.application.cloud_services import CloudServices
+from dantejp.translation.cloud.chatgpt_auth import ChatGPTConnections
+from dantejp.translation.cloud.profiles import CloudProfile, CloudProfiles
+from dantejp.translation.cloud.protected_store import ProtectedStore
+from dantejp.translation.cloud.state import CloudDraft
 
 
 class Secrets:
@@ -90,7 +90,9 @@ def test_cancelled_worker_drains_before_new_commands_and_owner_cleanup(tmp_path,
             cleanup.set()
             assert release.wait(3)
 
-    monkeypatch.setattr("jp_overlay.cloud_services.CloudBackend", lambda *a, **k: Backend())
+    monkeypatch.setattr(
+        "dantejp.application.cloud_services.CloudBackend", lambda *a, **k: Backend()
+    )
     draft = CloudDraft(CloudProfile.new("deepseek"), "", "fixture")
     service.test(draft)
     assert entered.wait(3)
@@ -136,10 +138,10 @@ class NoQt(importlib.abc.MetaPathFinder):
         if fullname.startswith(("PySide6", "shiboken6")):
             raise AssertionError("Application owner imported Qt: " + fullname)
 sys.meta_path.insert(0, NoQt())
-from jp_overlay.cloud_services import CloudServices
-from jp_overlay.cloud_profiles import CloudProfiles
-from jp_overlay.chatgpt_auth import ChatGPTConnections
-from jp_overlay.protected_store import ProtectedStore
+from dantejp.application.cloud_services import CloudServices
+from dantejp.translation.cloud.profiles import CloudProfiles
+from dantejp.translation.cloud.chatgpt_auth import ChatGPTConnections
+from dantejp.translation.cloud.protected_store import ProtectedStore
 class NoSecrets:
     def read(self, key): raise AssertionError("Unexpected credential read")
 root = Path(sys.argv[1])

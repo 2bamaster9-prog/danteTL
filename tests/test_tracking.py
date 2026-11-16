@@ -2,9 +2,9 @@ from dataclasses import replace
 
 import pytest
 
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.recognition import OcrResult, TextCharacter, TextRegion
-from jp_overlay.tracking import TextTrack, TextTracker, TrackingPolicy
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.tracking import TextTrack, TextTracker, TrackingPolicy
+from dantejp.ocr.worker import OcrResult, TextCharacter, TextRegion
 
 
 def region(

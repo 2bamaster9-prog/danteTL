@@ -8,11 +8,11 @@ from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from jp_overlay.cloud_profiles import CloudProfile  # noqa: E402
-from jp_overlay.model_selection import ModelOption  # noqa: E402
-from jp_overlay.preferences import Preferences  # noqa: E402
-from jp_overlay.routing_controls import RoutingControls  # noqa: E402
-from jp_overlay.translation_plan import TranslationPlan  # noqa: E402
+from dantejp.application.preferences import Preferences  # noqa: E402
+from dantejp.translation.cloud.profiles import CloudProfile  # noqa: E402
+from dantejp.translation.plan import TranslationPlan  # noqa: E402
+from dantejp.translation.selection import ModelOption  # noqa: E402
+from dantejp.ui.routing_controls import RoutingControls  # noqa: E402
 
 
 @pytest.fixture

@@ -6,8 +6,8 @@ import threading
 from dataclasses import asdict
 from pathlib import Path
 
-from jp_overlay.gguf_probe import ImportTest
-from jp_overlay.llama_runtime import installed_device
+from dantejp.runtime.llama import installed_device
+from dantejp.translation.models.probe import ImportTest
 
 
 def main() -> None:

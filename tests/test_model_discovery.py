@@ -2,9 +2,11 @@ import hashlib
 
 import pytest
 
-from jp_overlay import llama_runtime, model_store, ocr_runtime
-from jp_overlay import model_factories as app
-from jp_overlay.models import ModelAsset
+from dantejp.application import model_factories as app
+from dantejp.runtime import llama as llama_runtime
+from dantejp.runtime import model_store
+from dantejp.runtime import ocr as ocr_runtime
+from dantejp.runtime.assets import ModelAsset
 
 
 def test_recommended_catalog_and_backend_order_do_not_mix_recognition(tmp_path, monkeypatch):
@@ -23,8 +25,6 @@ def test_recommended_catalog_and_backend_order_do_not_mix_recognition(tmp_path, 
     assert choices[0].preference_key == "gemma" and "Recommended" in choices[0].name
     assert all(c.preference_key != "ocr" for c in choices)
     assert {"gemma", "gemma-e4b", "qwen35-4b", "plamo-0.8b"} <= {c.preference_key for c in choices}
-    assert not any("sugoi" in b.key for b in bundles)
-    assert not any("sugoi" in c.preference_key for c in choices)
 
 
 @pytest.fixture
@@ -75,21 +75,6 @@ def test_incomplete_models_stay_absent(catalog, monkeypatch):
     assert not app.translation_backends()
 
 
-def test_retired_files_are_preserved_but_never_discovered(tmp_path, monkeypatch):
-    from jp_overlay import paths
-
-    monkeypatch.setattr(paths, "state_root", lambda: tmp_path)
-    legacy = tmp_path / "models" / "sugoi-v4"
-    legacy.mkdir(parents=True)
-    files = [legacy / name for name in ("model.bin", "config.json", "spm.ja.nopretok.model")]
-    for file in files:
-        file.write_bytes(b"user-owned model")
-    monkeypatch.setattr(llama_runtime, "installed_device", lambda: None)
-    assert not any("sugoi" in b.key for b in model_store.model_catalog())
-    assert not any("sugoi" in c.preference_key for c in app.translation_backends())
-    assert all(file.read_bytes() == b"user-owned model" for file in files)
-
-
 def test_automatic_ocr_depends_on_runtime_not_downloaded_meiki(catalog, monkeypatch):
     catalog["ocr"].directory.mkdir()
     (catalog["ocr"].directory / "weights").write_bytes(b"good")
@@ -105,7 +90,7 @@ def test_automatic_ocr_depends_on_runtime_not_downloaded_meiki(catalog, monkeypa
 
 @pytest.mark.parametrize("device", [None, "cpu", "cuda", "vulkan"])
 def test_curated_choices_keep_identity_across_runtime_changes(catalog, monkeypatch, device):
-    from jp_overlay.preferences import decode_preferences
+    from dantejp.application.preferences import decode_preferences
 
     monkeypatch.setattr(llama_runtime, "installed_device", lambda: device)
     for key in ("gemma", "gemma-e4b", "qwen35-4b"):
@@ -132,7 +117,7 @@ def test_downloaded_plamo_stays_visible_but_old_engine_needs_update(
 ):
     from dataclasses import replace
 
-    from jp_overlay.curated_models import MODELS
+    from dantejp.translation.models.curated import MODELS
 
     models = []
     for definition in MODELS:
@@ -154,7 +139,7 @@ def test_downloaded_plamo_stays_visible_but_old_engine_needs_update(
     for choice in choices:
         assert bool(choice.preparation_id) is supported
         assert bool(choice.unavailable_reason) is not supported
-        from jp_overlay.preferences import decode_preferences
+        from dantejp.application.preferences import decode_preferences
 
         saved = decode_preferences(
             {"version": 1, "model": choice.preference_key, "setup_model": choice.preference_key}

@@ -4,9 +4,8 @@ from dataclasses import replace
 
 import pytest
 
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.recognition import OcrSession, TextCharacter, TextRegion, recognize_planned
-from jp_overlay.scan_plan import (
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.scan_plan import (
     ScanCosts,
     ScanLine,
     ScanPlan,
@@ -14,6 +13,7 @@ from jp_overlay.scan_plan import (
     choose_scan,
     preserves_lines,
 )
+from dantejp.ocr.worker import OcrSession, TextCharacter, TextRegion, recognize_planned
 
 SIZE = (1920, 1080)
 COSTS = ScanCosts(40, 30)

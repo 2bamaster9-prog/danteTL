@@ -10,12 +10,12 @@ import shiboken6
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtWidgets import QApplication
 
-from jp_overlay.capture import CaptureSession
-from jp_overlay.demo import DemoWindow
-from jp_overlay.domain import CaptureState, WindowTarget, sample_box
-from jp_overlay.inspection import frame_image
-from jp_overlay.overlay import OverlayWindow
-from jp_overlay.windows import Windows
+from dantejp.capture.windows import Windows
+from dantejp.capture.worker import CaptureSession
+from dantejp.domain import CaptureState, WindowTarget, sample_box
+from dantejp.ui.demo import DemoWindow
+from dantejp.ui.inspection import frame_image
+from dantejp.ui.overlay import OverlayWindow
 
 
 def main() -> None:

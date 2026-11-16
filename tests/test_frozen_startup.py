@@ -5,8 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from jp_overlay import app, desktop, paths, runtime_setup
-from jp_overlay.owned_process import _child_environment
+from dantejp import bootstrap as app
+from dantejp import desktop, paths
+from dantejp.runtime import setup as runtime_setup
+from dantejp.runtime.owned_process import _child_environment
 
 
 def test_relocated_frozen_helpers_use_executable_but_managed_runtimes_use_installed_module(
@@ -22,20 +24,20 @@ def test_relocated_frozen_helpers_use_executable_but_managed_runtimes_use_instal
     monkeypatch.setattr(sys, "executable", str(exe))
     assert paths.resource_root() == resources
     assert paths.gui_executable() == exe
-    assert paths.module_command(exe, "jp_overlay.gguf_probe", "request.json") == [
+    assert paths.module_command(exe, "dantejp.translation.models.probe", "request.json") == [
         str(exe),
         "--module",
-        "jp_overlay.gguf_probe",
+        "dantejp.translation.models.probe",
         "request.json",
     ]
     managed = tmp_path / "AppData/pythonw.exe"
-    assert paths.module_command(managed, "jp_overlay") == [
+    assert paths.module_command(managed, "dantejp") == [
         str(managed),
         "-P",
         "-s",
         "-B",
         "-m",
-        "jp_overlay",
+        "dantejp",
     ]
 
 
@@ -69,7 +71,7 @@ def test_cpu_recovery_starts_without_attempting_saved_runtime(monkeypatch, tmp_p
 
 
 def test_helper_dispatch_does_not_start_ui_or_selected_runtime(monkeypatch):
-    monkeypatch.setattr(sys, "argv", ["DanteJP.exe", "--module", "jp_overlay.runtime_probe", "cpu"])
+    monkeypatch.setattr(sys, "argv", ["DanteJP.exe", "--module", "dantejp.runtime.probe", "cpu"])
     called = []
     monkeypatch.setattr(
         desktop.runpy, "run_module", lambda module, **kw: called.append((module, sys.argv[:]))
@@ -78,7 +80,7 @@ def test_helper_dispatch_does_not_start_ui_or_selected_runtime(monkeypatch):
         runtime_setup, "selected_runtime", lambda _: pytest.fail("Helper must not hand off")
     )
     desktop.main()
-    assert called == [("jp_overlay.runtime_probe", ["jp_overlay.runtime_probe", "cpu"])]
+    assert called == [("dantejp.runtime.probe", ["dantejp.runtime.probe", "cpu"])]
     monkeypatch.setattr(sys, "argv", ["DanteJP.exe", "--module", "unrelated"])
     with pytest.raises(ValueError, match="Only DanteJP"):
         desktop.main()

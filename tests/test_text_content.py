@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.recognition import OcrResult, TextCharacter, TextRegion
-from jp_overlay.text_content import content_region
-from jp_overlay.tracking import TextTracker
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.text_content import content_region
+from dantejp.ocr.tracking import TextTracker
+from dantejp.ocr.worker import OcrResult, TextCharacter, TextRegion
 
 
 def button_observations() -> tuple[TextRegion, ...]:

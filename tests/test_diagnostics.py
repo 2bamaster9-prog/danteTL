@@ -1,10 +1,10 @@
 from dataclasses import replace
 
-from jp_overlay.diagnostics import debug_display
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.recognition import OcrResult, OcrSnapshot, OcrState
-from jp_overlay.translation import TranslationSnapshot, TranslationState
-from jp_overlay.visual import VisualState
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.visual import VisualState
+from dantejp.ocr.worker import OcrResult, OcrSnapshot, OcrState
+from dantejp.translation.worker import TranslationSnapshot, TranslationState
+from dantejp.ui.diagnostics import debug_display
 
 
 def source():

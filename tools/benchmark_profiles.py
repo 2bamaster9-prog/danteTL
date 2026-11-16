@@ -5,10 +5,10 @@ import os
 from pathlib import Path
 from typing import Any
 
-from jp_overlay.dialogue_context import DialogueTurn
-from jp_overlay.gguf_backend import completed_answer
-from jp_overlay.llama_runtime import load_runtime
-from jp_overlay.translation_backend import RequestRejected
+from dantejp.runtime.llama import load_runtime
+from dantejp.translation.backend import RequestRejected
+from dantejp.translation.backends.gguf import completed_answer
+from dantejp.translation.dialogue.context import DialogueTurn
 
 CONTEXT = 2048
 OUTPUT = 384

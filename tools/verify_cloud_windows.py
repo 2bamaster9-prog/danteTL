@@ -10,16 +10,16 @@ from unittest.mock import Mock, patch
 from PySide6.QtWidgets import QApplication, QScrollArea
 from verification_isolation import app_owner, cloud_owner, create_inventory, find_model
 
-from jp_overlay.chatgpt_auth import PLAN_SCOPE, ChatGPTConnections
-from jp_overlay.cloud_catalog import CatalogModel
-from jp_overlay.cloud_profiles import CloudProfile, CloudProfiles
-from jp_overlay.cloud_services import CloudServices
-from jp_overlay.composition import application_session, setup_coordinator
-from jp_overlay.desktop_driver import DesktopDriver
-from jp_overlay.paths import state_root
-from jp_overlay.protected_store import ProtectedStore
-from jp_overlay.ui import MainWindow
-from jp_overlay.windows import Windows
+from dantejp.application.cloud_services import CloudServices
+from dantejp.capture.windows import Windows
+from dantejp.composition import application_session, setup_coordinator
+from dantejp.paths import state_root
+from dantejp.translation.cloud.catalog import CatalogModel
+from dantejp.translation.cloud.chatgpt_auth import PLAN_SCOPE, ChatGPTConnections
+from dantejp.translation.cloud.profiles import CloudProfile, CloudProfiles
+from dantejp.translation.cloud.protected_store import ProtectedStore
+from dantejp.ui.desktop_driver import DesktopDriver
+from dantejp.ui.main_window import MainWindow
 
 
 def drain(app: QApplication, predicate) -> None:
@@ -182,7 +182,7 @@ def main() -> None:
             assert editor
             previous = editor.model.currentData()
             with patch(
-                "jp_overlay.cloud_services.fetch_models",
+                "dantejp.application.cloud_services.fetch_models",
                 return_value=(
                     CatalogModel("future-gemini", "Future Gemini · fixture", "gemini-no-thinking"),
                 ),

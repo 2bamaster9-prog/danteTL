@@ -7,6 +7,7 @@ on:
   pull_request:
     paths:
       - "packaging/**"
+      - ".gitignore"
       - "tools/build.ps1"
       - "tools/verify_standalone_windows.py"
       - "tools/verification_isolation.py"
@@ -66,10 +67,11 @@ jobs:
           name: DanteJP-windows-x64
           if-no-files-found: error
           path: |
-            dist/*.zip
-            dist/*.whl
-            dist/*.tar.gz
-            dist/*.sha256
+            dist/DanteJP-windows-x64.zip
+            dist/dantejp-*.whl
+            dist/dantejp-*.tar.gz
+            dist/dantejp-*.sha256
+            dist/DanteJP-windows-x64.zip.sha256
       - name: Preserve packaged verification evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

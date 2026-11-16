@@ -19,19 +19,19 @@ from ui_fixtures import (
 )
 from ui_fixtures import create_window as MainWindow
 
-from jp_overlay.chatgpt_auth import PLAN_SCOPE, ChatGPTConnections  # noqa: E402
-from jp_overlay.cloud import CloudBackend  # noqa: E402
-from jp_overlay.cloud_catalog import CatalogModel  # noqa: E402
-from jp_overlay.cloud_profiles import CloudProfile, CloudProfiles  # noqa: E402
-from jp_overlay.domain import Rect  # noqa: E402
-from jp_overlay.grouping import TextBlock  # noqa: E402
-from jp_overlay.preferences import Preferences, PreferenceStore  # noqa: E402
-from jp_overlay.protected_store import ProtectedStore  # noqa: E402
-from jp_overlay.tracking import TextTrack  # noqa: E402
-from jp_overlay.translation import BackendChoice  # noqa: E402
-from jp_overlay.translation_coordinator import model_reference
-from jp_overlay.translation_plan import TranslationPlan  # noqa: E402
-from jp_overlay.translation_routing import RoutedTranslationSession  # noqa: E402
+from dantejp.application.preferences import Preferences, PreferenceStore  # noqa: E402
+from dantejp.application.translation_coordinator import model_reference
+from dantejp.domain import Rect  # noqa: E402
+from dantejp.ocr.tracking import TextTrack  # noqa: E402
+from dantejp.translation.cloud.backend import CloudBackend  # noqa: E402
+from dantejp.translation.cloud.catalog import CatalogModel  # noqa: E402
+from dantejp.translation.cloud.chatgpt_auth import PLAN_SCOPE, ChatGPTConnections  # noqa: E402
+from dantejp.translation.cloud.profiles import CloudProfile, CloudProfiles  # noqa: E402
+from dantejp.translation.cloud.protected_store import ProtectedStore  # noqa: E402
+from dantejp.translation.grouping import TextBlock  # noqa: E402
+from dantejp.translation.plan import TranslationPlan  # noqa: E402
+from dantejp.translation.routing import RoutedTranslationSession  # noqa: E402
+from dantejp.translation.worker import BackendChoice  # noqa: E402
 
 
 class MemorySecrets:
@@ -79,7 +79,7 @@ def test_model_refresh_preserves_draft_and_route_caches_offline_and_keeps_old_li
         calls.append((provider, secret, threading.get_ident()))
         return (CatalogModel("future-chat", "Future chat"),)
 
-    monkeypatch.setattr("jp_overlay.cloud_services.fetch_models", fetch)
+    monkeypatch.setattr("dantejp.application.cloud_services.fetch_models", fetch)
     try:
         drain(app, lambda: not cloud_owner(panel).busy)
         panel.open_editor()
@@ -115,13 +115,13 @@ def test_model_refresh_preserves_draft_and_route_caches_offline_and_keeps_old_li
         def fail(*args):
             raise ValueError("Provider unavailable")
 
-        monkeypatch.setattr("jp_overlay.cloud_services.fetch_models", fail)
+        monkeypatch.setattr("dantejp.application.cloud_services.fetch_models", fail)
         editor.refresh_models.click()
         drain(app, lambda: not cloud_owner(panel).busy)
         assert "unavailable" in editor.status.text()
         assert editor.model.currentData() == saved.model
         assert panel.profiles == (saved,) and cloud_owner(panel).revision == revision
-        monkeypatch.setattr("jp_overlay.cloud_services.fetch_models", lambda *args: ())
+        monkeypatch.setattr("dantejp.application.cloud_services.fetch_models", lambda *args: ())
         editor.refresh_models.click()
         drain(app, lambda: not cloud_owner(panel).busy)
         assert editor.model.currentData() == saved.model
@@ -421,7 +421,7 @@ def test_two_chatgpt_models_share_persisted_account_without_signing_in_again(
 def test_chatgpt_refresh_populates_empty_picker_from_large_catalog_and_allows_save(
     app, tmp_path, monkeypatch
 ):
-    from jp_overlay.auth_work import AuthWork
+    from dantejp.translation.cloud.auth_work import AuthWork
 
     key = "account-" + "a" * 32
     connections = ChatGPTConnections(ProtectedStore(tmp_path / "accounts"))
@@ -449,7 +449,8 @@ def test_chatgpt_refresh_populates_empty_picker_from_large_catalog_and_allows_sa
 
     transport = httpx2.MockTransport(respond)
     monkeypatch.setattr(
-        "jp_overlay.cloud_services.AuthWork", lambda event: AuthWork(event, transport=transport)
+        "dantejp.application.cloud_services.AuthWork",
+        lambda event: AuthWork(event, transport=transport),
     )
     panel = CloudSettings(
         catalog=CloudProfiles(tmp_path / "cloud.json"),
@@ -497,7 +498,7 @@ def test_simple_local_preparation_commits_only_when_ready_and_reuses_worker(
         "Local", factory, "local-fixture", preparation_id="fixture-prepare-once"
     )
     monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Yes)
-    monkeypatch.setattr("jp_overlay.model_store.mark_prepared", lambda *args: None)
+    monkeypatch.setattr("dantejp.runtime.model_store.mark_prepared", lambda *args: None)
     windows = Mock()
     windows.list_targets.return_value = []
     window = MainWindow(windows, Mock(), (backend,), cache_path=tmp_path / "cache")
@@ -698,7 +699,7 @@ def test_test_connection_is_explicit_and_does_not_save_draft_or_credentials(
     backend = Mock()
     backend.translate.return_value = ("Critical Rate",)
     factory = Mock(return_value=backend)
-    monkeypatch.setattr("jp_overlay.cloud_services.CloudBackend", factory)
+    monkeypatch.setattr("dantejp.application.cloud_services.CloudBackend", factory)
     monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.No)
     secrets = MemorySecrets()
     panel = CloudSettings(
@@ -753,7 +754,7 @@ def test_cancel_dialog_drains_test_cleanup_before_releasing_editor(app, tmp_path
             assert release.wait(3)
 
     monkeypatch.setattr(
-        "jp_overlay.cloud_services.CloudBackend", lambda *args, **kwargs: SlowTest()
+        "dantejp.application.cloud_services.CloudBackend", lambda *args, **kwargs: SlowTest()
     )
     monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Yes)
     panel = CloudSettings(

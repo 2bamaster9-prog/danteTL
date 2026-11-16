@@ -5,8 +5,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from jp_overlay.runtime_restart import RestartSnapshot
-from jp_overlay.shutdown import ShutdownCoordinator, ShutdownPhase
+from dantejp.application.shutdown import ShutdownCoordinator, ShutdownPhase
+from dantejp.runtime.restart import RestartSnapshot
 
 
 def fixture():

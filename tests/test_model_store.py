@@ -6,8 +6,8 @@ from unittest.mock import Mock
 import pytest
 from download_fixtures import download_bytes
 
-from jp_overlay import model_store as store
-from jp_overlay.models import ModelAsset
+from dantejp.runtime import model_store as store
+from dantejp.runtime.assets import ModelAsset
 
 
 def bundle(tmp_path):

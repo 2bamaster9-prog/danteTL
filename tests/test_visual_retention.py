@@ -6,13 +6,13 @@ import cv2
 import numpy as np
 import pytest
 
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.grouping import DialogueGrouper, TextBlock
-from jp_overlay.presentation import EnglishPresentation
-from jp_overlay.recognition import OcrResult, TextCharacter, TextRegion
-from jp_overlay.tracking import TextTrack, TextTracker
-from jp_overlay.translation import TranslatedText, TranslationRequest
-from jp_overlay.visual import VisualAnalyzer
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.tracking import TextTrack, TextTracker
+from dantejp.ocr.visual import VisualAnalyzer
+from dantejp.ocr.worker import OcrResult, TextCharacter, TextRegion
+from dantejp.translation.grouping import DialogueGrouper, TextBlock
+from dantejp.translation.presentation import EnglishPresentation
+from dantejp.translation.worker import TranslatedText, TranslationRequest
 
 BOX = Rect(20, 30, 220, 28)
 

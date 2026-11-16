@@ -3,16 +3,16 @@ from dataclasses import replace
 
 import pytest
 
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.meiki import MeikiRecognizer, convert_regions
-from jp_overlay.models import ModelAsset, validate_asset
-from jp_overlay.ocr_runtime import CPU, CUDA, DML
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.meiki import MeikiRecognizer, convert_regions
+from dantejp.runtime.assets import ModelAsset, validate_asset
+from dantejp.runtime.ocr import CPU, CUDA, DML
 
 
 def test_crop_padding_preserves_pixels_bounds_and_full_scan_behavior(tmp_path, monkeypatch):
     import numpy as np
 
-    monkeypatch.setattr("jp_overlay.meiki.local_model_paths", lambda path: ())
+    monkeypatch.setattr("dantejp.ocr.meiki.local_model_paths", lambda path: ())
     seen = []
 
     class Engine:
@@ -31,7 +31,7 @@ def test_crop_padding_preserves_pixels_bounds_and_full_scan_behavior(tmp_path, m
                 {"text": "padding", "chars": [], "is_vertical": False},
             ]
 
-    monkeypatch.setattr("jp_overlay.meiki._LocalMeiki", Engine)
+    monkeypatch.setattr("dantejp.ocr.meiki._LocalMeiki", Engine)
     recognizer = MeikiRecognizer(tmp_path)
     bounds = Rect(0, 0, 195, 210)
     frame = CapturedFrame(
@@ -60,7 +60,7 @@ def test_crop_padding_preserves_pixels_bounds_and_full_scan_behavior(tmp_path, m
 def test_crop_retry_is_bounded_and_keeps_successful_original_results(
     tmp_path, monkeypatch, text, calls
 ):
-    monkeypatch.setattr("jp_overlay.meiki.local_model_paths", lambda path: ())
+    monkeypatch.setattr("dantejp.ocr.meiki.local_model_paths", lambda path: ())
     seen = []
 
     class Engine:
@@ -72,7 +72,7 @@ def test_crop_retry_is_bounded_and_keeps_successful_original_results(
             seen.append(image.shape)
             return [{"text": text, "chars": [], "is_vertical": False}]
 
-    monkeypatch.setattr("jp_overlay.meiki._LocalMeiki", Engine)
+    monkeypatch.setattr("dantejp.ocr.meiki._LocalMeiki", Engine)
     bounds = Rect(0, 0, 195, 210)
     frame = CapturedFrame(1, 0, WindowGeometry(bounds, bounds, bounds, 96), bytes(195 * 210 * 4))
     recognizer = MeikiRecognizer(tmp_path)
@@ -90,7 +90,7 @@ def test_partial_gpu_batches_keep_a_fixed_shape_and_never_emit_padded_detections
     import numpy as np
     from meikiocr import MeikiOCR
 
-    from jp_overlay.meiki import _LocalMeiki
+    from dantejp.ocr.meiki import _LocalMeiki
 
     seen = []
 
@@ -166,7 +166,7 @@ def test_missing_models_never_invoke_upstream_downloader(tmp_path, monkeypatch) 
 def test_auto_gpu_failure_falls_back_once_and_reports_the_actual_provider(
     tmp_path, monkeypatch, fail_on_run, provider, device
 ) -> None:
-    monkeypatch.setattr("jp_overlay.meiki.local_model_paths", lambda path: ())
+    monkeypatch.setattr("dantejp.ocr.meiki.local_model_paths", lambda path: ())
     created = []
 
     class Engine:
@@ -181,7 +181,7 @@ def test_auto_gpu_failure_falls_back_once_and_reports_the_actual_provider(
                 raise RuntimeError()  # Even an exception with no message must fall back.
             return []
 
-    monkeypatch.setattr("jp_overlay.meiki._LocalMeiki", Engine)
+    monkeypatch.setattr("dantejp.ocr.meiki._LocalMeiki", Engine)
     recognizer = MeikiRecognizer(tmp_path, device=device)
     box = Rect(0, 0, 2, 2)
     frame = CapturedFrame(1, 0, WindowGeometry(box, box, box, 96), bytes(16))
@@ -194,7 +194,7 @@ def test_auto_gpu_failure_falls_back_once_and_reports_the_actual_provider(
 def test_explicit_cpu_never_initializes_gpu_and_strict_cuda_never_silently_falls_back(
     tmp_path, monkeypatch
 ) -> None:
-    monkeypatch.setattr("jp_overlay.meiki.local_model_paths", lambda path: ())
+    monkeypatch.setattr("dantejp.ocr.meiki.local_model_paths", lambda path: ())
     created = []
 
     class Engine:
@@ -204,7 +204,7 @@ def test_explicit_cpu_never_initializes_gpu_and_strict_cuda_never_silently_falls
             if provider == CUDA:
                 raise RuntimeError("GPU unavailable")
 
-    monkeypatch.setattr("jp_overlay.meiki._LocalMeiki", Engine)
+    monkeypatch.setattr("dantejp.ocr.meiki._LocalMeiki", Engine)
     assert MeikiRecognizer(tmp_path, device="cpu").provider == CPU
     with pytest.raises(RuntimeError, match="GPU unavailable"):
         MeikiRecognizer(tmp_path, device="cuda")
@@ -217,11 +217,11 @@ def test_directml_compatibility_probe_rejects_silent_wrong_results(tmp_path, mon
 
     import numpy as np
 
-    from jp_overlay.meiki import _verify_directml
+    from dantejp.ocr.meiki import _verify_directml
 
     reference = Mock()
     reference.run.return_value = [np.array([0.9])]
-    monkeypatch.setattr("jp_overlay.meiki.create_sessions", lambda *a: [reference])
+    monkeypatch.setattr("dantejp.ocr.meiki.create_sessions", lambda *a: [reference])
     session = Mock()
     session.get_inputs.return_value = [SimpleNamespace(name="images"), SimpleNamespace(name="size")]
     session.run.return_value = [np.array([0.9001])]

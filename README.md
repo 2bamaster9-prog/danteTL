@@ -115,6 +115,8 @@ For a source checkout, **Run DanteJP.cmd** sets up and launches the app. Initial
 keep models and data in the project folder and do not bundle OCR weights; use the setup assistant
 to download them.
 
+The Python package and CLI are both `dantejp` (`python -m dantejp` or `uv run dantejp` after setup).
+
 See the [engineering guide](engineering/README.md) for development guidance,
 [verification](engineering/verification.md) for checks, and [building](engineering/building.md)
 for dependencies, standalone builds and GitHub releases.

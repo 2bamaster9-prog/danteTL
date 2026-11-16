@@ -19,14 +19,14 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
-from jp_overlay.demo import DemoWindow
-from jp_overlay.domain import WindowTarget
-from jp_overlay.model_factories import create_recognizer, translation_backends
-from jp_overlay.model_inventory import inspect_models
-from jp_overlay.model_selection import ModelOption
-from jp_overlay.model_store import model_catalog
-from jp_overlay.translation import TranslationState
-from jp_overlay.windows import Windows
+from dantejp.application.model_factories import create_recognizer, translation_backends
+from dantejp.application.model_inventory import inspect_models
+from dantejp.capture.windows import Windows
+from dantejp.domain import WindowTarget
+from dantejp.runtime.model_store import model_catalog
+from dantejp.translation.selection import ModelOption
+from dantejp.translation.worker import TranslationState
+from dantejp.ui.demo import DemoWindow
 
 
 def main() -> int:
@@ -272,11 +272,11 @@ def main() -> int:
     from contextlib import nullcontext
 
     runtime_check = (
-        patch("jp_overlay.llama_runtime.installed_device", return_value=None)
+        patch("dantejp.runtime.llama.installed_device", return_value=None)
         if args.missing_runtime
         else nullcontext()
     )
-    with patch("jp_overlay.model_store.mark_prepared", receipts.append), runtime_check:
+    with patch("dantejp.runtime.model_store.mark_prepared", receipts.append), runtime_check:
         app.exec()
     timer.stop()
     (output / "result.json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")

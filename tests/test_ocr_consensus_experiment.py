@@ -2,9 +2,9 @@
 
 from dataclasses import replace
 
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.recognition import OcrResult, TextCharacter, TextRegion
-from jp_overlay.tracking import TextTrack, TextTracker
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.tracking import TextTrack, TextTracker
+from dantejp.ocr.worker import OcrResult, TextCharacter, TextRegion
 from tools.ocr_consensus_experiment import EvidenceWindow, Reading
 
 BOX = Rect(100, 100, 500, 30)

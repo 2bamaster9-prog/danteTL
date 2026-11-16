@@ -47,7 +47,17 @@ if ($DownloadOcr) {
 if ($LASTEXITCODE -ne 0) { throw 'Python distribution build failed.' }
 # Bundle the exact wheel made by Hatchling, with the same standard SHA-256 sidecar as releases.
 $appVersion = & $python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"
-$appWheel = Get-Item "dist/jp_overlay-$appVersion-py3-none-any.whl"
+$appWheel = Get-Item "dist/dantejp-$appVersion-py3-none-any.whl"
+# A pure-Python wheel is directly importable. Check its actual startup graph with
+# cwd excluded, so an editable source install cannot hide missing wheel modules.
+$previousPythonPath = $env:PYTHONPATH
+try {
+    $env:PYTHONPATH = $appWheel.FullName
+    & $python -P -s -B -m dantejp.runtime.probe cpu --application-only
+    if ($LASTEXITCODE -ne 0) { throw 'Built application wheel cannot load its entry point.' }
+} finally {
+    $env:PYTHONPATH = $previousPythonPath
+}
 $appHash = (Get-FileHash -LiteralPath $appWheel.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
 "$appHash  $($appWheel.Name)`n" | Set-Content -LiteralPath ($appWheel.FullName + '.sha256') -Encoding ascii -NoNewline
 # Dependency-only exports stay stable across application versions and are also runtime inputs.
@@ -61,7 +71,7 @@ foreach ($profile in @('cpu', 'nvidia', 'amd')) {
 if ($LASTEXITCODE -ne 0) { throw 'PyInstaller build failed.' }
 Copy-Item -LiteralPath packaging/README.txt,packaging/THIRD-PARTY.txt -Destination dist/DanteJP
 Compress-Archive -LiteralPath dist/DanteJP -DestinationPath dist/DanteJP-windows-x64.zip -Force
-$outputs = @(Get-Item dist/DanteJP-windows-x64.zip) + @(Get-ChildItem dist/jp_overlay-*.whl,dist/jp_overlay-*.tar.gz)
+$outputs = @(Get-Item dist/DanteJP-windows-x64.zip) + @(Get-ChildItem dist/dantejp-*.whl,dist/dantejp-*.tar.gz)
 foreach ($file in $outputs) {
     $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     # LF sidecars also work with GNU sha256sum in the Linux release job.

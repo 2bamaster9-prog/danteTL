@@ -10,10 +10,10 @@ from PySide6.QtCore import QPoint, Qt  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QWidget  # noqa: E402
 
-from jp_overlay.controls import CaptureButton, CopyTextButton, OverlayToggles, Switch  # noqa: E402
-from jp_overlay.dialogue_history import HistoryTurn  # noqa: E402
-from jp_overlay.history_panel import HistoryPanel  # noqa: E402
-from jp_overlay.theme import STYLE  # noqa: E402
+from dantejp.translation.dialogue.history import HistoryTurn  # noqa: E402
+from dantejp.ui.controls import CaptureButton, CopyTextButton, OverlayToggles, Switch  # noqa: E402
+from dantejp.ui.history_panel import HistoryPanel  # noqa: E402
+from dantejp.ui.theme import STYLE  # noqa: E402
 
 
 @pytest.fixture(scope="module")

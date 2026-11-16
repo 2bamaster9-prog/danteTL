@@ -10,8 +10,8 @@ from ctypes import wintypes
 from pathlib import Path
 from unittest.mock import patch
 
-from jp_overlay.translation import TranslationBackend
-from jp_overlay.translation_backend import ContextualBackend
+from dantejp.translation.backend import ContextualBackend
+from dantejp.translation.worker import TranslationBackend
 
 
 def process_memory(pid: int | None = None) -> dict[str, float]:
@@ -102,10 +102,10 @@ def main() -> None:
     with patch.object(socket.socket, "connect", side_effect=AssertionError("Unexpected network")):
         started = time.monotonic()
         backend: TranslationBackend
-        from jp_overlay.gemma import GemmaBackend
-        from jp_overlay.gemma import model_directory as gemma_directory
-        from jp_overlay.llama_runtime import installed_device
-        from jp_overlay.model_factories import create_curated_translator
+        from dantejp.application.model_factories import create_curated_translator
+        from dantejp.runtime.llama import installed_device
+        from dantejp.translation.backends.gemma import GemmaBackend
+        from dantejp.translation.backends.gemma import model_directory as gemma_directory
 
         device = installed_device()
         assert device is not None, "Language-model engine is missing"
@@ -131,7 +131,7 @@ def main() -> None:
             assert any(word in english[2].lower() for word in ("setting", "config")), english
             dialogue = []
             if isinstance(backend, ContextualBackend):
-                from jp_overlay.dialogue_context import DialogueTurn
+                from dantejp.translation.dialogue.context import DialogueTurn
 
                 context = (
                     DialogueTurn("私はリナ。これからよろしくね。", "I'm Rina. Nice to meet you."),

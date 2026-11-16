@@ -6,12 +6,12 @@ from unittest.mock import Mock
 import pytest
 from ownership_fixtures import Replay
 
-from jp_overlay.cloud_values import CloudProfile
-from jp_overlay.model_inventory import InventoryData
-from jp_overlay.model_selection import AssignmentChange
-from jp_overlay.preference_values import Preferences
-from jp_overlay.translation import BackendChoice
-from jp_overlay.translation_plan import TranslationPlan
+from dantejp.application.model_inventory import InventoryData
+from dantejp.application.preference_values import Preferences
+from dantejp.translation.cloud.values import CloudProfile
+from dantejp.translation.plan import TranslationPlan
+from dantejp.translation.selection import AssignmentChange
+from dantejp.translation.worker import BackendChoice
 
 
 @pytest.mark.parametrize(

@@ -21,19 +21,19 @@ from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent
 from PySide6.QtWidgets import QApplication, QWidget
 from verification_isolation import app_owner
 
-from jp_overlay.composition import application_session, setup_coordinator
-from jp_overlay.demo import DIALOGUE_LINES
-from jp_overlay.desktop_driver import DesktopDriver
-from jp_overlay.dialogue_context import DialogueTurn
-from jp_overlay.domain import WindowTarget
-from jp_overlay.inspection import frame_image
-from jp_overlay.model_factories import create_recognizer, translation_backends
-from jp_overlay.paths import state_root
-from jp_overlay.recognition import OcrChoice
-from jp_overlay.translation import TranslationState
-from jp_overlay.translation_backend import ContextualBackend
-from jp_overlay.ui import MainWindow
-from jp_overlay.windows import Windows
+from dantejp.application.model_factories import create_recognizer, translation_backends
+from dantejp.capture.windows import Windows
+from dantejp.composition import application_session, setup_coordinator
+from dantejp.domain import WindowTarget
+from dantejp.ocr.worker import OcrChoice
+from dantejp.paths import state_root
+from dantejp.translation.backend import ContextualBackend
+from dantejp.translation.dialogue.context import DialogueTurn
+from dantejp.translation.worker import TranslationState
+from dantejp.ui.demo import DIALOGUE_LINES
+from dantejp.ui.desktop_driver import DesktopDriver
+from dantejp.ui.inspection import frame_image
+from dantejp.ui.main_window import MainWindow
 
 
 class TextFixture(QWidget):

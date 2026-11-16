@@ -7,16 +7,16 @@ from unittest.mock import Mock
 import pytest
 from test_translation_plan import Engine, block, until
 
-from jp_overlay.cloud_services import CloudServices
-from jp_overlay.cloud_values import CloudProfile
-from jp_overlay.model_inventory import InventoryData, InventorySnapshot, ModelInventory
-from jp_overlay.model_selection import AssignmentChange
-from jp_overlay.preference_values import Preferences
-from jp_overlay.translation import BackendChoice, TranslationSession
-from jp_overlay.translation_coordinator import TranslationCoordinator
-from jp_overlay.translation_plan import TranslationPlan
-from jp_overlay.translation_routing import RoutedTranslationSession
-from jp_overlay.translation_values import TranslationState
+from dantejp.application.cloud_services import CloudServices
+from dantejp.application.model_inventory import InventoryData, InventorySnapshot, ModelInventory
+from dantejp.application.preference_values import Preferences
+from dantejp.application.translation_coordinator import TranslationCoordinator
+from dantejp.translation.cloud.values import CloudProfile
+from dantejp.translation.plan import TranslationPlan
+from dantejp.translation.routing import RoutedTranslationSession
+from dantejp.translation.selection import AssignmentChange
+from dantejp.translation.values import TranslationState
+from dantejp.translation.worker import BackendChoice, TranslationSession
 
 
 def remote_ref(key):

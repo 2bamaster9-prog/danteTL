@@ -4,9 +4,14 @@ from uuid import uuid4
 
 import pytest
 
-from jp_overlay.api_connections import ApiConnections
-from jp_overlay.cloud_profiles import MAX_CLOUD_PROFILES, MODELS, CloudProfile, CloudProfiles
-from jp_overlay.credentials import WindowsSecrets
+from dantejp.translation.cloud.api_connections import ApiConnections
+from dantejp.translation.cloud.credentials import WindowsSecrets
+from dantejp.translation.cloud.profiles import (
+    MAX_CLOUD_PROFILES,
+    MODELS,
+    CloudProfile,
+    CloudProfiles,
+)
 
 
 class SecretsFixture:

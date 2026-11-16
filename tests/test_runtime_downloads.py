@@ -6,8 +6,8 @@ from unittest.mock import Mock
 import pytest
 from download_fixtures import download_bytes
 
-from jp_overlay import runtime_downloads as downloads
-from jp_overlay.model_store import Cancelled
+from dantejp.runtime import downloads as downloads
+from dantejp.runtime.model_store import Cancelled
 
 
 def export(tmp_path, wheels, *, marker="", digest=None):

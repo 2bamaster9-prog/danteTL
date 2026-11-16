@@ -22,12 +22,12 @@ from PySide6.QtWidgets import QApplication
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
-from jp_overlay.demo import DemoWindow
-from jp_overlay.domain import WindowTarget
-from jp_overlay.hotkeys import HotkeyAction, Hotkeys
-from jp_overlay.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
-from jp_overlay.preferences import Preferences
-from jp_overlay.windows import Windows
+from dantejp.application.hotkeys import HotkeyAction, Hotkeys
+from dantejp.application.preferences import Preferences
+from dantejp.capture.windows import Windows
+from dantejp.domain import WindowTarget
+from dantejp.ui.demo import DemoWindow
+from dantejp.ui.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
 
 
 class _Keyboard(ctypes.Structure):
@@ -134,8 +134,8 @@ def main() -> int:
     application = app_owner(window)
     from dataclasses import replace
 
-    from jp_overlay.model_inventory import inspect_models
-    from jp_overlay.model_store import model_catalog
+    from dantejp.application.model_inventory import inspect_models
+    from dantejp.runtime.model_store import model_catalog
 
     missing = tuple(
         replace(b, directory=args.output / "absent-ocr", bundled_directory=None)

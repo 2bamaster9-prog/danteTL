@@ -3,6 +3,26 @@
 This document owns cross-module contracts. Read the affected sections; code/tests own exact thresholds,
 prompts and implementation details. See [building](building.md) and [verification](verification.md).
 
+## Package layout
+
+The distribution, Python package and CLI are `dantejp`; app-specific environment variables use
+`DANTEJP_*`. `DanteJP` is the display name. There are no aliases for previous names or module paths.
+
+| Package | Owns |
+| --- | --- |
+| `application` | Commands, snapshots, preferences and coordination of capture, models, setup and shutdown |
+| `translation` | Workers, scheduling, routing, publication; `backends`, `cloud`, `models` and `dialogue` hold their specific integrations |
+| `ocr` | Recognition, scan planning, text tracking and visual retention |
+| `capture` | Native window identity, geometry and capture |
+| `ui` | Qt views, controls, layout and desktop event delivery |
+| `runtime` | Shared model assets, native library selection, downloads, contained processes and isolated runtime installation |
+
+The root contains shared physical-coordinate values, resource paths, worker wakeups and application
+entry/assembly modules. Package initializers do not import or re-export implementations. Consumers
+import the module that owns each API. Import Linter checks whole application/processing packages for
+Qt/view dependencies, all views for backend/service dependencies, and runtime services for UI coupling.
+Shared asset validation belongs in `runtime.assets`; OCR owns only its pinned model definitions.
+
 ## Application ownership
 
 | Owner | Responsibility |
@@ -11,7 +31,7 @@ prompts and implementation details. See [building](building.md) and [verificatio
 | `ApplicationSession` | Serialize commands/completions; coordinate capture, setup, translation and shutdown |
 | `CaptureLifecycle` | Freeze device/rate choices, validate capture targets/geometry, and gate capture teardown |
 | `TranslationCoordinator` / `ModelLifecycle` | Authoritative assignments, resolution, consent/preparation, route commitment, worker availability and prepared-worker adoption |
-| `application_presentation` | Pure scene-reset/status projection; no worker operations |
+| `application.presentation` | Pure scene-reset/status projection; no worker operations |
 | `CloudServices` | Backend/account/catalog services and credentials; no widgets |
 | `SetupCoordinator` | Download/import, runtime and guide operations, cancellation and probe permits |
 | `ModelInventory` | Cached model/runtime discovery and preparation receipts |
@@ -56,7 +76,7 @@ Preferences and hardware work drain and hotkeys release before restart; failed r
 
 ## UI, identity and coordinates
 
-Preserve DanteJP branding and legacy `jp_overlay`, `jp-overlay`, `JP_OVERLAY_*` identifiers.
+The public app name is DanteJP.
 Main/Settings/Advanced are views of one live session. Controls remain top-left and width-bounded;
 inspection expands without changing maximized state. Simple/advanced routing preserves assignments.
 Model selectors share styled nonselectable category headings. Unchanged lists preserve popup focus;

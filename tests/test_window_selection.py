@@ -3,8 +3,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from jp_overlay.domain import Rect, WindowGeometry
-from jp_overlay.windows import Windows, WindowUnavailable
+from dantejp.capture.windows import Windows, WindowUnavailable
+from dantejp.domain import Rect, WindowGeometry
 
 
 @pytest.fixture

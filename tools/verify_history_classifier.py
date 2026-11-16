@@ -9,14 +9,14 @@ from dataclasses import asdict
 from pathlib import Path
 from unittest.mock import patch
 
-from jp_overlay.dialogue_classifier import ClassificationInput, ClassifierBackend
-from jp_overlay.dialogue_history import DialogueHistory
-from jp_overlay.domain import Rect
-from jp_overlay.grouping import TextBlock
-from jp_overlay.llama_runtime import installed_device, load_runtime
-from jp_overlay.model_factories import translation_backends
-from jp_overlay.tracking import TextTrack
-from jp_overlay.translation_backend import RequestRejected
+from dantejp.application.model_factories import translation_backends
+from dantejp.domain import Rect
+from dantejp.ocr.tracking import TextTrack
+from dantejp.runtime.llama import installed_device, load_runtime
+from dantejp.translation.backend import RequestRejected
+from dantejp.translation.dialogue.classifier import ClassificationInput, ClassifierBackend
+from dantejp.translation.dialogue.history import DialogueHistory
+from dantejp.translation.grouping import TextBlock
 
 SAMPLES = (
     ("warning", "ここから先は危険です。私と一緒に進んでください。", "旅人", "dialogue", "yes"),

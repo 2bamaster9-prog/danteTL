@@ -1,0 +1,466 @@
+"""Application-owned cloud accounts, backend recipes and bounded setup work.
+
+Commands and result adoption are serialized by the application driver. Credential,
+catalog and network work runs on the single setup worker; backend creation runs on
+the translation owner. Neither path retains a view.
+"""
+
+import threading
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
+
+from dantejp.translation.cloud.api_connections import ApiConnections
+from dantejp.translation.cloud.auth_work import AuthWork
+from dantejp.translation.cloud.backend import CloudAllowance, CloudBackend
+from dantejp.translation.cloud.catalog import CatalogCache, fetch_models
+from dantejp.translation.cloud.chatgpt_auth import PLAN_SCOPE, ChatGPTConnections
+from dantejp.translation.cloud.credentials import Secrets
+from dantejp.translation.cloud.profiles import CloudProfiles
+from dantejp.translation.cloud.state import CloudDraft, CloudSnapshot
+from dantejp.translation.cloud.values import (
+    ApiConnection,
+    CatalogModel,
+    ChatGPTAccount,
+    CloudProfile,
+    CloudUsage,
+)
+
+
+@dataclass(frozen=True)
+class SetupResult:
+    profiles: tuple[CloudProfile, ...]
+    available: set[str]
+    accounts: tuple[ChatGPTAccount, ...]
+    api: tuple[ApiConnection, ...]
+    api_ready: set[str]
+    message: str
+    failed: bool
+    catalogs: dict[str, tuple[CatalogModel, ...]] = field(default_factory=dict)
+    discovered: tuple[CatalogModel, ...] | None = None
+
+
+class CloudServices:
+    def __init__(
+        self,
+        catalog: CloudProfiles,
+        secrets: Callable[[], Secrets],
+        connections: ChatGPTConnections,
+        *,
+        on_change: Callable[[], None] = lambda: None,
+    ) -> None:
+        self.catalog = catalog
+        self.api_connections = ApiConnections(self.catalog)
+        self.catalog_cache = CatalogCache(self.catalog.path.parent / "cloud-catalogs")
+        self._catalogs: dict[str, tuple[CatalogModel, ...]] = {}
+        self._discovered: tuple[CatalogModel, ...] | None = None
+        self.api_accounts: tuple[ApiConnection, ...] = ()
+        self._api_ready: set[str] = set()
+        self._secrets = secrets
+        self.connections = connections
+        self.accounts: tuple[ChatGPTAccount, ...] = ()
+        self._new_account = ""
+        self._welcome = ""
+        self._select_after = ""
+        self.revision = 0
+        self._mutating = False
+        self._saving = False
+        self.profiles: tuple[CloudProfile, ...] = ()
+        self._available: set[str] = set()
+        self._allowances: dict[str, CloudAllowance] = {}
+        self._worker: threading.Thread | None = None
+        self._lock = threading.Lock()
+        self._result: SetupResult | None = None
+        self._testing: CloudBackend | None = None
+        self._cancelled = threading.Event()
+        self.problem = ""
+
+        self._on_change = on_change
+        self._version = self._completion = 0
+        self._message = ""
+        self._selected = ""
+        self._saved = False
+        self._browser = ""
+        self._closed = False
+
+    def start(self) -> None:
+        self._run(lambda _: "", "Reading cloud settings…")
+
+    @property
+    def busy(self) -> bool:
+        return self._worker is not None
+
+    def snapshot(self) -> CloudSnapshot:
+        return CloudSnapshot(
+            self._version,
+            self.revision,
+            self.busy,
+            self.profiles,
+            frozenset(self._available),
+            self.accounts,
+            self.api_accounts,
+            frozenset(self._api_ready),
+            tuple(sorted(self._catalogs.items())),
+            self._message,
+            self.problem,
+            self._completion,
+            self._mutating,
+            self._saved,
+            self._selected,
+            self._new_account,
+            self._discovered,
+        )
+
+    def usage(self, key: str) -> CloudUsage:
+        return self.allowance(key).snapshot()
+
+    def _changed(self) -> None:
+        self._version += 1
+        self._on_change()
+
+    def _open_browser(self, url: str) -> None:
+        with self._lock:
+            if self._closed or self._cancelled.is_set():
+                return
+            self._browser = url
+        self._on_change()
+
+    def take_browser(self) -> str:
+        with self._lock:
+            url, self._browser = self._browser, ""
+        return url
+
+    def take_welcome(self) -> str:
+        if self.busy or self._cancelled.is_set():
+            return ""
+        account, self._welcome = self._welcome, ""
+        return account
+
+    def acknowledge_welcome(self, account: str) -> None:
+        if account:
+            self._run(lambda _: self._mark_welcome(account), "Saving account preferences…")
+
+    def discard_draft(self) -> None:
+        with self._lock:
+            self._allowances = {
+                k: v for k, v in self._allowances.items() if any(p.key == k for p in self.profiles)
+            }
+
+    def available(self, key: str) -> bool:
+        return key in self._available
+
+    def create_backend(self, profile: CloudProfile, game: str) -> CloudBackend:
+        return CloudBackend(
+            profile,
+            "chatgpt-plan"
+            if profile.provider == "chatgpt"
+            else self.api_connections.secret(profile, self._secrets()),
+            game=game,
+            allowance=self.allowance(profile.key),
+            access_token=(lambda work: self.connections.access_token(profile.account, work))
+            if profile.provider == "chatgpt"
+            else None,
+        )
+
+    def allowance(self, key: str) -> CloudAllowance:
+        with self._lock:
+            return self._allowances.setdefault(key, CloudAllowance())
+
+    def cancel(self) -> None:
+        self._cancelled.set()
+        with self._lock:
+            if self._testing:
+                self._testing.cancel_pending()
+
+    def close(self) -> None:
+        self._closed = True
+        self.cancel()
+        with self._lock:
+            self._browser = ""
+
+    def resume(self) -> None:
+        assert not self.busy
+        self._closed = False
+
+    def _run(
+        self,
+        operation: Callable[[Secrets], str],
+        message: str,
+        *,
+        mutating: bool = False,
+        saving: bool = False,
+    ) -> None:
+        if self._closed or self._worker is not None:
+            return
+        self.problem = ""
+        self._mutating, self._saving = mutating, saving
+        self._cancelled.clear()
+        self._discovered = None
+        self._message = message
+        self._saved = False
+        self._new_account = ""
+        self._changed()
+
+        def work() -> None:
+            failed = False
+            try:
+                result = operation(self._secrets())
+            except Exception as error:
+                result = str(error) or "Operation cancelled."
+                failed = True
+            try:
+                secrets = self._secrets()
+                profiles = self.catalog.read()
+                accounts = self.connections.accounts()
+                api = self.api_connections.read(profiles, secrets)
+                api_ready = {c.key for c in api if secrets.read(c.key)}
+                available = {
+                    p.key
+                    for p in profiles
+                    if (
+                        any(
+                            a.key == p.account and a.enabled and p.model in dict(a.models)
+                            for a in accounts
+                        )
+                        if p.provider == "chatgpt"
+                        else any(
+                            c.key == p.credential_key
+                            and c.provider == p.provider
+                            and c.key in api_ready
+                            for c in api
+                        )
+                    )
+                }
+                completed = SetupResult(
+                    profiles,
+                    available,
+                    accounts,
+                    api,
+                    api_ready,
+                    result,
+                    failed,
+                    {
+                        c.key: models
+                        for c in api
+                        if (models := self.catalog_cache.read(c.provider, c.key)) is not None
+                    },
+                    self._discovered,
+                )
+            except Exception as error:
+                completed = SetupResult(
+                    self.profiles,
+                    self._available,
+                    self.accounts,
+                    self.api_accounts,
+                    self._api_ready,
+                    str(error) or "Operation cancelled.",
+                    True,
+                    self._catalogs,
+                )
+            with self._lock:
+                self._result = completed
+            self._on_change()
+
+        self._worker = threading.Thread(target=work, name="cloud-setup", daemon=True)
+        self._worker.start()
+
+    def advance(self) -> bool:
+        """Adopt a completed operation, even when every view is hidden or destroyed."""
+        if not self._worker or self._worker.is_alive():
+            return False
+        with self._lock:
+            result, self._result = self._result, None
+        self._worker = None
+        if result is None:
+            return False
+        before = (self.profiles, self._available)
+        self.profiles, self._available, self.accounts = (
+            result.profiles,
+            result.available,
+            result.accounts,
+        )
+        self.api_accounts, self._api_ready = result.api, result.api_ready
+        self._catalogs, self._discovered = result.catalogs, result.discovered
+        changed = before != (self.profiles, self._available) or (
+            self._mutating and not result.failed
+        )
+        if self._mutating and not result.failed:
+            self.revision += 1
+        self.problem = result.message if result.failed else ""
+        self._message = result.message
+        self._saved = self._saving and not result.failed
+        self._selected, self._select_after = self._select_after, ""
+        self._completion += 1
+        self._changed()
+        return changed
+
+    def save(self, draft: CloudDraft) -> None:
+        if self._closed or self.busy:
+            return
+
+        def save(secrets: Secrets) -> str:
+            if self._cancelled.is_set():
+                raise ValueError("Save cancelled.")
+            profile = draft.profile
+            if profile.provider != "chatgpt":
+                saved = self.api_connections.save_model(
+                    profile, draft.connection, draft.secret, secrets
+                )
+                if draft.models is not None:
+                    try:
+                        self.catalog_cache.write(
+                            profile.provider, saved.credential_key, draft.models
+                        )
+                    except (OSError, ValueError):
+                        return "Model saved. Catalog cache unavailable; refresh models when needed."
+            else:
+                accounts = self.connections.accounts()
+                if not any(
+                    a.key == profile.account and a.enabled and profile.model in dict(a.models)
+                    for a in accounts
+                ):
+                    raise ValueError("Sign in and choose an available account model first.")
+                profiles = self.catalog.read()
+                self.catalog.write(tuple(p for p in profiles if p.key != profile.key) + (profile,))
+            return "Model saved. Select it on the main screen to use it."
+
+        self._select_after = draft.profile.key
+        self._run(save, "Saving model securely…", mutating=True, saving=True)
+
+    def refresh_models(self, draft: CloudDraft) -> None:
+        if self._closed or self.busy:
+            return
+
+        def refresh(secrets: Secrets) -> str:
+            profile = replace(draft.profile, credential=draft.connection)
+            key = draft.secret or self.api_connections.secret(profile, secrets)
+            models = fetch_models(profile.provider, key, self._cancelled)
+            if self._cancelled.is_set():
+                return "Model refresh cancelled; previous list kept."
+            if draft.connection and not draft.secret:
+                self.catalog_cache.write(profile.provider, draft.connection, models)
+            self._discovered = models
+            return (
+                f"Found {len(models)} models. Selection unchanged; "
+                "test unfamiliar models before use."
+            )
+
+        self._run(refresh, "Refreshing provider models…")
+
+    def test(self, draft: CloudDraft) -> None:
+        if self._closed or self.busy:
+            return
+        profile = draft.profile
+
+        def test(secrets: Secrets) -> str:
+            if self._cancelled.is_set():
+                return "Test cancelled."
+            source = (
+                replace(profile, credential=draft.connection)
+                if profile.provider != "chatgpt"
+                else profile
+            )
+            key = (
+                (draft.secret or self.api_connections.secret(source, secrets))
+                if profile.provider != "chatgpt"
+                else "chatgpt-plan"
+            )
+            backend = CloudBackend(
+                source,
+                key,
+                allowance=self.allowance(profile.key),
+                access_token=(lambda work: self.connections.access_token(profile.account, work))
+                if profile.provider == "chatgpt"
+                else None,
+            )
+            try:
+                with self._lock:
+                    self._testing = backend
+                if self._cancelled.is_set():
+                    return "Test cancelled."
+                result = backend.translate(("会心率",))[0]
+                return (
+                    "Test cancelled."
+                    if self._cancelled.is_set()
+                    else "✓ Test successful: " + result
+                )
+            finally:
+                backend.close()
+                with self._lock:
+                    self._testing = None
+
+        self._run(test, "Testing this model without saving changes…")
+
+    def remove(self, profile: CloudProfile) -> None:
+        if self._closed or self.busy:
+            return
+
+        def remove(_: Secrets) -> str:
+            self.catalog.write(tuple(p for p in self.catalog.read() if p.key != profile.key))
+            with self._lock:
+                self._allowances.pop(profile.key, None)
+            return "Model removed. Its connection is still saved."
+
+        self._available.discard(profile.key)
+        self._changed()
+        self._run(remove, "Removing cloud model…", mutating=True)
+
+    def forget_key(self, key: str) -> None:
+        if self._closed or self.busy:
+            return
+        if not key:
+            return
+        self._available.difference_update(p.key for p in self.profiles if p.credential_key == key)
+        self._changed()
+
+        def forget(secrets: Secrets) -> str:
+            self.api_connections.forget(key, secrets)
+            return "Key forgotten on this PC. Revoke it at the provider if no longer needed."
+
+        self._run(forget, "Forgetting saved API key…", mutating=True)
+
+    def sign_in(self, selected: str) -> None:
+        if self._closed or self.busy:
+            return
+
+        def sign_in(_: Secrets) -> str:
+            key = self.connections.sign_in(selected, self._open_browser, self._cancelled)
+            record = self.connections.store.read(key)
+            self._new_account = key
+            if not record.get("welcomed") and PLAN_SCOPE in record.get("scopes", []):
+                self._welcome = key
+            return (
+                "ChatGPT connected. Choose a model and save it."
+                if PLAN_SCOPE in record.get("scopes", [])
+                else "Signed in, but plan use was not enabled. Sign in again to approve it."
+            )
+
+        self._run(sign_in, "Finish sign-in and plan consent in your browser…", mutating=True)
+
+    def _mark_welcome(self, account: str) -> str:
+        with self.connections.store.lock(account):
+            record = self.connections.store.read(account)
+            self.connections.store.write(account, {**record, "welcomed": True})
+        return "Choose a ChatGPT model and save it."
+
+    def sign_out(self, account: str) -> None:
+        if self._closed or self.busy:
+            return
+        if account:
+            self._available.difference_update(p.key for p in self.profiles if p.account == account)
+            self._changed()
+            self._run(
+                lambda _: self.connections.sign_out(account, AuthWork(self._cancelled)),
+                "Signing out…",
+                mutating=True,
+            )
+
+    def refresh_account(self, account: str) -> None:
+        if self._closed or self.busy:
+            return
+        if account:
+
+            def refresh(_: Secrets) -> str:
+                self.connections.refresh_models(account, AuthWork(self._cancelled))
+                return "ChatGPT models refreshed."
+
+            self._run(refresh, "Reading available models…", mutating=True)

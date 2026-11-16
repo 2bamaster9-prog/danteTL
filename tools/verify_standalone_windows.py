@@ -13,10 +13,10 @@ from pathlib import Path
 from uuid import uuid4
 from zipfile import ZipFile
 
-from jp_overlay.domain import WindowTarget
-from jp_overlay.owned_process import OwnedProcess
-from jp_overlay.setup_process import run_setup_command
-from jp_overlay.windows import Windows
+from dantejp.capture.windows import Windows
+from dantejp.domain import WindowTarget
+from dantejp.runtime.owned_process import OwnedProcess
+from dantejp.runtime.setup_process import run_setup_command
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -65,7 +65,7 @@ def download_helper(exe: Path, output: Path, environment: dict[str, str]) -> Non
             [
                 str(exe),
                 "--module",
-                "jp_overlay.download_transport",
+                "dantejp.runtime.download_transport",
                 f"http://127.0.0.1:{server.server_port}/fixture",
                 str(temporary),
                 str(len(payload)),
@@ -89,7 +89,7 @@ def download_helper(exe: Path, output: Path, environment: dict[str, str]) -> Non
 def desktop(exe: Path, output: Path, environment: dict[str, str], state: Path) -> None:
     token = uuid4().hex
     process = OwnedProcess(
-        [str(exe)], output, environment | {"JP_OVERLAY_RESTART_TOKEN": token}, show_window=True
+        [str(exe)], output, environment | {"DANTEJP_RESTART_TOKEN": token}, show_window=True
     )
     receipt = state / "data/restarts" / token
     windows = Windows()
@@ -170,7 +170,7 @@ def main() -> None:
     environment = {
         key: value
         for key, value in os.environ.items()
-        if not key.startswith(("UV_", "JP_OVERLAY_", "DANTEJP_", "_PYI"))
+        if not key.startswith(("UV_", "DANTEJP_", "_PYI"))
         and key not in ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV", "QT_QPA_PLATFORM")
     }
     environment.update(
@@ -188,7 +188,7 @@ def main() -> None:
         [
             str(exe),
             "--module",
-            "jp_overlay.runtime_probe",
+            "dantejp.runtime.probe",
             "cpu",
             "--ocr-image",
             str(ROOT / "tests/fixtures/ocr.png"),

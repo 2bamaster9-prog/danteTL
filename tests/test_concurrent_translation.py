@@ -1,11 +1,11 @@
 import time
 from concurrent.futures import Future
 
-from jp_overlay.domain import Rect
-from jp_overlay.grouping import TextBlock
-from jp_overlay.tracking import TextTrack
-from jp_overlay.translation import TranslationSession
-from jp_overlay.translation_cache import TranslationCache, translation_key
+from dantejp.domain import Rect
+from dantejp.ocr.tracking import TextTrack
+from dantejp.translation.cache import TranslationCache, translation_key
+from dantejp.translation.grouping import TextBlock
+from dantejp.translation.worker import TranslationSession
 
 
 class Deferred:

@@ -7,10 +7,10 @@ from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import patch
 
-from jp_overlay.chatgpt_auth import ChatGPTConnections
-from jp_overlay.cloud_profiles import CloudProfiles
-from jp_overlay.cloud_services import CloudServices
-from jp_overlay.protected_store import ProtectedStore
+from dantejp.application.cloud_services import CloudServices
+from dantejp.translation.cloud.chatgpt_auth import ChatGPTConnections
+from dantejp.translation.cloud.profiles import CloudProfiles
+from dantejp.translation.cloud.protected_store import ProtectedStore
 
 
 class NoCredentials:
@@ -38,10 +38,10 @@ def create_cloud() -> CloudServices:
 
 
 def create_window(*args, **kwargs):
-    from jp_overlay.composition import application_session, setup_coordinator
-    from jp_overlay.desktop_driver import DesktopDriver
-    from jp_overlay.paths import state_root
-    from jp_overlay.ui import MainWindow
+    from dantejp.composition import application_session, setup_coordinator
+    from dantejp.paths import state_root
+    from dantejp.ui.desktop_driver import DesktopDriver
+    from dantejp.ui.main_window import MainWindow
 
     temporary = tempfile.TemporaryDirectory(prefix="dantejp-native-")
     root = Path(temporary.name)
@@ -71,7 +71,7 @@ def create_window(*args, **kwargs):
 def create_inventory(args, kwargs):
     from functools import partial
 
-    from jp_overlay.model_inventory import ModelInventory, inspect_models
+    from dantejp.application.model_inventory import ModelInventory, inspect_models
 
     backends = args[2] if len(args) > 2 else kwargs.get("backends", ())
     probe = partial(
@@ -90,8 +90,8 @@ def run_isolated(main: Callable[[], int | None]) -> None:
 
 
 def find_model(combo, choice):
-    from jp_overlay.model_selection import ModelOption
-    from jp_overlay.translation_coordinator import model_reference
+    from dantejp.application.translation_coordinator import model_reference
+    from dantejp.translation.selection import ModelOption
 
     reference = choice.reference if isinstance(choice, ModelOption) else model_reference(choice)
     return next(
@@ -108,7 +108,7 @@ def find_model(combo, choice):
 def app_owner(window):
     from typing import cast
 
-    from jp_overlay.application_session import ApplicationSession
+    from dantejp.application.session import ApplicationSession
 
     return cast(ApplicationSession, window.application)
 
@@ -116,7 +116,7 @@ def app_owner(window):
 def cloud_owner(panel):
     from typing import cast
 
-    from jp_overlay.cloud_services import CloudServices
+    from dantejp.application.cloud_services import CloudServices
 
     return cast(CloudServices, panel.service)
 
@@ -124,6 +124,6 @@ def cloud_owner(panel):
 def setup_owner(panel):
     from typing import cast
 
-    from jp_overlay.setup_coordinator import SetupCoordinator
+    from dantejp.application.setup_coordinator import SetupCoordinator
 
     return cast(SetupCoordinator, panel.service)

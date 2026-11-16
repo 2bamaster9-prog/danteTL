@@ -2,12 +2,12 @@
 
 from dataclasses import replace
 
-from jp_overlay.dialogue_classifier import Classification
-from jp_overlay.dialogue_history import DialogueHistory
-from jp_overlay.domain import Rect
-from jp_overlay.grouping import TextBlock
-from jp_overlay.tracking import TextTrack
-from jp_overlay.translation import TranslatedText, TranslationRequest
+from dantejp.domain import Rect
+from dantejp.ocr.tracking import TextTrack
+from dantejp.translation.dialogue.classifier import Classification
+from dantejp.translation.dialogue.history import DialogueHistory
+from dantejp.translation.grouping import TextBlock
+from dantejp.translation.worker import TranslatedText, TranslationRequest
 
 
 def block(i, text, x, y, width=300, height=24):

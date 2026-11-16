@@ -5,12 +5,12 @@ from dataclasses import replace
 import pytest
 from test_live_session import frame
 
-from jp_overlay.application_presentation import processing_progress
-from jp_overlay.application_values import ApplicationView, Scene
-from jp_overlay.domain import CaptureSnapshot, CaptureState
-from jp_overlay.ocr_values import OcrResult, OcrSnapshot, OcrState
-from jp_overlay.translation_activity import TranslationMode
-from jp_overlay.translation_values import (
+from dantejp.application.presentation import processing_progress
+from dantejp.application.translation_activity import TranslationMode
+from dantejp.application.values import ApplicationView, Scene
+from dantejp.domain import CaptureSnapshot, CaptureState
+from dantejp.ocr.values import OcrResult, OcrSnapshot, OcrState
+from dantejp.translation.values import (
     TranslatedText,
     TranslationLaneSnapshot,
     TranslationRequest,

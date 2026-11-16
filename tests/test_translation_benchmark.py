@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from jp_overlay.dialogue_context import DialogueTurn
-from jp_overlay.translation_backend import RequestRejected
+from dantejp.translation.backend import RequestRejected
+from dantejp.translation.dialogue.context import DialogueTurn
 from tools.benchmark_plamo_cli import parse_completion
 from tools.benchmark_profiles import bounded_history, specialist_prompt
 from tools.benchmark_translation import DATA, cases, summarize

@@ -4,11 +4,11 @@ from dataclasses import replace
 
 import pytest
 
-from jp_overlay.dialogue_history import DialogueHistory
-from jp_overlay.domain import Rect
-from jp_overlay.grouping import DialogueGrouper, TextBlock
-from jp_overlay.tracking import TextActivity, TextTrack
-from jp_overlay.translation import TranslatedText, TranslationRequest
+from dantejp.domain import Rect
+from dantejp.ocr.tracking import TextActivity, TextTrack
+from dantejp.translation.dialogue.history import DialogueHistory
+from dantejp.translation.grouping import DialogueGrouper, TextBlock
+from dantejp.translation.worker import TranslatedText, TranslationRequest
 
 
 def subtitles(scale=1):

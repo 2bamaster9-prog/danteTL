@@ -3,11 +3,11 @@
 from concurrent.futures import Future
 from dataclasses import replace
 
-from jp_overlay.dialogue_context import DialogueTurn
-from jp_overlay.translation import TranslationRequest
-from jp_overlay.translation_backend import BatchResult
-from jp_overlay.translation_cache import TranslationCache, translation_key
-from jp_overlay.translation_schedule import Demand, TranslationSchedule
+from dantejp.translation.backend import BatchResult
+from dantejp.translation.cache import TranslationCache, translation_key
+from dantejp.translation.dialogue.context import DialogueTurn
+from dantejp.translation.schedule import Demand, TranslationSchedule
+from dantejp.translation.worker import TranslationRequest
 
 
 class Backend:

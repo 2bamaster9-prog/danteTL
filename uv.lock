@@ -5,13 +5,13 @@ required-markers = [
     "platform_machine == 'AMD64' and sys_platform == 'win32'",
 ]
 conflicts = [[
-    { package = "jp-overlay", group = "amd" },
-    { package = "jp-overlay", group = "cpu" },
-    { package = "jp-overlay", group = "gpu" },
+    { package = "dantejp", group = "amd" },
+    { package = "dantejp", group = "cpu" },
+    { package = "dantejp", group = "gpu" },
 ], [
-    { package = "jp-overlay", group = "gemma" },
-    { package = "jp-overlay", group = "gemma-vulkan" },
-    { package = "jp-overlay", group = "llm-cpu" },
+    { package = "dantejp", group = "gemma" },
+    { package = "dantejp", group = "gemma-vulkan" },
+    { package = "dantejp", group = "llm-cpu" },
 ]]
 
 [manifest]
@@ -233,6 +233,170 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/10/bf/8d6ebc7dded797bd0f0160d52188021211f011a2b164ef0ae1dac4587465/cryptography-50.0.2-cp39-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:7a8701d6b584d76e909e3d305b7d126b41439876a5aaf76cddc67fc230eafa2e", size = 4897738, upload-time = "2026-09-30T15:29:43.106Z" },
     { url = "https://files.pythonhosted.org/packages/d4/aa/f3f6e0de7e6253b8baa8b2d8fb9d50924fa75cee3d4624bd4bc1208ee923/cryptography-50.0.2-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:ce47f66801c20ec6c6632453bb5960fe38939e9306970b48b3a5a26de7745d94", size = 5058280, upload-time = "2026-09-30T15:29:44.827Z" },
     { url = "https://files.pythonhosted.org/packages/f6/b6/a1faf3a27ae9405fb34b1713cc73b2d8a26b04d5c561578fa2e6ef3e5bb9/cryptography-50.0.2-cp39-abi3-win_amd64.whl", hash = "sha256:4e81d95e5bafc2d6e34e4bed780e53e4d5b9a2f928573428aa4d35fbec1eb0de", size = 3854095, upload-time = "2026-09-30T15:29:46.782Z" },
+]
+
+[[package]]
+name = "dantejp"
+version = "0.1.0"
+source = { editable = "." }
+default-groups = ["cpu", "dev"]
+dependencies = [
+    { name = "httpx2" },
+    { name = "meikiocr" },
+    { name = "numpy" },
+    { name = "opencv-python" },
+    { name = "packaging" },
+    { name = "pyjwt", extra = ["crypto"] },
+    { name = "pyside6-essentials" },
+    { name = "windows-capture", marker = "sys_platform == 'win32'" },
+]
+
+[package.dev-dependencies]
+amd = [
+    { name = "onnxruntime-directml", marker = "sys_platform == 'win32' or (extra == 'group-7-dantejp-gemma' and extra == 'group-7-dantejp-gemma-vulkan') or (extra == 'group-7-dantejp-gemma' and extra == 'group-7-dantejp-llm-cpu') or (extra == 'group-7-dantejp-gemma-vulkan' and extra == 'group-7-dantejp-llm-cpu')" },
+]
+bundle = [
+    { name = "cmake" },
+    { name = "delvewheel" },
+    { name = "hatchling" },
+    { name = "ninja" },
+    { name = "pip" },
+    { name = "pyinstaller" },
+    { name = "scikit-build-core" },
+    { name = "uv" },
+]
+cpu = [
+    { name = "onnxruntime" },
+]
+cuda = [
+    { name = "nvidia-cublas" },
+    { name = "nvidia-cuda-runtime" },
+]
+dev = [
+    { name = "import-linter" },
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+gemma = [
+    { name = "diskcache" },
+    { name = "jinja2" },
+    { name = "llama-cpp-python", version = "0.3.37", source = { url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.37-cu130/llama_cpp_python-0.3.37-py3-none-win_amd64.whl" }, marker = "sys_platform == 'win32' or (extra == 'group-7-dantejp-amd' and extra == 'group-7-dantejp-cpu') or (extra == 'group-7-dantejp-amd' and extra == 'group-7-dantejp-gpu') or (extra == 'group-7-dantejp-cpu' and extra == 'group-7-dantejp-gpu')" },
+    { name = "nvidia-cublas" },
+    { name = "nvidia-cuda-runtime" },
+    { name = "pillow" },
+]
+gemma-vulkan = [
+    { name = "diskcache" },
+    { name = "jinja2" },
+    { name = "llama-cpp-python", version = "0.3.37", source = { url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.37-vulkan/llama_cpp_python-0.3.37-py3-none-win_amd64.whl" }, marker = "sys_platform == 'win32' or (extra == 'group-7-dantejp-amd' and extra == 'group-7-dantejp-cpu') or (extra == 'group-7-dantejp-amd' and extra == 'group-7-dantejp-gpu') or (extra == 'group-7-dantejp-cpu' and extra == 'group-7-dantejp-gpu')" },
+    { name = "pillow" },
+]
+gpu = [
+    { name = "nvidia-cublas" },
+    { name = "nvidia-cuda-nvrtc" },
+    { name = "nvidia-cuda-runtime" },
+    { name = "nvidia-cudnn-cu13" },
+    { name = "nvidia-cufft" },
+    { name = "nvidia-curand" },
+    { name = "nvidia-nvjitlink" },
+    { name = "onnxruntime-gpu", extra = ["cuda", "cudnn"], marker = "extra == 'group-7-dantejp-gpu' or (extra == 'group-7-dantejp-amd' and extra == 'group-7-dantejp-cpu') or (extra == 'group-7-dantejp-gemma' and extra == 'group-7-dantejp-gemma-vulkan') or (extra == 'group-7-dantejp-gemma' and extra == 'group-7-dantejp-llm-cpu') or (extra == 'group-7-dantejp-gemma-vulkan' and extra == 'group-7-dantejp-llm-cpu')" },
+]
+llm-common = [
+    { name = "diskcache" },
+    { name = "jinja2" },
+    { name = "pillow" },
+]
+llm-cpu = [
+    { name = "diskcache" },
+    { name = "jinja2" },
+    { name = "llama-cpp-python", version = "0.3.37", source = { registry = "https://pypi.org/simple" } },
+    { name = "pillow" },
+]
+native-build = [
+    { name = "cmake" },
+    { name = "delvewheel" },
+    { name = "ninja" },
+    { name = "pip" },
+    { name = "scikit-build-core" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx2", specifier = "==2.16.0" },
+    { name = "meikiocr", specifier = "==0.3.5" },
+    { name = "numpy", specifier = ">=2,<=2.3.2" },
+    { name = "opencv-python", specifier = ">=4.10,<6" },
+    { name = "packaging", specifier = ">=24,<27" },
+    { name = "pyjwt", extras = ["crypto"], specifier = "==2.15.1" },
+    { name = "pyside6-essentials", specifier = ">=6.8,<7" },
+    { name = "windows-capture", marker = "sys_platform == 'win32'", specifier = ">=2.0.0,<3" },
+]
+
+[package.metadata.requires-dev]
+amd = [{ name = "onnxruntime-directml", marker = "sys_platform == 'win32'", specifier = "==1.24.4" }]
+bundle = [
+    { name = "cmake", specifier = "==4.4.5" },
+    { name = "delvewheel", specifier = "==1.13.2" },
+    { name = "hatchling", specifier = "==1.33.0" },
+    { name = "ninja", specifier = "==1.13.2" },
+    { name = "pip", specifier = "==26.3" },
+    { name = "pyinstaller", specifier = "==6.22.3" },
+    { name = "scikit-build-core", specifier = "==1.1.2" },
+    { name = "uv", specifier = "==0.13.8" },
+]
+cpu = [{ name = "onnxruntime", specifier = ">=1.20,<2" }]
+cuda = [
+    { name = "nvidia-cublas", specifier = "==13.0.2.14" },
+    { name = "nvidia-cuda-runtime", specifier = "==13.0.96" },
+]
+dev = [
+    { name = "import-linter", specifier = "==2.10" },
+    { name = "pyright", specifier = ">=1.1.400" },
+    { name = "pytest", specifier = ">=8,<10" },
+    { name = "ruff", specifier = ">=0.12" },
+]
+gemma = [
+    { name = "diskcache", specifier = "==5.6.3" },
+    { name = "jinja2", specifier = "==3.1.6" },
+    { name = "llama-cpp-python", marker = "sys_platform == 'win32'", url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.37-cu130/llama_cpp_python-0.3.37-py3-none-win_amd64.whl" },
+    { name = "nvidia-cublas", specifier = "==13.0.2.14" },
+    { name = "nvidia-cuda-runtime", specifier = "==13.0.96" },
+    { name = "pillow", specifier = "==13.0.0" },
+]
+gemma-vulkan = [
+    { name = "diskcache", specifier = "==5.6.3" },
+    { name = "jinja2", specifier = "==3.1.6" },
+    { name = "llama-cpp-python", marker = "sys_platform == 'win32'", url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.37-vulkan/llama_cpp_python-0.3.37-py3-none-win_amd64.whl" },
+    { name = "pillow", specifier = "==13.0.0" },
+]
+gpu = [
+    { name = "nvidia-cublas", specifier = "==13.0.2.14" },
+    { name = "nvidia-cuda-nvrtc", specifier = "==13.0.88" },
+    { name = "nvidia-cuda-runtime", specifier = "==13.0.96" },
+    { name = "nvidia-cudnn-cu13", specifier = "==9.13.1.26" },
+    { name = "nvidia-cufft", specifier = "==12.0.0.61" },
+    { name = "nvidia-curand", specifier = "==10.4.0.35" },
+    { name = "nvidia-nvjitlink", specifier = "==13.0.88" },
+    { name = "onnxruntime-gpu", extras = ["cuda", "cudnn"], specifier = "==1.30.0" },
+]
+llm-common = [
+    { name = "diskcache", specifier = "==5.6.3" },
+    { name = "jinja2", specifier = "==3.1.6" },
+    { name = "pillow", specifier = "==13.0.0" },
+]
+llm-cpu = [
+    { name = "diskcache", specifier = "==5.6.3" },
+    { name = "jinja2", specifier = "==3.1.6" },
+    { name = "llama-cpp-python", specifier = "==0.3.37" },
+    { name = "pillow", specifier = "==13.0.0" },
+]
+native-build = [
+    { name = "cmake", specifier = "==4.4.5" },
+    { name = "delvewheel", specifier = "==1.13.2" },
+    { name = "ninja", specifier = "==1.13.2" },
+    { name = "pip", specifier = "==26.3" },
+    { name = "scikit-build-core", specifier = "==1.1.2" },
 ]
 
 [[package]]
@@ -521,170 +685,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz", hash = "sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d", size = 245115, upload-time = "2025-03-05T20:05:02.478Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl", hash = "sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67", size = 134899, upload-time = "2025-03-05T20:05:00.369Z" },
-]
-
-[[package]]
-name = "jp-overlay"
-version = "0.1.0"
-source = { editable = "." }
-default-groups = ["cpu", "dev"]
-dependencies = [
-    { name = "httpx2" },
-    { name = "meikiocr" },
-    { name = "numpy" },
-    { name = "opencv-python" },
-    { name = "packaging" },
-    { name = "pyjwt", extra = ["crypto"] },
-    { name = "pyside6-essentials" },
-    { name = "windows-capture", marker = "sys_platform == 'win32'" },
-]
-
-[package.dev-dependencies]
-amd = [
-    { name = "onnxruntime-directml", marker = "sys_platform == 'win32' or (extra == 'group-10-jp-overlay-gemma' and extra == 'group-10-jp-overlay-gemma-vulkan') or (extra == 'group-10-jp-overlay-gemma' and extra == 'group-10-jp-overlay-llm-cpu') or (extra == 'group-10-jp-overlay-gemma-vulkan' and extra == 'group-10-jp-overlay-llm-cpu')" },
-]
-bundle = [
-    { name = "cmake" },
-    { name = "delvewheel" },
-    { name = "hatchling" },
-    { name = "ninja" },
-    { name = "pip" },
-    { name = "pyinstaller" },
-    { name = "scikit-build-core" },
-    { name = "uv" },
-]
-cpu = [
-    { name = "onnxruntime" },
-]
-cuda = [
-    { name = "nvidia-cublas" },
-    { name = "nvidia-cuda-runtime" },
-]
-dev = [
-    { name = "import-linter" },
-    { name = "pyright" },
-    { name = "pytest" },
-    { name = "ruff" },
-]
-gemma = [
-    { name = "diskcache" },
-    { name = "jinja2" },
-    { name = "llama-cpp-python", version = "0.3.37", source = { url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.37-cu130/llama_cpp_python-0.3.37-py3-none-win_amd64.whl" }, marker = "sys_platform == 'win32' or (extra == 'group-10-jp-overlay-amd' and extra == 'group-10-jp-overlay-cpu') or (extra == 'group-10-jp-overlay-amd' and extra == 'group-10-jp-overlay-gpu') or (extra == 'group-10-jp-overlay-cpu' and extra == 'group-10-jp-overlay-gpu')" },
-    { name = "nvidia-cublas" },
-    { name = "nvidia-cuda-runtime" },
-    { name = "pillow" },
-]
-gemma-vulkan = [
-    { name = "diskcache" },
-    { name = "jinja2" },
-    { name = "llama-cpp-python", version = "0.3.37", source = { url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.37-vulkan/llama_cpp_python-0.3.37-py3-none-win_amd64.whl" }, marker = "sys_platform == 'win32' or (extra == 'group-10-jp-overlay-amd' and extra == 'group-10-jp-overlay-cpu') or (extra == 'group-10-jp-overlay-amd' and extra == 'group-10-jp-overlay-gpu') or (extra == 'group-10-jp-overlay-cpu' and extra == 'group-10-jp-overlay-gpu')" },
-    { name = "pillow" },
-]
-gpu = [
-    { name = "nvidia-cublas" },
-    { name = "nvidia-cuda-nvrtc" },
-    { name = "nvidia-cuda-runtime" },
-    { name = "nvidia-cudnn-cu13" },
-    { name = "nvidia-cufft" },
-    { name = "nvidia-curand" },
-    { name = "nvidia-nvjitlink" },
-    { name = "onnxruntime-gpu", extra = ["cuda", "cudnn"], marker = "extra == 'group-10-jp-overlay-gpu' or (extra == 'group-10-jp-overlay-amd' and extra == 'group-10-jp-overlay-cpu') or (extra == 'group-10-jp-overlay-gemma' and extra == 'group-10-jp-overlay-gemma-vulkan') or (extra == 'group-10-jp-overlay-gemma' and extra == 'group-10-jp-overlay-llm-cpu') or (extra == 'group-10-jp-overlay-gemma-vulkan' and extra == 'group-10-jp-overlay-llm-cpu')" },
-]
-llm-common = [
-    { name = "diskcache" },
-    { name = "jinja2" },
-    { name = "pillow" },
-]
-llm-cpu = [
-    { name = "diskcache" },
-    { name = "jinja2" },
-    { name = "llama-cpp-python", version = "0.3.37", source = { registry = "https://pypi.org/simple" } },
-    { name = "pillow" },
-]
-native-build = [
-    { name = "cmake" },
-    { name = "delvewheel" },
-    { name = "ninja" },
-    { name = "pip" },
-    { name = "scikit-build-core" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx2", specifier = "==2.16.0" },
-    { name = "meikiocr", specifier = "==0.3.5" },
-    { name = "numpy", specifier = ">=2,<=2.3.2" },
-    { name = "opencv-python", specifier = ">=4.10,<6" },
-    { name = "packaging", specifier = ">=24,<27" },
-    { name = "pyjwt", extras = ["crypto"], specifier = "==2.15.1" },
-    { name = "pyside6-essentials", specifier = ">=6.8,<7" },
-    { name = "windows-capture", marker = "sys_platform == 'win32'", specifier = ">=2.0.0,<3" },
-]
-
-[package.metadata.requires-dev]
-amd = [{ name = "onnxruntime-directml", marker = "sys_platform == 'win32'", specifier = "==1.24.4" }]
-bundle = [
-    { name = "cmake", specifier = "==4.4.5" },
-    { name = "delvewheel", specifier = "==1.13.2" },
-    { name = "hatchling", specifier = "==1.33.0" },
-    { name = "ninja", specifier = "==1.13.2" },
-    { name = "pip", specifier = "==26.3" },
-    { name = "pyinstaller", specifier = "==6.22.3" },
-    { name = "scikit-build-core", specifier = "==1.1.2" },
-    { name = "uv", specifier = "==0.13.8" },
-]
-cpu = [{ name = "onnxruntime", specifier = ">=1.20,<2" }]
-cuda = [
-    { name = "nvidia-cublas", specifier = "==13.0.2.14" },
-    { name = "nvidia-cuda-runtime", specifier = "==13.0.96" },
-]
-dev = [
-    { name = "import-linter", specifier = "==2.10" },
-    { name = "pyright", specifier = ">=1.1.400" },
-    { name = "pytest", specifier = ">=8,<10" },
-    { name = "ruff", specifier = ">=0.12" },
-]
-gemma = [
-    { name = "diskcache", specifier = "==5.6.3" },
-    { name = "jinja2", specifier = "==3.1.6" },
-    { name = "llama-cpp-python", marker = "sys_platform == 'win32'", url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.37-cu130/llama_cpp_python-0.3.37-py3-none-win_amd64.whl" },
-    { name = "nvidia-cublas", specifier = "==13.0.2.14" },
-    { name = "nvidia-cuda-runtime", specifier = "==13.0.96" },
-    { name = "pillow", specifier = "==13.0.0" },
-]
-gemma-vulkan = [
-    { name = "diskcache", specifier = "==5.6.3" },
-    { name = "jinja2", specifier = "==3.1.6" },
-    { name = "llama-cpp-python", marker = "sys_platform == 'win32'", url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.37-vulkan/llama_cpp_python-0.3.37-py3-none-win_amd64.whl" },
-    { name = "pillow", specifier = "==13.0.0" },
-]
-gpu = [
-    { name = "nvidia-cublas", specifier = "==13.0.2.14" },
-    { name = "nvidia-cuda-nvrtc", specifier = "==13.0.88" },
-    { name = "nvidia-cuda-runtime", specifier = "==13.0.96" },
-    { name = "nvidia-cudnn-cu13", specifier = "==9.13.1.26" },
-    { name = "nvidia-cufft", specifier = "==12.0.0.61" },
-    { name = "nvidia-curand", specifier = "==10.4.0.35" },
-    { name = "nvidia-nvjitlink", specifier = "==13.0.88" },
-    { name = "onnxruntime-gpu", extras = ["cuda", "cudnn"], specifier = "==1.30.0" },
-]
-llm-common = [
-    { name = "diskcache", specifier = "==5.6.3" },
-    { name = "jinja2", specifier = "==3.1.6" },
-    { name = "pillow", specifier = "==13.0.0" },
-]
-llm-cpu = [
-    { name = "diskcache", specifier = "==5.6.3" },
-    { name = "jinja2", specifier = "==3.1.6" },
-    { name = "llama-cpp-python", specifier = "==0.3.37" },
-    { name = "pillow", specifier = "==13.0.0" },
-]
-native-build = [
-    { name = "cmake", specifier = "==4.4.5" },
-    { name = "delvewheel", specifier = "==1.13.2" },
-    { name = "ninja", specifier = "==1.13.2" },
-    { name = "pip", specifier = "==26.3" },
-    { name = "scikit-build-core", specifier = "==1.1.2" },
 ]
 
 [[package]]

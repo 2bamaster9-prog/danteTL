@@ -7,8 +7,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from jp_overlay.dialogue_classifier import Classification
-from jp_overlay.domain import (
+from dantejp.application.live_session import LiveSession
+from dantejp.domain import (
     CapturedFrame,
     CaptureSnapshot,
     CaptureState,
@@ -16,15 +16,15 @@ from jp_overlay.domain import (
     WindowGeometry,
     WindowTarget,
 )
-from jp_overlay.live_session import LiveSession
-from jp_overlay.recognition import OcrResult, OcrSnapshot, OcrState, TextCharacter, TextRegion
-from jp_overlay.translation import (
+from dantejp.ocr.visual import VisualState
+from dantejp.ocr.worker import OcrResult, OcrSnapshot, OcrState, TextCharacter, TextRegion
+from dantejp.translation.dialogue.classifier import Classification
+from dantejp.translation.worker import (
     TranslatedText,
     TranslationRequest,
     TranslationSnapshot,
     TranslationState,
 )
-from jp_overlay.visual import VisualState
 
 
 def frame(sequence, now=1.0):

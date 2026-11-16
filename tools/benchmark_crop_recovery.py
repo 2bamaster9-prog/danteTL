@@ -18,10 +18,10 @@ from PySide6.QtWidgets import QApplication
 from region_corpus import CASES, Target, accuracy
 from region_corpus import fixture as regional_fixture
 
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.meiki import MeikiRecognizer
-from jp_overlay.models import model_directory
-from jp_overlay.recognition import recognize_regions
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.meiki import MeikiRecognizer
+from dantejp.ocr.models import model_directory
+from dantejp.ocr.worker import recognize_regions
 
 
 @dataclass(frozen=True)
@@ -128,10 +128,10 @@ def main() -> None:
         parser.error("Use 1..5 repeats")
     # Baseline comes from our saved local build, not a downloaded executable.
     with zipfile.ZipFile(args.baseline_wheel) as archive:
-        code = archive.read("jp_overlay/meiki.py").decode("utf-8")
+        code = archive.read("dantejp/ocr/meiki.py").decode("utf-8")
     previous = types.ModuleType("prior_meiki")
     exec(
-        compile(code, str(args.baseline_wheel) + "/jp_overlay/meiki.py", "exec"), previous.__dict__
+        compile(code, str(args.baseline_wheel) + "/dantejp/ocr/meiki.py", "exec"), previous.__dict__
     )
     app = QApplication([])
     reports = []

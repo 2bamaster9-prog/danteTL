@@ -5,7 +5,7 @@ from random import Random
 
 import pytest
 
-from jp_overlay.text_distance import within_edits
+from dantejp.ocr.text_distance import within_edits
 
 
 def distance(first, second):

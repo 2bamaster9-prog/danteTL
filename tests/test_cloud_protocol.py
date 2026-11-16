@@ -5,9 +5,10 @@ from dataclasses import replace
 import httpx2
 import pytest
 
-from jp_overlay.cloud import CloudBackend
-from jp_overlay.cloud_profiles import ENDPOINTS, MODELS, CloudProfile
-from jp_overlay.cloud_protocol import (
+from dantejp.translation.backend import RequestRejected
+from dantejp.translation.cloud.backend import CloudBackend
+from dantejp.translation.cloud.profiles import ENDPOINTS, MODELS, CloudProfile
+from dantejp.translation.cloud.protocol import (
     CLAUDE_VERSION,
     INSTRUCTION,
     PROMPT_VERSION,
@@ -15,8 +16,7 @@ from jp_overlay.cloud_protocol import (
     request_body,
     response_usage,
 )
-from jp_overlay.dialogue_context import DialogueTurn
-from jp_overlay.translation_backend import RequestRejected
+from dantejp.translation.dialogue.context import DialogueTurn
 
 
 def answer(provider, text="Critical Rate", *, reason=None, parts=None):

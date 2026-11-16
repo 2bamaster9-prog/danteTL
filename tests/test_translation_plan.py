@@ -7,14 +7,14 @@ from unittest.mock import Mock
 
 import pytest
 
-from jp_overlay.domain import Rect
-from jp_overlay.grouping import TextBlock
-from jp_overlay.model_lifecycle import ModelLifecycle, RouteSelection
-from jp_overlay.preferences import Preferences, decode_preferences
-from jp_overlay.tracking import TextTrack
-from jp_overlay.translation import BackendChoice, TranslationSession, TranslationState
-from jp_overlay.translation_plan import TranslationPlan
-from jp_overlay.translation_routing import RoutedTranslationSession
+from dantejp.application.model_lifecycle import ModelLifecycle, RouteSelection
+from dantejp.application.preferences import Preferences, decode_preferences
+from dantejp.domain import Rect
+from dantejp.ocr.tracking import TextTrack
+from dantejp.translation.grouping import TextBlock
+from dantejp.translation.plan import TranslationPlan
+from dantejp.translation.routing import RoutedTranslationSession
+from dantejp.translation.worker import BackendChoice, TranslationSession, TranslationState
 
 
 def until(predicate):
@@ -203,7 +203,7 @@ def test_preferences_validate_new_assignments_and_keep_manual_game_on_upgrade():
 def test_two_model_owners_initialize_and_share_persistent_cache(tmp_path):
     from concurrent.futures import ThreadPoolExecutor
 
-    from jp_overlay.translation_cache import TranslationCache
+    from dantejp.translation.cache import TranslationCache
 
     start = threading.Barrier(2)
     path = tmp_path / "new-cache.sqlite3"

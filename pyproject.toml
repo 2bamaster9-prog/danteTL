@@ -3,7 +3,7 @@ requires = ["hatchling==1.33.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "jp-overlay"
+name = "dantejp"
 version = "0.1.0"
 description = "Local game translation overlay for Windows"
 readme = "README.md"
@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.gui-scripts]
-jp-overlay = "jp_overlay.app:main"
+dantejp = "dantejp.bootstrap:main"
 
 [dependency-groups]
 dev = [
@@ -85,7 +85,7 @@ version = "0.3.5"
 requires-dist = ["numpy", "opencv-python-headless", "huggingface-hub"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/jp_overlay"]
+packages = ["src/dantejp"]
 
 [tool.hatch.build.targets.sdist]
 include = ["/src", "/tools", "/tests", "/engineering", "/packaging", "/.github", "/README.md", "/AGENTS.md", "/pyproject.toml", "/uv.lock", "/.python-version", "/Run DanteJP.cmd"]
@@ -101,7 +101,7 @@ select = ["E", "F", "I", "B", "UP", "SIM"]
 include = ["src", "tests", "tools"]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
-strict = ["src/jp_overlay/application_api.py", "src/jp_overlay/application_values.py", "src/jp_overlay/model_selection.py", "src/jp_overlay/view_services.py", "src/jp_overlay/translation_activity.py", "src/jp_overlay/capture_lifecycle.py", "src/jp_overlay/application_presentation.py"]
+strict = ["src/dantejp/application/api.py", "src/dantejp/application/values.py", "src/dantejp/translation/selection.py", "src/dantejp/application/services.py", "src/dantejp/application/translation_activity.py", "src/dantejp/application/capture_lifecycle.py", "src/dantejp/application/presentation.py"]
 venvPath = "."
 venv = ".venv"
 
@@ -111,23 +111,29 @@ addopts = "-ra"
 markers = ["windows: requires an interactive Windows desktop and real capture"]
 
 [tool.importlinter]
-root_package = "jp_overlay"
+root_package = "dantejp"
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
 name = "Application and processing owners are independent of Qt and composition"
 type = "forbidden"
-source_modules = ["jp_overlay.capture_lifecycle", "jp_overlay.translation_activity", "jp_overlay.application_presentation", "jp_overlay.application_session", "jp_overlay.translation_coordinator", "jp_overlay.cloud_services", "jp_overlay.setup_coordinator", "jp_overlay.model_inventory", "jp_overlay.live_session", "jp_overlay.shutdown", "jp_overlay.grouping", "jp_overlay.tracking", "jp_overlay.visual"]
-forbidden_modules = ["PySide6", "shiboken6", "jp_overlay.ui", "jp_overlay.settings_window", "jp_overlay.composition", "jp_overlay.app", "jp_overlay.desktop_driver"]
+source_modules = ["dantejp.application", "dantejp.ocr", "dantejp.translation", "dantejp.capture"]
+forbidden_modules = ["PySide6", "shiboken6", "dantejp.ui", "dantejp.composition", "dantejp.bootstrap", "dantejp.desktop"]
+
+[[tool.importlinter.contracts]]
+name = "Runtime services cannot depend on views or application assembly"
+type = "forbidden"
+source_modules = ["dantejp.runtime"]
+forbidden_modules = ["dantejp.ui", "dantejp.composition", "dantejp.bootstrap", "dantejp.desktop"]
 
 [[tool.importlinter.contracts]]
 name = "Status projection depends on values and ports, not resource owners"
 type = "forbidden"
-source_modules = ["jp_overlay.application_presentation", "jp_overlay.translation_activity"]
-forbidden_modules = ["jp_overlay.application_session", "jp_overlay.model_lifecycle", "jp_overlay.translation_coordinator", "jp_overlay.translation", "jp_overlay.translation_routing", "jp_overlay.live_session", "jp_overlay.recognition", "jp_overlay.cloud_services", "jp_overlay.setup_coordinator"]
+source_modules = ["dantejp.application.presentation", "dantejp.application.translation_activity"]
+forbidden_modules = ["dantejp.application.session", "dantejp.application.model_lifecycle", "dantejp.application.translation_coordinator", "dantejp.translation.worker", "dantejp.translation.routing", "dantejp.application.live_session", "dantejp.ocr.worker", "dantejp.application.cloud_services", "dantejp.application.setup_coordinator"]
 
 [[tool.importlinter.contracts]]
 name = "Views cannot reach backend implementations, credential stores or installers"
 type = "forbidden"
-source_modules = ["jp_overlay.ui", "jp_overlay.settings_window", "jp_overlay.cloud_settings", "jp_overlay.cloud_editor", "jp_overlay.model_manager", "jp_overlay.model_import_dialog", "jp_overlay.runtime_dialog", "jp_overlay.setup_assistant", "jp_overlay.routing_controls", "jp_overlay.history_panel"]
-forbidden_modules = ["jp_overlay.composition", "jp_overlay.model_factories", "jp_overlay.model_store", "jp_overlay.gguf_probe", "jp_overlay.gguf_models", "jp_overlay.runtime_setup", "jp_overlay.first_run", "jp_overlay.meiki", "jp_overlay.gemma", "jp_overlay.plamo", "jp_overlay.gguf_backend", "jp_overlay.cloud", "jp_overlay.credentials", "jp_overlay.protected_store", "jp_overlay.preferences", "jp_overlay.translation", "jp_overlay.recognition", "jp_overlay.capture", "jp_overlay.visual", "jp_overlay.model_inventory", "jp_overlay.model_lifecycle", "jp_overlay.application_session", "jp_overlay.setup_coordinator", "jp_overlay.cloud_services", "jp_overlay.hardware", "jp_overlay.translation_coordinator", "jp_overlay.shutdown", "jp_overlay.cloud_profiles", "jp_overlay.cloud_catalog", "jp_overlay.chatgpt_auth", "jp_overlay.api_connections", "jp_overlay.translation_routing", "jp_overlay.dialogue_classifier", "jp_overlay.owned_process", "jp_overlay.runtime_restart", "jp_overlay.runtime_application", "jp_overlay.runtime_downloads", "jp_overlay.runtime_probe", "jp_overlay.setup_process"]
+source_modules = ["dantejp.ui"]
+forbidden_modules = ["dantejp.composition", "dantejp.application.model_factories", "dantejp.runtime.model_store", "dantejp.translation.models.probe", "dantejp.translation.models.gguf", "dantejp.runtime.setup", "dantejp.runtime.first_run", "dantejp.ocr.meiki", "dantejp.translation.backends.gemma", "dantejp.translation.backends.plamo", "dantejp.translation.backends.gguf", "dantejp.translation.cloud.backend", "dantejp.translation.cloud.credentials", "dantejp.translation.cloud.protected_store", "dantejp.application.preferences", "dantejp.translation.worker", "dantejp.ocr.worker", "dantejp.capture.worker", "dantejp.ocr.visual", "dantejp.application.model_inventory", "dantejp.application.model_lifecycle", "dantejp.application.session", "dantejp.application.setup_coordinator", "dantejp.application.cloud_services", "dantejp.runtime.hardware", "dantejp.application.translation_coordinator", "dantejp.application.shutdown", "dantejp.translation.cloud.profiles", "dantejp.translation.cloud.catalog", "dantejp.translation.cloud.chatgpt_auth", "dantejp.translation.cloud.api_connections", "dantejp.translation.routing", "dantejp.translation.dialogue.classifier", "dantejp.runtime.owned_process", "dantejp.runtime.restart", "dantejp.runtime.application", "dantejp.runtime.downloads", "dantejp.runtime.probe", "dantejp.runtime.setup_process"]

@@ -4,9 +4,9 @@ from dataclasses import replace
 
 import pytest
 
-from jp_overlay.domain import Rect
-from jp_overlay.grouping import DialogueGrouper
-from jp_overlay.tracking import TextTrack
+from dantejp.domain import Rect
+from dantejp.ocr.tracking import TextTrack
+from dantejp.translation.grouping import DialogueGrouper
 
 ROWS = (
     (2, "コホン、え、えーと…市民の", (472, 403, 773, 63)),

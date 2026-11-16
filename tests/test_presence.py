@@ -1,9 +1,9 @@
 from dataclasses import replace
 
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.presence import FrameEvidence
-from jp_overlay.recognition import OcrResult, TextRegion
-from jp_overlay.tracking import TextTracker
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.presence import FrameEvidence
+from dantejp.ocr.tracking import TextTracker
+from dantejp.ocr.worker import OcrResult, TextRegion
 
 BOX = Rect(10, 10, 80, 20)
 

@@ -6,24 +6,24 @@ from unittest.mock import Mock
 from test_live_session import Capture, Ocr, Visual, frame
 from test_model_lifecycle import Worker
 
-from jp_overlay.application_session import ApplicationSession
-from jp_overlay.chatgpt_auth import ChatGPTConnections
-from jp_overlay.cloud_profiles import CloudProfiles
-from jp_overlay.cloud_services import CloudServices
-from jp_overlay.live_session import LiveSession
-from jp_overlay.model_inventory import InventoryData, ModelInventory
-from jp_overlay.model_store import ModelOperation
-from jp_overlay.preference_values import Preferences
-from jp_overlay.preferences import PreferenceStore
-from jp_overlay.protected_store import ProtectedStore
-from jp_overlay.recognition import OcrChoice
-from jp_overlay.runtime_values import PROFILES
-from jp_overlay.setup_coordinator import SetupCoordinator, SetupDependencies
-from jp_overlay.setup_values import ModelProgress
-from jp_overlay.shutdown import ShutdownCoordinator
-from jp_overlay.translation_coordinator import TranslationCoordinator
-from jp_overlay.translation_routing import RoutedTranslationSession
-from jp_overlay.translation_values import TranslationSnapshot, TranslationState
+from dantejp.application.cloud_services import CloudServices
+from dantejp.application.live_session import LiveSession
+from dantejp.application.model_inventory import InventoryData, ModelInventory
+from dantejp.application.preference_values import Preferences
+from dantejp.application.preferences import PreferenceStore
+from dantejp.application.session import ApplicationSession
+from dantejp.application.setup_coordinator import SetupCoordinator, SetupDependencies
+from dantejp.application.shutdown import ShutdownCoordinator
+from dantejp.application.translation_coordinator import TranslationCoordinator
+from dantejp.ocr.worker import OcrChoice
+from dantejp.runtime.model_store import ModelOperation
+from dantejp.runtime.setup_values import ModelProgress
+from dantejp.runtime.values import PROFILES
+from dantejp.translation.cloud.chatgpt_auth import ChatGPTConnections
+from dantejp.translation.cloud.profiles import CloudProfiles
+from dantejp.translation.cloud.protected_store import ProtectedStore
+from dantejp.translation.routing import RoutedTranslationSession
+from dantejp.translation.values import TranslationSnapshot, TranslationState
 
 
 class InventorySource:

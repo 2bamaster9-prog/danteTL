@@ -3,8 +3,8 @@ import time
 from collections.abc import Callable
 from dataclasses import replace
 
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.recognition import (
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.worker import (
     OcrResult,
     OcrSession,
     OcrState,

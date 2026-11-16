@@ -7,17 +7,22 @@ from dataclasses import replace
 import httpx2
 import pytest
 
-from jp_overlay.cloud import CloudAllowance, CloudBackend, parse_answer, request_body
-from jp_overlay.cloud_profiles import CloudProfile, CloudProfiles
-from jp_overlay.cloud_responses import PlanUnavailable, ResponseStream
-from jp_overlay.dialogue_context import DialogueTurn
-from jp_overlay.domain import Rect
-from jp_overlay.grouping import TextBlock
-from jp_overlay.tracking import TextTrack
-from jp_overlay.translation import TranslationSession, TranslationState
-from jp_overlay.translation_backend import RequestRejected
-from jp_overlay.translation_cache import TranslationCache, translation_key
-from jp_overlay.translation_routing import RoutedTranslationSession
+from dantejp.domain import Rect
+from dantejp.ocr.tracking import TextTrack
+from dantejp.translation.backend import RequestRejected
+from dantejp.translation.cache import TranslationCache, translation_key
+from dantejp.translation.cloud.backend import (
+    CloudAllowance,
+    CloudBackend,
+    parse_answer,
+    request_body,
+)
+from dantejp.translation.cloud.profiles import CloudProfile, CloudProfiles
+from dantejp.translation.cloud.responses import PlanUnavailable, ResponseStream
+from dantejp.translation.dialogue.context import DialogueTurn
+from dantejp.translation.grouping import TextBlock
+from dantejp.translation.routing import RoutedTranslationSession
+from dantejp.translation.worker import TranslationSession, TranslationState
 
 
 def track(text="設定", key=1, revision=1):

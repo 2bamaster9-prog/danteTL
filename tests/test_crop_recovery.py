@@ -3,11 +3,11 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from jp_overlay.crop_recovery import recovery_preserves_lines, split_glyphs
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.meiki import MeikiRecognizer, convert_regions
-from jp_overlay.ocr_runtime import CPU
-from jp_overlay.recognition import TextCharacter, TextRegion
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.crop_recovery import recovery_preserves_lines, split_glyphs
+from dantejp.ocr.meiki import MeikiRecognizer, convert_regions
+from dantejp.ocr.worker import TextCharacter, TextRegion
+from dantejp.runtime.ocr import CPU
 
 
 def row(text, bounds, confidence):
@@ -93,7 +93,7 @@ def test_empty_retry_can_recover_severed_glyphs_once_without_rescaling_source_pi
 ):
     image, halves = severed()
     seen = []
-    monkeypatch.setattr("jp_overlay.meiki.local_model_paths", lambda _: ())
+    monkeypatch.setattr("dantejp.ocr.meiki.local_model_paths", lambda _: ())
 
     class Engine:
         active_provider = CPU
@@ -130,7 +130,7 @@ def test_empty_retry_can_recover_severed_glyphs_once_without_rescaling_source_pi
                 for r, b in zip(rows, boxes, strict=True)
             ]
 
-    monkeypatch.setattr("jp_overlay.meiki._LocalMeiki", Engine)
+    monkeypatch.setattr("dantejp.ocr.meiki._LocalMeiki", Engine)
     bounds = Rect(0, 0, 195, 100)
     rgba = np.full((100, 195, 4), 255, np.uint8)
     rgba[:, :, :3] = image

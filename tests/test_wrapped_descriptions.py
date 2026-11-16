@@ -4,11 +4,11 @@ from dataclasses import replace
 
 import pytest
 
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.grouping import DialogueGrouper
-from jp_overlay.recognition import OcrResult, TextRegion
-from jp_overlay.tracking import TextActivity, TextTrack, TextTracker
-from jp_overlay.translation import TranslationRequest
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.tracking import TextActivity, TextTrack, TextTracker
+from dantejp.ocr.worker import OcrResult, TextRegion
+from dantejp.translation.grouping import DialogueGrouper
+from dantejp.translation.worker import TranslationRequest
 
 
 def description():

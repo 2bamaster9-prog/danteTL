@@ -9,9 +9,10 @@ from pathlib import Path
 
 import pytest
 
-from jp_overlay import download_transport, model_store, runtime_downloads
-from jp_overlay.models import ModelAsset
-from jp_overlay.setup_values import Cancelled
+from dantejp.runtime import download_transport, model_store
+from dantejp.runtime import downloads as runtime_downloads
+from dantejp.runtime.assets import ModelAsset
+from dantejp.runtime.setup_values import Cancelled
 
 
 @contextmanager
@@ -143,7 +144,7 @@ def test_cancel_interrupts_blocked_connection_setup(tmp_path, monkeypatch, phase
     def command(python, module, *args):
         script = (
             "import socket,time; from pathlib import Path; "
-            "from jp_overlay.download_transport import _receive; "
+            "from dantejp.runtime.download_transport import _receive; "
             f"marker=Path({str(marker)!r}); "
             "blocked=lambda *a,**kw: (marker.write_text('entered'),time.sleep(30))[1]; "
             + (

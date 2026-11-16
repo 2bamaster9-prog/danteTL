@@ -13,13 +13,17 @@ from PySide6.QtWidgets import QApplication
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
-from jp_overlay.controls import InfoButton
-from jp_overlay.demo import DemoWindow
-from jp_overlay.hardware import HardwareCheck
-from jp_overlay.model_factories import create_recognizer, ocr_backends, translation_backends
-from jp_overlay.model_store import model_catalog
-from jp_overlay.preferences import PreferenceStore
-from jp_overlay.windows import Windows
+from dantejp.application.model_factories import (
+    create_recognizer,
+    ocr_backends,
+    translation_backends,
+)
+from dantejp.application.preferences import PreferenceStore
+from dantejp.capture.windows import Windows
+from dantejp.runtime.hardware import HardwareCheck
+from dantejp.runtime.model_store import model_catalog
+from dantejp.ui.controls import InfoButton
+from dantejp.ui.demo import DemoWindow
 
 
 def main() -> int:

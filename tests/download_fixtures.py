@@ -1,6 +1,6 @@
 """In-memory transport substitute for installer policy tests (no network/child process)."""
 
-from jp_overlay.setup_values import Cancelled
+from dantejp.runtime.setup_values import Cancelled
 
 
 def download_bytes(data: bytes):

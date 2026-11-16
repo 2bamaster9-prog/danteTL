@@ -8,9 +8,13 @@ import time
 import httpx2
 import pytest
 
-from jp_overlay.auth_work import AUTH_RESPONSE_LIMIT, AuthInterrupted, AuthWork
-from jp_overlay.chatgpt_auth import MODEL_CATALOG_RESPONSE_LIMIT, PLAN_SCOPE, ChatGPTConnections
-from jp_overlay.protected_store import ProtectedStore
+from dantejp.translation.cloud.auth_work import AUTH_RESPONSE_LIMIT, AuthInterrupted, AuthWork
+from dantejp.translation.cloud.chatgpt_auth import (
+    MODEL_CATALOG_RESPONSE_LIMIT,
+    PLAN_SCOPE,
+    ChatGPTConnections,
+)
+from dantejp.translation.cloud.protected_store import ProtectedStore
 
 
 class Body(httpx2.AsyncByteStream):

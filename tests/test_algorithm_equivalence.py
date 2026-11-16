@@ -5,11 +5,11 @@ from unittest.mock import patch
 import cv2
 import numpy as np
 
-from jp_overlay import tracking, visual
-from jp_overlay.domain import CapturedFrame, Rect, WindowGeometry
-from jp_overlay.grouping import DialogueGrouper
-from jp_overlay.recognition import OcrResult, TextRegion
-from jp_overlay.tracking import TextActivity, TextTrack, TextTracker
+from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr import tracking, visual
+from dantejp.ocr.tracking import TextActivity, TextTrack, TextTracker
+from dantejp.ocr.worker import OcrResult, TextRegion
+from dantejp.translation.grouping import DialogueGrouper
 
 
 class AllPairs:

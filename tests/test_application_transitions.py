@@ -7,16 +7,16 @@ import pytest
 from ownership_fixtures import Replay
 from test_live_session import Capture, Ocr, Visual, frame
 
-from jp_overlay.domain import CaptureSnapshot, CaptureState, Rect
-from jp_overlay.model_inventory import InventoryData
-from jp_overlay.model_selection import AssignmentChange
-from jp_overlay.ocr_values import OcrResult, OcrSnapshot, OcrState, TextRegion
-from jp_overlay.preference_values import Preferences
-from jp_overlay.recognition import OcrChoice
-from jp_overlay.translation import BackendChoice
-from jp_overlay.translation_plan import TranslationPlan
-from jp_overlay.translation_values import TranslatedText, TranslationRequest, TranslationState
-from jp_overlay.visual_values import VisualState
+from dantejp.application.model_inventory import InventoryData
+from dantejp.application.preference_values import Preferences
+from dantejp.domain import CaptureSnapshot, CaptureState, Rect
+from dantejp.ocr.values import OcrResult, OcrSnapshot, OcrState, TextRegion
+from dantejp.ocr.visual_values import VisualState
+from dantejp.ocr.worker import OcrChoice
+from dantejp.translation.plan import TranslationPlan
+from dantejp.translation.selection import AssignmentChange
+from dantejp.translation.values import TranslatedText, TranslationRequest, TranslationState
+from dantejp.translation.worker import BackendChoice
 
 
 @pytest.fixture
