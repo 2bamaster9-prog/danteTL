@@ -172,7 +172,7 @@ source text appears only through hashed keys. No routine logging/saving of frame
 `DialogueMemory` is two turns/512 characters for one unambiguous panel, separate from the reader. Freeze
 and hash context per request; only valid published English seeds it. Menus remain independent; reset on
 scene/session/layout/age. Turn identity follows exact members/growth/correction lineage, not similar words
-or reused position. Sugoi receives no conversational context.
+or reused position.
 
 ## Experimental dialogue reader
 

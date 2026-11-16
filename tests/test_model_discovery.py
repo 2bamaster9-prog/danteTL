@@ -22,19 +22,17 @@ def test_recommended_catalog_and_backend_order_do_not_mix_recognition(tmp_path, 
     choices = app.translation_backends()
     assert choices[0].preference_key == "gemma" and "Recommended" in choices[0].name
     assert all(c.preference_key != "ocr" for c in choices)
-    assert {"sugoi-fast", "sugoi-wide", "gemma", "gemma-e4b", "qwen35-4b", "plamo-0.8b"} <= {
-        c.preference_key for c in choices
-    }
+    assert {"gemma", "gemma-e4b", "qwen35-4b", "plamo-0.8b"} <= {c.preference_key for c in choices}
+    assert not any("sugoi" in b.key for b in bundles)
+    assert not any("sugoi" in c.preference_key for c in choices)
 
 
 @pytest.fixture
 def catalog(tmp_path, monkeypatch):
     asset = ModelAsset("fixture", "pinned", "weights", hashlib.sha256(b"good").hexdigest(), 4)
     bundles = tuple(
-        model_store.ModelBundle(
-            key, key, tmp_path / key, (asset,), "", language_model=key not in ("ocr", "sugoi")
-        )
-        for key in ("ocr", "sugoi", "gemma", "gemma-e4b", "qwen35-4b")
+        model_store.ModelBundle(key, key, tmp_path / key, (asset,), "", language_model=key != "ocr")
+        for key in ("ocr", "gemma", "gemma-e4b", "qwen35-4b")
     )
     monkeypatch.setattr(model_store, "model_catalog", lambda: bundles)
     return {bundle.key: bundle for bundle in bundles}
@@ -70,14 +68,26 @@ def test_available_runtime_makes_existing_weights_usable_without_download(
     assert "Runtime available" in model_store.model_status(catalog["gemma"])
 
 
-def test_sugoi_needs_no_gemma_runtime_and_incomplete_models_stay_absent(catalog, monkeypatch):
+def test_incomplete_models_stay_absent(catalog, monkeypatch):
     monkeypatch.setattr(llama_runtime, "installed_device", lambda: None)
-    for key, data in (("sugoi", b"good"), ("gemma", b"bad")):
-        catalog[key].directory.mkdir()
-        (catalog[key].directory / "weights").write_bytes(data)
-    choices = app.translation_backends()
-    assert len(choices) == 2 and all(choice.key.startswith("sugoi") for choice in choices)
-    assert all(not choice.unavailable_reason for choice in choices)
+    catalog["gemma"].directory.mkdir()
+    (catalog["gemma"].directory / "weights").write_bytes(b"bad")
+    assert not app.translation_backends()
+
+
+def test_retired_files_are_preserved_but_never_discovered(tmp_path, monkeypatch):
+    from jp_overlay import paths
+
+    monkeypatch.setattr(paths, "state_root", lambda: tmp_path)
+    legacy = tmp_path / "models" / "sugoi-v4"
+    legacy.mkdir(parents=True)
+    files = [legacy / name for name in ("model.bin", "config.json", "spm.ja.nopretok.model")]
+    for file in files:
+        file.write_bytes(b"user-owned model")
+    monkeypatch.setattr(llama_runtime, "installed_device", lambda: None)
+    assert not any("sugoi" in b.key for b in model_store.model_catalog())
+    assert not any("sugoi" in c.preference_key for c in app.translation_backends())
+    assert all(file.read_bytes() == b"user-owned model" for file in files)
 
 
 def test_automatic_ocr_depends_on_runtime_not_downloaded_meiki(catalog, monkeypatch):
@@ -136,10 +146,6 @@ def test_downloaded_plamo_stays_visible_but_old_engine_needs_update(
         bundle.directory.mkdir()
         (bundle.directory / "weights").write_bytes(b"good")
         models.append(bundle)
-    # Sugoi discovery expects its catalog entry, but no weights.
-    models.append(
-        model_store.ModelBundle("sugoi", "Sugoi", tmp_path / "sugoi", models[0].assets, "")
-    )
     monkeypatch.setattr(model_store, "model_catalog", lambda: tuple(models))
     monkeypatch.setattr(llama_runtime, "installed_device", lambda: "cpu")
     monkeypatch.setattr(llama_runtime, "supports_plamo", lambda: supported)
@@ -154,5 +160,5 @@ def test_downloaded_plamo_stays_visible_but_old_engine_needs_update(
             {"version": 1, "model": choice.preference_key, "setup_model": choice.preference_key}
         )
         assert saved.model == saved.setup_model == choice.preference_key
-    for bundle in models[:-1]:
+    for bundle in models:
         assert ("predates" in model_store.model_status(bundle)) is not supported

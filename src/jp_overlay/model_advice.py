@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 RECOMMENDED_TRANSLATION = "gemma"
-MODEL_ORDER = ("gemma", "gemma-e4b", "plamo-2b", "plamo-0.8b", "qwen35-4b", "sugoi", "ocr")
+MODEL_ORDER = ("gemma", "gemma-e4b", "plamo-2b", "plamo-0.8b", "qwen35-4b", "ocr")
 COMPARISON_NOTE = "Practical ratings from tests and player feedback; results vary by game."
 
 
@@ -25,7 +25,6 @@ class ModelAdvice:
 
 GOOD = Rating("✓ Good", "success", "Generally useful in testing; occasional errors remain.")
 MIXED = Rating("~ Mixed", "warning", "Can change meaning or produce awkward phrasing.")
-WEAK = Rating("✕ Unreliable", "error", "Frequent meaning changes make this a fallback option.")
 TERMS = Rating(
     "✕ Unreliable",
     "error",
@@ -49,5 +48,4 @@ ADVICE = {
     "plamo-2b": ModelAdvice(GOOD, TERMS, FAST, MODERATE, "PLaMo Community License · Q4_K_M"),
     "plamo-0.8b": ModelAdvice(MIXED, TERMS, VERY_FAST, LOW, "PLaMo Community License · Q4_K_M"),
     "qwen35-4b": ModelAdvice(GOOD, GOOD, SLOW, MODERATE, "Apache-2.0 · Unsloth Q4_K_M"),
-    "sugoi": ModelAdvice(WEAK, MIXED, VERY_FAST, LOW, "Sugoi upstream terms apply"),
 }

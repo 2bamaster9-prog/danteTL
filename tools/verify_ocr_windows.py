@@ -29,14 +29,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, help="Save a screenshot of only our test app")
     parser.add_argument(
-        "--translation", action="store_true", help="Include real Sugoi and profile swapping"
+        "--translation", action="store_true", help="Include real Gemma and model swapping"
     )
     parser.add_argument("--dialogue", action="store_true", help="Verify two-line dialogue grouping")
     parser.add_argument("--ocr-delay-ms", type=int, default=0, help="Simulate a slow OCR worker")
     parser.add_argument(
         "--device", choices=("cpu", "auto", "cuda", "directml", "auto-directml"), default="cpu"
     )
-    parser.add_argument("--gemma", action="store_true", help="Start Gemma, swap to Sugoi and back")
+    parser.add_argument(
+        "--gemma", action="store_true", help="Start Gemma, swap to another Gemma model and back"
+    )
     parser.add_argument(
         "--classifier",
         choices=("gemma", "gemma-e4b", "qwen35-4b"),
@@ -45,7 +47,7 @@ def main() -> int:
     parser.add_argument(
         "--model",
         choices=("gemma-e4b", "qwen35-4b", "plamo-2b", "plamo-0.8b"),
-        help="Start a curated model, swap to Sugoi and back",
+        help="Start a curated model, swap to another Gemma model and back",
     )
     parser.add_argument("--debug", action="store_true", help="Verify diagnostic overlay rendering")
     parser.add_argument("--transitions", action="store_true", help="Close/reopen the text panel")
@@ -54,9 +56,9 @@ def main() -> int:
     )
     args = parser.parse_args()
     selected_model = args.model or ("gemma" if args.gemma else "")
-    args.gemma = bool(selected_model)
-    selected_model = selected_model or "sugoi-fast"
-    if args.gemma and not args.translation:
+    selected_model = selected_model or "gemma"
+    alternate_model = "gemma" if selected_model != "gemma" else "gemma-e4b"
+    if (args.gemma or args.model) and not args.translation:
         parser.error("--gemma requires --translation")
     if args.dialogue and not args.translation:
         parser.error("--dialogue requires --translation")
@@ -169,7 +171,7 @@ def main() -> int:
     failure = ""
     reveal_finished = 0.0
     transitions_done = False
-    timeout = 180 if args.device != "cpu" or args.gemma else 45
+    timeout = 180 if args.device != "cpu" or args.translation else 45
 
     def tick() -> None:
         nonlocal stage, stage_started, frozen, initial_size, failure, phrase_id, phrase_bounds
@@ -302,13 +304,13 @@ def main() -> int:
                                 i
                                 for i in range(window.backend_combo.count())
                                 if (b := window.backend_combo.itemData(i))
-                                and b.preference_key == "sugoi-wide"
+                                and b.preference_key == alternate_model
                             )
                         )
                         swapped = 1
                         return
-                    if args.gemma and swapped == 1:
-                        evidence["sugoi_between_gemma_loads"] = [
+                    if swapped == 1:
+                        evidence["alternate_model_between_loads"] = [
                             t.english for t in translated.results
                         ]
                         window.backend_combo.setCurrentIndex(model_index)

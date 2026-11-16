@@ -49,7 +49,7 @@ class ModelBundle:
 
     @property
     def selection_id(self) -> str:
-        return "sugoi-fast" if self.key == "sugoi" else self.key
+        return self.key
 
     @property
     def size(self) -> int:
@@ -68,7 +68,7 @@ class ModelBundle:
 
 
 def model_catalog() -> tuple[ModelBundle, ...]:
-    from jp_overlay import gemma, models, sugoi
+    from jp_overlay import gemma, models
     from jp_overlay.curated_models import MODELS
 
     bundles = (
@@ -81,13 +81,6 @@ def model_catalog() -> tuple[ModelBundle, ...]:
             "Included in the standalone app.",
             models.bundled_model_directory(),
             category="recognition",
-        ),
-        ModelBundle(
-            "sugoi",
-            "Sugoi V4 · CPU fallback",
-            sugoi.model_directory(),
-            sugoi.ASSETS,
-            "Lowest resource use; weaker translations and no dialogue context.",
         ),
         ModelBundle(
             "gemma",

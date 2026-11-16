@@ -23,8 +23,6 @@ def decode_preferences(value: object) -> Preferences:
         "model": {
             "auto",
             "none",
-            "sugoi-fast",
-            "sugoi-wide",
             "gemma",
             "gemma-e4b",
             "qwen35-4b",
@@ -33,7 +31,6 @@ def decode_preferences(value: object) -> Preferences:
         },
         "setup_model": {
             "",
-            "sugoi-fast",
             "gemma",
             "gemma-e4b",
             "qwen35-4b",
@@ -41,6 +38,16 @@ def decode_preferences(value: object) -> Preferences:
             "plamo-0.8b",
         },
     }
+    # Retired built-in selections must not become "auto" and select another model.
+    value = dict(value)
+    for key in ("model", "setup_model", "short_model", "long_model", "history_model"):
+        saved = value.get(key)
+        if isinstance(saved, str) and saved.removeprefix("local:") in (
+            "sugoi",
+            "sugoi-fast",
+            "sugoi-wide",
+        ):
+            value[key] = "none" if key == "model" else ""
     for key, default in defaults.items():
         candidate = value.get(key, default)
         if type(candidate) is not type(default):

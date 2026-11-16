@@ -31,7 +31,7 @@ from tools.benchmark_profiles import SpecialistBackend
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "engineering/benchmarks"
 MODEL_ROOT = ROOT / "artifacts/translation-benchmark/models"
-BASELINES = ("gemma-e4b", "gemma", "qwen35-4b", "sugoi")
+BASELINES = ("gemma-e4b", "gemma", "qwen35-4b")
 
 
 @dataclass(frozen=True)
@@ -118,10 +118,6 @@ def load_backend(key: str, device: str) -> TranslationBackend:
         path = MODEL_ROOT / key / asset.filename
         validate_asset(path, asset, None)
         return SpecialistBackend(path, candidates()[key]["profile"], device)
-    if key == "sugoi":
-        from jp_overlay.sugoi import SugoiBackend, model_directory
-
-        return SugoiBackend(model_directory())
     if key == "gemma":
         from jp_overlay.gemma import GemmaBackend, model_directory
 
@@ -146,14 +142,14 @@ def child(args: argparse.Namespace) -> None:
     from jp_overlay.llama_runtime import installed_device
     from tools.verify_translation import process_memory
 
-    if args.model != "sugoi" and installed_device() != args.device:
+    if installed_device() != args.device:
         raise RuntimeError("Wrong runtime; CPU fallback is not a GPU measurement.")
     fixture = list(cases(args.corpus))
     if args.limit:
         fixture = fixture[: args.limit]
     report: dict[str, Any] = {
         "model": args.model,
-        "device": "cpu" if args.model == "sugoi" else args.device,
+        "device": args.device,
         "corpus_sha256": hashlib.sha256(args.corpus.read_bytes()).hexdigest(),
         "harness_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "profiles_sha256": hashlib.sha256(
@@ -330,7 +326,7 @@ def main() -> None:
                 # E2B's unchanged production adapter suppresses native logs. Its result is
                 # explicitly unverified here; E4B/candidates have strict layer evidence.
                 data["gpu_offload_verified"] = bool(layers)
-                if args.device != "cpu" and key not in ("sugoi", "gemma") and not layers:
+                if args.device != "cpu" and key != "gemma" and not layers:
                     data["complete"] = False
                     data["fatal_error"] = "No actual GPU offload observed."
                 output.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")

@@ -8,7 +8,7 @@ Use an installed matching runtime and existing weights. Downloads require explic
 benchmarks do not change app selections or register models. Read each tool's `--help`.
 
 ```powershell
-.venv-gpu/Scripts/python.exe -m tools.benchmark_translation --device cuda --models gemma sugoi --repeats 3 --output artifacts/comparison
+.venv-gpu/Scripts/python.exe -m tools.benchmark_translation --device cuda --models gemma gemma-e4b --repeats 3 --output artifacts/comparison
 .venv/Scripts/python.exe -m tools.report_translation_benchmark artifacts/comparison --output artifacts/comparison-review
 ```
 

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from jp_overlay import gemma, model_store, models, paths, runtime_application, runtime_setup, sugoi
+from jp_overlay import gemma, model_store, models, paths, runtime_application, runtime_setup
 from jp_overlay.runtime_package import bundled_application
 from jp_overlay.runtime_requirements import expected_wheels
 
@@ -56,7 +56,7 @@ def package(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime_application, "resource_root", lambda: paths.resource_root())
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "User AppData"))
     monkeypatch.delenv("DANTEJP_DATA_DIR", raising=False)
-    for name in ("JP_OVERLAY_MODEL_DIR", "JP_OVERLAY_SUGOI_DIR", "JP_OVERLAY_GEMMA_DIR"):
+    for name in ("JP_OVERLAY_MODEL_DIR", "JP_OVERLAY_GEMMA_DIR"):
         monkeypatch.delenv(name, raising=False)
     return resources
 
@@ -67,7 +67,6 @@ def test_standalone_models_and_state_share_appdata_without_writing_beside_execut
     assert state.name == "DanteJP" and state.parent.name == "User AppData"
     assert runtime_setup.project_root() == state
     assert models.model_directory() == state / "models/meiki"
-    assert sugoi.model_directory() == state / "models/sugoi-v4"
     assert gemma.model_directory() == state / "models/gemma-4-e2b"
     assert set(package.rglob("*")) == before
     assert not state.exists()  # Path resolution alone does not install/download anything.

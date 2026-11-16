@@ -583,7 +583,7 @@ def test_history_experimental_opt_in_persists_and_keeps_translation_independent(
     )
     choices = (
         BackendChoice("Instruction model", factory, "fixture", classifies=True),
-        BackendChoice("Translation only", factory, "sugoi-fast"),
+        BackendChoice("Translation only", factory, "gemma-e4b"),
     )
     available: list[tuple[BackendChoice, ...]] = [choices]
     window = MainWindow(
@@ -603,7 +603,7 @@ def test_history_experimental_opt_in_persists_and_keeps_translation_independent(
         assert settings.history_enabled.isChecked() is previously_enabled
         assert panel.model.isEnabled() is previously_enabled
         assert window.history_button.isHidden() is not previously_enabled
-        assert panel.model.findData("local:sugoi-fast") == -1
+        assert panel.model.findData("local:gemma-e4b") == -1
         assignment = application.translation.plan
         settings.history_enabled.setChecked(True)
         assert not window.history_button.isHidden()

@@ -1,4 +1,4 @@
-"""Curated/imported GGUF generation. Built-in Gemma E2B and Sugoi keep their own adapters."""
+"""Curated/imported GGUF generation. Built-in Gemma E2B keeps its own adapter."""
 
 import hashlib
 import json

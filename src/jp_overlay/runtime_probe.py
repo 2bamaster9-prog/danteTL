@@ -20,7 +20,6 @@ def verify(profile: str) -> None:
     if installed != [expected]:
         raise RuntimeError(f"Expected only {expected}; found {installed}.")
     # Verify the same native imports used at app startup, in this throwaway process.
-    import ctranslate2  # noqa: F401
     import meikiocr  # noqa: F401
     import onnxruntime as ort
     import windows_capture  # noqa: F401

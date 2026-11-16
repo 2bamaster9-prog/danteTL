@@ -89,7 +89,7 @@ class GemmaBackend:
     """One local model/context, serial bounded generations; no service or downloads."""
 
     # Publish each LLM answer immediately; four sequential generations would hold
-    # the first three labels hostage to the last. Sugoi still uses batches of four.
+    # the first three labels hostage to the last.
     batch_size = 1
 
     def __init__(self, directory: Path, *, device: str = "cuda") -> None:
@@ -110,7 +110,7 @@ class GemmaBackend:
                 "Gemma runtime is unavailable. Open Settings → Acceleration, then restart."
             ) from error
         if device != "cpu" and not runtime.llama_supports_gpu_offload():
-            raise RuntimeError("Gemma GPU runtime unavailable. Open Settings or select Sugoi.")
+            raise RuntimeError("Gemma GPU runtime unavailable. Open Settings → Acceleration.")
         # CPU prompt evaluation benefits from batching; keep GPU's tested kernel shape.
         batch = 128 if device == "cpu" else 1
         threads = min(4, max(1, (os.cpu_count() or 2) // 2)) if device == "cpu" else 2

@@ -38,7 +38,6 @@ quality and speed vary by game and hardware.
 | PLaMo 3 Translate 2B | 1.81 GB | Fast dialogue alternative; less reliable for game stats and terminology. |
 | PLaMo 3 Translate 0.8B | 0.57 GB | Small, fast option; weaker wording and game terminology. |
 | Qwen3.5 4B | 2.74 GB | Useful alternative, but substantially slower in this app's tests. |
-| Sugoi V4 | 1.11 GB | Fast CPU option with low resource use; can change meaning or produce awkward wording. |
 
 Download sizes are **not RAM/VRAM requirements**: leave additional memory for inference and the
 game. Model downloads have their own license terms.

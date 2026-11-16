@@ -98,7 +98,7 @@ coordinates and first/warm/after-full timings. Preserve raw accuracy evidence; i
 alone do not prove successful inference. Regional tests cover crop offsets/edges, whole-line closure,
 unscanned-track retention, coalesced coverage, per-line sequences and independent discovery.
 
-`tools/verify_translation.py` defaults to Sugoi. For Gemma use `--backend gemma --device cpu` or
+`tools/verify_translation.py` defaults to Gemma E2B. Use `--backend gemma --device cpu` or
 `--device cuda` with the correct interpreter. It reports model/cache identity, load/warm/inference
 and memory; sample phrases are a smoke test, not a quality ranking. Imports and curated models must
 retain their prompts/identities and reject incomplete/reasoning output. Verify each advertised
@@ -109,10 +109,12 @@ memory separately. Recheck exact imported content on load; never delete user-own
 It uses two local owners, temporary SQLite, no network, and repeated unchanged requests. Require
 actual offload in the CUDA log; an installed GPU wheel alone is insufficient. These fixture timings
 include loading and are not comparative speed or quality benchmarks.
+It also replaces the long-text lane with two offline cloud fixtures while translating new labels
+through the unchanged native worker; its native load count must remain unchanged.
 
 `tools/verify_ocr_windows.py --translation --dialogue --gemma --debug --typewriter --transitions
 --ocr-delay-ms 900` (one command) exercises real capture, source-matched inspection, grouping,
-Gemma → Sugoi → Gemma, debug disclosure, pause, resize/minimize, CPU restart and clean shutdown.
+Gemma E2B → E4B → E2B, debug disclosure, pause, resize/minimize, CPU restart and clean shutdown.
 It requires complete grouped requests after the fixture's reveal and checks already-published
 English while OCR is delayed. `--typewriter` uses a fresh synthetic translation cache. Transition
 checks measure panel hiding/restoration and require fast masking before the next delayed OCR pass.

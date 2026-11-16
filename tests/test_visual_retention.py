@@ -225,7 +225,7 @@ def test_atomic_correction_publication_requires_explicit_current_lineage_and_all
 def test_publication_retention_cannot_cross_backend_generations_or_worker_restarts():
     store = EnglishPresentation()
     block = TextBlock((TextTrack(1, "設定", BOX),))
-    old = TranslatedText(TranslationRequest.from_block(block), "Sugoi settings")
+    old = TranslatedText(TranslationRequest.from_block(block), "E4B fixture settings")
     store.update((block,), (old,), scope=("worker1", 0))
     assert store.update((block,), (), scope=("worker1", 0))[0].translation == old
     assert not store.update((block,), (), scope=("worker1", 1))

@@ -48,7 +48,7 @@ def main() -> int:
         for k, name in (
             ("ocr", "MeikiOCR"),
             ("gemma", "Gemma E2B · Recommended"),
-            ("sugoi", "Sugoi"),
+            ("gemma-e4b", "E4B fixture"),
         )
     )
     bundled = state / "bundled"

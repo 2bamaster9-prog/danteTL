@@ -277,7 +277,7 @@ def test_model_summary_separates_ratings_capabilities_and_unrated_imports(app):
     assert "support" in summary.cpu.text() and "support" in summary.gpu.text()
     summary.set_model("qwen35-4b", 2_700_000_000, True)
     assert summary.values[2].property("tone") == "error"
-    summary.set_model("sugoi", 1_100_000_000, False)
+    summary.set_model("gemma-e4b", 1_100_000_000, False)
     assert "CPU only" in summary.gpu.text() and "No context" in summary.context.text()
     summary.set_model("custom", 2_000_000_000, True, imported=True)
     assert summary.ratings.isHidden() and "Not rated" in summary.size_label.text()
@@ -344,7 +344,7 @@ def test_model_categories_share_one_worker_and_ocr_never_enters_translation_pick
     gemma = ModelBundle(
         "gemma", "Gemma E2B · Recommended", tmp_path / "gemma", (), "Translates text"
     )
-    other = replace(gemma, key="sugoi", name="Sugoi", directory=tmp_path / "sugoi")
+    other = replace(gemma, key="gemma-e4b", name="E4B fixture", directory=tmp_path / "gemma-e4b")
     entered, calls = threading.Event(), []
 
     def install(bundle, report, cancel):
@@ -357,7 +357,7 @@ def test_model_categories_share_one_worker_and_ocr_never_enters_translation_pick
     manager = ModelManager((ocr, other, gemma))
     assert manager.choice.currentData().key == gemma.key
     assert [manager.choice.itemData(i).key for i in range(manager.choice.count())] == [
-        "sugoi",
+        "gemma-e4b",
         "gemma",
     ]
     assert manager.ocr.choice.currentData().key == ocr.key
@@ -393,8 +393,8 @@ def test_model_categories_share_one_worker_and_ocr_never_enters_translation_pick
     "saved,prepared,expected",
     [
         ("auto", True, "gemma"),
-        ("auto", False, "sugoi-fast"),
-        ("sugoi-fast", True, "sugoi-fast"),
+        ("auto", False, "gemma-e4b"),
+        ("gemma-e4b", True, "gemma-e4b"),
         ("none", True, "none"),
     ],
 )
@@ -416,7 +416,7 @@ def test_recommended_model_preserves_saved_choice_and_preparation_consent(
             preparation_id="pending",
             selection_id="gemma",
         ),
-        BackendChoice("Sugoi", factory, "sugoi-fast"),
+        BackendChoice("E4B fixture", factory, "gemma-e4b"),
     )
     window = MainWindow(windows, Mock(), choices, preferences_path=path)
     selected = window.backend_combo.currentData()
@@ -473,10 +473,12 @@ def test_first_run_resumes_model_intent_after_restart_but_still_requires_consent
     from jp_overlay.preferences import Preferences, PreferenceStore
 
     path = tmp_path / "preferences.json"
-    PreferenceStore(path)._write(Preferences(model="sugoi-fast", setup_seen=True, setup_model=key))
+    PreferenceStore(path)._write(
+        Preferences(model="imported-" + "f" * 64, setup_seen=True, setup_model=key)
+    )
     windows, factory = Mock(), Mock()
     windows.list_targets.return_value = []
-    base = BackendChoice("Sugoi", factory, "sugoi-fast")
+    base = BackendChoice("Imported fixture", factory, "imported-" + "f" * 64)
     gemma = BackendChoice("Language model", factory, f"{key}-cuda", "new-device", selection_id=key)
     monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: not key)
     consent = Mock(return_value=QMessageBox.StandardButton.No)
@@ -489,7 +491,7 @@ def test_first_run_resumes_model_intent_after_restart_but_still_requires_consent
     factory.assert_not_called()
     drain(window, lambda: application.preferences.idle)
     saved = PreferenceStore(path).initial
-    assert saved.setup_model == "" and saved.model == "sugoi-fast"
+    assert saved.setup_model == "" and saved.model == "imported-" + "f" * 64
     window.offer_first_run()
     consent.assert_called_once()  # Decline is not re-prompted on the next startup.
     window.close()
@@ -997,11 +999,11 @@ def test_switch_clears_painted_and_paused_english_rejects_late_reply_and_keeps_m
         def close(self):
             pass
 
-    old, new, old_again = Backend("Sugoi"), Backend("Gemma"), Backend("Sugoi")
+    old, new, old_again = Backend("E4B fixture"), Backend("Gemma"), Backend("E4B fixture")
     windows = Mock()
     windows.list_targets.return_value = []
     choices = (
-        BackendChoice("Sugoi", lambda: old, "sugoi-fast"),
+        BackendChoice("E4B fixture", lambda: old, "gemma-e4b"),
         BackendChoice("Gemma", lambda: new, "gemma"),
     )
     window = MainWindow(windows, Mock(), choices, scene_feed=True, cache_path=tmp_path / "cache")
@@ -1028,7 +1030,7 @@ def test_switch_clears_painted_and_paused_english_rejects_late_reply_and_keeps_m
         window.inspector.set_result(result, (1,))
         window.inspector.set_translations(application.view.english)
         window.inspector.pause.setChecked(True)
-        assert cell(window.inspector, 0, 3).text() == "Sugoi: 猫"
+        assert cell(window.inspector, 0, 3).text() == "E4B fixture: 猫"
         old.entered.clear()
         old.release.clear()
         show_scene(window, (first, second))
@@ -1055,7 +1057,7 @@ def test_switch_clears_painted_and_paused_english_rejects_late_reply_and_keeps_m
         )
         assert not application.view.english
         poll_until(lambda: len(application.view.english) == 2, (first, second))
-        assert all(t.english.startswith("Sugoi:") for t in application.view.english)
+        assert all(t.english.startswith("E4B fixture:") for t in application.view.english)
         assert old_again.calls == []  # Its own cache still works; Gemma never read those entries.
         assert new.calls == [("猫",), ("犬",)]
     finally:
@@ -1186,7 +1188,7 @@ def test_preparation_decline_preserves_selection_and_accept_loads_once_off_ui(
         backend.batch_size = 1
         return backend
 
-    base = BackendChoice("Sugoi", Mock(), "sugoi")
+    base = BackendChoice("E4B fixture", Mock(), "gemma-e4b")
     gemma = BackendChoice("Gemma", load, "gemma", "new")
     monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: not key)
     monkeypatch.setattr("jp_overlay.model_store.mark_prepared", receipts.append)
@@ -1223,7 +1225,7 @@ def test_failed_preparation_restores_previous_selection_without_a_receipt(
 ):
     windows = Mock()
     windows.list_targets.return_value = []
-    base = BackendChoice("Sugoi", Mock(), "sugoi")
+    base = BackendChoice("E4B fixture", Mock(), "gemma-e4b")
     bad = BackendChoice("Gemma", Mock(side_effect=RuntimeError("GPU unavailable")), "gemma", "new")
     receipts, errors = [], []
     monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: not key)
@@ -1243,7 +1245,7 @@ def test_failed_preparation_restores_previous_selection_without_a_receipt(
 def test_nested_consent_event_loop_does_not_unload_previous_model(app, tmp_path, monkeypatch):
     windows = Mock()
     windows.list_targets.return_value = []
-    base = BackendChoice("Sugoi", Mock(), "sugoi")
+    base = BackendChoice("E4B fixture", Mock(), "gemma-e4b")
     gemma = BackendChoice("Gemma", Mock(), "gemma", "new")
     monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: not key)
     window = MainWindow(
@@ -1408,14 +1410,14 @@ def test_saved_model_choice_survives_runtime_change_without_implicit_preparation
     windows = Mock()
     windows.list_targets.return_value = []
     factory = Mock()
-    sugoi = BackendChoice("Sugoi", factory, "sugoi-fast")
+    base = BackendChoice("Imported fixture", factory, "imported-" + "f" * 64)
     gemma = BackendChoice(
         "Language model", factory, f"{key}-vulkan", "vulkan-receipt", selection_id=key
     )
     monkeypatch.setattr("jp_overlay.model_store.is_prepared", lambda key: prepared or not key)
     consent = Mock(return_value=QMessageBox.StandardButton.No)
     monkeypatch.setattr(QMessageBox, "question", consent)
-    window = MainWindow(windows, factory, (sugoi, gemma), preferences_path=path)
+    window = MainWindow(windows, factory, (base, gemma), preferences_path=path)
     application = app_owner(window)
     assert window.backend_combo.currentData() == (
         window.routing.resolve(model_reference(gemma if prepared else None))

@@ -10,7 +10,6 @@ from ctypes import wintypes
 from pathlib import Path
 from unittest.mock import patch
 
-from jp_overlay.sugoi import SugoiBackend, model_directory
 from jp_overlay.translation import TranslationBackend
 from jp_overlay.translation_backend import ContextualBackend
 
@@ -68,8 +67,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--backend",
-        choices=("sugoi", "gemma", "gemma-e4b", "qwen35-4b", "plamo-2b", "plamo-0.8b"),
-        default="sugoi",
+        choices=("gemma", "gemma-e4b", "qwen35-4b", "plamo-2b", "plamo-0.8b"),
+        default="gemma",
     )
     parser.add_argument(
         "--device", choices=("cpu", "cuda", "vulkan"), help="Require this language-model engine"
@@ -103,22 +102,19 @@ def main() -> None:
     with patch.object(socket.socket, "connect", side_effect=AssertionError("Unexpected network")):
         started = time.monotonic()
         backend: TranslationBackend
-        if args.backend != "sugoi":
-            from jp_overlay.gemma import GemmaBackend
-            from jp_overlay.gemma import model_directory as gemma_directory
-            from jp_overlay.llama_runtime import installed_device
-            from jp_overlay.model_factories import create_curated_translator
+        from jp_overlay.gemma import GemmaBackend
+        from jp_overlay.gemma import model_directory as gemma_directory
+        from jp_overlay.llama_runtime import installed_device
+        from jp_overlay.model_factories import create_curated_translator
 
-            device = installed_device()
-            assert device is not None, "Language-model engine is missing"
-            assert not args.device or device == args.device, "Unexpected engine; no silent fallback"
-            backend = (
-                GemmaBackend(gemma_directory(), device=device)
-                if args.backend == "gemma"
-                else create_curated_translator(args.backend)
-            )
-        else:
-            backend = SugoiBackend(model_directory())
+        device = installed_device()
+        assert device is not None, "Language-model engine is missing"
+        assert not args.device or device == args.device, "Unexpected engine; no silent fallback"
+        backend = (
+            GemmaBackend(gemma_directory(), device=device)
+            if args.backend == "gemma"
+            else create_curated_translator(args.backend)
+        )
         load_ms = (time.monotonic() - started) * 1000
         try:
             answers, timings = [], []

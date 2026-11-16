@@ -43,12 +43,6 @@ def ocr_backends() -> tuple[OcrChoice, ...]:
     return (OcrChoice("CPU · GPU setup optional", create_recognizer, 8, "cpu"),)
 
 
-def create_translator(*, beam_size: int = 2) -> TranslationBackend:
-    from jp_overlay.sugoi import SugoiBackend, model_directory
-
-    return SugoiBackend(model_directory(), beam_size=beam_size)
-
-
 def translation_backends() -> tuple[BackendChoice, ...]:
     from jp_overlay.curated_models import MODELS
     from jp_overlay.llama_runtime import installed_device, supports_plamo
@@ -62,15 +56,6 @@ def translation_backends() -> tuple[BackendChoice, ...]:
 
     bundles = {bundle.key: bundle for bundle in model_catalog()}
     choices = []
-    if bundles["sugoi"].present():
-        choices.extend(
-            (
-                BackendChoice("Sugoi V4 · Fast CPU", create_translator, "sugoi-fast"),
-                BackendChoice(
-                    "Sugoi V4 · Wider search", partial(create_translator, beam_size=5), "sugoi-wide"
-                ),
-            )
-        )
     device = installed_device()
     factories = {
         "gemma": ("Gemma 4 E2B", create_gemma_translator),
@@ -139,7 +124,6 @@ def translation_backends() -> tuple[BackendChoice, ...]:
             )
         )
     rank = {bundle.selection_id: i for i, bundle in enumerate(bundles.values())}
-    rank["sugoi-wide"] = rank["sugoi-fast"]
     return tuple(sorted(choices, key=lambda choice: rank.get(choice.preference_key, len(rank))))
 
 
