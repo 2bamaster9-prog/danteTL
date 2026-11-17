@@ -5,7 +5,7 @@ from random import Random
 
 import pytest
 
-from dantejp.ocr.text_distance import within_edits
+from dantejp.ocr.text_distance import LcsSimilarity, within_edits
 
 
 def distance(first, second):
@@ -45,3 +45,36 @@ def test_repetitive_long_strings_and_distant_edits_use_minimum_edit_count():
     assert not within_edits(first, "い" + "あ" * 255 + "う" + "あ" * 254 + "え", 2)
     with pytest.raises(ValueError):
         within_edits("a", "a", -1)
+
+
+def lcs_length(first, second):
+    row = [0] * (len(second) + 1)
+    for a in first:
+        previous, row = row, [0]
+        for j, b in enumerate(second, 1):
+            row.append(previous[j - 1] + 1 if a == b else max(previous[j], row[-1]))
+    return row[-1]
+
+
+def test_bit_parallel_similarity_matches_independent_unicode_lcs_oracle():
+    words = ["".join(chars) for size in range(5) for chars in product("aあ🙂", repeat=size)]
+    for first in words:
+        scorer = LcsSimilarity(first)
+        for second in words:
+            expected = (
+                2 * lcs_length(first, second) / (len(first) + len(second)) if first or second else 1
+            )
+            assert scorer.ratio(second) == expected
+    random = Random(897)
+    for _ in range(50):
+        first = "".join(random.choices("あいうえお🙂", k=512))
+        second = first[:180] + "かきくけこ" + first[185:]
+        assert LcsSimilarity(first).ratio(second) == 2 * lcs_length(first, second) / 1024
+
+
+def test_repeated_text_similarity_is_symmetric_and_keeps_internal_edits():
+    first = "あい" * 255 + "32"
+    second = "いあ" * 255 + "35"
+    assert LcsSimilarity(first).ratio(second) == LcsSimilarity(second).ratio(first)
+    assert 0.99 < LcsSimilarity(first).ratio(second) < 1
+    assert LcsSimilarity("こんにちは").ratio("さようなら") < 0.8

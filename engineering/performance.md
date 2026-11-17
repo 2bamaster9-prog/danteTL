@@ -21,3 +21,10 @@ Tools include `benchmark_scan_selection.py`, `benchmark_crop_recovery.py`, `benc
 `benchmark_algorithms.py` and [translation comparison](benchmarks/README.md). Read `--help`.
 Keep evidence in ignored `artifacts/`, label its limits and remove disposable environments safely.
 OCR consensus stays experimental; changing retention requires explicit replay/native acceptance.
+
+Tracking similarity uses the bit-parallel LCS recurrence of
+[Allison and Dix](https://www.sciencedirect.com/science/article/pii/0020019086900918), normalized as
+[Indel similarity](https://rapidfuzz.github.io/RapidFuzz/Usage/distance/Indel.html).
+This differs from [SequenceMatcher's alignment heuristic](https://docs.python.org/3/library/difflib.html):
+validate assignment/retention replays, not just scores or speed. The implementation reuses character
+masks within one spatially bounded matching pass and adds no native dependency.

@@ -155,8 +155,9 @@ outputs; dummy detections never publish. Ordinary successful/full scans keep the
 Tracking is deterministic and bounded (128 tracks, 512 candidate regions). Existing matches precede
 new admission; truncated input cannot vote for absence. Spatially gated bipartite components use optimal
 assignment with explicit unmatched costs, stable IDs and canonical tie ordering. Distant identical labels
-cannot match on text alone. Cutoff edit distance handles minor variants; approximation never permanently
-suppresses real edits. Confidence belongs to live content, not a screen-position cache.
+cannot match on text alone. Candidate scores use normalized bit-parallel LCS/Indel with per-source masks
+reused only within that matching pass. Cutoff edit distance handles minor variants; approximation never
+permanently suppresses real edits. Confidence belongs to live content, not a screen-position cache.
 
 The visual worker prepares immutable crop digests and geometric/text match scores for the exact OCR
 source and an immutable snapshot of prior track identities, text and observed bounds. Results carry

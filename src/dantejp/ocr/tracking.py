@@ -7,14 +7,13 @@ its last committed position, rather than following every detector fluctuation.
 
 import unicodedata
 from dataclasses import dataclass, replace
-from difflib import SequenceMatcher
 from math import isfinite
 
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
 from dantejp.ocr.presence import EvidenceReader, PixelEvidence
 from dantejp.ocr.spatial import SpatialCandidates
 from dantejp.ocr.text_content import content_region
-from dantejp.ocr.text_distance import within_edits
+from dantejp.ocr.text_distance import LcsSimilarity, within_edits
 from dantejp.ocr.track_assignment import assign_tracks
 from dantejp.ocr.values import OcrResult, TextRegion
 
@@ -202,7 +201,9 @@ def _commit_text(track: _Track) -> None:
     track.text_candidate = None
 
 
-def _match_score(track: TextTrack, region: TextRegion, old: str, new: str) -> float | None:
+def _match_score(
+    track: TextTrack, region: TextRegion, old: str, new: str, scorer: LcsSimilarity
+) -> float | None:
     if track.vertical != region.vertical:
         return None
     overlap = _overlap(track.bounds, region.bounds)
@@ -230,7 +231,7 @@ def _match_score(track: TextTrack, region: TextRegion, old: str, new: str) -> fl
     if old == new:
         similarity = 1.0
     else:
-        similarity = SequenceMatcher(None, old, new, autojunk=False).ratio()
+        similarity = scorer.ratio(new)
         # Short labels/numbers are meaningful edits, never fuzzy-equivalent content.
         related = min(len(old), len(new)) >= 6 and similarity >= 0.8
         prefix = (min(len(old), len(new)) >= 3 or same_origin) and (
@@ -282,8 +283,9 @@ def prepare_matching(
     candidates = []
     for track in sources:
         old = _normalized(track.text)
+        scorer = LcsSimilarity(old)
         for index, region in nearby.for_bounds(track.bounds):
-            score = _match_score(track, region, old, normalized[index])
+            score = _match_score(track, region, old, normalized[index], scorer)
             if score is not None:
                 candidates.append((score, track.track_id, index))
     frame = result.frame

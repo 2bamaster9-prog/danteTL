@@ -1,4 +1,35 @@
-"""Cutoff Levenshtein comparison for small OCR edits, without alignment heuristics."""
+"""Unicode edit comparisons without diff alignment heuristics or native dependencies."""
+
+
+class LcsSimilarity:
+    """Reusable bit-parallel LCS / normalized Indel similarity for one source.
+
+    Each bit represents a difference between adjacent cells of one LCS row.
+    Subtraction propagates the row transitions (Allison-Dix); Python's integers
+    process many cells per operation. No quadratic Python loop or alignment is
+    built. Masks are local to one bounded matching pass, never a text history.
+    """
+
+    def __init__(self, source: str) -> None:
+        self._source = source
+        self._masks: dict[str, int] | None = None
+
+    def ratio(self, target: str) -> float:
+        source = self._source
+        if source == target:
+            return 1.0
+        total = len(source) + len(target)
+        if source.startswith(target) or target.startswith(source):
+            return 2 * min(len(source), len(target)) / total
+        if self._masks is None:
+            self._masks = {}
+            for index, character in enumerate(source):
+                self._masks[character] = self._masks.get(character, 0) | (1 << index)
+        row = 0
+        for character in target:
+            union = row | self._masks.get(character, 0)
+            row = union & ~(union - ((row << 1) | 1))
+        return 2 * row.bit_count() / total
 
 
 def within_edits(first: str, second: str, limit: int) -> bool:

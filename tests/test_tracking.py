@@ -644,3 +644,25 @@ def test_same_line_origin_does_not_spawn_duplicate_partial_tracks(first, followi
     final = replay.step(following)
     assert len(final) == 1 and final[0].track_id == original.track_id
     assert final[0].text == following.text
+
+
+def test_repetitive_long_lines_keep_spatial_identity_without_suppressing_real_edits():
+    replay = Replay()
+    text = "繰り返し表示" * 70 + "体力3204"
+    first = region(text, x=100, y=200, width=1400, confidence=0.98)
+    second = region(text, x=100, y=260, width=1400, confidence=0.98)
+    original = replay.step(first, second)
+    assert replay.step(second, first) == original
+    edited = replace(first, text=text[:-1] + "5", characters=())
+    tracks = original
+    for _ in range(4):
+        tracks = replay.step(second, edited)
+    assert [(t.track_id, t.text) for t in tracks] == [
+        (original[0].track_id, edited.text),
+        (original[1].track_id, text),
+    ]
+    assert tracks[0].text_revision > original[0].text_revision
+    # Equal text at an unrelated position cannot borrow the old line's identity.
+    elsewhere = region(edited.text, x=100, y=800, width=1400)
+    tracks = replay.step(elsewhere, edited, second)
+    assert len(tracks) == 3 and tracks[-1].track_id not in {t.track_id for t in original}

@@ -26,7 +26,7 @@ def observations(length: int, repeats: int):
     empty = bytes(len(pixels))
     rows = tuple(
         TextRegion(
-            ("表示されている文章を確認してください。" * 12)[:length] + str(i),
+            ("表示されている文章を確認してください。" * (length // 18 + 1))[:length] + str(i),
             Rect(20 + (i % 4) * 950, 20 + (i // 4) * 60, 850, 30),
         )
         for i in range(128)
@@ -55,7 +55,7 @@ def observations(length: int, repeats: int):
 def replay(length, repeats, baseline):
     tracker = TextTracker()
     old = baseline.TextTracker() if baseline else None
-    tracking, evidence_times, before = [], [], []
+    tracking, evidence_times, before, before_evidence = [], [], [], []
     for result in observations(length, repeats):
         started = time.perf_counter()
         evidence = prepare_evidence(result, tracker.evidence_bounds())
@@ -68,7 +68,11 @@ def replay(length, repeats, baseline):
         tracking.append((time.perf_counter() - started) * 1000)
         if old:
             started = time.perf_counter()
-            old_ids = old.observe(result)
+            old_evidence = prepare_evidence(result, old.evidence_bounds())
+            old_matching = baseline.prepare_matching(result, old.matching_sources(result.frame))
+            before_evidence.append((time.perf_counter() - started) * 1000)
+            started = time.perf_counter()
+            old_ids = old.observe(result, pixel_evidence=old_evidence, matching=old_matching)
             old_visible = old.visible(result.frame, result.completed_at)
             old_ready = old.translation_tracks(result.frame, result.completed_at)
             before.append((time.perf_counter() - started) * 1000)
@@ -90,6 +94,7 @@ def replay(length, repeats, baseline):
         "tracking": timings(tracking),
         "worker_evidence": timings(evidence_times),
         "baseline": timings(before) if before else None,
+        "baseline_worker_evidence": timings(before_evidence) if before_evidence else None,
         "equivalent": bool(old),
     }
 
@@ -111,7 +116,7 @@ def main():
         spec.loader.exec_module(baseline)
     report = {
         "fixture": "4K, 128 regions, edits, reordering, misses, removals and partial coverage",
-        "cases": [replay(length, args.repeats, baseline) for length in (12, 120, 240)],
+        "cases": [replay(length, args.repeats, baseline) for length in (12, 120, 240, 512)],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2), encoding="utf-8")
