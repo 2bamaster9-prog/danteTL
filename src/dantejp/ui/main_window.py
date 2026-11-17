@@ -34,7 +34,7 @@ from dantejp.domain import WindowTarget
 from dantejp.paths import gui_executable, module_command
 from dantejp.runtime.hardware_values import HardwareReader
 from dantejp.translation.selection import ModelOption
-from dantejp.ui.controls import CaptureButton, OverlayToggles, StatusBanner, Switch
+from dantejp.ui.controls import CaptureButton, OverlayToggleLayout, StatusBanner, Switch
 from dantejp.ui.desktop_driver import DesktopDriver
 from dantejp.ui.diagnostics import debug_display
 from dantejp.ui.history_panel import HistoryPanel
@@ -195,10 +195,6 @@ class MainWindow(QMainWindow):
             "Show Windows' yellow capture indicator. Changes apply during capture without "
             "clearing translations. Windows or another capture app may still require the border."
         )
-        self.overlay_toggles = OverlayToggles(
-            self.overlay_check, self.translate_check, self.border_check
-        )
-        game_layout.addWidget(self.overlay_toggles)
         self.capture_overlay_check = Switch("Include in screen capture")
         self.capture_overlay_check.setChecked(preferences.include_overlay_in_capture)
         self.capture_overlay_check.setToolTip(
@@ -206,7 +202,14 @@ class MainWindow(QMainWindow):
             "Turn off to ask Windows to exclude the overlay. Game/window-only capture "
             "may omit it either way; this does not affect DanteJP's OCR."
         )
-        game_layout.addWidget(self.capture_overlay_check, 0, Qt.AlignmentFlag.AlignLeft)
+        game_layout.addLayout(
+            OverlayToggleLayout(
+                self.overlay_check,
+                self.translate_check,
+                self.border_check,
+                self.capture_overlay_check,
+            )
+        )
         self.capture_status = StatusBanner()
         self.capture_status.set_message("Select a window, then start capture.", tone="info")
         self.status = self.capture_status.label

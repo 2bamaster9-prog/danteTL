@@ -11,7 +11,12 @@ from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QWidget  # noqa: E402
 
 from dantejp.translation.dialogue.history import HistoryTurn  # noqa: E402
-from dantejp.ui.controls import CaptureButton, CopyTextButton, OverlayToggles, Switch  # noqa: E402
+from dantejp.ui.controls import (  # noqa: E402
+    CaptureButton,
+    CopyTextButton,
+    OverlayToggleLayout,
+    Switch,
+)
 from dantejp.ui.history_panel import HistoryPanel  # noqa: E402
 from dantejp.ui.theme import STYLE  # noqa: E402
 
@@ -24,23 +29,38 @@ def app():
 
 
 def test_overlay_controls_wrap_and_capture_state_keeps_icons_and_labels_consistent(app):
-    first, second, third = (
+    first, second, third, fourth = (
         Switch("Show game overlay"),
         Switch("Translation overlay"),
         Switch("Show border"),
+        Switch("Include in screen capture"),
     )
-    row = OverlayToggles(first, second, third)
+    row = QWidget()
+    toggles = OverlayToggleLayout(first, second, third, fourth)
+    row.setLayout(toggles)
     button = CaptureButton()
     try:
-        row.resize(950, 90)
+        full_width = sum(c.sizeHint().width() for c in (first, second, third, fourth))
+        full_width += toggles.spacing() * 3
+        row.resize(full_width, 160)
         row.show()
         app.processEvents()
         assert first.y() == second.y() and first.x() < second.x()
         assert second.y() == third.y() and second.x() < third.x()
-        row.resize(270, 110)
+        assert third.y() == fourth.y() and third.x() < fourth.x()
+        row.resize(full_width - 1, 160)
+        app.processEvents()
+        assert first.y() == second.y() == third.y() < fourth.y()
+        assert fourth.x() == first.x()
+        assert row.heightForWidth(row.width()) == fourth.geometry().bottom() + 1
+        row.resize(max(c.sizeHint().width() for c in (first, second, third, fourth)), 160)
         app.processEvents()
         assert first.x() == second.x() and first.y() < second.y()
         assert second.x() == third.x() and second.y() < third.y()
+        assert third.x() == fourth.x() and third.y() < fourth.y()
+        row.resize(full_width, 160)
+        app.processEvents()
+        assert first.y() == fourth.y()
         assert button.text() == "Start capture" and not button.icon().isNull()
         record = button.icon().cacheKey()
         button.set_capturing(True)

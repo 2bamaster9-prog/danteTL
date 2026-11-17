@@ -11,21 +11,19 @@ from PySide6.QtGui import (
     QPaintEvent,
     QPen,
     QPixmap,
-    QResizeEvent,
     QStandardItem,
     QStandardItemModel,
 )
 from PySide6.QtWidgets import (
     QApplication,
-    QBoxLayout,
     QCheckBox,
     QComboBox,
     QHBoxLayout,
     QLabel,
     QLayout,
+    QLayoutItem,
     QProgressBar,
     QPushButton,
-    QSizePolicy,
     QStyle,
     QStyleOptionFocusRect,
     QToolButton,
@@ -180,37 +178,61 @@ class CaptureButton(QPushButton):
         set_tone(self, "recording" if active else "idle")
 
 
-class OverlayToggles(QWidget):
-    """Keep overlay controls together; wrap only when their labels won't fit."""
+class OverlayToggleLayout(QLayout):
+    """Keep whole switches on each row until the next label would overflow."""
 
     def __init__(self, *controls: Switch) -> None:
         super().__init__()
-        self._controls = controls
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
-        self._layout = QBoxLayout(QBoxLayout.Direction.TopToBottom, self)
-        self._layout.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
-        self._layout.setContentsMargins(0, 0, 0, 0)
-        self._layout.setSpacing(18)
-        for control in self._controls:
-            self._layout.addWidget(control, 0, Qt.AlignmentFlag.AlignLeft)
-        self._layout.addStretch(1)
+        self._items: list[QLayoutItem] = []
+        self.setContentsMargins(0, 0, 0, 0)
+        self.setSpacing(18)
+        for control in controls:
+            self.addWidget(control)
 
-    def minimumSizeHint(self) -> QSize:
-        return QSize(
-            max(c.minimumSizeHint().width() for c in self._controls),
-            self._layout.minimumSize().height(),
-        )
+    def addItem(self, item: QLayoutItem) -> None:
+        self._items.append(item)
 
-    def resizeEvent(self, event: QResizeEvent) -> None:
-        width = sum(c.sizeHint().width() for c in self._controls) + self._layout.spacing() * (
-            len(self._controls) - 1
-        )
-        self._layout.setDirection(
-            QBoxLayout.Direction.LeftToRight
-            if event.size().width() >= width
-            else QBoxLayout.Direction.TopToBottom
-        )
-        super().resizeEvent(event)
+    def count(self) -> int:
+        return len(self._items)
+
+    def itemAt(self, index: int) -> QLayoutItem | None:
+        return self._items[index] if 0 <= index < self.count() else None
+
+    def takeAt(self, index: int) -> QLayoutItem | None:
+        return self._items.pop(index) if 0 <= index < self.count() else None
+
+    def minimumSize(self) -> QSize:
+        size = QSize(0, 0)
+        for item in self._items:
+            size = size.expandedTo(item.minimumSize())
+        return size
+
+    def sizeHint(self) -> QSize:
+        return self.minimumSize()
+
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, width: int) -> int:
+        return self._arrange(width)
+
+    def setGeometry(self, rect: QRect) -> None:
+        super().setGeometry(rect)
+        self._arrange(rect.width(), rect.topLeft())
+
+    def _arrange(self, width: int, origin: QPoint | None = None) -> int:
+        x = y = row_height = 0
+        for item in self._items:
+            size = item.sizeHint()
+            if x and x + size.width() > width:
+                x = 0
+                y += row_height + 6
+                row_height = 0
+            if origin is not None:
+                item.setGeometry(QRect(origin + QPoint(x, y), size))
+            x += size.width() + self.spacing()
+            row_height = max(row_height, size.height())
+        return y + row_height
 
 
 class InfoButton(QToolButton):
