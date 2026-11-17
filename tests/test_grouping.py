@@ -127,7 +127,8 @@ def test_group_size_source_size_and_state_are_bounded_without_dropping_visible_l
     grouper = DialogueGrouper()
     result = grouper.update(tracks, tracks, 0)
     assert sum(len(block.lines) for block in result.blocks) == 128
-    assert all(len(block.lines) <= 6 and len(block.text) <= 512 for block in result.blocks)
+    assert all(len(block.text) <= 512 for block in result.blocks)
+    assert any(len(block.lines) > 6 for block in result.blocks)
     longer = tuple(replace(t, text="冒険の準備" * 30 + "、") for t in tracks[:6])
     result = grouper.update(longer, longer, 1)
     assert sum(len(block.lines) for block in result.blocks) == 6

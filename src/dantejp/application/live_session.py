@@ -309,7 +309,12 @@ class LiveSession:
         tracks = self._tracker.visible(frame, now) if frame else ()
         ready = self._tracker.translation_tracks(frame, now) if frame else ()
         grouped = self._grouper.update(
-            tracks, ready, now, enabled=grouping, activity=self._tracker.translation_activity()
+            tracks,
+            ready,
+            now,
+            enabled=grouping,
+            activity=self._tracker.translation_activity(),
+            dash_edges=self._tracker.opening_dash_edges() if grouping else None,
         )
         requests = tuple(
             block

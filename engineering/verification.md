@@ -133,6 +133,19 @@ It requires complete grouped requests after the fixture's reveal and checks alre
 English while OCR is delayed. `--typewriter` uses a fresh synthetic translation cache. Transition
 checks measure panel hiding/restoration and require fast masking before the next delayed OCR pass.
 These fixtures exercise one reveal cadence; they do not establish every game's behavior.
+Grouping replays also cover long profile paragraphs and full/regional OCR quote readings, including
+damaged brackets and hanging marks, through tracking/publication as well as scaled/reordered boxes.
+Replay identical quote pixels with the leading dash recognized and omitted. Check exact source text
+and bounds, adjacent choices and single-row rescans with the stroke still present or removed.
+Equipment-panel replays keep headings and item labels separate, include numeric percentage tails,
+cover full-frame and cropped readings where OCR turns a plus into a colon,
+and preserve group membership across full/cropped icon readings. Replay a noisy numeric operator
+both on and off the expected row, and check the paragraph opening with an unreadable tail.
+Exercise pending ordinary edits,
+unchanged-pixel noisy scans and real value changes through English publication, not just static boxes.
+Keep paragraph boundaries, headings/choices, exact member readiness and bounded requests intact.
+Line count and trailing dashes must not cut a paragraph. Reject distant rows before text analysis
+and avoid repeated member scans when extending long paragraphs in dense layouts.
 The delayed-OCR continuity stage also changes Show border while preserving the capture/OCR/model
 owners, monotonic frame sequence and published English. `verify_capture_controls.py` samples only
 the owned topmost fixture's desktop rectangle: the overlay must appear in screen composition while

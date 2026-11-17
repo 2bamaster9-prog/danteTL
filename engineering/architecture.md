@@ -189,10 +189,29 @@ own source sequence and reading. These records do not change confirmation or ret
 ## Translation, grouping and layout
 
 `DialogueGrouper` forms bounded stable-line blocks with font-relative alignment/spacing and unambiguous
-continuity. Keep speakers, choices, vertical text and unrelated columns separate. Punctuation alone is
-not a hard break; avoid unrestricted proximity clustering. Pending growth can reserve a continuation
-but cannot become translation source before commitment. Readiness uses source time; short labels avoid
-dialogue delays. Group sizing uses individual line heights, not whole paragraph height.
+continuity. Keep speakers, choices, vertical text and unrelated columns separate.
+A sentence can end on a full-width row within a paragraph. A shortened sentence-ending row followed
+by a full-width row can separate paragraphs within an established column. A trailing dash remains
+continuation. Prose evidence may occur after the opening row. Quoted wraps tolerate hanging
+marks/indentation and damaged brackets after a
+typographic dash. A long hyphen run before an opening bracket can introduce a quote when a unique
+aligned prose row follows. For an omitted dash, the matching worker checks a bounded strip of the
+OCR source at the detector or recurring column margin for a thin, text-colored horizontal stroke.
+The grouper uses the recovered edge only for that opening and continuation. A supported quote
+ends at its outer closing bracket, keeping a button directly below it separate. Requests and
+display retain the committed OCR text, member identities and ink bounds. Keep gap/font/ambiguity checks
+intact. Paragraphs have no separate line-count cap;
+work is bounded by the scene's track limit and the backend's 512-character source budget. Short inline
+labels start independent items and allow aligned/hanging continuations; bare choices stay separate. Compact
+percentage endings can complete established unfinished prose or a line that explicitly introduces
+a value. A colon immediately before a percentage can represent a misread plus in a wrapped
+Japanese clause. In a column of wrapped prose, two successive row centers predict the
+position of the next row. This supports shorter percentage glyphs and noisy operators at
+the body margin. The same spacing can support a hanging labelled opening even when the
+final value is unreadable. Group using that evidence and keep the exact OCR text in the request.
+Ordinary pending OCR cannot repartition committed blocks. Pending growth can reserve a continuation
+but cannot become translation source before commitment. Readiness uses source time; short labels
+avoid dialogue delays. Group sizing uses individual line heights, not whole paragraph height.
 
 Requests identify combined text and every member's ID/source/revision. Moving a box cannot retranslate;
 geometry is not cache identity. Validate all members at publication/rendering. Splits/edits/removal/reset
