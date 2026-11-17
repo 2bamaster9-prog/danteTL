@@ -189,7 +189,10 @@ own source sequence and reading. These records do not change confirmation or ret
 ## Translation, grouping and layout
 
 `DialogueGrouper` forms bounded stable-line blocks with font-relative alignment/spacing and unambiguous
-continuity. Keep speakers, choices, vertical text and unrelated columns separate.
+continuity. Keep speakers, choices, vertical text and unrelated columns separate. When ordinary
+grouping finds no successor, a long unfinished row can pair with one tightly centered, shorter
+sentence ending. A split word or a quoted term followed by a copula supplies the continuation
+evidence. This pair ends at its second row.
 A sentence can end on a full-width row within a paragraph. A shortened sentence-ending row followed
 by a full-width row can separate paragraphs within an established column. A trailing dash remains
 continuation. Prose evidence may occur after the opening row. Quoted wraps tolerate hanging

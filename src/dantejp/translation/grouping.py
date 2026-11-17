@@ -2,6 +2,7 @@
 
 import re
 from bisect import bisect_left, bisect_right
+from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from statistics import median
 
@@ -221,6 +222,60 @@ def _can_follow(
 def _internal_prose(text: str) -> bool:
     # Japanese sentence punctuation inside a long unfinished row is also wrap evidence.
     return len(text) >= 14 and any(mark in text[:-1] for mark in "、，。")
+
+
+def _centered_subtitle_tail(upper: TextTrack, lower: TextTrack) -> bool:
+    """Recognize a short final row from its inset on both sides and a textual continuation."""
+    a, b = upper.bounds, lower.bounds
+    unit = min(a.height, b.height)
+    if not (
+        unit > 0
+        and not lower.vertical
+        and max(a.height, b.height) <= unit * 1.3
+        and -0.1 * unit <= b.y - a.y - a.height <= 0.55 * unit
+        and a.width >= 14 * unit
+        and 0 < b.width <= 0.7 * a.width
+        and abs((a.x + a.width / 2) - (b.x + b.width / 2)) <= 0.75 * unit
+    ):
+        return False
+    first, second = upper.text.rstrip(), lower.text.strip()
+    if not second or second[-1] not in "。！？!?" or _item_start(second):
+        return False
+    body = second[:-1]
+    if not body or any(mark in body for mark in "。！？!?"):
+        return False
+    # A wrap can split a katakana word or leave the end of a conjugation on row two.
+    if "ァ" <= first[-1] <= "ヺ" and body[0] in "ァィゥェォャュョ":
+        return True
+    if first.endswith("っ") and body[0] in "たて":
+        return True
+    # A quoted term plus a copula can finish the upper clause. A button can also
+    # quote a term in a command such as 「設定」を開く。 OCR may omit the opener.
+    if first[-1] not in "のはがをにとでへもて" and not _internal_prose(first):
+        return False
+    for opener, closer in _CLOSING_BRACKET.items():
+        term, mark, suffix = body.partition(closer)
+        if mark and suffix in ("だ", "です", "だった", "でした") and has_japanese(term):
+            return body[0] == opener or not _QUOTE.match(body)
+    return False
+
+
+def _centered_subtitle(first: TextTrack, available: Iterable[TextTrack]) -> tuple[TextTrack, ...]:
+    text = first.text.strip()
+    if (
+        first.vertical
+        or len(text) < 14
+        or text.endswith((*_END, "：", ":"))
+        or not has_japanese(text)
+        or _item_start(text)
+    ):
+        return (first,)
+    tails = [row for row in available if _centered_subtitle_tail(first, row)]
+    if len(tails) == 1:
+        pair = (first, tails[0])
+        if len(join_lines(pair)) <= 512:
+            return pair
+    return (first,)
 
 
 def _centered_wrap(upper: TextTrack, lower: TextTrack) -> bool:
@@ -540,6 +595,17 @@ def _blocks(
                     )
                 ]
                 if len(candidates) != 1:
+                    # Recover only an isolated opening pair. A new terminal join cannot
+                    # extend an existing paragraph or recruit a third row below the pair.
+                    if not candidates and len(lines) == 1 and continuation is None:
+                        lines = _centered_subtitle(
+                            first,
+                            (
+                                t
+                                for t in ordered
+                                if t.track_id not in used and t.track_id not in openings
+                            ),
+                        )
                     break  # Ambiguous columns/layouts stay separate.
                 if (
                     len(lines) == 1

@@ -92,6 +92,62 @@ def test_centered_tight_prose_can_continue_after_a_sentence_boundary():
     assert len(DialogueGrouper().update(tracks, tracks, 0).blocks) == 1
 
 
+@pytest.mark.parametrize("scale", [0.5, 1])
+@pytest.mark.parametrize(
+    "upper,tail",
+    [
+        ("戦とは、ただの殴り合いじゃない。技術も知恵も問われる、最悪の", "「ゲーム」だ。"),
+        ("戦とはただの殴り合いじゃない技術も知恵も問われる最悪の", "ゲーム」だ。"),
+        ("その先にあるのは今まで誰も見たことのない幻の", "『海』でした。"),
+        ("この町であなたに会えるとは思ってもみなかっ", "た。"),
+        ("私たちをここまで案内してくれたのはあのチ", "ャットボットだ。"),
+    ],
+)
+def test_centered_final_fragment_forms_one_confirmed_request(scale, upper, tail):
+    def row(key, text, bounds):
+        return TextTrack(key, text, Rect(*(round(v * scale) for v in bounds)))
+
+    first = row(1, upper, (1041, 1774, 1750, 61))
+    last = row(2, tail, (1774, 1858, 308, 59))
+    button = row(3, "「設定」を開く。", (1720, 1942, 416, 59))
+    tracks = (button, last, first)
+    grouper = DialogueGrouper()
+    pending = grouper.update(tracks, (first, button), 0)
+    assert [b.lines for b in pending.blocks] == [(first, last), (button,)]
+    assert all(first not in b.lines and last not in b.lines for b in pending.ready)
+    ready = grouper.update(tracks[::-1], tracks, 1).ready
+    assert ready[0].lines == (first, last) and ready[0].text == upper + tail
+
+
+@pytest.mark.parametrize(
+    "tail",
+    [
+        "「設定」",
+        "「次へ。」",
+        "「設定」を開く。",
+        "◆『戻る』を選ぶ。",
+        "――「今から出発」だ。",
+        "少し話をしよう。",
+    ],
+)
+def test_centered_single_option_under_unfinished_speech_stays_separate(tail):
+    first = TextTrack(1, "この先に何が待っているか分からないけれど私たちの", Rect(0, 0, 800, 32))
+    last = TextTrack(2, tail, Rect(290, 43, 220, 32))
+    tracks = (first, last)
+    assert [b.lines for b in DialogueGrouper().update(tracks, tracks, 0).blocks] == [
+        (first,),
+        (last,),
+    ]
+
+
+def test_competing_centered_endings_leave_the_subtitle_unresolved():
+    first = TextTrack(1, "この先に何が待っているか分からないけれど私たちの", Rect(0, 0, 800, 32))
+    last = TextTrack(2, "「旅」です。", Rect(290, 43, 220, 32))
+    other = replace(last, track_id=3, text="「道」だ。", bounds=Rect(280, 44, 230, 32))
+    tracks = (other, last, first)
+    assert all(len(b.lines) == 1 for b in DialogueGrouper().update(tracks, tracks, 0).blocks)
+
+
 def test_early_continuation_waits_and_unchanged_group_survives_polls():
     name, first, last = subtitles()
     grouper = DialogueGrouper()
