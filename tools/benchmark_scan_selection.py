@@ -26,6 +26,9 @@ def main() -> None:
     parser.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--case", action="append", help="Restrict measurement to named corpus cases."
+    )
     args = parser.parse_args()
     if not 2 <= args.repeats <= 20:
         parser.error("Use 2..20 measured repetitions.")
@@ -43,6 +46,11 @@ def main() -> None:
             (replace(base, name="contrast_drop", light=True, faint=True), base),
         )
     )
+    if args.case:
+        unknown = set(args.case) - {case.name for case, _ in cases}
+        if unknown:
+            parser.error(f"Unknown cases: {', '.join(sorted(unknown))}")
+        cases = [(case, prior) for case, prior in cases if case.name in args.case]
     reports: list[dict[str, Any]] = []
     with patch.object(socket.socket, "connect", side_effect=AssertionError("Unexpected network")):
         engine = MeikiRecognizer(model_directory(), device=args.device)
@@ -92,6 +100,7 @@ def main() -> None:
                     plans = {
                         "baseline": areas,
                         "paired": (union_bounds(areas[:2]), union_bounds(areas[2:])),
+                        "merged": (union_bounds(areas),),
                         "full": None,
                         "selected_raw": plan.areas,
                         "selected": plan.areas,

@@ -38,6 +38,8 @@ need normal desktop/local-socket permissions outside a restricted sandbox. That 
 requirement, not evidence of game compatibility. Each tool owns a deadline and drains its resources.
 Read its `--help` before selecting options. Use separate task-owned `--output artifacts/<slice>/...`
 paths and disposable state/cache roots; do not overwrite user preferences or preparation receipts.
+Use the native Windows Qt platform for Japanese image fixtures. The offscreen platform can lack system
+fonts and render missing-glyph boxes; the regional corpus rejects that configuration explicitly.
 
 Model files must already be installed explicitly. Never download automatically to satisfy a check.
 Do not run real cloud provider calls, use personal tokens, or trigger charges in automated checks.
@@ -100,6 +102,9 @@ hints across repeated observations. Preserve JSON raw regions, character scores,
 selected plans and phase timings. This corpus does not replace the live retention/slow-worker checks
 above or establish general game accuracy. `benchmark_regions.py` retains the original four-case
 separate/paired/merged/full comparison. OCR consensus remains a separate, non-production experiment.
+The scan corpus includes five/eight compact demands and five widely separated demands. Use repeatable
+`--case` filters for investigation; candidate merged timings do not authorize relaxing the production
+crop limit. Compare individual target errors and actual coverage as well as total time.
 
 `tools/verify_ocr.py --dense` uses synthetic 4K labels and reports actual detection count, raw
 text/boxes, OCR and visual costs. It alternates full scans and a padded regional crop, checking

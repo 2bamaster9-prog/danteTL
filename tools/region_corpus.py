@@ -4,7 +4,7 @@ import unicodedata
 from dataclasses import dataclass
 from math import ceil, floor
 
-from PySide6.QtGui import QColor, QFont, QFontMetricsF, QImage, QPainter
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QFontMetricsF, QImage, QPainter
 
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
 from dantejp.ocr.regions import intersects
@@ -32,6 +32,8 @@ class Case:
     multiline: bool = False
     mixed: bool = False
     offset: tuple[int, int] = (0, 0)
+    positions: tuple[tuple[int, int], ...] | None = None
+    crop_size: tuple[int, int] = (320, 108)
     phrases: tuple[str, ...] = (
         "旅の準備をしよう。",
         "新しい冒険が始まる。",
@@ -57,6 +59,28 @@ CASES = (
     Case("1440p", size=(2560, 1440)),
     Case("4k", size=(3840, 2160)),
     Case("4k_small", size=(3840, 2160), font=14),
+    Case(
+        "five_compact",
+        font=18,
+        crop_size=(120, 70),
+        positions=tuple((100 + i * 130, 500) for i in range(5)),
+        phrases=("設定", "旅人", "西門", "東門", "所持金"),
+    ),
+    Case(
+        "eight_compact",
+        font=18,
+        crop_size=(120, 70),
+        dense=True,
+        positions=tuple((100 + i % 4 * 130, 100 + i // 4 * 85) for i in range(8)),
+        phrases=("設定", "旅人", "西門", "東門", "所持金", "時間", "攻撃力", "冒険"),
+    ),
+    Case(
+        "five_spread",
+        font=18,
+        crop_size=(120, 70),
+        positions=((100, 100), (1600, 100), (100, 800), (1600, 800), (800, 450)),
+        phrases=("設定", "旅人", "西門", "東門", "所持金"),
+    ),
     Case(
         "digits",
         phrases=(
@@ -89,6 +113,11 @@ CASES = (
 
 
 def fixture(case: Case) -> tuple[CapturedFrame, tuple[Rect, ...], tuple[Target, ...]]:
+    if not QFontDatabase.hasFamily("Yu Gothic UI"):
+        raise RuntimeError(
+            "The Japanese fixture font is unavailable. Use the Windows Qt platform, "
+            "not QT_QPA_PLATFORM=offscreen; missing-glyph scans cannot validate OCR."
+        )
     width, height = case.size
     factor = width / 1920
     image = QImage(width, height, QImage.Format.Format_RGB32)
@@ -121,7 +150,7 @@ def fixture(case: Case) -> tuple[CapturedFrame, tuple[Rect, ...], tuple[Target, 
                 )
             )
 
-    positions = (
+    positions = case.positions or (
         (100, 100),
         (1400 if case.spread else 470, 100),
         (100, 800 if case.spread else 270),
@@ -130,7 +159,7 @@ def fixture(case: Case) -> tuple[CapturedFrame, tuple[Rect, ...], tuple[Target, 
     areas = []
     for i, ((x, y), phrase) in enumerate(zip(positions, case.phrases, strict=True)):
         x, y = round((x + case.offset[0]) * factor), round((y + case.offset[1]) * factor)
-        box = Rect(x, y, round(320 * factor), round(108 * factor))
+        box = Rect(x, y, round(case.crop_size[0] * factor), round(case.crop_size[1] * factor))
         pixels = round((16 if case.mixed and i == 3 else case.font) * factor)
         if case.vertical:
             box = Rect(x, y, round(100 * factor), round(155 * factor))
