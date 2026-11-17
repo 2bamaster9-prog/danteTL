@@ -1,6 +1,7 @@
 """Bounded dialogue grouping over stable lines, independent of Qt and model runtimes."""
 
 import re
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass, field, replace
 from statistics import median
 
@@ -320,6 +321,136 @@ def _row_fragments(
     return row
 
 
+def _same_row(previous: TextTrack, current: TextTrack) -> bool:
+    a, b = previous.bounds, current.bounds
+    unit = min(a.height, b.height)
+    return (
+        previous.text == current.text
+        and abs(a.y - b.y) <= unit * 0.25
+        and abs(a.height - b.height) <= unit * 0.25
+        and abs(a.x - b.x) <= unit * 0.5
+        and abs(a.x + a.width - b.x - b.width) <= unit * 0.5
+    )
+
+
+def _supported_row(
+    row: TextTrack, parts: tuple[TextTrack, ...], nearby: tuple[TextTrack, ...]
+) -> bool:
+    """Infer a new horizontal join only at character-like spacing inside wrapped prose."""
+    if len(row.text) < 10 or (
+        all(len(t.text.strip()) < 10 for t in parts)
+        and row.bounds.width <= row.bounds.height * 6.5 * len(parts)
+        and not _internal_prose(row.text)
+        and not _QUOTE.match(row.text)
+    ):
+        # A strip of compact labels above body text can fill precisely the same width.
+        # Only an intact observation can disambiguate such an unmarked pair.
+        return False
+    for left, right in zip(parts, parts[1:], strict=False):
+        a, b = left.bounds, right.bounds
+        # Ink-box width per character estimates pitch on the first observation.
+        pitch = min(a.height, b.height, a.width / len(left.text), b.width / len(right.text))
+        if b.x - (a.x + a.width) > pitch * 0.35:
+            return False
+
+    a = row.bounds
+    supporting: list[TextTrack] = []
+    for t in nearby:
+        b = t.bounds
+        if _item_start(t.text.lstrip()) or abs(a.x - b.x) > a.height * 0.75:
+            continue
+        if not (a.height * 0.75 <= abs(a.y - b.y) <= a.height * 3.8):
+            continue
+        if max(a.height, b.height) > min(a.height, b.height) * 1.3:
+            continue
+        # An intact body row should extend across the seam and occupy this column.
+        right_edge = b.x + b.width
+        ragged_ending = (
+            b.y > a.y
+            and t.text.rstrip().endswith(_END)
+            and parts[-1].bounds.x + a.height <= right_edge <= a.x + a.width
+        )
+        if ragged_ending or abs((a.x + a.width) - right_edge) <= a.height * 1.5:
+            supporting.append(t)
+    adjacent = [t for t in supporting if _can_follow(row, t) or _can_follow(t, row)]
+    below = sum(t.bounds.y > a.y for t in adjacent)
+    if below > 1 or len(adjacent) - below > 1:
+        return False
+    if len(adjacent) == 2:
+        return True  # An intact row on either side supports the same column.
+    return any(
+        _dialogue_evidence((row, t) if a.y < t.bounds.y else (t, row))
+        or any(_can_follow(t, other) or _can_follow(other, t) for other in supporting)
+        for t in adjacent
+    )
+
+
+def _physical_rows(
+    tracks: tuple[TextTrack, ...], previous: dict[int, TextTrack]
+) -> dict[TextTrack, tuple[TextTrack, ...]]:
+    """Find unambiguous left-to-right chains before walking the paragraph top-to-bottom."""
+    ordered = sorted(
+        (t for t in tracks if not t.vertical and min(t.bounds.size) > 0 and has_japanese(t.text)),
+        key=lambda t: t.bounds.y + t.bounds.height / 2,
+    )
+    centers = [t.bounds.y + t.bounds.height / 2 for t in ordered]
+
+    def near(center: float, radius: float) -> list[TextTrack]:
+        return ordered[
+            bisect_left(centers, center - radius) : bisect_right(centers, center + radius)
+        ]
+
+    successors: dict[TextTrack, TextTrack | None] = {}
+    predecessors: dict[TextTrack, int] = {}
+    for center, right in zip(centers, ordered, strict=True):
+        b = right.bounds
+        text = right.text.lstrip()
+        if _item_start(text) or _QUOTE.match(text):
+            continue
+        lefts = []
+        for left in near(center, b.height * 0.25):
+            a = left.bounds
+            unit = min(a.height, b.height)
+            if (
+                0 <= b.x - a.x - a.width <= unit * 0.8
+                and max(a.height, b.height) <= unit * 1.3
+                and abs(center - a.y - a.height / 2) <= unit * 0.25
+                and not _item_start(left.text.lstrip())
+            ):
+                lefts.append(left)
+        # Cut the edge at a recurring column margin, preserving joins inside either column.
+        if not lefts or any(
+            abs(t.bounds.x - b.x) <= b.height * 0.5 and abs(t.bounds.y - b.y) >= b.height * 0.75
+            for t in near(center, b.height * 2)
+        ):
+            continue
+        predecessors[right] = len(lefts)
+        for left in lefts:
+            successors[left] = None if left in successors else right
+
+    rows = {}
+    for first in successors:
+        if first in predecessors:
+            continue
+        chain = [first]
+        while (following := successors.get(chain[-1])) and predecessors[following] == 1:
+            chain.append(following)
+        if len(chain) < 2 or chain[-1] in successors:
+            continue
+        parts = tuple(chain)
+        row = replace(
+            first, text=join_lines(parts), bounds=union_bounds(tuple(t.bounds for t in parts))
+        )
+        if len(row.text) > 512:
+            continue
+        center = row.bounds.y + row.bounds.height / 2
+        if any(
+            (old := previous.get(t.track_id)) is not None and _same_row(old, row) for t in parts
+        ) or _supported_row(row, parts, tuple(near(center, row.bounds.height * 4))):
+            rows[row] = parts
+    return rows
+
+
 def _quote_openings(
     rows: list[TextTrack], dash_edges: dict[TextTrack, int]
 ) -> dict[int, tuple[TextTrack, int]]:
@@ -488,10 +619,42 @@ class DialogueGrouper:
             | None
         ) = None
         self._layout: tuple[TextBlock, ...] = ()
+        self._prior_rows: dict[int, TextTrack] = {}
+        self._fragment_ids: set[int] = set()
 
     def reset(self) -> None:
         self._since.clear()
         self._layout_key, self._layout = None, ()
+        self._prior_rows.clear()
+        self._fragment_ids.clear()
+
+    def _regroup(
+        self,
+        tracks: tuple[TextTrack, ...],
+        enabled: bool,
+        growing: frozenset[int],
+        dash_edges: dict[TextTrack, int],
+    ) -> tuple[TextBlock, ...]:
+        rows = _physical_rows(tracks, self._prior_rows) if enabled else {}
+        self._fragment_ids = {t.track_id for parts in rows.values() for t in parts}
+        # Carry intact-row evidence only through an exact reconstruction in this scene.
+        self._prior_rows = {
+            t.track_id: old
+            for row, parts in rows.items()
+            for t in parts
+            if (old := self._prior_rows.get(t.track_id)) and _same_row(old, row)
+        }
+        physical = tuple(t for t in tracks if t.track_id not in self._fragment_ids) + tuple(rows)
+        row_growth = growing | {
+            row.track_id for row, parts in rows.items() if any(t.track_id in growing for t in parts)
+        }
+        blocks = _blocks(physical, enabled, row_growth, dash_edges)
+        if not rows:
+            return blocks
+        return tuple(
+            TextBlock(tuple(t for row in b.lines for t in rows.get(row, (row,))), b.dialogue)
+            for b in blocks
+        )
 
     def update(
         self,
@@ -517,8 +680,17 @@ class DialogueGrouper:
         dash_edges = dash_edges or {}
         layout_key = (layout, enabled, growing, tuple(dash_edges.items()))
         if layout_key != self._layout_key:
-            self._layout = _blocks(layout[:128], enabled, growing, dash_edges)
+            self._layout = self._regroup(layout[:128], enabled, growing, dash_edges)
             self._layout_key = layout_key
+        if enabled:
+            self._prior_rows.update(
+                (t.track_id, t)
+                for t in confirmed[:128]
+                if not t.vertical
+                and t.track_id not in self._fragment_ids
+                and displayed.get(t.track_id) == t
+                and not ((value := observed.get(t.track_id)) and value.pending)
+            )
         blocks = tuple(
             TextBlock(tuple(displayed[t.track_id] for t in b.lines), dialogue=b.dialogue)
             for b in self._layout

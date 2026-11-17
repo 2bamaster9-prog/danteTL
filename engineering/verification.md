@@ -137,6 +137,8 @@ Grouping replays also cover long profile paragraphs and full/regional OCR quote 
 damaged brackets and hanging marks, through tracking/publication as well as scaled/reordered boxes.
 Replay identical quote pixels with the leading dash recognized and omitted. Check exact source text
 and bounds, adjacent choices and single-row rescans with the stroke still present or removed.
+Replay first- and second-row splits across scales, including partial confirmation and an intact
+row splitting between scans. Check compact buttons above prose and adjacent columns independently.
 Equipment-panel replays keep headings and item labels separate, include numeric percentage tails,
 cover full-frame and cropped readings where OCR turns a plus into a colon,
 and preserve group membership across full/cropped icon readings. Replay a noisy numeric operator

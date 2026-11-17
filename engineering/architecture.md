@@ -209,6 +209,11 @@ Japanese clause. In a column of wrapped prose, two successive row centers predic
 position of the next row. This supports shorter percentage glyphs and noisy operators at
 the body margin. The same spacing can support a hanging labelled opening even when the
 final value is unreadable. Group using that evidence and keep the exact OCR text in the request.
+Before grouping paragraphs, reconstruct split horizontal rows in reading order. Close fragments
+need an unambiguous baseline and support from neighboring prose or a previously confirmed intact
+row with matching text, position and a surviving track ID. Recurring column margins and choice
+markers separate neighbors. Use reconstructed geometry for layout and retain the original fragments
+for readiness, request identity and publication.
 Ordinary pending OCR cannot repartition committed blocks. Pending growth can reserve a continuation
 but cannot become translation source before commitment. Readiness uses source time; short labels
 avoid dialogue delays. Group sizing uses individual line heights, not whole paragraph height.

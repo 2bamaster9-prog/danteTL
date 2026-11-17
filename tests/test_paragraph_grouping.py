@@ -191,6 +191,136 @@ def test_split_detection_in_a_long_paragraph_preserves_all_members():
     assert result.blocks[0].lines == tracks
 
 
+@pytest.mark.parametrize("rows,count", [(ARCHER, 8), (SABER, 5)])
+@pytest.mark.parametrize("split_index", [0, 1])
+@pytest.mark.parametrize("scale", [0.5, 0.75, 1, 1.5])
+def test_split_opening_rows_recover_complete_source_and_exact_members(
+    rows, count, split_index, scale
+):
+    intact = panel(rows, scale)[1 : count + 1]
+    t = intact[split_index]
+    cut = len(t.text) // 2
+    width = round(t.bounds.width * cut / len(t.text))
+    gap = round(12 * scale)
+    left = replace(t, text=t.text[:cut], bounds=replace(t.bounds, width=width))
+    right = replace(
+        t,
+        track_id=100,
+        text=t.text[cut:],
+        bounds=replace(
+            t.bounds,
+            x=t.bounds.x + width + gap,
+            y=t.bounds.y - 1,
+            width=t.bounds.width - width - gap,
+        ),
+    )
+    lines = (*intact[:split_index], left, right, *intact[split_index + 1 :])
+    owner = DialogueGrouper()
+    activity = tuple(TextActivity(line, 0, False, False) for line in lines)
+    pending = owner.update(
+        lines[::-1], tuple(line for line in lines if line != right), 1, activity=activity
+    )
+    assert [b.lines for b in pending.blocks] == [lines] and not pending.ready
+    ready = owner.update(lines, lines, 1, activity=activity)
+    request = TranslationRequest.from_block(ready.ready[0])
+    assert request.source == "".join(line.text for line in intact)
+    assert request.line_sources == tuple(
+        (line.track_id, line.text_revision, line.text) for line in lines
+    )
+    assert len(owner.update(lines, lines, 2, enabled=False).blocks) == len(lines)
+
+
+@pytest.mark.parametrize(
+    "layout", ["buttons", "buttons_above_body", "close_columns", "marked_choices"]
+)
+def test_opening_row_reconstruction_keeps_controls_and_columns_separate(layout):
+    # The body below the controls occupies exactly their combined width.
+    def line(key, text, x, y, width):
+        return TextTrack(key, text, Rect(x, y, width, 40))
+
+    a = line(1, "冒険を保存する", 100, 100, 240)
+    b = line(2, "冒険を再開する", 346, 100, 240)
+    body = (
+        line(3, "ここで保存した冒険について、", 100, 156, 486),
+        line(4, "下の一覧から選んでください。", 100, 212, 486),
+    )
+    if layout == "marked_choices":
+        a = replace(a, text="◆冒険を保存する")
+        b = replace(b, text="◆冒険を再開する", bounds=replace(b.bounds, x=345))
+    if layout == "buttons":
+        more = (
+            replace(a, track_id=3, bounds=replace(a.bounds, y=156)),
+            replace(b, track_id=4, bounds=replace(b.bounds, y=156)),
+        )
+        expected = [(a,), (b,), (more[0],), (more[1],)]
+    elif layout == "close_columns":
+        # Both paragraphs have their own continuation, with a narrow repeated gutter.
+        a = replace(a, text="これは左側の説明文であり、")
+        b = replace(b, text="これは右側の説明文であり、", bounds=replace(b.bounds, x=345))
+        more = (
+            line(3, "この列で終わります。", 100, 156, 220),
+            line(4, "ここで説明を終えます。", 345, 156, 220),
+        )
+        expected = [(a, more[0]), (b, more[1])]
+    else:
+        more = body
+        expected = [(a,), (b,), body]
+    tracks = (a, b, *more)
+    result = DialogueGrouper().update(tracks[::-1], tracks, 1)
+    assert [block.lines for block in result.blocks] == expected
+
+
+def test_exact_prior_intact_row_supports_ambiguous_split_until_source_or_scene_changes():
+    original = TextTrack(1, "ここで冒険を再開します", Rect(100, 100, 400, 40))
+    left = replace(original, text="ここで冒険を", bounds=Rect(100, 100, 196, 40), text_revision=2)
+    right = TextTrack(2, "再開します", Rect(322, 100, 178, 40))
+    tracks = (left, right)
+    owner = DialogueGrouper()
+    owner.update((original,), (), 0)
+    assert len(owner.update(tracks, tracks, 1).blocks) == 2  # Unconfirmed history cannot join.
+    owner.update((original,), (original,), 2)
+    assert [b.lines for b in owner.update(tracks, tracks, 3).blocks] == [tracks]
+    assert [b.lines for b in owner.update(tracks[::-1], tracks, 4).blocks] == [tracks]
+    edited = (left, replace(right, text="保存します", text_revision=2))
+    assert len(owner.update(edited, edited, 5).blocks) == 2
+    owner.update((original,), (original,), 6)
+    owner.reset()
+    assert len(owner.update(tracks, tracks, 7).blocks) == 2
+
+
+def test_live_split_opening_beside_second_column_publishes_exact_current_members():
+    left = (
+        TextRegion("この長い旅の", Rect(100, 100, 300, 40)),
+        TextRegion("続きを読みましょう、", Rect(408, 99, 392, 40)),
+        TextRegion("新しい景色を一緒に見ながら、", Rect(100, 156, 700, 40)),
+        TextRegion("もう少し歩いて行きましょう。", Rect(100, 212, 700, 40)),
+    )
+    right = (
+        TextRegion("こちらに表示される説明は、", Rect(808, 100, 600, 40)),
+        TextRegion("別の物語についてのものです。", Rect(808, 156, 580, 40)),
+    )
+    replay = Replay()
+    for seq in (1, 2):
+        scene = replay.observe(source_frame(seq), (*right, *left)[::-1])
+    expected = ["".join(r.text for r in column) for column in (left, right)]
+    assert [block.text for block in scene.requests] == expected
+    requests = tuple(TranslationRequest.from_block(b) for b in scene.requests)
+    assert [[text for _, _, text in req.line_sources] for req in requests] == [
+        [r.text for r in column] for column in (left, right)
+    ]
+    backend = Mock()
+    backend.snapshot.return_value = TranslationSnapshot(
+        TranslationState.READY,
+        tuple(TranslatedText(req, f"Column {i}") for i, req in enumerate(requests)),
+    )
+    assert len(replay.live.publish(backend, scene.requests, scene.blocks).translations) == 2
+    changed = (left[0], replace(left[1], text="別の話を始めましょう、"), *left[2:])
+    for seq in (3, 4):
+        scene = replay.observe(source_frame(seq), (*changed, *right))
+    english = replay.live.publish(backend, scene.requests, scene.blocks)
+    assert [t.request for t in english.translations] == [requests[1]]
+
+
 @pytest.mark.parametrize("ending,separate", [("――", False), ("。", True)])
 def test_ragged_dash_is_continuation_but_ragged_sentence_end_starts_a_new_paragraph(
     ending, separate
