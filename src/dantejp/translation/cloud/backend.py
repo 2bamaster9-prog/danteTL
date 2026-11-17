@@ -5,6 +5,7 @@ import hashlib
 import json
 import threading
 import time
+from collections import deque
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 
@@ -48,21 +49,56 @@ class CloudAllowance:
         self._lock = threading.Lock()
         self._usage = CloudUsage()
         self._next_call = 0.0
+        self._waiting: deque[object] = deque()
 
     def snapshot(self) -> CloudUsage:
         with self._lock:
             return self._usage
 
-    def reserve(self, profile: CloudProfile, now: float) -> float:
+    async def admit(
+        self,
+        profile: CloudProfile,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+        check: Callable[[], None] = lambda: None,
+    ) -> None:
+        """Pace FIFO dispatch across owners; unsent cancellations cost no allowance.
+
+        The lock protects shared counters across independent backend I/O loops.
+        Only pending calls poll, normally every 50 ms; asyncio cancellation
+        interrupts the wait immediately. No lock is held over an await or HTTP.
+        """
+        ticket = object()
         with self._lock:
-            if self._usage.requests >= profile.request_limit:
-                raise RequestRejected("Cloud request limit reached for this app run. Open Models.")
-            self._usage = CloudUsage(
-                self._usage.requests + 1, self._usage.input_tokens, self._usage.output_tokens
-            )
-            start = max(now, self._next_call)
-            self._next_call = start + 60 / profile.requests_per_minute
-            return max(0.0, start - now)
+            if len(self._waiting) >= 16:
+                raise RequestRejected(
+                    "Cloud request queue is full. Retry after pending work finishes."
+                )
+            self._waiting.append(ticket)
+        try:
+            while True:
+                check()
+                with self._lock:
+                    if self._usage.requests >= profile.request_limit:
+                        raise RequestRejected(
+                            "Cloud request limit reached for this app run. Open Models."
+                        )
+                    delay = self._next_call - clock()
+                    if self._waiting[0] is ticket and delay <= 0:
+                        # This is the dispatch boundary, not the start of a wait.
+                        check()
+                        self._usage = CloudUsage(
+                            self._usage.requests + 1,
+                            self._usage.input_tokens,
+                            self._usage.output_tokens,
+                        )
+                        self._next_call = clock() + 60 / profile.requests_per_minute
+                        return
+                    wait = min(0.05, max(0.005, delay)) if self._waiting[0] is ticket else 0.05
+                await asyncio.sleep(wait)
+        finally:
+            with self._lock:
+                self._waiting.remove(ticket)
 
     def record(self, value: object) -> None:
         if not isinstance(value, dict):
@@ -204,11 +240,14 @@ class CloudBackend:
             except (ValueError, OSError) as error:
                 self._blocked = str(error)
                 raise RequestRejected(self._blocked) from error
-        for attempt in range(2):
-            delay = self._allowance.reserve(self._profile, self._clock())
-            await asyncio.sleep(delay)
+
+        def check_dispatch() -> None:
+            work.check()
             if self._blocked:
                 raise RequestRejected(self._blocked)
+
+        for attempt in range(2):
+            await self._allowance.admit(self._profile, clock=self._clock, check=check_dispatch)
             try:
                 async with asyncio.timeout(self._timeout):
                     async with self._client.stream(

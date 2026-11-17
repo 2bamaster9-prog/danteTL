@@ -1,5 +1,6 @@
 """Cloud ownership regressions run without constructing any widgets."""
 
+import asyncio
 import subprocess
 import sys
 import threading
@@ -61,7 +62,7 @@ def test_save_remove_and_usage_are_application_owned_without_a_view(tmp_path):
     assert not initial.profiles and not initial.available
     assert secrets.threads and threading.get_ident() not in secrets.threads
     allowance = service.allowance(profile.key)
-    allowance.reserve(profile, 10)
+    asyncio.run(allowance.admit(profile, clock=lambda: 10))
     renamed = replace(saved.profiles[0], name="Renamed")
     service.save(CloudDraft(renamed, renamed.credential_key, ""))
     finish(service)

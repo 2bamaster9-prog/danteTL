@@ -256,7 +256,10 @@ connections; Forget/sign-out are explicit. Catalog failure preserves saved data 
 Draft Save commits; Cancel discards edits. Credentials never enter prompts, ordinary JSON, logs or fixtures.
 Usage is per saved model for the current app run, shared across backend recreation, translation and
 classification. The selected model's label updates independently of configuration revisions. Cache
-hits reserve no requests; token totals count only provider-reported usage and are not billing totals.
+hits reserve no requests. A bounded FIFO admission queue paces shared dispatch across backend owners;
+cancelled or expired waits consume no request allowance or future slot. Count requests at dispatch,
+including retries and calls cancelled after dispatch. Token totals count only provider-reported usage
+and are not billing totals.
 
 API keys use Windows Credential Manager; OAuth uses user-bound DPAPI/account-bound encrypted envelopes.
 OAuth uses the system browser, exclusive random loopback port, PKCE S256, state/nonce and validated

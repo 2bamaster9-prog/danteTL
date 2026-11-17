@@ -1,3 +1,4 @@
+import asyncio
 import os
 import threading
 import time
@@ -76,7 +77,7 @@ def test_usage_label_names_selected_model_and_switches_without_configuration_cha
     try:
         service = cloud_owner(panel)
         revision = service.revision
-        service.allowance(second.key).reserve(second, 1)
+        asyncio.run(service.allowance(second.key).admit(second, clock=lambda: 1))
         service.allowance(second.key).record({"input_tokens": 25, "output_tokens": 3})
         panel.refresh_view()
         panel.table.selectRow(0)

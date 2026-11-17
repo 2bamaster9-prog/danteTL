@@ -1,6 +1,7 @@
 """Native cloud settings/routing layout with isolated fake accounts; no provider calls."""
 
 import argparse
+import asyncio
 import json
 import tempfile
 import time
@@ -136,7 +137,7 @@ def main() -> None:
             window._settings.grab().save(str(args.output / "models-list.png"))
             # Simulate reported usage at the application-owned meter, without sending
             # any provider request or changing the configuration revision.
-            service.allowance(profile.key).reserve(profile, time.monotonic())
+            asyncio.run(service.allowance(profile.key).admit(profile))
             service.allowance(profile.key).record({"input_tokens": 123, "output_tokens": 7})
             drain(app, lambda: "123 input / 7 output" in panel.usage.text())
             assert profile.name in panel.usage.text() and "1/1000" in panel.usage.text()
