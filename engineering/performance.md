@@ -28,3 +28,6 @@ Tracking similarity uses the bit-parallel LCS recurrence of
 This differs from [SequenceMatcher's alignment heuristic](https://docs.python.org/3/library/difflib.html):
 validate assignment/retention replays, not just scores or speed. The implementation reuses character
 masks within one spatially bounded matching pass and adds no native dependency.
+SQLite eviction uses a transactional row count and indexed excess-row deletion because
+[OFFSET traverses skipped rows](https://www.sqlite.org/rowvalue.html#scrolling_window_queries).
+Measure full cache operations and hot-entry survival, not only the eviction query.
