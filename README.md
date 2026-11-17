@@ -91,7 +91,8 @@ window; the capture shortcut uses the focused window by default.
 - **Inspection and diagnostics** shows the recognized Japanese and full English translations.
   Pause it to review or copy text while the game overlay continues updating.
 - **Settings → Experimental → Dialogue history** enables the optional reader. It is **off by
-  default**, remembers your opt-in, and can still misidentify dialogue or speakers. Cloud
+  default**. Once enabled, open **Dialogue** beside the Settings gear to read recent turns.
+  DanteJP remembers your opt-in. The reader can still misidentify dialogue or speakers. Cloud
   classifiers make additional requests using your provider allowance.
 - To record or share the translated view, use display/entire-screen capture; game-only capture
   may omit the separate overlay. Keep **Include in screen capture** enabled.

@@ -15,6 +15,8 @@ data = [
     (str(root / name), "app") for name in ("pyproject.toml", "uv.lock", ".python-version")
 ]
 data += [(str(root / "packaging/standalone.json"), "app")]
+icons = root / "src/dantejp/ui/icons"
+data += [(str(icons), "dantejp/ui/icons")]
 app_version = tomllib.loads((root / "pyproject.toml").read_text("utf-8"))["project"]["version"]
 app_wheel = f"dantejp-{app_version}-py3-none-any.whl"
 data += [(str(root / "dist" / name), "app/application") for name in (app_wheel, app_wheel + ".sha256")]
@@ -48,6 +50,6 @@ a = Analysis(
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz, a.scripts, [], exclude_binaries=True, name="DanteJP",
-    console=False, disable_windowed_traceback=True, upx=False,
+    console=False, disable_windowed_traceback=True, upx=False, icon=str(icons / "dantejp.ico"),
 )
 app = COLLECT(exe, a.binaries, a.datas, name="DanteJP", upx=False)

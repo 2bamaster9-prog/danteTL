@@ -181,7 +181,7 @@ class SettingsWindow(QDialog):
             "be inaccurate. Disabled by default; your choice is saved.",
         )
         history_note = QLabel(
-            "When enabled, open Dialogue history beside Settings to choose a classifier model "
+            "When enabled, open Dialogue beside the Settings gear to choose a classifier model "
             "and read recent turns. Cloud classifiers use your plan/API allowance."
         )
         history_note.setWordWrap(True)

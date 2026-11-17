@@ -7,7 +7,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from PySide6.QtCore import QSignalBlocker, QSize, Qt, QTimer, QUrl
-from PySide6.QtGui import QCloseEvent, QDesktopServices
+from PySide6.QtGui import QCloseEvent, QDesktopServices, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -38,6 +38,7 @@ from dantejp.ui.controls import CaptureButton, OverlayToggleLayout, StatusBanner
 from dantejp.ui.desktop_driver import DesktopDriver
 from dantejp.ui.diagnostics import debug_display
 from dantejp.ui.history_panel import HistoryPanel
+from dantejp.ui.icons import APP_ICON, ICON_DIR
 from dantejp.ui.inspection import OcrInspector
 from dantejp.ui.main_sections import MainSections
 from dantejp.ui.model_manager import ModelManager
@@ -141,21 +142,25 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(14)
         header = QHBoxLayout()
-        title = QVBoxLayout()
+        logo = QLabel()
+        logo.setPixmap(QIcon(str(APP_ICON)).pixmap(QSize(40, 40), self.devicePixelRatioF()))
+        header.addWidget(logo)
         heading = QLabel("DanteJP")
         heading.setObjectName("heading")
-        title.addWidget(heading)
-        header.addLayout(title, 1)
+        header.addWidget(heading, 1)
         self.history_panel = HistoryPanel(
             lambda: self.application.history_turns, self.application.clear_history, self
         )
-        self.history_button = QPushButton("Dialogue history")
+        self.history_button = QPushButton(QIcon(str(ICON_DIR / "dialogue.svg")), "Dialogue")
+        self.history_button.setAccessibleName("Dialogue history")
         self.history_button.setToolTip(
             "Experimental: read the last 20 dialogue turns. This does not change model context."
         )
         self.history_button.clicked.connect(self.history_panel.open_reader)
         header.addWidget(self.history_button)
-        self.settings_button = QPushButton("Settings…")
+        self.settings_button = QPushButton(QIcon(str(ICON_DIR / "settings.svg")), "")
+        self.settings_button.setAccessibleName("Settings")
+        self.settings_button.setToolTip("Settings")
         self.settings_button.clicked.connect(self._show_settings)
         header.addWidget(self.settings_button)
         layout.addLayout(header)

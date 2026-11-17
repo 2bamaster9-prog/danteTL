@@ -8,6 +8,7 @@ from pathlib import Path
 
 import shiboken6
 from PySide6.QtCore import QPoint, Qt, QTimer
+from PySide6.QtGui import QAccessible
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 from verification_isolation import app_owner
@@ -96,7 +97,11 @@ def main() -> int:
                         window.onboarding.isVisible() and "not downloaded" in window.notice.text()
                     )
                     assert window.onboarding.property("tone") == "warning"
-                window.settings_button.click()
+                gear = window.settings_button
+                accessible = QAccessible.queryAccessibleInterface(gear)
+                assert accessible and accessible.text(QAccessible.Text.Name) == "Settings"
+                assert not gear.text() and gear.toolTip() and not gear.icon().pixmap(16).isNull()
+                QTest.keyClick(gear, Qt.Key.Key_Space)
                 stage = 1
             elif stage == 1:
                 assert settings.isVisible() and not settings.isModal()
@@ -117,7 +122,12 @@ def main() -> int:
                 settings.grab().save(str(args.output / "experimental.png"))
                 QTest.keyClick(settings.history_enabled, Qt.Key.Key_Space)
                 assert window.history_button.isVisible() and application.live.history_enabled
-                window.history_button.click()
+                dialogue = window.history_button
+                accessible = QAccessible.queryAccessibleInterface(dialogue)
+                assert accessible and accessible.text(QAccessible.Text.Name) == "Dialogue history"
+                assert dialogue.text() == "Dialogue" and not dialogue.icon().pixmap(16).isNull()
+                window.grab().save(str(args.output / "main-dialogue.png"))
+                QTest.keyClick(dialogue, Qt.Key.Key_Space)
                 assert window.history_panel.isVisible()
                 QTest.keyClick(settings.history_enabled, Qt.Key.Key_Space)
                 assert (

@@ -28,7 +28,8 @@ plus other app dependencies. Model downloads are separate. If upgrading from the
 older dual-CUDA package, install the new runtime in Acceleration and restart once;
 your existing models are reused.
 Capture and recognition work without model downloads. Translation needs a chosen translator.
-Dialogue history beside Settings keeps the last 20 completed conversation turns, independently
+Enable Dialogue history in Settings > Experimental, then open Dialogue beside the Settings gear.
+The reader keeps the last 20 completed conversation turns, independently
 of model context. Close the reader without stopping collection; Clear empties it. A new capture
 starts a fresh history. Nothing is written to disk. Lower-screen dialogue with a nearby speaker
 label is recognized conservatively; uncertain names show Unknown speaker and ambiguous UI is skipped.

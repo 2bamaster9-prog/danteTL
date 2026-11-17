@@ -45,6 +45,7 @@ def main() -> None:
     configure_logging()
     import shiboken6
     from PySide6.QtCore import QTimer
+    from PySide6.QtGui import QIcon
     from PySide6.QtWidgets import QApplication, QMessageBox
 
     from dantejp.application.hotkeys import Hotkeys
@@ -60,12 +61,14 @@ def main() -> None:
     from dantejp.runtime.setup import project_root
     from dantejp.ui.desktop_driver import DesktopDriver
     from dantejp.ui.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
+    from dantejp.ui.icons import APP_ICON
     from dantejp.ui.main_window import MainWindow
 
     windows = Windows()
     windows.enable_dpi_awareness()
     app = QApplication(sys.argv)
     app.setApplicationName("DanteJP")
+    app.setWindowIcon(QIcon(str(APP_ICON)))
     app.setOrganizationName("DanteJP")
 
     def report_exception(
