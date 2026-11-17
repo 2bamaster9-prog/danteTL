@@ -142,7 +142,9 @@ are replaced. Retain per-line probe source sequences, whole-line closure and sin
 Artificial-edge detections trigger full fallback. Independent full-discovery deadlines cannot be delayed
 by typewriter activity elsewhere. `ScanPlanner` evaluates partitions of at most four areas using provider
 costs and bounded geometry/confidence hints. Unknown/weak/small/vertical cases retain the baseline.
-Changed plans need savings and glyph/coverage safeguards. If expected lines are not preserved, discard
+Changed plans need savings and glyph/coverage safeguards. Preservation requires a one-to-one matching
+covering expected lines, using geometry/orientation/confidence without old-text equality. One oversized
+detection cannot prove several lines survived. If expected lines are not preserved, discard
 the result and scan original demand on the same frame, temporarily reverting to baseline. Full discovery
 stays full. Publish only final raw output/actual coverage; reset hints with generation/provider/size.
 

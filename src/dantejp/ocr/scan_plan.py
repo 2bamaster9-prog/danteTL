@@ -10,6 +10,7 @@ from math import ceil
 
 from dantejp.domain import Rect, union_bounds
 from dantejp.ocr.regions import intersects, scan_regions
+from dantejp.ocr.track_assignment import assign_tracks
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,22 +185,23 @@ def choose_scan(
 
 def preserves_lines(expected: tuple[ScanLine, ...], observed: tuple[ScanLine, ...]) -> bool:
     """Conservative post-scan veto; failure means retry the original plan on that frame."""
-    for previous in expected:
+    if len(expected) > 128 or len(observed) > 512 or len(expected) > len(observed):
+        return False
+    candidates = []
+    for index, previous in enumerate(expected):
         a = previous.bounds
-        matches = []
-        for current in observed:
+        for detected, current in enumerate(observed):
             b = current.bounds
             width = max(0, min(a.x + a.width, b.x + b.width) - max(a.x, b.x))
             height = max(0, min(a.y + a.height, b.y + b.height) - max(a.y, b.y))
             if (
                 previous.vertical == current.vertical
                 and width * height >= a.width * a.height * 0.65
+                and min(*a.size, *b.size) > 0
+                and current.confidence is not None
+                and current.confidence >= min(0.85, (previous.confidence or 0.9) - 0.05)
             ):
-                matches.append(current)
-        if not any(
-            line.confidence is not None
-            and line.confidence >= min(0.85, (previous.confidence or 0.9) - 0.05)
-            for line in matches
-        ):
-            return False
-    return True
+                candidates.append((1.0, index, detected))
+    # Equal positive edges maximize cardinality. A large detection is still only
+    # one observation; it cannot prove that several original lines survived.
+    return len(assign_tracks(candidates, tuple(range(len(observed))))) == len(expected)

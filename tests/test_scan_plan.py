@@ -84,6 +84,46 @@ def test_guard_checks_orientation_coverage_and_confidence_but_not_prior_text():
     )
 
 
+def test_guard_requires_distinct_support_and_finds_a_covering_assignment():
+    first = ScanLine(Rect(20, 20, 120, 25), 0.98)
+    second = ScanLine(Rect(20, 65, 120, 25), 0.98)
+    spanning = ScanLine(Rect(20, 20, 120, 70), 0.98)
+    assert not preserves_lines((first, second), (spanning,))
+    # Greedily giving the spanning detection to the first line loses the valid
+    # assignment: first -> first, second -> spanning. Both orders must succeed.
+    assert preserves_lines((first, second), (spanning, first))
+    assert preserves_lines((second, first), (first, spanning))
+    unrelated = ScanLine(Rect(400, 20, 120, 25), 0.98)
+    assert not preserves_lines((first, second), (spanning, unrelated))
+
+
+def test_oversized_detection_retries_original_crops_without_publishing_lost_line():
+    viewport = Rect(0, 0, *SIZE)
+    frame = CapturedFrame(
+        9, 2.5, WindowGeometry(viewport, viewport, viewport, 96), bytes(1920 * 1080 * 4)
+    )
+    areas = (Rect(100, 100, 200, 80), Rect(100, 200, 200, 80))
+    expected = tuple(ScanLine(Rect(a.x + 20, a.y + 20, 150, 30), 0.98) for a in areas)
+    plan = ScanPlan((Rect(100, 100, 200, 180),), areas, expected)
+    calls = []
+
+    class Engine:
+        def recognize(self, source, *, cropped=False):
+            calls.append((source.sequence, source.captured_at, source.height))
+            box = Rect(20, 20, 150, 130 if source.height == 180 else 30)
+            text = "一行だけ" if source.height == 180 else "新しい文字"
+            return (TextRegion(text, box, (TextCharacter(text, box, 0.98),)),)
+
+        def close(self):
+            pass
+
+    rows, coverage, rejected = recognize_planned(Engine(), frame, plan)
+    assert rejected and coverage == areas
+    assert [r.text for r in rows] == ["新しい文字", "新しい文字"]
+    assert [r.bounds.y for r in rows] == [120, 220]
+    assert calls == [(9, 2.5, 180), (9, 2.5, 80), (9, 2.5, 80)]
+
+
 @pytest.mark.parametrize("failure", ["missing", "confidence", "edge"])
 def test_failed_candidate_discards_every_provisional_row_and_retries_same_source(failure):
     bounds = Rect(0, 0, *SIZE)
