@@ -6,11 +6,13 @@ its last committed position, rather than following every detector fluctuation.
 """
 
 import unicodedata
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from math import isfinite
 
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.ocr.lettering import Lettering, sample_lettering
 from dantejp.ocr.presence import EvidenceReader, PixelEvidence
+from dantejp.ocr.quote_dash import opening_dash_edges
 from dantejp.ocr.spatial import SpatialCandidates
 from dantejp.ocr.text_content import content_region
 from dantejp.ocr.text_distance import LcsSimilarity, within_edits
@@ -110,6 +112,25 @@ class _Track:
     review_attempts: int = 0
     visual_same: bool = False
     display_predecessor: TextTrack | None = None
+    # Only the accepted and most recent candidate can subsequently be displayed.
+    appearance: dict[tuple[str, Rect], tuple[int | None, Lettering | None]] = field(
+        default_factory=dict
+    )
+
+    def record_appearance(
+        self, region: TextRegion, edge: int | None, sample: Lettering | None
+    ) -> None:
+        accepted = (self.value.text, self.value.bounds)
+        kept = self.appearance.get(accepted)
+        self.appearance.clear()
+        if region.text == self.value.text and _edge_distance(
+            region.bounds, self.value.bounds
+        ) <= _deadband(region.bounds):
+            kept = (None if edge is None else edge + self.value.bounds.x - region.bounds.x, sample)
+        if kept is not None and kept != (None, None):
+            self.appearance[accepted] = kept
+        if edge is not None or sample is not None:
+            self.appearance[region.text, region.bounds] = (edge, sample)
 
     def seen(self, frame: CapturedFrame) -> None:
         self.last_seen, self.last_sequence = frame.captured_at, frame.sequence
@@ -256,6 +277,8 @@ class MatchingEvidence:
     regions: tuple[tuple[int, TextRegion], ...]
     normalized: tuple[tuple[int, str], ...]
     candidates: tuple[tuple[float, int, int], ...]
+    dash_edges: tuple[tuple[int, int], ...]
+    lettering: tuple[tuple[int, Lettering], ...]
 
     def matches(self, result: OcrResult, sources: tuple[TextTrack, ...], limit: int = 512) -> bool:
         frame = result.frame
@@ -298,6 +321,15 @@ def prepare_matching(
         tuple(regions),
         tuple(normalized.items()),
         tuple(candidates),
+        tuple(
+            opening_dash_edges(
+                frame,
+                result.regions,
+                regions,
+                tuple(t.bounds for t in sources if not t.vertical) if result.scanned else (),
+            ).items()
+        ),
+        sample_lettering(frame, regions),
     )
 
 
@@ -486,10 +518,15 @@ class TextTracker:
             assignments[index] = key
         # Capture a reference only for accepted content, never for a rejected candidate.
         # Missing-track checks run first so reference refresh cannot consume their budget.
+        dash_edges = dict(matching.dash_edges)
+        lettering = dict(matching.lettering)
         for index, key in enumerate(assignments):
             if key is None:
                 continue
             track = self._tracks[key]
+            track.record_appearance(
+                observations[index], dash_edges.get(index), lettering.get(index)
+            )
             if _normalized(observations[index].text) == _normalized(track.value.text):
                 digest = evidence.fingerprint(track.value.bounds)
                 track.presence = (
@@ -688,6 +725,23 @@ class TextTracker:
             )
             for track in self._tracks.values()
         )
+
+    def opening_dash_edges(self) -> dict[TextTrack, int]:
+        """Only offer pixel evidence for the committed reading and location."""
+        return {
+            track.value: edge
+            for track in self._tracks.values()
+            if (appearance := track.appearance.get((track.value.text, track.value.bounds)))
+            and (edge := appearance[0]) is not None
+        }
+
+    def lettering(self) -> dict[TextTrack, Lettering]:
+        return {
+            track.value: sample
+            for track in self._tracks.values()
+            if (appearance := track.appearance.get((track.value.text, track.value.bounds)))
+            and (sample := appearance[1]) is not None
+        }
 
     def confirm_visual(self, sequence: int, indices: tuple[int, ...], now: float) -> None:
         """Settle a current OCR reading whose expanded pixels stayed stable afterward.
