@@ -21,7 +21,7 @@ from dantejp.ui.setup_assistant import SetupAssistant
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import shiboken6  # noqa: E402
-from PySide6.QtCore import QCoreApplication, QEvent  # noqa: E402
+from PySide6.QtCore import QCoreApplication, QEvent, QPoint  # noqa: E402
 from PySide6.QtWidgets import QApplication, QMessageBox, QProgressDialog  # noqa: E402
 from ui_fixtures import create_window as MainWindow  # noqa: E402
 from ui_fixtures import find_model
@@ -1614,14 +1614,14 @@ def test_overlay_does_not_request_repaint_for_equivalent_track_values(app, monke
     repaint = Mock()
     monkeypatch.setattr(overlay, "update", repaint)
     track = TextTrack(17, "日本語", Rect(100, 200, 120, 30))
-    overlay.set_tracks((track,))
+    overlay.set_scene((track,))
     assert repaint.call_count == 1
     for _ in range(20):
-        overlay.set_tracks((replace(track),))
+        overlay.set_scene((replace(track),))
     assert repaint.call_count == 1
-    overlay.set_tracks((replace(track, bounds=Rect(120, 200, 120, 30)),))
+    overlay.set_scene((replace(track, bounds=Rect(120, 200, 120, 30)),))
     assert repaint.call_count == 2
-    overlay.set_tracks(())
+    overlay.set_scene(())
     assert repaint.call_count == 3
     overlay.close()
     overlay.deleteLater()
@@ -1631,14 +1631,40 @@ def test_debug_draws_without_translations_and_toggle_preserves_publication(app):
     overlay = OverlayWindow(Mock())
     overlay.resize(400, 300)
     overlay._bounds = Rect(0, 0, 400, 300)
-    overlay.set_tracks(())
-    overlay.set_translations((), enabled=True)
+    overlay.set_scene((), english=True)
     assert overlay.grab().toImage().pixelColor(210, 210).alpha() == 0
     overlay.set_debug(DebugDisplay((Rect(200, 200, 40, 40),), (), "Debug"))
     assert overlay.grab().toImage().pixelColor(210, 210).alpha() > 0
     assert overlay._translations == () and overlay._tracks == ()
     overlay.set_debug(None)
     assert overlay.grab().toImage().pixelColor(210, 210).alpha() == 0
+    overlay.close()
+    overlay.deleteLater()
+
+
+def test_english_scene_repaints_only_the_moved_box_and_keeps_its_neighbor(app, monkeypatch):
+    overlay = OverlayWindow(Mock())
+    overlay._bounds = Rect(0, 0, 700, 240)
+    overlay.resize(700, 240)
+    a = TextTrack(1, "攻撃", Rect(30, 40, 85, 28))
+    b = TextTrack(2, "設定", Rect(430, 40, 85, 28))
+    translations = tuple(
+        TranslatedText(TranslationRequest.from_track(t), word)
+        for t, word in ((a, "Attack"), (b, "Settings"))
+    )
+    overlay.set_scene((a, b), translations=translations, english=True)
+    before = overlay.grab().toImage()
+    repaint = Mock()
+    monkeypatch.setattr(overlay, "update", repaint)
+    moved = replace(a, bounds=replace(a.bounds, y=150))
+    overlay.set_scene((moved, b), translations=translations, english=True)
+    repaint.assert_called_once()
+    (dirty,) = repaint.call_args.args
+    after = overlay.grab().toImage()
+    for x, y in ((35, 45), (35, 155), (435, 45)):
+        assert dirty.contains(QPoint(x, y)) == (x == 35)
+        assert (after.pixelColor(x, y).alpha() > 0) == (y == 155 or x == 435)
+    assert before.copy(430, 40, 85, 28) == after.copy(430, 40, 85, 28)
     overlay.close()
     overlay.deleteLater()
 
@@ -1703,18 +1729,22 @@ def test_english_overlay_keeps_original_visible_until_current_revision_is_ready(
     overlay.resize(400, 200)
     overlay._bounds = Rect(0, 0, 400, 200)
     track = TextTrack(1, "猫", Rect(20, 20, 100, 40), text_revision=2)
-    overlay.set_tracks((track,))
+    overlay.set_scene((track,))
     # Even identical text from a superseded revision must not cover the source.
-    overlay.set_translations((TranslatedText(TranslationRequest(1, 1, "猫"), "Cat"),), enabled=True)
+    overlay.set_scene(
+        (track,),
+        translations=(TranslatedText(TranslationRequest(1, 1, "猫"), "Cat"),),
+        english=True,
+    )
     assert overlay.grab().toImage().pixelColor(25, 25).alpha() == 0
     current = (TranslatedText(TranslationRequest.from_track(track), "Cat"),)
-    overlay.set_translations(current, enabled=True)
+    overlay.set_scene((track,), translations=current, english=True)
     assert overlay.grab().toImage().pixelColor(25, 25).alpha() > 0
     repaint = Mock()
     monkeypatch.setattr(overlay, "update", repaint)
-    overlay.set_translations(current, enabled=True)
+    overlay.set_scene((track,), translations=current, english=True)
     repaint.assert_not_called()
-    overlay.set_translations((), enabled=True)
+    overlay.set_scene((track,), english=True)
     assert overlay.grab().toImage().pixelColor(25, 25).alpha() == 0
     overlay.close()
     overlay.deleteLater()
@@ -1729,14 +1759,17 @@ def test_grouped_english_uses_one_background_and_validates_every_member(app) -> 
         TextTrack(2, "準備をしよう。", Rect(20, 68, 240, 32)),
     )
     block = TextBlock(lines)
-    overlay.set_tracks(lines)
-    overlay.set_blocks((block,))
-    overlay.set_translations(
-        (TranslatedText(TranslationRequest.from_block(block), "Get ready for a new adventure."),),
-        enabled=True,
+    translations = (
+        TranslatedText(TranslationRequest.from_block(block), "Get ready for a new adventure."),
     )
+    overlay.set_scene(lines, (block,), translations, english=True)
     assert overlay.grab().toImage().pixelColor(25, 60).alpha() > 0  # The gap is inside one block.
-    overlay.set_blocks((TextBlock((lines[0], replace(lines[1], text_revision=2))),))
+    overlay.set_scene(
+        lines,
+        (TextBlock((lines[0], replace(lines[1], text_revision=2))),),
+        translations,
+        english=True,
+    )
     assert overlay.grab().toImage().pixelColor(25, 25).alpha() == 0
     overlay.close()
     overlay.deleteLater()

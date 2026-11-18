@@ -156,7 +156,8 @@ class EnglishPlacement:
             return tuple(self._placed[label] for label in labels)
         previous = self._placed if style == self._style else {}
         bases = tuple(
-            layout_english(
+            previous.get(label)
+            or layout_english(
                 label.text,
                 label.source,
                 viewport,
@@ -170,23 +171,20 @@ class EnglishPlacement:
         base_index, sources = _Index(tuple(b.bounds for b in bases)), _Index(obstacles)
         base_neighbors = [base_index.neighbors(base.bounds) for base in bases]
         # Isolated labels keep the existing one-box layout without measuring options.
-        # A prior displaced label keeps its options when a neighbor disappears.
+        # Previously placed labels keep their exact layout while neighbors change.
         # Extremely crowded sources only try four anchor directions, bounding font
         # work where extra wrapping cannot make all the overlapping anchors disjoint.
         choices = [
             _candidates(label, viewport, automatic, pixels, base, len(base_neighbors[i]) <= 16)
-            if (
+            if label not in previous
+            and (
                 any(j != i for j in base_neighbors[i])
                 or any(obstacles[j] != label.source for j in sources.neighbors(base.bounds))
-                or (label in previous and previous[label] != base)
             )
             else (base,)
             for i, (label, base) in enumerate(zip(ordered, bases, strict=True))
         ]
-        selected = [
-            options.index(previous[label]) if previous.get(label) in options else 0
-            for label, options in zip(ordered, choices, strict=True)
-        ]
+        selected = [0] * len(choices)
         envelopes = tuple(union_bounds(tuple(c.bounds for c in options)) for options in choices)
         index = _Index(envelopes)
         neighbors = [
@@ -208,11 +206,7 @@ class EnglishPlacement:
                 displacement = (abs(box.x - base.x) + abs(box.y - base.y)) / max(
                     12, label.line_height
                 )
-                costs.append(
-                    displacement
-                    + abs(box.width - base.width) / max(1, base.width)
-                    + (8 if label in previous and option != previous[label] else 0)
-                )
+                costs.append(displacement + abs(box.width - base.width) / max(1, base.width))
             unary.append(
                 np.array(costs)
                 + 1000
@@ -224,6 +218,8 @@ class EnglishPlacement:
         for _ in range(4):
             changed = False
             for i in range(len(choices)):
+                if len(choices[i]) == 1:
+                    continue
                 costs = unary[i] + 1000 * _overlaps(
                     coordinates[i], current[list(neighbors[i])]
                 ).sum(axis=1)

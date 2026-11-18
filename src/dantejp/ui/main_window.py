@@ -80,7 +80,7 @@ class MainWindow(QMainWindow):
         self._compact_size = QSize(min(1160, area.width() - 60), min(680, area.height() - 80))
         self._progress_dialog: QProgressDialog | None = None
         self._overlay = OverlayWindow(windows)
-        self._overlay.set_tracks(())
+        self._overlay.set_scene(())
         self._demo_processes: list[subprocess.Popen[bytes]] = []
         self.setWindowTitle("DanteJP")
         self.resize(self._compact_size)
@@ -615,9 +615,7 @@ class MainWindow(QMainWindow):
         self._render_application(False)
 
     def _clear_scene_display(self) -> None:
-        self._overlay.set_tracks(())
-        self._overlay.set_blocks(())
-        self._overlay.set_translations(())
+        self._overlay.set_scene(())
         self._overlay.set_debug(None)
 
     def _grouping_changed(self) -> None:
@@ -786,8 +784,14 @@ class MainWindow(QMainWindow):
             self.inspector.set_frame(value.frame)
         self.inspector.set_translations(value.results)
         self.processing.waiting_blocks = value.scene.waiting_blocks
-        self._overlay.set_blocks(value.blocks)
-        self._overlay.set_translations(value.english, enabled=self.application.values.translation)
+        self._overlay.set_scene(
+            value.scene.tracks
+            if self.application.values.translation or self.raw_boxes_check.isChecked()
+            else (),
+            value.blocks,
+            value.english,
+            english=self.application.values.translation,
+        )
         self._overlay.set_debug(
             debug_display(
                 self.application.view.visual,
@@ -800,11 +804,6 @@ class MainWindow(QMainWindow):
             else None
         )
         if value.overlay_bounds is not None and not self.application.original:
-            self._overlay.set_tracks(
-                value.scene.tracks
-                if self.application.values.translation or self.raw_boxes_check.isChecked()
-                else ()
-            )
             self._overlay.align(value.overlay_bounds)
         else:
             self._overlay.hide()

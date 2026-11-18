@@ -426,9 +426,8 @@ def main() -> int:
                             demo.raise_()
                             demo.activateWindow()
                     evidence["process_memory"] = process_memory()
-                    window._overlay.set_tracks(tracks)
-                    window._overlay.set_translations(translated.results, enabled=True)
-                    window._overlay.align(windows.geometry(target).client)
+                    with patch.object(windows, "is_foreground", return_value=True):
+                        window._tick()
                     app.processEvents()  # Deliver the native resize before grabbing the widget.
                     if args.debug:
                         diagnostic = window._overlay._debug

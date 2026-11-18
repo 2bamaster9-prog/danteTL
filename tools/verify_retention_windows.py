@@ -183,8 +183,7 @@ def main() -> int:
     evidence = {"low_contrast": args.low_contrast, "colored": args.colored}
     publication_checks = 0
     violations: list[str] = []
-    original_blocks = window._overlay.set_blocks
-    original_translations = window._overlay.set_translations
+    original_scene = window._overlay.set_scene
 
     def audit_publication() -> None:
         nonlocal publication_checks
@@ -199,16 +198,11 @@ def main() -> int:
         ):
             violations.append("Existing English/geometry changed between timer polls")
 
-    def audited_blocks(blocks: tuple[TextBlock, ...]) -> None:
-        original_blocks(blocks)
+    def audited_scene(tracks, blocks=None, translations=(), *, english=False):
+        original_scene(tracks, blocks, translations, english=english)
         audit_publication()
 
-    def audited_translations(results: tuple[TranslatedText, ...], *, enabled: bool = False) -> None:
-        original_translations(results, enabled=enabled)
-        audit_publication()
-
-    window._overlay.set_blocks = audited_blocks
-    window._overlay.set_translations = audited_translations
+    window._overlay.set_scene = audited_scene
 
     def tick() -> None:
         nonlocal stable_since, baseline, polls, finished, appearance_started
@@ -262,8 +256,12 @@ def main() -> int:
                 assert all(block in (showing[0] or ()) for block in (baseline[0] or ())), (
                     "New-label scan moved an existing box"
                 )
-                result = window.inspector.result
-                if result and any(r.text == "設定" for r in result.regions):
+                result = application.live.accepted
+                if (
+                    result
+                    and result.frame.captured_at >= appearance_started
+                    and any(r.text == "設定" for r in result.regions)
+                ):
                     evidence.setdefault("new_label_scan_was_regional", result.scanned is not None)
                     evidence.setdefault("new_label_ocr_ms", round(result.duration_ms, 1))
                     evidence.setdefault(
@@ -324,9 +322,13 @@ def main() -> int:
                         zero_publication_changes=True,
                     )
                     if args.appearance:
-                        latest = window.inspector.result
-                        if latest is None or latest.scanned is not None:
-                            return  # Start shortly after a full scan to exercise local discovery.
+                        latest = application.live.accepted
+                        if (
+                            latest is None
+                            or latest.scanned is not None
+                            or now - latest.frame.captured_at > 0.75
+                        ):
+                            return  # Leave time for regional discovery before the next full scan.
                         evidence["last_full_source_age_seconds"] = round(
                             now - latest.frame.captured_at, 3
                         )

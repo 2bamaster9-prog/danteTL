@@ -1,7 +1,7 @@
 """Qt overlay rendering; receives geometry and never owns capture state."""
 
-from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
+from PySide6.QtCore import QPointF, QRect, QRectF, Qt
+from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen, QRegion
 from PySide6.QtWidgets import QWidget
 
 from dantejp.capture.windows import Windows
@@ -41,44 +41,96 @@ class OverlayWindow(QWidget):
         self._manual_size = 20
         self._debug: DebugDisplay | None = None
         self._placement = EnglishPlacement()
+        self._layouts: dict[tuple[tuple[int, int, str], ...], EnglishLayout] = {}
 
     def set_debug(self, display: DebugDisplay | None) -> None:
         if display != self._debug:
             self._debug = display
             self.update()
 
-    def set_translations(
-        self, results: tuple[TranslatedText, ...], *, enabled: bool = False
+    def set_scene(
+        self,
+        tracks: tuple[TextTrack, ...],
+        blocks: tuple[TextBlock, ...] | None = None,
+        translations: tuple[TranslatedText, ...] = (),
+        *,
+        english: bool = False,
     ) -> None:
-        if results != self._translations or enabled != self._english_mode:
-            if not results or not enabled:
-                self._placement.clear()
-            self._translations = results
-            self._english_mode = enabled
+        if (tracks, blocks, translations, english) == (
+            self._tracks,
+            self._blocks,
+            self._translations,
+            self._english_mode,
+        ):
+            return
+        mode_changed = self._tracks is None or self._english_mode != english
+        sources_changed = blocks != self._blocks or (blocks is None and tracks != self._tracks)
+        results_changed = translations != self._translations
+        self._tracks, self._blocks = tracks, blocks
+        self._translations, self._english_mode = translations, english
+        if not english:
+            self._placement.clear()
+            self._layouts.clear()
             self.update()
+        elif mode_changed or sources_changed or results_changed:
+            self._layout_english()
+            if mode_changed:
+                self.update()  # Clear the previous raw/debug surface.
+
+    def _widget_box(self, bounds: Rect) -> QRect:
+        ratio = self.devicePixelRatioF()
+        return (
+            QRectF(bounds.x / ratio, bounds.y / ratio, bounds.width / ratio, bounds.height / ratio)
+            .toAlignedRect()
+            .adjusted(-1, -1, 1, 1)
+        )
+
+    def _layout_english(self) -> None:
+        blocks = self._blocks
+        if blocks is None:
+            blocks = tuple(TextBlock((track,)) for track in self._tracks or ())
+        english = {value.request: value.english for value in self._translations}
+        labels = tuple(
+            EnglishLabel(
+                block.key,
+                text,
+                block.bounds,
+                block.bounds.width if block.lines[0].vertical else block.line_height,
+                block.lines[0].vertical,
+            )
+            for block in blocks
+            if (text := english.get(TranslationRequest.from_block(block)))
+        )
+        placed = self._placement.arrange(
+            labels,
+            self._bounds.size,
+            tuple(block.bounds for block in blocks),
+            automatic=self._automatic_size,
+            pixels=self._manual_size,
+        )
+        current = {label.key: layout for label, layout in zip(labels, placed, strict=True)}
+        dirty = QRegion()
+        for key in self._layouts.keys() | current.keys():
+            old, new = self._layouts.get(key), current.get(key)
+            if old != new:
+                for layout in (old, new):
+                    if layout is not None:
+                        dirty |= QRegion(self._widget_box(layout.bounds))
+        self._layouts = current
+        if not dirty.isEmpty():
+            self.update(dirty)
 
     def set_text_style(self, automatic: bool, pixels: int) -> None:
         if (automatic, pixels) != (self._automatic_size, self._manual_size):
             self._automatic_size, self._manual_size = automatic, pixels
-            self.update()
-
-    def set_blocks(self, blocks: tuple[TextBlock, ...]) -> None:
-        if blocks != self._blocks:
-            self._blocks = blocks
-            self.update()
-
-    def set_tracks(self, tracks: tuple[TextTrack, ...]) -> None:
-        # Fresh OCR objects do not imply changed display state. Ignore confidence,
-        # timestamps and character-box noise when deciding whether to repaint.
-        if tracks != self._tracks:
-            if not tracks:
-                self._placement.clear()
-            self._tracks = tracks
-            self.update()
+            if self._english_mode:
+                self._layout_english()
 
     def set_opacity(self, value: int) -> None:
-        self._opacity = max(0.2, min(value / 100, 1.0))
-        self.update()
+        opacity = max(0.2, min(value / 100, 1.0))
+        if opacity != self._opacity:
+            self._opacity = opacity
+            self.update()
 
     def align(self, bounds: Rect) -> None:
         """Place the native window without activating it, then draw in physical pixels."""
@@ -88,15 +140,19 @@ class OverlayWindow(QWidget):
             self._windows.set_overlay_capture(hwnd, self._include_in_capture)
             self._configured = True
         changed = self._bounds != bounds
+        resized = self._bounds.size != bounds.size
         self._bounds = bounds
-        if not self.isVisible():
+        if resized and self._english_mode:
+            self._layout_english()
+        showing = not self.isVisible()
+        if showing:
             self._windows.place_overlay(hwnd, bounds)
             self.show()
             # Qt may apply its pending show geometry; enforce physical bounds afterwards.
             self._windows.place_overlay(hwnd, bounds)
         elif changed:
             self._windows.place_overlay(hwnd, bounds)
-        if changed:
+        if changed or showing:
             self.update()
 
     def set_capture_included(self, included: bool) -> None:
@@ -113,30 +169,10 @@ class OverlayWindow(QWidget):
         painter.scale(1 / ratio, 1 / ratio)
         width, height = self._bounds.size
         if self._tracks is not None:
-            english = {value.request: value.english for value in self._translations}
             if self._english_mode:
-                blocks = self._blocks
-                if blocks is None:
-                    blocks = tuple(TextBlock((track,)) for track in self._tracks)
-                labels = tuple(
-                    EnglishLabel(
-                        block.key,
-                        text,
-                        block.bounds,
-                        block.bounds.width if block.lines[0].vertical else block.line_height,
-                        block.lines[0].vertical,
-                    )
-                    for block in blocks
-                    if (text := english.get(TranslationRequest.from_block(block)))
-                )
-                for layout in self._placement.arrange(
-                    labels,
-                    self._bounds.size,
-                    tuple(block.bounds for block in blocks),
-                    automatic=self._automatic_size,
-                    pixels=self._manual_size,
-                ):
-                    self._paint_english(painter, layout)
+                for layout in self._layouts.values():
+                    if event.region().intersects(self._widget_box(layout.bounds)):
+                        self._paint_english(painter, layout)
                 self._paint_debug(painter, ratio)
                 return  # Pending regions leave the original game text visible.
             font = QFont("Segoe UI")

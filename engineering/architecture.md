@@ -260,8 +260,10 @@ avoid dialogue delays. Group sizing uses individual line heights, not whole para
 Requests identify combined text and every member's ID/source/revision. Moving a box cannot retranslate;
 geometry is not cache identity. Validate all members at publication/rendering. Splits/edits/removal/reset
 reject stale replies. Keep full English in inspector/clipboard on overlay overflow. `EnglishPlacement`
-uses bounded source-anchored candidates/spatial neighbors to reduce collisions deterministically; it
-never drops translations or changes grouping/work. Impossible crowding may still overlap.
+uses bounded source-anchored candidates/spatial neighbors to place changed labels around existing
+ones. Unchanged labels keep their placement within the same viewport and font settings. Qt receives
+one scene per update and invalidates the old and new painted rectangles of changed English labels.
+Impossible crowding may still overlap.
 
 `TranslationPlan` assigns short and long text independently. Categories are structural/length-based,
 not semantic dialogue. Missing models/connections never switch provider or billing route. Unchanged
