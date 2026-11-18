@@ -90,6 +90,75 @@ class Replay:
         return state
 
 
+def long_line(
+    sequence, width, *, reading="体力3204", digit="4", vertical=False, brightness=0, font=0.6
+):
+    gray = np.full((48, width + 40), 30, np.uint8)
+    cv2.putText(
+        gray,
+        "STAT 320" + digit + " MENU" * (width // 25),
+        (20, 31),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        font,
+        235,
+        1,
+        cv2.LINE_AA,
+    )
+    gray = np.clip(gray.astype(np.int16) + brightness, 0, 255).astype(np.uint8)
+    box = Rect(20, 10, width, 28)
+    if vertical:
+        gray = cv2.rotate(gray, cv2.ROTATE_90_CLOCKWISE)
+        box = Rect(10, 20, 28, width)
+    viewport = Rect(0, 0, gray.shape[1], gray.shape[0])
+    frame = CapturedFrame(
+        sequence,
+        sequence * 0.25,
+        WindowGeometry(viewport, viewport, viewport, 96),
+        cv2.cvtColor(gray, cv2.COLOR_GRAY2BGRA).tobytes(),
+    )
+    return OcrResult(
+        frame,
+        (TextRegion(reading, box, (TextCharacter(reading, box, 0.98),), vertical),),
+        100,
+        frame.captured_at + 0.1,
+    )
+
+
+@pytest.mark.parametrize("width", [768, 1536, 3072])
+@pytest.mark.parametrize("vertical", [False, True])
+@pytest.mark.parametrize("font", [0.35, 0.6])
+def test_fine_evidence_retains_long_lines_but_unlocks_one_changed_digit(width, vertical, font):
+    replay = Replay(long_line(1, width, vertical=vertical, font=font))
+    original = replay.tracks
+    # Brightness and OCR disagreement cannot alone replace the accepted text.
+    state = replay.step(
+        long_line(2, width, vertical=vertical, font=font, reading="体力3205", brightness=10)
+    )
+    assert state.unchanged == set(original) and replay.tracks == original
+    for sequence in (3, 4, 5):
+        state = replay.step(
+            long_line(sequence, width, vertical=vertical, font=font, reading="体力3205", digit="5")
+        )
+        if sequence == 3:
+            assert not state.unchanged
+    assert replay.tracks[0].track_id == original[0].track_id
+    assert (
+        replay.tracks[0].text == "体力3205"
+        and replay.tracks[0].text_revision > original[0].text_revision
+    )
+
+
+def test_exhausted_fine_evidence_budget_allows_ordinary_ocr_confirmation():
+    # This line exceeds the per-line reference budget. A coarse thumbnail must
+    # not freeze its text forever, even if the original reading was confident.
+    replay = Replay(long_line(1, 10000))
+    original = replay.tracks[0]
+    for sequence in (2, 3, 4):
+        state = replay.step(long_line(sequence, 10000, reading="体力3205", digit="5"))
+        assert not state.unchanged
+    assert replay.tracks[0].track_id == original.track_id and replay.tracks[0].text == "体力3205"
+
+
 def test_stationary_labels_keep_exact_identity_layout_and_english_through_noisy_ocr():
     replay = Replay(result(1))
     original = replay.tracks

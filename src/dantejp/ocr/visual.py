@@ -15,7 +15,7 @@ from dantejp.ocr.presence import PixelEvidence, prepare_evidence
 from dantejp.ocr.regions import padded, scan_regions
 from dantejp.ocr.text_content import content_region, has_japanese
 from dantejp.ocr.tracking import MatchingEvidence, TextActivity, TextTrack, prepare_matching
-from dantejp.ocr.values import OcrResult
+from dantejp.ocr.values import OcrResult, TextRegion
 from dantejp.ocr.visual_values import VisualState as VisualState
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,13 @@ def _pixels(frame: CapturedFrame) -> Bytes | None:
     return np.frombuffer(frame.bgra, np.uint8).reshape(frame.height, frame.width, 4)
 
 
-def _crop(pixels: Bytes, bounds: Rect, *, wide: bool = False) -> Gray | None:
+def _crop(
+    pixels: Bytes,
+    bounds: Rect,
+    *,
+    wide: bool = False,
+    color: tuple[float, float, float] | None = None,
+) -> Gray | None:
     h, w = pixels.shape[:2]
     if min(bounds.size) < 2 or not Rect(0, 0, w, h).contains(bounds):
         return None
@@ -65,7 +71,11 @@ def _crop(pixels: Bytes, bounds: Rect, *, wide: bool = False) -> Gray | None:
         size,
         interpolation=cv2.INTER_AREA,
     )
-    return cv2.cvtColor(small, cv2.COLOR_BGRA2GRAY).astype(np.float32)
+    return (
+        _project_color(small, color)
+        if color is not None
+        else cv2.cvtColor(small, cv2.COLOR_BGRA2GRAY).astype(np.float32)
+    )
 
 
 def _edges(gray: Gray) -> tuple[Gray, Gray]:
@@ -84,7 +94,9 @@ def _changed(a: Gray, b: Gray) -> bool:
     return float(np.mean(np.maximum(np.abs(ax - bx), np.abs(ay - by)) > 35)) > 0.018
 
 
-def _added_ink(a: Gray, b: Gray, *, foreground: bool = False, start: int = 0) -> bool:
+def _added_ink(
+    a: Gray, b: Gray, *, foreground: bool = False, start: int = 0, min_height: float = 0
+) -> bool:
     """Append-like stroke additions, rather than general background replacement."""
     if foreground:
         dark = float(np.median(a)) > float(np.mean(a))
@@ -104,7 +116,19 @@ def _added_ink(a: Gray, b: Gray, *, foreground: bool = False, start: int = 0) ->
         before = (np.maximum(np.abs(ax), np.abs(ay)) > 45).astype(np.uint8)
         after = (np.maximum(np.abs(bx), np.abs(by)) > 45).astype(np.uint8)
     kernel = np.ones((3, 3), np.uint8)
-    added = int(np.count_nonzero((after & ~cv2.dilate(before, kernel))[:, start:]))
+    additions = (after & ~cv2.dilate(before, kernel))[:, start:]
+    if min_height and additions.size:
+        # A neutral glint beside uniformly colored text is not a new glyph. Still
+        # admit substantial strokes in a different color (e.g. a white appended digit).
+        _, labels, stats, _ = cv2.connectedComponentsWithStats(after[:, start:], 8)
+        added_per_component = np.bincount(labels.ravel(), weights=additions.ravel())
+        keep = (stats[:, cv2.CC_STAT_HEIGHT] >= min_height) & (
+            added_per_component >= stats[:, cv2.CC_STAT_AREA] * 0.2
+        )
+        # A glint touching an existing letter cannot borrow that letter's height.
+        keep[0] = False
+        additions = additions & keep[labels]
+    added = int(np.count_nonzero(additions))
     removed = int(np.count_nonzero((before & ~cv2.dilate(after, kernel))[:, start:]))
     return added > max(12, removed * 1.8) and (foreground or added < after.size * 0.2)
 
@@ -133,7 +157,13 @@ class _InkReference:
         )
 
 
-def _same_ink(reference: Gray, current: Gray, prepared: _InkReference | None = None) -> bool | None:
+def _same_ink(
+    reference: Gray,
+    current: Gray,
+    prepared: _InkReference | None = None,
+    *,
+    soft_edges: bool = False,
+) -> bool | None:
     if np.array_equal(reference, current):
         return True
     prepared = prepared or _InkReference.prepare(reference)
@@ -154,13 +184,17 @@ def _same_ink(reference: Gray, current: Gray, prepared: _InkReference | None = N
     step = max(6, reference.shape[0] // 2)
     starts = np.arange(0, reference.shape[1], step)
     difference = np.add.reduceat(
-        np.count_nonzero(
+        # Color-projected antialiasing can cross a hard threshold over a white
+        # particle. Measure stroke-strength change, without dilating away real edits.
+        np.sum((before - after) ** 2, axis=0)
+        if soft_edges
+        else np.count_nonzero(
             ((before >= 0.75) & (after < 0.55)) | ((after >= 0.75) & (before < 0.55)), axis=0
         ),
         starts,
     )
     ink = np.add.reduceat(np.count_nonzero((before >= 0.65) | (after >= 0.65), axis=0), starts)
-    return not bool(np.any(difference > np.maximum(4, ink * 0.12)))
+    return not bool(np.any(difference > np.maximum(4, ink * (0.06 if soft_edges else 0.12))))
 
 
 @dataclass(slots=True)
@@ -210,6 +244,188 @@ class _FaintReference:
 
 
 @dataclass(slots=True)
+class _GlyphReference:
+    reference: Gray
+    ink: _InkReference | None = None
+    faint: _FaintReference | None = None
+    soft_edges: bool = False
+
+    def matches(self, current: Gray) -> bool | None:
+        if np.array_equal(self.reference, current):
+            return True
+        if self.ink is None:
+            self.ink = _InkReference.prepare(self.reference)
+        same = _same_ink(self.reference, current, self.ink, soft_edges=self.soft_edges)
+        if same is True:
+            return True
+        if self.faint is None:
+            self.faint = _FaintReference.prepare(self.reference)
+        return True if self.faint.matches(current) else same
+
+
+# Coarse thumbnails may propose change or reversible hiding, but cannot prove a
+# long line unchanged. Fine references preserve aspect ratio and glyph scale.
+_FINE_PIXELS = 1_048_576
+_FINE_LINE_PIXELS = 262_144
+
+
+def _fine_shape(bounds: Rect, vertical: bool) -> tuple[int, int]:
+    scale = min(1.0, 48 / (bounds.width if vertical else bounds.height))
+    return max(1, round(bounds.width * scale)), max(1, round(bounds.height * scale))
+
+
+def _fine_pixels(pixels: Bytes, bounds: Rect, vertical: bool, shape: tuple[int, int]) -> Bytes:
+    area = pixels[bounds.y : bounds.y + bounds.height, bounds.x : bounds.x + bounds.width]
+    image = cv2.resize(area, shape, interpolation=cv2.INTER_AREA)
+    if vertical:
+        image = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+    return image
+
+
+def _project_color(image: Bytes, direction: tuple[float, float, float]) -> Gray:
+    # Require agreement across the foreground's channel contrasts. A dot product
+    # alone can mistake subpixel-font fringes over a white glint for new glyph cores.
+    channels = image[:, :, :3].astype(np.float32)
+    projected = np.full(image.shape[:2], np.inf, np.float32)
+    for a, b in ((0, 1), (0, 2), (1, 2)):
+        contrast = direction[a] - direction[b]
+        if abs(contrast) >= 0.25:
+            projected = np.minimum(projected, (channels[:, :, a] - channels[:, :, b]) / contrast)
+    return np.maximum(0, projected)
+
+
+def _foreground_color(
+    image: Bytes, track: TextTrack, region: TextRegion
+) -> tuple[float, float, float] | None:
+    """Optional evidence for uniformly colored glyphs with complete character locations.
+
+    Never let a colored part of mixed text freeze a white/differently colored digit.
+    Weak punctuation detections can be background specks; all letters/numbers and reliable
+    punctuation must contain the foreground color. This does not alter the OCR reading.
+    """
+    chars = region.characters
+    if (
+        track.vertical
+        or not chars
+        or len(chars) > 512
+        or any(len(c.text) != 1 for c in chars)
+        or "".join(c.text for c in chars) != track.text
+    ):
+        return None
+    rgb = image[:, :, :3].astype(np.float32)
+    high, low = rgb.max(axis=2), rgb.min(axis=2)
+    vivid = (high >= 128) & (high - low >= 64)
+    if not 24 <= np.count_nonzero(vivid) <= vivid.size * 0.6:
+        return None
+    chroma = rgb - rgb.mean(axis=2, keepdims=True)
+    axis = np.median(chroma[vivid], axis=0)
+    axis -= axis.mean()
+    length = float(np.linalg.norm(axis))
+    if length < 32:
+        return None
+    direction = tuple(float(n) for n in axis / length)
+    direction = (direction[0], direction[1], direction[2])
+    projected = _project_color(image, direction)
+    threshold = max(32.0, float(np.percentile(projected, 99)) * 0.4)
+    h, w = projected.shape
+    b = track.bounds
+    # A same-pixel OCR correction keeps accepted geometry. Its character boxes can
+    # extend a couple of pixels beyond that geometry; sample only the accepted crop.
+    metadata_bounds = Rect(b.x - 2, b.y - 2, b.width + 4, b.height + 4)
+    for char in chars:
+        if char.text.isspace():
+            continue
+        if not metadata_bounds.contains(char.bounds):
+            return None
+        c = char.bounds
+        left, top = (c.x - b.x) * w // b.width, (c.y - b.y) * h // b.height
+        right, bottom = (
+            ceil((c.x + c.width - b.x) * w / b.width),
+            ceil((c.y + c.height - b.y) * h / b.height),
+        )
+        patch = projected[max(0, top) : min(h, bottom), max(0, left) : min(w, right)]
+        if np.count_nonzero(patch >= threshold) < max(2, patch.size * 0.02) and (
+            char.text.isalnum() or not 0 <= char.confidence < 0.65
+        ):
+            return None
+    return direction
+
+
+@dataclass(slots=True)
+class _FineReference:
+    shape: tuple[int, int]
+    tiles: tuple[tuple[int, _GlyphReference], ...]
+    color: tuple[float, float, float] | None = None
+    color_tiles: tuple[tuple[int, _GlyphReference], ...] = ()
+    color_extension: Gray | None = None
+
+    @property
+    def pixels(self) -> int:
+        return self.shape[0] * self.shape[1] * (2 if self.color_tiles else 1) + (
+            self.color_extension.size if self.color_extension is not None else 0
+        )
+
+    @classmethod
+    def create(cls, pixels: Bytes, track: TextTrack, budget: int) -> _FineReference | None:
+        shape = _fine_shape(track.bounds, track.vertical)
+        if shape[0] * shape[1] > min(budget, _FINE_LINE_PIXELS):
+            return None
+        image = _fine_pixels(pixels, track.bounds, track.vertical, shape)
+        reference = cv2.cvtColor(image, cv2.COLOR_BGRA2GRAY).astype(np.float32)
+        # Overlap keeps a stroke at a tile boundary in an informative interior.
+        tiles = tuple(
+            (start, _GlyphReference(reference[:, start : start + 256]))
+            for start in range(0, reference.shape[1], 224)
+        )
+        return cls(shape, tiles)
+
+    def add_color(
+        self, pixels: Bytes, track: TextTrack, region: TextRegion, extension: Rect, budget: int
+    ) -> None:
+        extra = self.shape[0] * self.shape[1] + 256 * min(48, extension.height)
+        if extra > min(budget, _FINE_LINE_PIXELS - self.pixels):
+            return
+        image = _fine_pixels(pixels, track.bounds, track.vertical, self.shape)
+        color = _foreground_color(image, track, region)
+        colored = _project_color(image, color) if color is not None else None
+        color_tiles = (
+            tuple(
+                (
+                    start,
+                    _GlyphReference(colored[:, start : start + 256], soft_edges=True),
+                )
+                for start in range(0, colored.shape[1], 224)
+            )
+            if colored is not None
+            else ()
+        )
+        self.color, self.color_tiles = color, color_tiles
+        self.color_extension = (
+            _crop(pixels, extension, wide=True, color=color) if color is not None else None
+        )
+
+    def matches(self, pixels: Bytes, track: TextTrack) -> bool | None:
+        image = _fine_pixels(pixels, track.bounds, track.vertical, self.shape)
+        current = cv2.cvtColor(image, cv2.COLOR_BGRA2GRAY).astype(np.float32)
+        same = self._matches(current, self.tiles)
+        if same is not True and self.color is not None:
+            colored = _project_color(image, self.color)
+            if self._matches(colored, self.color_tiles) is True:
+                return True
+        return same
+
+    @staticmethod
+    def _matches(current: Gray, tiles: tuple[tuple[int, _GlyphReference], ...]) -> bool | None:
+        certain = True
+        for start, tile in tiles:
+            same = tile.matches(current[:, start : start + tile.reference.shape[1]])
+            if same is False:
+                return False
+            certain &= same is True
+        return True if certain else None
+
+
+@dataclass(slots=True)
 class _Anchor:
     value: TextTrack
     reference: Gray
@@ -222,17 +438,23 @@ class _Anchor:
     hits: int = 0
     hidden: bool = False
     last_sequence: int = 0
-    ink: _InkReference | None = None
-    faint: _FaintReference | None = None
+    content: _GlyphReference = field(init=False)
+    fine_required: bool = False
+    fine: _FineReference | None = None
 
     def __post_init__(self) -> None:
+        self.content = _GlyphReference(self.reference)
         self.x, self.y = _edges(self.reference)
         strength = np.maximum(np.abs(self.x), np.abs(self.y))
         self.mask = strength >= max(35, float(np.percentile(strength, 80)))
 
     def content_matches(self, pixels: Bytes) -> bool | None:
         crop = _crop(pixels, self.value.bounds)
-        same = None if crop is None else self._matches(crop)
+        same = None if crop is None else self.content.matches(crop)
+        if crop is not None and self.fine_required:
+            # Fine glyph evidence is authoritative. An aliased thumbnail can disagree
+            # because of background particles even when every fine glyph still matches.
+            same = self.fine.matches(pixels, self.value) if self.fine is not None else None
         if same is True and self.extension is not None and self.extension_bounds is not None:
             extension = _crop(pixels, self.extension_bounds, wide=True)
             # The accepted box was already checked above. Contrast gains inside it
@@ -240,23 +462,24 @@ class _Anchor:
             start = ceil(
                 self.value.bounds.width * self.extension.shape[1] / self.extension_bounds.width
             )
-            if extension is not None and _added_ink(
-                self.extension, extension, foreground=True, start=start
-            ):
-                return False  # Newly revealing characters can extend past the accepted box.
+            if extension is not None:
+                fine = self.fine
+                colored = fine is not None and fine.color_extension is not None
+                if _added_ink(
+                    self.extension,
+                    extension,
+                    foreground=True,
+                    start=start,
+                    min_height=extension.shape[0] * 0.5 if colored else 0,
+                ):
+                    return False
+                if colored and fine is not None and fine.color_extension is not None:
+                    current = _crop(pixels, self.extension_bounds, wide=True, color=fine.color)
+                    if current is not None and _added_ink(
+                        fine.color_extension, current, foreground=True, start=start
+                    ):
+                        return False
         return same
-
-    def _matches(self, current: Gray) -> bool | None:
-        if np.array_equal(self.reference, current):
-            return True
-        if self.ink is None:
-            self.ink = _InkReference.prepare(self.reference)
-        same = _same_ink(self.reference, current, self.ink)
-        if same is True:
-            return True
-        if self.faint is None:
-            self.faint = _FaintReference.prepare(self.reference)
-        return True if self.faint.matches(current) else same
 
     def observe(self, pixels: Bytes, sequence: int, changed: bool) -> bool:
         if sequence == self.last_sequence:
@@ -273,7 +496,7 @@ class _Anchor:
         current = _crop(pixels, self.value.bounds)
         if current is None or int(self.mask.sum()) < 24:
             return False  # Insufficient stroke evidence: let OCR decide.
-        if self._matches(current) is True:
+        if self.content.matches(current) is True:
             self.misses = 0
             self.hits += 1
             if self.hits >= 2:
@@ -394,6 +617,8 @@ class VisualAnalyzer:
             for key, region in zip(job.assignments, cleaned, strict=False)
             if key is not None
         }
+        fine_budget = _FINE_PIXELS - sum(a.fine.pixels for a in self._anchors.values() if a.fine)
+        color_candidates: list[tuple[_FineReference, TextTrack, TextRegion, Rect]] = []
         for track in job.tracks[:128]:
             region = by_id.get(track.track_id)
             if track not in self._anchors and region is not None and region.text == track.text:
@@ -404,9 +629,33 @@ class VisualAnalyzer:
                         b.width + b.height * 3, b.height * 36 if len(track.text) >= 10 else 0
                     )
                     area = Rect(b.x, b.y, min(width, job.frame.width - b.x), b.height)
-                    self._anchors[track] = _Anchor(
-                        track, crop, area, _crop(source, area, wide=True)
+                    fine_required = b.width > 256 or b.height > 48
+                    fine = (
+                        _FineReference.create(source, track, fine_budget) if fine_required else None
                     )
+                    if fine is not None:
+                        fine_budget -= fine.pixels
+                        color_candidates.append((fine, track, region, area))
+                    self._anchors[track] = _Anchor(
+                        track,
+                        crop,
+                        area,
+                        _crop(source, area, wide=True),
+                        fine_required=fine_required,
+                        fine=fine,
+                    )
+        # Optional color must never consume another line's basic glyph evidence.
+        for fine, track, region, area in color_candidates:
+            before = fine.pixels
+            # Inspect the start of continuation, not a distant unrelated column.
+            b = track.bounds
+            edge = Rect(b.x, b.y, min(b.width + b.height * 3, area.width), b.height)
+            fine.add_color(source, track, region, edge, fine_budget)
+            fine_budget -= fine.pixels - before
+            if fine.color is not None:
+                anchor = self._anchors[track]
+                anchor.extension_bounds = edge
+                anchor.extension = _crop(source, edge, wide=True)
         if result.frame.sequence == self._ocr_sequence:
             return
         self._ocr_sequence = result.frame.sequence

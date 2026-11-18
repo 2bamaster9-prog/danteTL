@@ -30,12 +30,13 @@ from dantejp.translation.worker import TranslatedText
 
 
 class CharacterScreen(QWidget):
-    def __init__(self, *, low_contrast: bool = False) -> None:
+    def __init__(self, *, low_contrast: bool = False, colored: bool = False) -> None:
         super().__init__()
         self.setWindowTitle("DanteJP stationary-label verification")
-        self.resize(900, 580)
+        self.resize(1200 if colored else 900, 580)
         self.phase = 0
         self.low_contrast = low_contrast
+        self.colored = colored
         self.new_label = False
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.advance)
@@ -56,15 +57,32 @@ class CharacterScreen(QWidget):
         else:
             p.fillRect(self.rect(), QColor(20, 35, 55))
             for i in range(130):
-                p.setPen(QColor(45 + i % 25, 60 + i % 25, 80 + i % 25))
-                p.drawEllipse((i * 43 + self.phase * 3) % 900, i * 71 % 580, 4, 4)
+                p.setPen(
+                    QColor(245, 245, 245)
+                    if self.colored
+                    else QColor(45 + i % 25, 60 + i % 25, 80 + i % 25)
+                )
+                x, y = (i * 43 + self.phase * 3) % self.width(), i * 71 % 580
+                p.drawEllipse(x, y, 4, 4)
+                if self.colored:
+                    p.drawLine(x - 3, y + 2, x + 7, y + 2)
+                    p.drawLine(x + 2, y - 3, x + 2, y + 7)
         font = QFont("Yu Gothic UI")
         font.setPixelSize(24)
         p.setFont(font)
         p.setPen(QColor(235, 235, 235, 204) if self.low_contrast else QColor(245, 245, 245))
-        for i, label in enumerate(
-            ("キャラクター", "装備を確認", "攻撃力", "防御力", "速度", "詳細を表示")
-        ):
+        labels = ("キャラクター", "装備を確認", "攻撃力", "防御力", "速度", "詳細を表示")
+        if self.colored:
+            p.setPen(QColor(60, 240, 170))
+            labels = (
+                "装備キャラの会心率が50%以上の場合",
+                "追加攻撃ダメージと必殺技のダメージ",
+                "装備キャラの攻撃力が48%アップする",
+                "装備キャラが他の味方の対象になる時",
+                "最大で2層累積できる効果を確認する",
+                "必殺技を発動する時に効果を消費する",
+            )
+        for i, label in enumerate(labels):
             p.drawText(45 if i < 3 else 570, 90 + i % 3 * 150, label)
         if self.new_label:
             p.drawText(390, 520, "設定")
@@ -78,12 +96,17 @@ def main() -> int:
         "--low-contrast", action="store_true", help="Faint text over smooth moving bright light"
     )
     parser.add_argument(
+        "--colored", action="store_true", help="Long green descriptions over moving white glints"
+    )
+    parser.add_argument(
         "--appearance",
         action="store_true",
         help="Time a newly appearing menu label after retention checks",
     )
     parser.add_argument("--output", type=Path, default=Path("artifacts/visual/stationary.json"))
     args = parser.parse_args()
+    if args.colored and args.low_contrast:
+        parser.error("Select colored or low-contrast text, not both")
     armed = threading.Event()
     passes = 0
 
@@ -129,7 +152,7 @@ def main() -> int:
     windows.enable_dpi_awareness()
     app = QApplication([])
     app.setQuitOnLastWindowClosed(False)
-    target = CharacterScreen(low_contrast=args.low_contrast)
+    target = CharacterScreen(low_contrast=args.low_contrast, colored=args.colored)
     target.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
     target.show()
     window = MainWindow(
@@ -157,7 +180,7 @@ def main() -> int:
     polls = 0
     finished = False
     appearance_started = 0.0
-    evidence = {"low_contrast": args.low_contrast}
+    evidence = {"low_contrast": args.low_contrast, "colored": args.colored}
     publication_checks = 0
     violations: list[str] = []
     original_blocks = window._overlay.set_blocks
@@ -219,6 +242,17 @@ def main() -> int:
                     application.live.ocr.snapshot().message
                 )
             showing = (window._overlay._blocks, window._overlay._translations)
+            if args.colored:
+                # Bright glints can produce unrelated tiny OCR detections. Audit all six
+                # descriptions exactly; extra detections are a different recognition test.
+                showing = (
+                    tuple(b for b in (showing[0] or ()) if len(b.text) >= 14),
+                    tuple(
+                        t
+                        for t in showing[1]
+                        if len(t.request.source) >= 14 or t.request.source == "設定"
+                    ),
+                )
             if appearance_started:
                 assert baseline is not None
                 prior_requests = {t.request for t in baseline[1]}

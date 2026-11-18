@@ -173,10 +173,17 @@ do not equate the model-free admission tests with semantic model accuracy.
 `tools/verify_retention_windows.py --appearance` requires unchanged blocks and English through
 repeated hostile/noisy/missing OCR over a moving background, then discovers a new regional label
 without disturbing the old labels. Add `--low-contrast` to exercise faint text over smooth moving
-bright light; run both variants when changing visual retention. The fixture records every English
+bright light. Also run `--colored` without `--appearance` for long green descriptions over dense
+moving white glints; this audits the six descriptions while allowing unrelated tiny detections.
+Run all three variants when changing visual retention. The fixture records every English
 publication and saves only its owned test window. Explicit-time tests additionally cover detector
 splits, faint digit edits/typing/removal, stale generations,
 static WGC frames, small continuation growth, polarity/brightness changes, failures and resets.
+Long horizontal/vertical digit-change replays must both retain unchanged text through lighting/OCR noise
+and accept genuine edits after ordinary confirmation. Include exhausted fine-reference budgets.
+Colored-paragraph replays cover partial scans/misses, appended false detections, mixed-color digits,
+real growth/removal and preservation of raw OCR. Keep supplied frame pairs with their actual OCR in
+ignored artifacts when diagnosing background-dependent disagreement.
 Only committed display changes should request repaint; Qt may still repaint on native expose events.
 
 ## Runtime and packaging acceptance

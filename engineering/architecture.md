@@ -134,6 +134,19 @@ English; resize/minimize/stop also clear frozen source presentation.
 Reversible masking requires strong pattern loss on distinct captures. Retirement also needs completed
 negative OCR, matching revision/geometry and visual evidence at least as new as that OCR. Unchanged
 pixels override contradictory absence. Brightness/polarity/background motion are not semantic removal.
+Coarse thumbnails screen changes and hiding; compressed long/vertical lines need overlapping,
+aspect-preserving glyph-scale tiles before they can be declared unchanged. Reference pixels have
+per-line and aggregate budgets. Exhausted or ambiguous fine evidence allows ordinary OCR confirmation;
+it must not freeze a confident old reading. Fine comparison runs only for a new source-matched OCR review.
+Fine evidence may confirm unchanged glyphs despite a changed coarse thumbnail. Uniformly colored
+rows with complete character locations can also use a foreground-color projection to reject neutral
+background glints. Every letter/digit and reliable punctuation must contain that color; mixed text
+falls back to grayscale. Local stroke-strength comparisons tolerate subpixel color fringes while
+still rejecting numeric edits. Corrections may have two pixels of character-box jitter; sample only
+inside accepted geometry. Optional color references share the pixel budget and cannot displace basic
+references in the same observation. Beside such rows, small neutral glints are not growth; colored
+additions and substantial strokes in another color still unlock OCR. Continuation checks cover the
+nearby line end rather than extending into a distant column.
 Visual failure visibly falls back to ordinary OCR. New translations wait for visual examination of their
 OCR source; existing valid English is independent of readiness.
 
