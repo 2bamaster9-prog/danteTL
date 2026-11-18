@@ -217,6 +217,13 @@ need an unambiguous baseline and support from neighboring prose or a previously 
 row with matching text, position and a surviving track ID. Recurring column margins and choice
 markers separate neighbors. Use reconstructed geometry for layout and retain the original fragments
 for readiness, request identity and publication.
+The dialogue graph links mutually nearest rows by pitch, overlap, alignment and relative width.
+It can replace blocks fully covered by a path when Japanese prose supports the new grouping.
+Item markers, short endings and changes in lettering can stop a passage before a button.
+Repeated section headings and highlighted effect sentences followed by an activation condition
+support independent instructions, including in a two-row crop. The OCR matching worker samples
+lettering on the source image. Tracking retains compact samples for the corresponding reading
+and location across partial scans. Grouping also works with geometry and text alone.
 Ordinary pending OCR cannot repartition committed blocks. Pending growth can reserve a continuation
 but cannot become translation source before commitment. Readiness uses source time; short labels
 avoid dialogue delays. Group sizing uses individual line heights, not whole paragraph height.

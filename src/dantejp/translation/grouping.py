@@ -4,11 +4,14 @@ import re
 from bisect import bisect_left, bisect_right
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
+from itertools import groupby
 from statistics import median
 
 from dantejp.domain import Rect, union_bounds
+from dantejp.ocr.lettering import Lettering
 from dantejp.ocr.text_content import has_japanese
 from dantejp.ocr.tracking import TextActivity, TextTrack
+from dantejp.translation.dialogue_paths import dialogue_segments
 
 _END = tuple("。！？!?」』")
 _CHOICE = re.compile(r"^(?:[・•●○◆◇▶▷→\-]|[0-9０-９①-⑳]+[.．、:：)）]|[A-Za-z][.．)）])")
@@ -681,6 +684,7 @@ class DialogueGrouper:
                 bool,
                 frozenset[int],
                 tuple[tuple[TextTrack, int], ...],
+                tuple[tuple[TextTrack, Lettering], ...],
             ]
             | None
         ) = None
@@ -700,6 +704,7 @@ class DialogueGrouper:
         enabled: bool,
         growing: frozenset[int],
         dash_edges: dict[TextTrack, int],
+        lettering: dict[TextTrack, Lettering],
     ) -> tuple[TextBlock, ...]:
         rows = _physical_rows(tracks, self._prior_rows) if enabled else {}
         self._fragment_ids = {t.track_id for parts in rows.values() for t in parts}
@@ -715,6 +720,30 @@ class DialogueGrouper:
             row.track_id for row, parts in rows.items() if any(t.track_id in growing for t in parts)
         }
         blocks = _blocks(physical, enabled, row_growth, dash_edges)
+        if enabled:
+            owners = {row: block.lines for block in blocks for row in block.lines}
+            segments = list(dialogue_segments(physical, owners, lettering, _item_start))
+            if segments:
+                claimed = {row for segment in segments for row in segment}
+                result = [TextBlock(segment, dialogue=True) for segment in segments]
+                for block in blocks:
+                    if not claimed.intersection(block.lines):
+                        result.append(block)
+                        continue
+                    for taken, run in groupby(block.lines, claimed.__contains__):
+                        if not taken:
+                            retained = tuple(run)
+                            result.append(TextBlock(retained, dialogue=len(retained) > 1))
+                blocks = tuple(
+                    sorted(
+                        result,
+                        key=lambda b: (
+                            b.lines[0].bounds.y,
+                            b.lines[0].bounds.x,
+                            b.lines[0].track_id,
+                        ),
+                    )
+                )
         if not rows:
             return blocks
         return tuple(
@@ -731,6 +760,7 @@ class DialogueGrouper:
         enabled: bool = True,
         activity: tuple[TextActivity, ...] | None = None,
         dash_edges: dict[TextTrack, int] | None = None,
+        lettering: dict[TextTrack, Lettering] | None = None,
     ) -> GroupedText:
         observed = {value.observation.track_id: value for value in activity or ()}
         growing = frozenset(key for key, value in observed.items() if value.growing)
@@ -744,9 +774,10 @@ class DialogueGrouper:
         )
         displayed = {t.track_id: t for t in visible}
         dash_edges = dash_edges or {}
-        layout_key = (layout, enabled, growing, tuple(dash_edges.items()))
+        lettering = lettering or {}
+        layout_key = (layout, enabled, growing, tuple(dash_edges.items()), tuple(lettering.items()))
         if layout_key != self._layout_key:
-            self._layout = self._regroup(layout[:128], enabled, growing, dash_edges)
+            self._layout = self._regroup(layout[:128], enabled, growing, dash_edges, lettering)
             self._layout_key = layout_key
         if enabled:
             self._prior_rows.update(

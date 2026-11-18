@@ -315,6 +315,7 @@ class LiveSession:
             enabled=grouping,
             activity=self._tracker.translation_activity(),
             dash_edges=self._tracker.opening_dash_edges() if grouping else None,
+            lettering=self._tracker.lettering() if grouping else None,
         )
         requests = tuple(
             block
