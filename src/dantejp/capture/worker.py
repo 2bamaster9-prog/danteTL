@@ -85,7 +85,7 @@ class CaptureSession:
         self._options_lock = threading.Lock()
         self._show_border = show_border
         self._sequence = 0
-        self._last_sample = float("-inf")
+        self._next_sample = float("-inf")
 
     @property
     def finished(self) -> bool:
@@ -133,6 +133,8 @@ class CaptureSession:
         self._windows.geometry(self.target)
         border = self._border()
         first_sequence = self._sequence
+        period = 1 / self._fps
+        jitter = min(0.016, period / 8)
         closed = threading.Event()
         capture = WindowsCapture(
             window_hwnd=self.target.hwnd,
@@ -147,7 +149,9 @@ class CaptureSession:
                 control.stop()
                 return
             now = self._clock()
-            if now - self._last_sample < 1 / self._fps:
+            # WGC already paces callbacks. A slightly early delivery belongs to
+            # this slot; dropping it adds a full capture interval at menu changes.
+            if now < self._next_sample - jitter:
                 return
             try:
                 geometry = self._windows.geometry(self.target)
@@ -159,7 +163,7 @@ class CaptureSession:
                 ].tobytes(order="C")
                 self._sequence += 1
                 self.mailbox.publish(CapturedFrame(self._sequence, now, geometry, pixels))
-                self._last_sample = now
+                self._next_sample = max(now, self._next_sample) + period
             except Exception as error:
                 logger.exception("Could not process a captured frame")
                 self.mailbox.set_state(CaptureState.FAILED, str(error))

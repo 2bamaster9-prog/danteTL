@@ -106,6 +106,28 @@ def test_border_change_drains_native_capture_keeps_frame_and_increases_sequence(
     assert len(instances) == 2 and instances[-1].stopped
 
 
+def test_slightly_early_native_frames_fill_their_eight_fps_slots_without_accepting_bursts(
+    monkeypatch,
+):
+    instances, release = native_fixture(monkeypatch)
+    now = 0.0
+    session = CaptureSession(WindowTarget(12, 34, "fixture"), Windows(), fps=8, clock=lambda: now)
+    session.start()
+    try:
+        wait_for(lambda: session.snapshot().frame is not None)
+        native = instances[0]
+        data = SimpleNamespace(width=8, height=8, frame_buffer=np.zeros((8, 8, 4), dtype=np.uint8))
+        for timestamp, expected in ((0.004, 1), (0.121, 2), (0.127, 2), (0.249, 3), (0.375, 4)):
+            now = timestamp
+            native.on_frame_arrived(data, native)
+            frame = session.snapshot().frame
+            assert frame and frame.sequence == expected
+    finally:
+        release.set()
+        session.request_stop()
+        wait_for(lambda: session.finished)
+
+
 @pytest.mark.parametrize("action", ["close", "failure", "cancel"])
 def test_border_change_never_reopens_a_closed_failed_or_stopping_source(monkeypatch, action):
     instances, release = native_fixture(monkeypatch, fail_borderless=action == "failure")

@@ -104,6 +104,8 @@ Moves may reuse a compatible frame; resize needs a new size-matched source. Capt
 until explicit new selection. Never substitute windows/monitors after failure. Copy borrowed native
 pixels before callbacks return; use bounded mailboxes and generations to reject late work.
 Static WGC windows need not deliver repeated frames; frame age alone is not failure evidence.
+The capture rate guard admits slightly early native callbacks in their scheduled slot. A burst
+cannot repeatedly advance the slot or create a frame backlog.
 
 The overlay is nonactivating/input-transparent; hide on focus loss, minimize, stop, source failure or
 size mismatch. Border edits reopen only the same native source while retaining processing owners and
