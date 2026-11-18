@@ -5,6 +5,7 @@ latest frame and an explicit monotonic time. Display geometry has a deadband aro
 its last committed position, rather than following every detector fluctuation.
 """
 
+import re
 import unicodedata
 from dataclasses import dataclass, field, replace
 from math import isfinite
@@ -46,12 +47,11 @@ class TrackingPolicy:
     missing_seconds: float = 0.35
     static_settle_seconds: float = 0.35
     confirmation_frames: int = 2
-    weaker_reading_seconds: float = 1.25
 
     def __post_init__(self) -> None:
         if min(self.max_tracks, self.missing_frames, self.confirmation_frames) < 1:
             raise ValueError("Tracking counts must be positive.")
-        if min(self.missing_seconds, self.static_settle_seconds, self.weaker_reading_seconds) <= 0:
+        if min(self.missing_seconds, self.static_settle_seconds) <= 0:
             raise ValueError("Tracking confirmation times must be positive.")
 
 
@@ -59,13 +59,13 @@ class TrackingPolicy:
 class _TextCandidate:
     text: str
     confidence: float | None
-    since: float
-    protected: bool
+    correction: bool
     hits: int = 1
+    needs_repeat: bool = False
 
-    def ready(self, now: float, weaker_reading_seconds: float) -> bool:
-        # A high accepted score must not permanently suppress a real, similar edit.
-        return not self.protected or now - self.since >= weaker_reading_seconds
+    @property
+    def changes_layout(self) -> bool:
+        return not self.correction and not self.needs_repeat
 
 
 @dataclass(slots=True)
@@ -175,21 +175,38 @@ def _best_score(old: float | None, new: float | None) -> float | None:
     return new if old is None else old if new is None else max(old, new)
 
 
+def _improves(score: float | None, accepted: float | None) -> bool:
+    # Character means can differ by floating-point rounding alone.
+    return score is not None and (accepted is None or score > accepted + 1e-6)
+
+
+_AMOUNT = re.compile(r"[-±]?\d+(?:[.,]\d+)*%?")
+
+
 def _minor_variant(old: str, new: str) -> bool:
     """Conservative OCR ambiguity, not general semantic equivalence."""
     if min(len(old), len(new)) < 4:
-        return False  # Short choices/names can change meaning with just one character.
-    if tuple(c for c in old if c.isnumeric()) != tuple(c for c in new if c.isnumeric()):
+        # A dropped bracket can surround even a two-character menu label. Keep
+        # ordinary single-character substitutions on short names/choices meaningful.
+        brackets = "()[]「」『』【】"
+        core = old.strip(brackets)
+        return bool(core) and core == new.strip(brackets) and abs(len(old) - len(new)) <= 2
+    numbers = tuple(c for c in old if c.isnumeric())
+    if numbers != tuple(c for c in new if c.isnumeric()):
+        return False
+    # A sign, decimal point or percent can change a stat with every digit intact.
+    if numbers and _AMOUNT.findall(old.replace("−", "-")) != _AMOUNT.findall(new.replace("−", "-")):
         return False
     shorter, longer = sorted((old, new), key=len)
-    if longer.startswith(shorter) and any(
-        unicodedata.category(c)[0] not in "PS" for c in longer[len(shorter) :]
+    if (
+        longer.startswith(shorter)
+        and any(unicodedata.category(c)[0] not in "PS" for c in longer[len(shorter) :])
+        and not (len(shorter) >= 10 and len(longer) == len(shorter) + 1)
     ):
         return False  # Typewriter growth/contraction needs the normal confirmation path.
-    # At most one edit for 4..9 characters, two for longer text. These caps already
-    # imply at least 75% character agreement; an approximate diff alignment is not
-    # an edit distance and can miscount repetitive OCR strings.
-    return within_edits(old, new, min(2, max(1, len(shorter) // 5)))
+    # Tolerate an isolated letter in a short label and a few scattered OCR errors
+    # in a long paragraph. A fixed edit cap keeps the comparison band narrow.
+    return within_edits(old, new, min(4, max(1, len(shorter) // 10)))
 
 
 def _same_location(old: Rect, new: Rect) -> bool:
@@ -209,6 +226,9 @@ def _inside_line(fragment: Rect, line: Rect) -> bool:
 def _commit_text(track: _Track) -> None:
     candidate = track.text_candidate
     assert candidate is not None
+    if candidate.needs_repeat:
+        return  # Quiet pixels cannot independently confirm a weak OCR interpretation.
+    track.display_predecessor = track.value if candidate.correction else None
     track.value = replace(
         track.value,
         text=candidate.text,
@@ -424,7 +444,6 @@ class TextTracker:
             track.visual_same = track.value in unchanged
             if track.value in checked and not track.visual_same:
                 track.review_attempts = 0
-                track.display_predecessor = None
         assignments: list[int | None] = [None] * len(result.regions)
         used: set[int] = set()
         # Canonical columns make ties independent of detector order. Raw result rows
@@ -452,7 +471,8 @@ class TextTracker:
             if track.visual_same:
                 self._review_unchanged(track, observations[index], frame)
             else:
-                self._update(track, observations[index], frame)
+                lost_pattern = track.value in visually_absent and visual_sequence == frame.sequence
+                self._update(track, observations[index], frame, lost_pattern=lost_pattern)
         for key in list(self._tracks):
             track = self._tracks[key]
             if key not in used and complete and result.covers(track.value.bounds):
@@ -536,7 +556,7 @@ class TextTracker:
         return self._assignments
 
     def _review_unchanged(self, track: _Track, region: TextRegion, frame: CapturedFrame) -> None:
-        """Hold accepted layout/content; allow three strictly better low-score reviews.
+        """Hold accepted geometry and review strictly better readings.
 
         Confidence is OCR confidence, not translation quality. Retries belong to this
         visual content lifetime and do not reset when OCR alternates or a review wins.
@@ -546,19 +566,25 @@ class TextTracker:
         track.observed = track.value.bounds
         track.confirmed = True
         score = _confidence(region)
-        same_text = _normalized(region.text) == _normalized(track.value.text)
+        old, new = _normalized(track.value.text), _normalized(region.text)
         eligible = track.review_attempts < 3 and (
             track.best_confidence is None or track.best_confidence < 0.9
         )
         if eligible:
             track.review_attempts += 1
-        if same_text:
+        if old == new:
             track.best_confidence = _best_score(track.best_confidence, score)
         elif (
-            eligible
-            and score is not None
-            and (track.best_confidence is None or score > track.best_confidence + 0.01)
+            _improves(score, track.best_confidence)
             and _same_location(track.value.bounds, region.bounds)
+            and (
+                _minor_variant(old, new)
+                or (
+                    eligible
+                    and score is not None
+                    and (track.best_confidence is None or score > track.best_confidence + 0.01)
+                )
+            )
         ):
             # This is an OCR correction on unchanged pixels, not a new game sentence.
             # Its predecessor remains eligible for display until the replacement
@@ -571,21 +597,72 @@ class TextTracker:
         track.reading = track.value.text
 
     def display_predecessors(self) -> tuple[tuple[TextTrack, TextTrack], ...]:
-        """Explicit same-pixel correction lineage, never permission for arbitrary stale text."""
+        """Previous accepted reading of each live OCR correction."""
         return tuple(
             (track.value, track.display_predecessor)
             for track in self._tracks.values()
             if track.display_predecessor is not None
         )
 
-    def _update(self, track: _Track, region: TextRegion, frame: CapturedFrame) -> None:
+    def _update(
+        self, track: _Track, region: TextRegion, frame: CapturedFrame, *, lost_pattern: bool
+    ) -> None:
         # Completed observations count as evidence regardless of inference speed.
         # Actual misses, rather than elapsed processing time, break candidate runs.
-        track.observed = region.bounds
         track.seen(frame)
-        track.display_predecessor = None
-        previous, new = _normalized(track.reading), _normalized(region.text)
-        if previous != new and not _minor_variant(previous, new):
+        old, new = _normalized(track.value.text), _normalized(region.text)
+        candidate = track.text_candidate
+        repeat = (
+            candidate is not None
+            and _normalized(candidate.text) == new
+            and _same_location(track.observed, region.bounds)
+        )
+        minor = old != new and _minor_variant(old, new)
+        if lost_pattern:
+            correction = False
+        elif repeat and candidate:
+            correction = candidate.correction
+        else:
+            # A freshly revealing line can acquire its final glyph. A past
+            # reveal must not exempt a settled box from confidence checks forever.
+            reveal_ending = (
+                track.growing
+                and frame.captured_at - track.changed_at <= 1.25
+                and new.startswith(old)
+                and all(c in "。、！？!?」』" or c.isalnum() for c in new[len(old) :])
+            )
+            correction = (
+                minor and _same_location(track.value.bounds, region.bounds) and not reveal_ending
+            )
+        score = _confidence(region)
+        track.observed = region.bounds
+        # A repeat of a better pending spelling can confirm its peak score.
+        if correction and not repeat and not _improves(score, track.best_confidence):
+            track.text_candidate = None
+            track.reading = track.value.text
+            track.confirmed = True
+            # A rejected spelling with clipped or extra glyphs cannot resize the box.
+            if region.bounds.size == track.value.bounds.size:
+                self._observe_geometry(track, region)
+            else:
+                track.geometry_candidate = None
+            return
+        if (
+            old != new
+            and not repeat
+            and not lost_pattern
+            and track.confirmed
+            and _same_location(track.value.bounds, region.bounds)
+            and score is not None
+            and score < 0.5
+            and track.best_confidence is not None
+            and score < track.best_confidence - 0.25
+        ):
+            track.text_candidate = _TextCandidate(region.text, score, correction, needs_repeat=True)
+            track.geometry_candidate = None
+            return
+        previous = _normalized(track.reading)
+        if previous != new and not (minor if previous == old else _minor_variant(previous, new)):
             track.changed_at = frame.captured_at
             track.growing = bool(previous) and (
                 new.startswith(previous)
@@ -598,14 +675,25 @@ class TextTracker:
                 )
             )
         track.reading = region.text
-        text_changed = self._observe_text(track, region, frame.captured_at)
-        if track.text_candidate and track.text_candidate.protected:
-            # An icon/crop variant must not move the winning box while its text is rejected.
-            track.geometry_candidate = None
-            return
+        if old == new:
+            track.text_candidate = None
+            track.best_confidence = _best_score(track.best_confidence, score)
+            track.confirmed = True
+        else:
+            if repeat and candidate and candidate.correction == correction:
+                candidate.hits += 1
+                candidate.confidence = _best_score(candidate.confidence, score)
+                candidate.needs_repeat = False
+            else:
+                candidate = track.text_candidate = _TextCandidate(region.text, score, correction)
+            if candidate.hits >= self._policy.confirmation_frames:
+                _commit_text(track)
+        self._observe_geometry(track, region)
+
+    def _observe_geometry(self, track: _Track, region: TextRegion) -> None:
         distance = _edge_distance(track.value.bounds, region.bounds)
         tolerance = _deadband(track.value.bounds)
-        if distance <= tolerance and not text_changed:
+        if distance <= tolerance:
             track.geometry_candidate = None
             return
         # Coherent translation of a similarly-sized box should follow immediately;
@@ -614,7 +702,7 @@ class TextTracker:
             abs(a - b) <= tolerance
             for a, b in zip(track.value.bounds.size, region.bounds.size, strict=True)
         )
-        if moved or text_changed:
+        if moved:
             track.value = replace(track.value, bounds=region.bounds)
             track.geometry_candidate = None
             return
@@ -629,46 +717,6 @@ class TextTracker:
             track.value = replace(track.value, bounds=region.bounds)
             track.geometry_candidate = None
 
-    def _observe_text(self, track: _Track, region: TextRegion, captured_at: float) -> bool:
-        old, new = _normalized(track.value.text), _normalized(region.text)
-        score = _confidence(region)
-        if old == new:
-            track.text_candidate = None
-            track.best_confidence = _best_score(track.best_confidence, score)
-            track.confirmed = True
-            return False
-        candidate = track.text_candidate
-        if candidate and new == _normalized(candidate.text):
-            candidate.hits += 1
-            candidate.confidence = _best_score(candidate.confidence, score)
-        else:
-            revealed_ending = (
-                track.growing
-                and new.startswith(old)
-                and len(new) > len(old)
-                and all(char in "。、！？!?」』" for char in new[len(old) :])
-            )
-            protected = _same_location(track.value.bounds, region.bounds) and (
-                _minor_variant(old, new) and not revealed_ending
-            )
-            candidate = track.text_candidate = _TextCandidate(
-                region.text, score, captured_at, protected
-            )
-        candidate.protected = (
-            candidate.protected
-            and track.best_confidence is not None
-            and candidate.confidence is not None
-            # Mean scores can differ by floating-point rounding when an icon adds a character.
-            and candidate.confidence <= track.best_confidence + 1e-6
-            and _same_location(track.value.bounds, region.bounds)
-        )
-        if candidate.hits >= self._policy.confirmation_frames and candidate.ready(
-            captured_at, self._policy.weaker_reading_seconds
-        ):
-            _commit_text(track)
-            return True
-        return False
-
     def visible(self, latest: CapturedFrame, now: float) -> tuple[TextTrack, ...]:
         """Retain committed state between observations; time alone cannot prove absence."""
         if self._size != latest.geometry.client.size:
@@ -681,9 +729,7 @@ class TextTracker:
                 track.confirmed = True
                 # WGC need not emit the same pixels twice. Time on an unchanged latest
                 # frame can settle its final edit; repeated polls never count as frames.
-                if track.text_candidate and track.text_candidate.ready(
-                    now, self._policy.weaker_reading_seconds
-                ):
+                if track.text_candidate:
                     _commit_text(track)
                 if track.geometry_candidate is not None:
                     track.value = replace(track.value, bounds=track.observed)
@@ -717,11 +763,11 @@ class TextTracker:
         return tuple(
             TextActivity(
                 replace(track.value, text=track.text_candidate.text, bounds=track.observed)
-                if track.text_candidate and not track.text_candidate.protected
+                if track.text_candidate and track.text_candidate.changes_layout
                 else track.value,
                 track.changed_at,
                 track.growing,
-                track.text_candidate is not None and not track.text_candidate.protected,
+                track.text_candidate is not None and track.text_candidate.changes_layout,
             )
             for track in self._tracks.values()
         )
@@ -746,8 +792,7 @@ class TextTracker:
     def confirm_visual(self, sequence: int, indices: tuple[int, ...], now: float) -> None:
         """Settle a current OCR reading whose expanded pixels stayed stable afterward.
 
-        Evidence belongs to this exact observation, never a later revision. Protected
-        weaker readings still need their existing confidence escape interval.
+        Evidence belongs to this exact observation, never a later revision.
         """
         if sequence != self._sequence:
             return
@@ -757,9 +802,7 @@ class TextTracker:
             if track is None or track.last_sequence != sequence or track.absence:
                 continue
             track.confirmed = True
-            if track.text_candidate and track.text_candidate.ready(
-                now, self._policy.weaker_reading_seconds
-            ):
+            if track.text_candidate:
                 _commit_text(track)
 
     def confirm_observations(
@@ -780,7 +823,5 @@ class TextTracker:
             ):
                 continue
             track.confirmed = True
-            if track.text_candidate and track.text_candidate.ready(
-                now, self._policy.weaker_reading_seconds
-            ):
+            if track.text_candidate:
                 _commit_text(track)

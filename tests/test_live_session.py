@@ -126,6 +126,10 @@ class Replay:
             frame=source, checked_sequence=source.sequence, ocr_sequence=source.sequence, **evidence
         )
         self.live.reconcile(source, source.captured_at)
+        if self.live.accepted != self.ocr.current.result:
+            # Static settling may have advanced a revision since the worker's
+            # previous matching snapshot. Return evidence for the refreshed tracks.
+            self.live.reconcile(source, source.captured_at)
         return self.live.scene(source, source.captured_at + 0.6, grouping=True)
 
 
@@ -197,6 +201,20 @@ def test_dialogue_publication_mask_restore_and_backend_scope_without_window():
     )
     assert not replay.live.publish(backend, scene.requests, scene.blocks).translations
     assert replay.live.accepted and replay.live.accepted.regions == regions
+
+
+@pytest.mark.parametrize("stale", [False, True])
+def test_only_current_pattern_loss_can_start_a_new_weaker_similar_reading(stale):
+    replay = Replay()
+    box = Rect(100, 650, 380, 35)
+    east, west = "東の門へ向かってください", "西の門へ向かってください"
+    original = TextRegion(east, box, (TextCharacter(east, box, 0.99),))
+    changed = TextRegion(west, box, (TextCharacter(west, box, 0.8),))
+    scene = replay.observe(frame(1), (original,))
+    old = scene.tracks[0]
+    lost = replace(old, text_revision=0) if stale else old
+    scene = replay.observe(frame(2, 2), (changed,), absent=frozenset((lost,)))
+    assert scene.tracks[0].text == (east if stale else west)
 
 
 def test_history_observes_complete_publications_without_changing_model_work():

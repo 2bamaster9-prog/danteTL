@@ -179,8 +179,9 @@ Tracking is deterministic and bounded (128 tracks, 512 candidate regions). Exist
 new admission; truncated input cannot vote for absence. Spatially gated bipartite components use optimal
 assignment with explicit unmatched costs, stable IDs and canonical tie ordering. Distant identical labels
 cannot match on text alone. Candidate scores use normalized bit-parallel LCS/Indel with per-source masks
-reused only within that matching pass. Cutoff edit distance handles minor variants; approximation never
-permanently suppresses real edits. Confidence belongs to live content, not a screen-position cache.
+reused only within that matching pass. Bounded edit distance identifies nearby spelling variants;
+short choices, numerical changes and typewriter growth have separate confirmation rules.
+Confidence belongs to live content, not a screen-position cache.
 
 The visual worker prepares immutable crop digests and geometric/text match scores for the exact OCR
 source and an immutable snapshot of prior track identities, text and observed bounds. Results carry
@@ -196,8 +197,13 @@ Observed and committed text/geometry are separate. Worker delay, skipped frames 
 not absence evidence. Bounded crop digests retain text through same-pixel misses; changed pixels alone
 never remove text. Negative OCR needs coverage and elapsed evidence. Source-time settling works on static
 WGC frames. New content/reset cannot inherit confidence. Accepted unchanged glyphs retain identity,
-geometry and English; below 90% confidence only three strictly improving reviews are allowed without
-real local change. Alternating spelling cannot reset this budget or duplicate unchanged detector fragments.
+geometry and English. For a matched line with a minor spelling or bracket difference, only a
+better OCR score can advance the reading. Repeated weaker or unscored variants cannot win by
+waiting. Strong visual loss of the old pattern on the OCR source allows a similar new line to
+start its own confidence baseline. Larger disagreements on visually unchanged glyphs have a
+bounded low-confidence review.
+A very weak divergent reading at an established label needs another matching OCR observation
+before it can resize or replace the label. A quiet image cannot confirm its spelling.
 `EnglishPresentation` bridges only explicit same-pixel correction lineage while translating the successor.
 Validate every member; edits/regrouping/removal/model changes revoke it. Consensus remains experimental.
 

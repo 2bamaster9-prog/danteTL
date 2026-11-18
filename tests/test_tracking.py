@@ -137,10 +137,10 @@ def test_fuzzy_single_frame_error_is_ignored_but_persistent_change_gets_one_revi
     replay = Replay()
     original = replay.step(region())[0]
     typo = "新しい冒険が、ここから始まろ。"
-    assert replay.step(region(typo))[0] is original
+    assert replay.step(region(typo, confidence=0.9))[0] is original
     assert replay.step(region())[0] is original
-    assert replay.step(region(typo))[0] is original
-    updated = replay.step(region(typo))[0]
+    assert replay.step(region(typo, confidence=0.9))[0] is original
+    updated = replay.step(region(typo, confidence=0.9))[0]
     assert updated.track_id == original.track_id
     assert updated.text == typo and updated.text_revision == 2
     assert replay.step(region(typo))[0] is updated
@@ -220,13 +220,14 @@ def test_equal_score_ties_use_geometry_instead_of_detector_order():
     assert assignments[0] == assignments[1] == {197: 1, 203: 2}
 
 
-def test_repetitive_minor_edit_retains_confidence_but_eventually_commits_real_change():
+def test_repetitive_minor_edit_requires_a_better_reading():
     replay = Replay()
     original = replay.step(region("abababababab", confidence=0.99))[0]
     # One deletion, despite a misleading long-block diff alignment on repeated text.
-    for _ in range(5):
+    for _ in range(12):
         assert replay.step(region("ababbababab", confidence=0.6))[0] == original
-    changed = replay.step(region("ababbababab", confidence=0.6))[0]
+    replay.step(region("ababbababab", confidence=0.999))
+    changed = replay.step(region("ababbababab", confidence=0.999))[0]
     assert changed.track_id == original.track_id and changed.text_revision == 2
     assert changed.text == "ababbababab"
 
@@ -419,6 +420,8 @@ def test_higher_confidence_variant_wins_once_and_remembers_its_peak_score() -> N
     "old,new",
     [
         ("体力が１００残っている", "体力が１０１残っている"),
+        ("攻撃力が＋１０％", "攻撃力が−１０％"),
+        ("移動速度１．２５倍", "移動速度１２．５倍"),
         ("残りの回数は一回です", "残りの回数は二回です"),
         ("解除", "解放"),
         ("冒険に出発する", "冒険に出発するよ"),
@@ -434,31 +437,28 @@ def test_real_changes_do_not_need_to_beat_the_old_confidence(old, new) -> None:
     assert current.text == new and current.text_revision == 2
 
 
-def test_sustained_similar_new_content_eventually_replaces_a_stronger_old_reading() -> None:
+def test_repeated_substitutions_cannot_lower_the_confidence_of_a_live_reading() -> None:
     replay = Replay()
     original = replay.step(region("東の門へ向かってください", confidence=0.99))[0]
-    for _ in range(5):
+    for _ in range(15):
         assert replay.step(region("西の門へ向かってください", confidence=0.6))[0] is original
-    current = replay.step(region("西の門へ向かってください", confidence=0.6))[0]
+    replay.step(region("西の門へ向かってください", confidence=1.0))
+    current = replay.step(region("西の門へ向かってください", confidence=1.0))[0]
     assert current.text == "西の門へ向かってください" and current.text_revision == 2
     assert current.track_id == original.track_id
-    # Confidence belongs to this new reading, not an all-time high at this screen position.
-    replay.step(region("南の門へ向かってください", confidence=0.8))
-    assert replay.step(region("南の門へ向かってください", confidence=0.8))[0].text == (
-        "南の門へ向かってください"
-    )
+    assert replay.step(region("南の門へ向かってください", confidence=0.8))[0] is current
 
 
-def test_a_static_weaker_candidate_uses_the_longer_settle_time_without_repeated_ocr() -> None:
+def test_elapsed_time_and_visual_confirmation_cannot_promote_a_weaker_spelling() -> None:
     replay = Replay()
     original = replay.step(region("東の門へ向かってください", confidence=0.99))[0]
     replay.step(region("西の門へ向かってください", confidence=0.6))
     assert replay.result is not None
     frame = replay.result.frame
-    for elapsed in (0.35, 0.5, 1, 1.24):
+    for elapsed in (0.35, 1.26, 5.0):
         replay.tracker.observe(replay.result)  # Duplicate polls cannot add confirmation evidence.
+        replay.tracker.confirm_visual(frame.sequence, (0,), replay.now + elapsed)
         assert replay.tracker.visible(frame, replay.now + elapsed)[0] is original
-    assert replay.tracker.visible(frame, replay.now + 1.26)[0].text == "西の門へ向かってください"
 
 
 def test_changed_dialogue_resets_confidence_even_when_it_keeps_the_same_track_id() -> None:
@@ -504,11 +504,11 @@ def test_removed_or_reset_tracks_do_not_inherit_confidence_at_the_same_position(
 
 
 @pytest.mark.parametrize("score", [None, float("nan"), float("inf"), -0.5, 1.5])
-def test_unavailable_or_invalid_scores_fall_back_to_normal_confirmation(score) -> None:
+def test_unavailable_or_invalid_scores_cannot_supersede_a_similar_reading(score) -> None:
     replay = Replay()
     original = replay.step(region("ポーションを使う", confidence=0.99))[0]
     assert replay.step(region("ボーションを使う", confidence=score))[0] is original
-    assert replay.step(region("ボーションを使う", confidence=score))[0].text == "ボーションを使う"
+    assert replay.step(region("ボーションを使う", confidence=score))[0] is original
 
 
 def test_substantially_changed_location_uses_normal_confirmation() -> None:
@@ -625,6 +625,36 @@ def test_lower_confidence_terminal_punctuation_only_gets_fast_confirmation_after
     replay.step(region(text + "。", confidence=0.90))
     values = replay.step(region(text + "。", confidence=0.90))
     assert values[0].text == (text + "。" if revealing else text)
+
+
+def test_a_settled_typewriter_line_keeps_its_reading_through_weaker_terminal_variants():
+    replay = Replay()
+    text = "新しい冒険がここから始まります"
+    replay.step(region("新しい", confidence=0.99))
+    replay.step(region(text, confidence=0.97))
+    accepted = replay.step(region(text, confidence=0.97))[0]
+    for variant in (text + "）", text + "。", text[:-1]):
+        for _ in range(3):
+            assert replay.step(region(variant, confidence=0.9), dt=2)[0] is accepted
+
+
+def test_quiet_pixels_cannot_commit_a_single_weak_disagreement_on_a_locked_label():
+    replay = Replay()
+    label = region("防御力", width=122, confidence=0.95)
+    replay.step(label)
+    locked = replay.step(label)
+    noise = region("全く違う読み方", x=94, width=136, confidence=0.2)
+    for reading in (noise, region("誤った観測", width=138, confidence=0.2), noise):
+        assert replay.step(reading) == locked
+        assert replay.result is not None
+        f = replay.result.frame
+        replay.tracker.confirm_visual(f.sequence, (0,), replay.now + 5)
+        replay.tracker.confirm_observations(
+            ((locked[0].track_id, f.sequence, reading.text),), replay.now + 5
+        )
+        assert replay.tracker.translation_tracks(f, replay.now + 5) == locked
+        assert not replay.tracker.translation_activity()[0].pending
+    assert replay.step(noise)[0].text == noise.text
 
 
 @pytest.mark.parametrize(

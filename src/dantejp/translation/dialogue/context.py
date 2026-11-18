@@ -23,7 +23,7 @@ def _continues(
     current: TextBlock,
     corrections: tuple[tuple[TextTrack, TextTrack], ...],
 ) -> bool:
-    """Follow exact members, same-pixel corrections and tracked continuation only.
+    """Follow exact members, tracker-approved corrections and tracked continuation only.
 
     Reusing a screen location or similar wording does not establish turn identity.
     A trailing line may grow and new lines may follow; earlier members must survive.
