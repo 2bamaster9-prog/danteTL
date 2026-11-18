@@ -92,7 +92,12 @@ def test_independent_answers_publish_out_of_order_with_two_slots_cache_and_sourc
 
 def test_dialogue_is_serial_but_does_not_block_an_independent_menu(tmp_path):
     backend = Deferred()
-    session = TranslationSession(lambda: backend, tmp_path / "cache")
+    publications = []
+    session = TranslationSession(
+        lambda: backend,
+        tmp_path / "cache",
+        on_change=lambda: publications.append(session.snapshot()),
+    )
     session.start()
     try:
         session.update(
@@ -104,14 +109,65 @@ def test_dialogue_is_serial_but_does_not_block_an_independent_menu(tmp_path):
         )
         until(lambda: len(backend.calls) == 2)
         assert [source[0] for source, _ in backend.calls] == ["最初の会話です。", "設定"]
+        dialogue_started = session.snapshot().processing_since
+        assert dialogue_started is not None
         backend.finish(1)
-        until(lambda: len(session.snapshot().results) == 1)
+        until(lambda: any(len(s.results) == 1 for s in publications))
+        assert publications[-1].processing_since == dialogue_started
         assert len(backend.calls) == 2
         backend.finish(0)
         until(lambda: len(backend.calls) == 3)
         assert backend.calls[2][0][0] == "次の会話です。"
         backend.finish(2)
         until(lambda: len(session.snapshot().results) == 3)
+    finally:
+        stop(session)
+
+
+def test_shared_cloud_call_survives_a_new_owner_and_retained_only_until_withdrawn(tmp_path):
+    backend = Deferred()
+    session = TranslationSession(lambda: backend, tmp_path / "cache")
+    session.start()
+    try:
+        label, duplicate = block(1, "設定"), block(2, "設定")
+        other = block(3, "速度")
+        session.update((label, other))
+        until(lambda: len(backend.calls) == 2)
+        session.update((duplicate,), retain=(other,))
+        backend.finish(0)
+        until(lambda: len(session.snapshot().results) == 1)
+        assert session.snapshot().results[0].request.track_id == 2
+        assert session.snapshot().cancelled_obsolete == 0
+        session.update((duplicate,))
+        until(lambda: backend.calls[1][1].cancelled())
+        assert session.snapshot().cancelled_obsolete == 1
+        assert len(backend.calls) == 2
+    finally:
+        stop(session)
+
+
+def test_retained_dialogue_keeps_the_context_of_its_inflight_translation(tmp_path):
+    backend = Deferred()
+    session = TranslationSession(lambda: backend, tmp_path / "cache")
+    session.start()
+    try:
+        first = block(1, "最初の会話です。", dialogue=True)
+        second = block(1, "次の会話です。", dialogue=True)
+        session.update((first,))
+        until(lambda: len(backend.calls) == 1)
+        backend.finish(0)
+        until(lambda: len(session.snapshot().results) == 1)
+        session.update((second,))
+        until(lambda: len(backend.calls) == 2)
+        assert backend.calls[1][0][1]
+        label = block(2, "設定")
+        session.update((label,), retain=(second, label))
+        until(lambda: len(backend.calls) == 3)
+        session.update((second, label))
+        backend.finish(1)
+        until(lambda: len(session.snapshot().results) == 1)
+        assert session.snapshot().results[0].request.source == second.text
+        assert len(backend.calls) == 3 and session.snapshot().cancelled_obsolete == 0
     finally:
         stop(session)
 

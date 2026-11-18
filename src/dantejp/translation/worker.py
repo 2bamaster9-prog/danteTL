@@ -80,6 +80,8 @@ class TranslationSession:
         self._backend_generation = 0
         self._desired: tuple[TranslationRequest, ...] = ()
         self._retained: tuple[TranslationRequest, ...] = ()
+        self._demand_changed = False
+        self._cancelled_obsolete = 0
         self._results: dict[TranslationRequest, TranslatedText] = {}
         self._state = TranslationState.LOADING
         self._message = ""
@@ -125,9 +127,8 @@ class TranslationSession:
         )[: 128 - len(desired)]
         with self._condition:
             now = time.monotonic()
-            previous_contexts = self._contexts
             blocks = tuple(t for t in tracks[:128] if isinstance(t, TextBlock))
-            allowed = set(desired) | set(retained)
+            allowed = desired_set.union(retained)
             self._blocks = {
                 key: b
                 for b in (*retain[:128], *blocks)
@@ -135,31 +136,31 @@ class TranslationSession:
             }
             if reset_context:
                 self._dialogue.reset()
-                self._contexts = {key: () for key in desired if key not in self._results}
             self._dialogue.observe(retain[:128] or blocks, now, corrections=corrections)
-            self._contexts = {
-                key: (
-                    self._contexts[key]
-                    if key in self._contexts
-                    else self._dialogue.context_for(self._blocks[key])
-                )
-                if key in self._blocks
-                else ()
-                for key in desired
+            contexts = {
+                key: () if reset_context else context
+                for key, context in self._contexts.items()
+                if key in allowed
             }
+            for key in desired:
+                if key not in contexts:
+                    contexts[key] = (
+                        self._dialogue.context_for(self._blocks[key]) if key in self._blocks else ()
+                    )
             if (
                 self._stop
                 or self._state == TranslationState.FAILED
                 or (
                     desired == self._desired
                     and retained == self._retained
-                    and previous_contexts == self._contexts
+                    and contexts == self._contexts
                 )
             ):
                 return
             self._desired, self._retained = desired, retained
+            self._contexts = contexts
+            self._demand_changed = True
             self._queued_at = {key: self._queued_at.get(key, now) for key in desired}
-            allowed = set(desired) | set(retained)
             self._results = {key: value for key, value in self._results.items() if key in allowed}
             self._condition.notify()
 
@@ -193,6 +194,7 @@ class TranslationSession:
             self._dialogue.reset()
             self._contexts.clear()
             self._cache_hits = self._translated_sources = 0
+            self._cancelled_obsolete = 0
             self._condition.notify()
 
     def request_stop(self) -> None:
@@ -241,6 +243,7 @@ class TranslationSession:
                 last_inference_ms=self._last_inference_ms,
                 backend_generation=self._backend_generation,
                 rejected=rejected,
+                cancelled_obsolete=self._cancelled_obsolete,
             )
 
     def _needs_translation(self, key: TranslationRequest) -> bool:
@@ -269,16 +272,21 @@ class TranslationSession:
                         self._processing_since = None
                 completed = schedule.completed()
                 for batch, future in completed:
-                    self._publish_batch(batch, future.result(), cache, inference=True)
+                    self._publish_batch(
+                        batch,
+                        future.result(),
+                        cache,
+                        inference=True,
+                        remaining_since=schedule.processing_since,
+                    )
                 if completed:
-                    with self._condition:
-                        self._processing_since = schedule.processing_since
                     continue
                 with self._condition:
                     self._condition.wait_for(
                         lambda active=active_backend: (
                             self._stop
                             or active != self._backend_generation
+                            or self._demand_changed
                             or schedule.has_completion()
                             or schedule.stale(self._generation)
                             or schedule.needs_plan(
@@ -296,6 +304,15 @@ class TranslationSession:
                     if schedule.has_completion() or schedule.stale(self._generation):
                         continue
                     backend_generation, factory = self._backend_generation, self._factory
+                    if self._demand_changed:
+                        self._demand_changed = False
+                        if schedule.processing_since is not None:
+                            wanted = {
+                                (key.source, self._contexts.get(key, ()))
+                                for key in (*self._desired, *self._retained)
+                            }
+                            self._cancelled_obsolete += schedule.cancel_unused(wanted)
+                            self._processing_since = schedule.processing_since
                     jobs = tuple(key for key in self._desired if self._needs_translation(key))
                     contexts: dict[TranslationRequest, tuple[DialogueTurn, ...]] = {
                         key: self._contexts.get(key) or () for key in jobs
@@ -380,7 +397,13 @@ class TranslationSession:
             self._notify()
 
     def _publish_batch(
-        self, batch: Batch, outcome: BatchResult, cache: TranslationCache, *, inference: bool
+        self,
+        batch: Batch,
+        outcome: BatchResult,
+        cache: TranslationCache,
+        *,
+        inference: bool,
+        remaining_since: float | None = None,
     ) -> None:
         translated, rejected_sources = outcome
         for source, english in translated.items():
@@ -389,7 +412,7 @@ class TranslationSession:
         duration = (time.perf_counter() - batch.measured) * 1000
         with self._condition:
             if inference:
-                self._processing_since = None
+                self._processing_since = remaining_since
             published = not self._stop and batch.generation == self._generation
             if published:
                 for key in batch.jobs:

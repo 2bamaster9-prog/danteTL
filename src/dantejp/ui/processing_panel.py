@@ -109,6 +109,10 @@ class ProcessingPanel(QWidget):
                     "Current requests waiting or running; text still settling is separate.",
                 ),
                 ("Last batch", "Distinct source/context pairs served from cache or by the model."),
+                (
+                    "Cancelled",
+                    "Cloud calls cancelled because no current box needs their text and context.",
+                ),
             ),
         )
         cards = QHBoxLayout()
@@ -194,6 +198,7 @@ class ProcessingPanel(QWidget):
                 f"{translation.cache_hits} cached / {translation.translated_sources} model"
                 if translation
                 else "—",
+                str(translation.cancelled_obsolete) if translation else "—",
             )
         )
         if translation:

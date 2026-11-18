@@ -268,8 +268,12 @@ bounded desired/retained work, exact source/context deduplication, cache-first l
 and fair waiting order. Outstanding sources reuse their hashed keys and cache answers. Newly admitted
 sources are checked even at deferred inference capacity. On a scheduling pass, another SQLite
 connection's commit invalidates remembered misses; the owner's own writes update them directly.
-Revisions join the tail; withdrawn requests leave. Retained-only requests never
-initiate inference. Futures only wake the owner. Revalidate after cache I/O and before dispatch/publication.
+Revisions join the tail. The owner cancels an active cloud call when its exact source and frozen
+context have no remaining desired or retained box. A retained box can keep an existing call alive
+through readiness changes. Only ready boxes initiate inference or receive newly published answers.
+Diagnostics report the age of the oldest active translation (including cloud admission waits) and
+count obsolete calls cancelled within the active workers. Futures only wake the owner.
+Revalidate after cache I/O and before dispatch/publication.
 Known `RequestRejected` failures are bounded to exact request/revision/context; fatal failures stop that
 translator while capture/OCR continue. Backend generation also scopes retained English.
 

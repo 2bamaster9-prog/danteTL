@@ -203,6 +203,7 @@ class RoutedTranslationSession:
             load_ms=max((s.load_ms for s in snapshots), default=0),
             last_inference_ms=max((s.last_inference_ms for s in snapshots), default=0),
             backend_generation=self._generation,
+            cancelled_obsolete=sum(s.cancelled_obsolete for s in snapshots),
             rejected=tuple(r for s in snapshots for r in s.rejected),
             lanes=tuple(
                 TranslationLaneSnapshot(

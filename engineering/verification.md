@@ -63,7 +63,7 @@ checks once after changes settle; repeat only for new changes, failures or unres
 | Model consent/preparation/probe/shutdown | `tools/verify_setup_windows.py` and `--missing-runtime`; live translation/model swaps; import lifecycle check when probe changes |
 | Main/Settings/Advanced/pause/preferences | `tools/verify_ui_windows.py`; native setup and live translation/pause checks |
 | Dialogue reader/classification | Explicit-time history replays; live `--translation --dialogue --gemma --typewriter --ocr-delay-ms 900`; confirm whole-turn deduplication, separate speaker and unchanged model work |
-| Cloud/routing/editor/credentials | Fast fake-transport/credential tests; `tools/verify_cloud_windows.py`; cancellation tests through the translation owner |
+| Cloud/routing/editor/credentials | Fast fake-transport/credential tests; `tools/verify_cloud_windows.py`; revise a dialogue while a menu call is active, and verify shared and retained calls through the translation owner |
 | Two assigned local models | `tools/verify_category_models.py --device cpu` in a CPU runtime, `--device cuda` in NVIDIA and `--device vulkan` in Vulkan; verifies inference/switching without upstream disk caches; live swaps and retention checks |
 | Runtime installer/launcher/restart | `tools/verify_runtime_windows.py` in a disposable extracted distribution; standalone relocation check |
 | First-run/progress | `tools/verify_first_run_windows.py`, native setup and packaged runtime/restart check |

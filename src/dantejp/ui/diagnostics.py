@@ -64,7 +64,11 @@ def debug_display(
             f"Last model inference: {translation.last_inference_ms:.0f} ms (excludes cache)"
         )
         if translation.processing_since is not None:
-            lines.append(f"Translation running: {max(0, now - translation.processing_since):.1f}s")
+            lines.append(
+                f"Oldest active translation: {max(0, now - translation.processing_since):.1f}s"
+            )
+        if translation.cancelled_obsolete:
+            lines.append(f"Obsolete cloud requests cancelled: {translation.cancelled_obsolete}")
     else:
         lines.append("Translation: off")
     return DebugDisplay(changed, scanned, "\n".join(lines))

@@ -75,6 +75,7 @@ class TranslationSnapshot:
     backend_generation: int = 0
     rejected: tuple[TranslationRejection, ...] = ()
     lanes: tuple[TranslationLaneSnapshot, ...] = ()
+    cancelled_obsolete: int = 0
 
 
 class TranslationWorker(Protocol):

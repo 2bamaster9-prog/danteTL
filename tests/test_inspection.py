@@ -304,7 +304,11 @@ def test_processing_panel_distinguishes_cached_work_and_resets_stale_capture_met
     result = OcrResult(frame, (), 20, 1.02, (Rect(0, 0, 50, 50),))
     ocr = OcrSnapshot(OcrState.READY, result, queue_ms=35, provider="CPUExecutionProvider")
     translation = TranslationSnapshot(
-        TranslationState.READY, cache_hits=1, last_batch_ms=0.1, last_inference_ms=92
+        TranslationState.READY,
+        cache_hits=1,
+        last_batch_ms=0.1,
+        last_inference_ms=92,
+        cancelled_obsolete=2,
     )
     panel.refresh(
         CaptureSnapshot(CaptureState.RUNNING, frame),
@@ -320,6 +324,7 @@ def test_processing_panel_distinguishes_cached_work_and_resets_stale_capture_met
     assert panel.ocr.values["Device"].text() == "CPU"
     assert panel.translation.values["Last batch"].text() == "1 cached / 0 model"
     assert panel.translation.values["Model call"].text() == "92 ms"
+    assert panel.translation.values["Cancelled"].text() == "2"
     # Idle cache hits must not be presented as zero-time model inference.
     assert "Most recent inference" in panel.translation.values["Model call"].toolTip()
     panel.hide()

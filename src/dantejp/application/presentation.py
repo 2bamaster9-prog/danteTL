@@ -92,7 +92,7 @@ def translation_status(
     if snapshot.state == TranslationState.STOPPING:
         return "Waiting for translation to finish unloading…"
     return snapshot.message or (
-        f"Translating · {now - snapshot.processing_since:.1f} s"
+        f"Translating · oldest active call {now - snapshot.processing_since:.1f} s"
         if snapshot.processing_since is not None
         else f"Ready · {len(snapshot.results)} English blocks"
     )

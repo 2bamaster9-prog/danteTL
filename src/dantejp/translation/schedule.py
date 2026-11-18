@@ -127,6 +127,16 @@ class TranslationSchedule:
         self._flights.append((batch, future))
         self._blocked = None
 
+    def cancel_unused(self, wanted: set[Source]) -> int:
+        """Release a deferred slot only when every input has lost its last consumer."""
+        cancelled = 0
+        for batch, future in tuple(self._flights):
+            if wanted.isdisjoint(batch.missing) and future.cancel():
+                self._flights.remove((batch, future))
+                self._blocked = None
+                cancelled += 1
+        return cancelled
+
     def plan(
         self, demand: Demand, engine: TranslationBackend, cache: TranslationCache
     ) -> Batch | None:

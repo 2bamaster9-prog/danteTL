@@ -25,6 +25,7 @@ def test_debug_distinguishes_changes_from_actual_scanned_coverage_and_model_wait
         cache_hits=1,
         translated_sources=2,
         processing_since=10.2,
+        cancelled_obsolete=2,
     )
     display = debug_display(visual, ocr, translation, 10.4, waiting_blocks=2)
     assert display.changed == (changed,) and display.scanned == (scanned,)
@@ -35,7 +36,8 @@ def test_debug_distinguishes_changes_from_actual_scanned_coverage_and_model_wait
         "wait 250 ms",
         "1 cache / 2 model",
         "settling 2",
-        "Translation running: 0.2s",
+        "Oldest active translation: 0.2s",
+        "Obsolete cloud requests cancelled: 2",
     ):
         assert text in display.text
     assert debug_display(visual, ocr, None, 11).changed == ()

@@ -100,6 +100,50 @@ def response(text="Settings", *, provider="openai", **changes):
     }
 
 
+def test_ocr_revision_interrupts_only_the_obsolete_cloud_request(tmp_path):
+    old, corrected, menu = "城を出ます。", "城を出ますか。", "設定"
+    entered, cancelled = [], []
+    release_menu = threading.Event()
+
+    async def handle(request):
+        source = json.loads(json.loads(request.content)["messages"][1]["content"])["CURRENT"]
+        entered.append(source)
+        try:
+            if source == old:
+                await asyncio.Event().wait()
+            while source == menu and not release_menu.is_set():
+                await asyncio.sleep(0.005)
+        except asyncio.CancelledError:
+            cancelled.append(source)
+            raise
+        return httpx2.Response(
+            200, json=response("Leave the castle?" if source == corrected else "Settings")
+        )
+
+    engine = CloudBackend(
+        replace(CloudProfile.new("openai"), requests_per_minute=600),
+        "fixture",
+        transport=httpx2.MockTransport(handle),
+    )
+    session = TranslationSession(lambda: engine, tmp_path / "cache")
+    session.start()
+    try:
+        label = track(menu, key=2)
+        session.update((TextBlock((track(old),), dialogue=True), label))
+        until(lambda: len(entered) == 2)
+        session.update((TextBlock((track(corrected, revision=2),), dialogue=True), label))
+        until(lambda: bool(session.snapshot().results))
+        assert set(entered[:2]) == {old, menu} and entered[2:] == [corrected]
+        assert cancelled == [old]
+        assert [(r.request.source, r.english) for r in session.snapshot().results] == [
+            (corrected, "Leave the castle?")
+        ]
+        release_menu.set()
+        until(lambda: len(session.snapshot().results) == 2)
+    finally:
+        stop(session)
+
+
 def test_profile_storage_is_bounded_and_contains_no_credentials(tmp_path):
     store = CloudProfiles(tmp_path / "profiles.json")
     profile = CloudProfile.new("openai")
