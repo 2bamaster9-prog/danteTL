@@ -255,7 +255,10 @@ may coexist and consume additional RAM/VRAM.
 
 `TranslationSession` owns backend loading/inference/unloading and SQLite. `TranslationSchedule` owns
 bounded desired/retained work, exact source/context deduplication, cache-first lookup, serial dialogue
-and fair waiting order. Revisions join the tail; withdrawn requests leave. Retained-only requests never
+and fair waiting order. Outstanding sources reuse their hashed keys and cache answers. Newly admitted
+sources are checked even at deferred inference capacity. On a scheduling pass, another SQLite
+connection's commit invalidates remembered misses; the owner's own writes update them directly.
+Revisions join the tail; withdrawn requests leave. Retained-only requests never
 initiate inference. Futures only wake the owner. Revalidate after cache I/O and before dispatch/publication.
 Known `RequestRejected` failures are bounded to exact request/revision/context; fatal failures stop that
 translator while capture/OCR continue. Backend generation also scopes retained English.

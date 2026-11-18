@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from concurrent.futures import Future
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -82,15 +83,17 @@ class TranslationSchedule:
 
     def __init__(self) -> None:
         self._flights: list[tuple[Batch, Future[BatchResult]]] = []
-        self._checked: set[tuple[TranslationRequest, tuple[DialogueTurn, ...]]] = set()
+        self._blocked: set[tuple[TranslationRequest, tuple[DialogueTurn, ...]]] | None = None
         self._waiting: dict[tuple[TranslationRequest, tuple[DialogueTurn, ...]], None] = {}
-        self._generation: int | None = None
+        self._scope: tuple[int, str] | None = None
+        self._keys: dict[Source, str] = {}
 
     def reset(self) -> None:
         self._flights.clear()
-        self._checked.clear()
+        self._blocked = None
         self._waiting.clear()
-        self._generation = None
+        self._scope = None
+        self._keys = {}
 
     def stale(self, generation: int) -> bool:
         return any(batch.generation != generation for batch, _ in self._flights)
@@ -98,8 +101,16 @@ class TranslationSchedule:
     def has_completion(self) -> bool:
         return any(future.done() for _, future in self._flights)
 
-    def unchecked(self, key: TranslationRequest, context: tuple[DialogueTurn, ...]) -> bool:
-        return (key, context) not in self._checked
+    def needs_plan(
+        self, generation: int, jobs: Iterable[tuple[TranslationRequest, tuple[DialogueTurn, ...]]]
+    ) -> bool:
+        # Withdrawals also end a lookup's lifetime, including the last request in a scene.
+        return (
+            self._blocked is None
+            or self._scope is None
+            or generation != self._scope[0]
+            or self._blocked != set(jobs)
+        )
 
     @property
     def processing_since(self) -> float | None:
@@ -109,21 +120,24 @@ class TranslationSchedule:
         done = tuple((batch, future) for batch, future in self._flights if future.done())
         if done:
             self._flights = [(b, f) for b, f in self._flights if (b, f) not in done]
-            self._checked.clear()
+            self._blocked = None
         return done
 
     def submitted(self, batch: Batch, future: Future[BatchResult]) -> None:
         self._flights.append((batch, future))
-        self._checked.clear()
+        self._blocked = None
 
     def plan(
         self, demand: Demand, engine: TranslationBackend, cache: TranslationCache
     ) -> Batch | None:
         # Demand order is screen order, not waiting age. Preserve surviving requests
         # ahead of new revisions so a changing early box cannot starve later text.
-        if self._generation != demand.generation:
+        scope = demand.generation, engine.cache_identity
+        reset = self._scope != scope
+        if reset:
             self._waiting.clear()
-            self._generation = demand.generation
+            self._keys = {}
+            self._scope = scope
         wanted = dict.fromkeys((key, demand.contexts[key]) for key in demand.jobs[:128])
         self._waiting = {key: None for key in self._waiting if key in wanted}
         self._waiting.update(wanted)
@@ -132,18 +146,21 @@ class TranslationSchedule:
             key: (key.source, demand.contexts[key] if contextual else ()) for key in demand.jobs
         }
         sources = tuple(dict.fromkeys(inputs[key] for key, _ in self._waiting))
-        keys = {
-            source: translation_key(
-                engine.cache_identity + (":dialogue-context-v1" if source[1] else ""),
-                json.dumps(
-                    [source[0], [(t.source, t.english) for t in source[1]]], ensure_ascii=False
+        keys: dict[Source, str] = {}
+        for source in sources:
+            if source in self._keys:
+                keys[source] = self._keys[source]
+            else:
+                text, context = source
+                keys[source] = translation_key(
+                    engine.cache_identity + (":dialogue-context-v1" if context else ""),
+                    json.dumps([text, [(t.source, t.english) for t in context]], ensure_ascii=False)
+                    if context
+                    else text,
                 )
-                if source[1]
-                else source[0],
-            )
-            for source in sources
-        }
-        answers = {source: cache.get(keys[source]) for source in sources}
+        self._keys = keys
+        hits = cache.lookup_pending(keys.values(), reset=reset)
+        answers = {source: hits[key] for source, key in keys.items()}
         cached = tuple(source for source in sources if answers[source] is not None)
         active = {source for batch, _ in self._flights for source in batch.missing}
         serial = {
@@ -163,8 +180,9 @@ class TranslationSchedule:
             else ()
         )
         if not cached and not eligible:
-            self._checked = {(key, demand.contexts[key]) for key in demand.jobs}
+            self._blocked = set(wanted)
             return None
+        self._blocked = None
         chosen = cached or eligible[: max(1, min(4, engine.batch_size))]
         missing = tuple(source for source in chosen if answers[source] is None)
         return Batch(

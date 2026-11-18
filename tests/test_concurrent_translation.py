@@ -116,6 +116,28 @@ def test_dialogue_is_serial_but_does_not_block_an_independent_menu(tmp_path):
         stop(session)
 
 
+def test_new_cache_hit_and_another_owners_fill_publish_with_both_flights_busy(tmp_path):
+    backend = Deferred()
+    path = tmp_path / "cache"
+    writer = TranslationCache(path)
+    session = TranslationSession(lambda: backend, path)
+    session.start()
+    try:
+        items = (block(1, "攻撃力"), block(2, "防御力"), block(3, "速度"))
+        session.update(items)
+        until(lambda: len(backend.calls) == 2)
+        # This owner fills an already probed miss and a source the session has never seen.
+        writer.put(translation_key(backend.cache_identity, "速度"), "Speed")
+        writer.put(translation_key(backend.cache_identity, "設定"), "Settings")
+        session.update((*items, block(4, "設定")))
+        until(lambda: len(session.snapshot().results) == 2)
+        assert {r.english for r in session.snapshot().results} == {"Speed", "Settings"}
+        assert len(backend.calls) == 2 and all(not future.done() for _, future in backend.calls)
+    finally:
+        stop(session)
+        writer.close()
+
+
 def test_swap_cancels_every_inflight_request_and_never_reuses_old_english(tmp_path):
     old, new = Deferred(), Deferred()
     new.cache_identity = "replacement"

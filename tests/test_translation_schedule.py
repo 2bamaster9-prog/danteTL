@@ -35,6 +35,31 @@ def demand(*jobs, generation=1, contexts=None, dialogue=()):
     return Demand(generation, jobs, contexts or dict.fromkeys(jobs, ()), frozenset(dialogue))
 
 
+def test_cold_sources_are_checked_once_until_withdrawn(tmp_path, monkeypatch):
+    cache = TranslationCache(tmp_path / "cache")
+    probes = []
+    get = cache.get
+
+    def count_get(key):
+        probes.append(key)
+        return get(key)
+
+    monkeypatch.setattr(cache, "get", count_get)
+    schedule, backend = TranslationSchedule(), Backend()
+    jobs = tuple(TranslationRequest(i, 1, f"項目{i}") for i in range(128))
+    try:
+        for i, job in enumerate(jobs):
+            batch = schedule.plan(demand(*jobs[i:]), backend, cache)
+            assert batch and batch.missing == ((job.source, ()),)
+            cache.put(batch.keys[batch.missing[0]], "English")
+        assert len(probes) == len(set(probes)) == 128
+        assert schedule.plan(demand(), backend, cache) is None
+        hit = schedule.plan(demand(jobs[-1]), backend, cache)
+        assert hit and not hit.missing and len(probes) == 129
+    finally:
+        cache.close()
+
+
 def test_cache_remains_available_at_capacity_and_duplicate_sources_share_a_flight(tmp_path):
     schedule, backend = TranslationSchedule(), Backend()
     cache = TranslationCache(tmp_path / "cache")
@@ -56,7 +81,7 @@ def test_cache_remains_available_at_capacity_and_duplicate_sources_share_a_fligh
         fast: Future[BatchResult] = Future()
         schedule.submitted(second, fast)
         assert schedule.plan(current, backend, cache) is None
-        assert not schedule.unchecked(duplicate, ())
+        assert not schedule.needs_plan(current.generation, current.contexts.items())
         cache.put(translation_key(backend.cache_identity, cached.source), "Settings")
         hit = schedule.plan(demand(a, b, duplicate, cached), backend, cache)
         assert hit and not hit.missing and hit.sources == ((cached.source, ()),)
@@ -64,11 +89,12 @@ def test_cache_remains_available_at_capacity_and_duplicate_sources_share_a_fligh
         fast.set_result(({(b.source, ()): "Critical Rate"}, {}))
         assert schedule.completed() == ((second, fast),)
         assert not slow.done() and schedule.processing_since == 10
-        assert schedule.unchecked(duplicate, ())
+        assert schedule.needs_plan(current.generation, current.contexts.items())
         assert schedule.stale(2)
         schedule.reset()
         assert not schedule.stale(2) and schedule.processing_since is None
         assert not slow.cancelled()  # Cancellation stays with the engine owner.
+        assert hit.keys[cached.source, ()] == translation_key(backend.cache_identity, cached.source)
     finally:
         cache.close()
 

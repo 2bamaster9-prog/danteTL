@@ -281,10 +281,13 @@ class TranslationSession:
                             or active != self._backend_generation
                             or schedule.has_completion()
                             or schedule.stale(self._generation)
-                            or any(
-                                self._needs_translation(key)
-                                and schedule.unchecked(key, self._contexts.get(key, ()))
-                                for key in self._desired
+                            or schedule.needs_plan(
+                                self._generation,
+                                (
+                                    (key, self._contexts.get(key, ()))
+                                    for key in self._desired
+                                    if self._needs_translation(key)
+                                ),
                             )
                         )
                     )

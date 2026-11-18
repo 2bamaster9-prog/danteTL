@@ -7,6 +7,7 @@ import sqlite3
 import threading
 import time
 from collections import OrderedDict
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,8 @@ class TranslationCache:
         self._touches = 0
         self._flushed_at = time.monotonic()
         self._db: sqlite3.Connection | None = None
+        self._pending: dict[str, str | None] = {}
+        self._data_version: int | None = None
         self.warning = ""
         try:
             with _schema_lock:
@@ -140,7 +143,30 @@ class TranslationCache:
 
     def put(self, key: str, english: str) -> None:
         self._remember(key, english)
+        if key in self._pending:
+            self._pending[key] = english
         self._flush((key, english))
+
+    def lookup_pending(self, keys: Iterable[str], *, reset: bool) -> Mapping[str, str | None]:
+        """Remember lookup results only for the scheduler's current bounded demand."""
+        version = None
+        if self._db is not None:
+            try:
+                # This connection's own commits do not change data_version. Sample before
+                # the sweep so a concurrent writer cannot leave a remembered miss stale.
+                version = self._db.execute("PRAGMA data_version").fetchone()[0]
+            except sqlite3.Error as error:
+                self._disable_disk(error)
+        previous = {} if reset else self._pending
+        changed = version != self._data_version
+        self._pending = {
+            key: previous[key]
+            if key in previous and (previous[key] is not None or not changed)
+            else self.get(key)
+            for key in keys
+        }
+        self._data_version = version
+        return self._pending
 
     def close(self) -> None:
         self._flush()
