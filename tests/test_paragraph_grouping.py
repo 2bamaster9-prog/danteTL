@@ -318,7 +318,14 @@ def test_live_split_opening_beside_second_column_publishes_exact_current_members
     for seq in (3, 4):
         scene = replay.observe(source_frame(seq), (*changed, *right))
     english = replay.live.publish(backend, scene.requests, scene.blocks)
-    assert [t.request for t in english.translations] == [requests[1]]
+    assert {t.request for t in english.translations} == set(requests)
+    revised = TranslationRequest.from_block(scene.requests[0])
+    assert revised != requests[0]
+    backend.snapshot.return_value = TranslationSnapshot(
+        TranslationState.READY, (TranslatedText(revised, "Revised left column"),)
+    )
+    english = replay.live.publish(backend, scene.requests, scene.blocks)
+    assert {t.request for t in english.translations} == {revised, requests[1]}
 
 
 @pytest.mark.parametrize("ending,separate", [("――", False), ("。", True)])

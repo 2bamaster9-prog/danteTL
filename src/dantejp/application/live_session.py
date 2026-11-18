@@ -330,17 +330,11 @@ class LiveSession:
                 )
             )
         )
-        tracks = tuple(t for t in tracks if t not in self.visual_state.hidden)
-        history_blocks = tuple(
-            block
-            for block in grouped.blocks
-            if not any(t in self.visual_state.hidden for t in block.lines)
-        )
         # Exact current names may gain confidence from partial observations. Unscanned
         # names retain their evidence only while the identical live track remains.
         scores = {}
         if self.accepted:
-            by_id = {t.track_id: t for block in history_blocks for t in block.lines}
+            by_id = {t.track_id: t for t in tracks}
             for key, region in zip(self.assignments, self.accepted.regions, strict=True):
                 track = by_id.get(key) if key is not None else None
                 if (
@@ -352,7 +346,7 @@ class LiveSession:
         self._advance_history()
         if self.history_enabled and (self._history_layout_only or self._history_factory):
             self.history.observe(
-                history_blocks,
+                grouped.blocks,
                 requests,
                 (frame.width, frame.height) if frame else (0, 0),
                 now,
@@ -373,6 +367,8 @@ class LiveSession:
                 if self.accepted and frame and overlay_result_ready(self.accepted, frame, now)
                 else ()
             )
+        if self.visual_state.cleared:
+            tracks = tuple(t for t in tracks if t not in self.visual_state.cleared)
         return Scene(tracks, grouped.blocks, requests, len(grouped.blocks) - len(grouped.ready))
 
     def publish(
@@ -400,15 +396,11 @@ class LiveSession:
         published = self._presentation.update(
             retained,
             snapshot.results,
-            self._tracker.display_predecessors(),
             scope=(session, snapshot.backend_generation),
-        )
-        hidden = {t.track_id for t in state.hidden}
-        showing = tuple(
-            p for p in published if not any(t.track_id in hidden for t in p.accepted.lines)
+            cleared=state.cleared,
         )
         if self.history_enabled:
-            self.history.published(tuple(p.translation for p in showing))
+            self.history.published(tuple(p.translation for p in published))
         return EnglishScene(
-            snapshot, tuple(p.painted for p in showing), tuple(p.translation for p in showing)
+            snapshot, tuple(p.painted for p in published), tuple(p.translation for p in published)
         )

@@ -311,4 +311,4 @@ def test_partial_and_noisy_observations_keep_groups_and_english_until_a_real_edi
     assert scene.blocks[1].text.endswith("+25%。")
     assert scene.blocks[1] in scene.requests
     after = replay.live.publish(backend, scene.requests, scene.blocks)
-    assert len(after.translations) == 4
+    assert after.translations == english.translations

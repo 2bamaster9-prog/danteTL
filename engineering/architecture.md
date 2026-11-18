@@ -221,8 +221,12 @@ start its own confidence baseline. Larger disagreements on visually unchanged gl
 bounded low-confidence review.
 A very weak divergent reading at an established label needs another matching OCR observation
 before it can resize or replace the label. A quiet image cannot confirm its spelling.
-`EnglishPresentation` bridges only explicit same-pixel correction lineage while translating the successor.
-Validate every member; edits/regrouping/removal/model changes revoke it. Consensus remains experimental.
+`EnglishPresentation` owns the painted scene. Each publication keeps its exact translated source
+and follows its live member bounds through edits. Automatic splits and merges swap together when
+the replacement translations for their shared members are ready. Independent boxes can update
+immediately. Retired members, model changes, source resets and explicit grouping changes clear
+the affected publications. A visually concealed publication can return for the same live content.
+When its track IDs acquire different text, only a ready translation can restore English there.
 
 Tracker evidence has independent optional records for pending text, pending geometry, crop presence
 and completed absence. Each record owns its associated counts, time or source bounds; clearing a

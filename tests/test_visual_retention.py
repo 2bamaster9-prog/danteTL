@@ -191,7 +191,7 @@ def test_stationary_labels_keep_exact_identity_layout_and_english_through_noisy_
             incoming.completed_at,
             activity=replay.tracker.translation_activity(),
         )
-        published = presentation.update(grouped.blocks, (), replay.tracker.display_predecessors())
+        published = presentation.update(grouped.blocks, ())
         assert len(published) == 1 and published[0].translation == english
 
 
@@ -265,7 +265,7 @@ def test_real_removal_still_hides_and_retires_after_visual_and_ocr_evidence():
     assert not replay.tracks
 
 
-def test_atomic_correction_publication_requires_explicit_current_lineage_and_all_members():
+def test_atomic_publication_keeps_english_through_live_edits_and_drops_retired_members():
     store = EnglishPresentation()
     first = TextTrack(1, "初めの文章", BOX)
     second = TextTrack(2, "次の行です。", Rect(20, 65, 220, 28))
@@ -274,23 +274,50 @@ def test_atomic_correction_publication_requires_explicit_current_lineage_and_all
     store.update((old,), (english,))
     correction = replace(second, text="次の行でした。", text_revision=2)
     current = TextBlock((first, correction))
-    kept = store.update((current,), (), ((correction, second),))
+    kept = store.update((current,), ())
     assert kept[0].painted == old and kept[0].translation == english
     next_correction = replace(correction, text="次の行でした！", text_revision=3)
     final = TextBlock((first, next_correction))
-    assert store.update((final,), (), ((next_correction, correction),))[0].translation == english
+    assert store.update((final,), ())[0].translation == english
     replacement = TranslatedText(
         TranslationRequest.from_block(final), "Corrected complete sentence."
     )
     assert store.update((final,), (replacement,))[0].translation == replacement
     changed = TextBlock((replace(first, text="違う文章", text_revision=2), next_correction))
-    assert not store.update((changed,), ())  # No permission to bridge a real edit.
+    assert store.update((changed,), (english,))[0].translation == replacement
     store.update((old,), (english,))
     assert not store.update((), ())
     assert not store.update((old,), ())  # Removed entries cannot resurrect old English.
     store.update((old,), (english,))
     store.reset()
     assert not store.update((old,), ())
+
+
+def test_regrouping_swaps_only_connected_labels_once_every_replacement_is_ready():
+    store = EnglishPresentation()
+    a, b, c, d, menu = (
+        TextTrack(i, "日本語" + str(i), Rect(20, i * 40, 220, 28)) for i in range(1, 6)
+    )
+    original = (TextBlock((a, b)), TextBlock((c, d)), TextBlock((menu,)))
+    proposed = (TextBlock((a,)), TextBlock((b, c)), TextBlock((d,)), original[-1])
+
+    def translate(block):
+        return TranslatedText(TranslationRequest.from_block(block), "English " + block.text)
+
+    original_results = tuple(map(translate, original))
+    locked = store.update(original, original_results)
+    first, middle, last = map(translate, proposed[:3])
+    new_menu = TextBlock((replace(menu, text="戻る", text_revision=2),))
+    proposed = (*proposed[:3], new_menu)
+    for received in ((middle,), (last,), (translate(new_menu),)):
+        screen = store.update(proposed, received)
+        assert screen[:2] == locked[:2]
+    assert screen[-1].translation == translate(new_menu)
+    screen = store.update(proposed, (first, original_results[0]))
+    assert tuple(p.translation for p in screen) == (first, middle, last, translate(new_menu))
+    # Retirement removes exactly the affected publication, including late replies.
+    screen = store.update((proposed[0], *proposed[2:]), (middle,))
+    assert tuple(p.translation for p in screen) == (first, last, translate(new_menu))
 
 
 def test_publication_retention_cannot_cross_backend_generations_or_worker_restarts():
@@ -361,7 +388,7 @@ def test_faint_stationary_text_retains_exact_english_over_moving_light(noise):
             incoming.completed_at,
             activity=replay.tracker.translation_activity(),
         )
-        painted = presentation.update(grouped.blocks, (), replay.tracker.display_predecessors())
+        painted = presentation.update(grouped.blocks, ())
         assert len(painted) == 1 and painted[0].translation == english
 
 

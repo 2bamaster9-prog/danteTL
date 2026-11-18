@@ -175,7 +175,7 @@ def test_completion_bursts_do_not_count_as_new_observations_or_change_english():
     assert replay.live._tracker._sequence == 1
 
 
-def test_dialogue_publication_mask_restore_and_backend_scope_without_window():
+def test_visual_loss_between_ocr_passes_keeps_locked_dialogue_and_backend_scope():
     replay = Replay()
     regions = (
         TextRegion("ここから先は危険だから、", Rect(100, 650, 380, 35)),
@@ -192,7 +192,9 @@ def test_dialogue_publication_mask_restore_and_backend_scope_without_window():
     assert published.translations == (result,)
     replay.visual.current = replace(replay.visual.current, hidden=frozenset(scene.tracks))
     replay.live.reconcile(frame(2, 1.5), 2.0)
-    assert not replay.live.publish(backend, scene.requests, scene.blocks).translations
+    scene = replay.live.scene(frame(2, 1.5), 2.0, grouping=True)
+    assert len(scene.tracks) == 2
+    assert replay.live.publish(backend, scene.requests, scene.blocks).translations == (result,)
     replay.visual.current = replace(replay.visual.current, hidden=frozenset())
     replay.live.reconcile(frame(2, 1.5), 2.1)
     assert replay.live.publish(backend, scene.requests, scene.blocks).translations == (result,)
@@ -201,6 +203,108 @@ def test_dialogue_publication_mask_restore_and_backend_scope_without_window():
     )
     assert not replay.live.publish(backend, scene.requests, scene.blocks).translations
     assert replay.live.accepted and replay.live.accepted.regions == regions
+
+
+def test_vacated_group_hides_locally_and_restores_cached_english_without_new_ocr():
+    replay, backend = Replay(), Mock()
+    regions = (
+        TextRegion("ここから先は危険だから、", Rect(100, 650, 380, 35)),
+        TextRegion("私と一緒に進んでください。", Rect(100, 695, 380, 35)),
+        TextRegion("設定", Rect(850, 100, 100, 35)),
+    )
+    replay.observe(frame(1), regions)
+    scene = replay.observe(frame(2, 1.5), regions)
+    dialogue = next(b for b in scene.blocks if len(b.lines) == 2)
+    label = next(b for b in scene.blocks if len(b.lines) == 1)
+    english = tuple(
+        TranslatedText(TranslationRequest.from_block(b), text)
+        for b, text in ((dialogue, "Come with me."), (label, "Settings"))
+    )
+    backend.snapshot.return_value = TranslationSnapshot(TranslationState.READY, english)
+    locked = replay.live.publish(backend, scene.requests, scene.blocks)
+    backend.snapshot.return_value = TranslationSnapshot(TranslationState.READY)
+    a, b = dialogue.lines
+    for seq, cleared, visible in (
+        (3, (a,), locked.blocks),
+        (4, (a, replace(b, text_revision=b.text_revision + 1)), locked.blocks),
+        (5, (a, b), (label,)),
+        (6, (), locked.blocks),
+    ):
+        current = frame(seq, seq / 8 + 1.5)
+        replay.visual.current = replace(
+            replay.visual.current, frame=current, cleared=frozenset(cleared)
+        )
+        replay.live.reconcile(current, current.captured_at)
+        observed = replay.live.scene(current, current.captured_at, grouping=True)
+        assert observed.blocks == scene.blocks
+        assert observed.tracks == tuple(t for t in scene.tracks if t not in cleared)
+        shown = replay.live.publish(backend, observed.requests, observed.blocks)
+        assert shown.blocks == visible
+        assert shown.translations == ((english[1],) if visible == (label,) else locked.translations)
+        assert backend.update.call_args.kwargs["retain"] == scene.blocks
+    assert replay.ocr.acknowledged == [1, 2]
+
+
+@pytest.mark.parametrize("verified_pixels", [False, True])
+def test_similar_ocr_keeps_group_english_until_exact_replacement_arrives(verified_pixels):
+    replay, backend = Replay(), Mock()
+    top = Rect(100, 650, 380, 35)
+    bottom = Rect(100, 695, 380, 35)
+
+    def row(text, bounds, score):
+        return TextRegion(text, bounds, (TextCharacter(text, bounds, score),))
+
+    first = row("ここから先は危険だから、", top, 0.98)
+    source = "私と一緒に（奥まで）進んでください。"
+    typo = source.replace("）", "")
+    original = row(typo, bottom, 0.94)
+    scene = replay.observe(frame(1), (first, original))
+    assert len(scene.blocks) == 1 and len(scene.blocks[0].lines) == 2
+    old = TranslatedText(TranslationRequest.from_block(scene.blocks[0]), "Come with me.")
+    backend.snapshot.return_value = TranslationSnapshot(TranslationState.READY, (old,))
+
+    def publish():
+        return replay.live.publish(backend, scene.requests, scene.blocks)
+
+    assert publish().translations == (old,)
+    original_tracks = scene.tracks
+    same_pixels = frozenset(original_tracks) if verified_pixels else frozenset()
+    for seq, score in enumerate((0.90, 0.94, 0.85), 2):
+        scene = replay.observe(
+            frame(seq, float(seq)),
+            (first, row(source, bottom, score)),
+            checked=frozenset(original_tracks),
+            unchanged=same_pixels,
+        )
+        assert publish().translations == (old,)
+        assert TranslationRequest.from_block(scene.requests[0]) == old.request
+    scene = replay.observe(
+        frame(5, 5.0),
+        (first, row(source, bottom, 0.943)),
+        checked=frozenset(original_tracks),
+        unchanged=same_pixels,
+    )
+    assert publish().translations == (old,)
+    request = TranslationRequest.from_block(scene.requests[0])
+    assert request.source == first.text + source and request != old.request
+
+    # The backend can drop the obsolete request immediately. A later geometry
+    # update still moves the old English, with its original exact source attached.
+    backend.snapshot.return_value = TranslationSnapshot(TranslationState.READY, pending=1)
+    scene = replay.observe(
+        frame(6, 8.0),
+        (row(first.text, replace(top, x=125), 0.98), row(source, replace(bottom, x=125), 0.941)),
+        hidden=frozenset(original_tracks),
+    )
+    retained = publish()
+    assert retained.translations == (old,) and retained.blocks[0].bounds.x == 125
+    assert TranslationRequest.from_block(retained.blocks[0]) == old.request
+    assert TranslationRequest.from_block(scene.requests[0]) == request
+    replacement = TranslatedText(request, "Come with me all the way inside.")
+    backend.snapshot.return_value = TranslationSnapshot(TranslationState.READY, (replacement,))
+    assert publish().translations == (replacement,)
+    scene = replay.observe(frame(7, 10), (first, row("ここが目的地です。", bottom, 0.71)))
+    assert publish().translations == (replacement,)
 
 
 @pytest.mark.parametrize("stale", [False, True])

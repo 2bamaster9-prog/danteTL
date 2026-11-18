@@ -48,7 +48,7 @@ def debug_display(
         lines.append(f"OCR running: {max(0, now - ocr.processing_since):.1f}s")
     lines.append(
         f"Visual {visual.duration_ms:.1f} ms | settling {waiting_blocks} blocks | "
-        f"reveal holds {len(visual.blocked)} | hidden {len(visual.hidden)}"
+        f"reveal holds {len(visual.blocked)} | pattern loss {len(visual.hidden)}"
     )
     if translation:
         lines.append(

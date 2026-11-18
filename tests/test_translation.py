@@ -4,6 +4,7 @@ from dataclasses import replace
 
 import pytest
 
+from dantejp.application.live_session import LiveSession
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
 from dantejp.ocr.tracking import TextTrack, TextTracker
 from dantejp.ocr.worker import OcrResult, TextCharacter, TextRegion
@@ -77,6 +78,37 @@ def test_worker_serves_stable_text_while_earlier_box_keeps_changing(tmp_path):
     finally:
         session.request_stop()
         until(lambda: session.finished)
+
+
+def test_hidden_english_cannot_resurface_on_a_new_menu_while_translation_is_running(tmp_path):
+    live, backend = LiveSession(), Backend()
+    worker = TranslationSession(lambda: backend, tmp_path / "menu.sqlite3")
+    old = TextBlock((track("設定"),))
+    arriving = TextBlock((track("地図", key=2),))
+    reused = TextBlock((track("装備", revision=2),))
+    worker.start()
+    try:
+        live.publish(worker, (old,), (old,))
+        until(lambda: bool(worker.snapshot().results))
+        assert live.publish(worker, (old,), (old,)).blocks == (old,)
+        backend.entered.clear()
+        backend.release.clear()
+        live.publish(worker, (arriving,), (old, arriving))
+        assert backend.entered.wait(2)
+        live.visual_state = replace(live.visual_state, cleared=frozenset(old.lines))
+        assert not live.publish(worker, (arriving,), (old, arriving)).blocks
+        live.visual_state = replace(live.visual_state, cleared=frozenset())
+        assert not live.publish(worker, (reused, arriving), (reused, arriving)).blocks
+        backend.release.set()
+        until(lambda: worker.snapshot().pending == 0)
+        assert set(live.publish(worker, (reused, arriving), (reused, arriving)).blocks) == {
+            reused,
+            arriving,
+        }
+    finally:
+        backend.release.set()
+        worker.request_stop()
+        until(lambda: worker.finished)
 
 
 def test_worker_context_preserves_negation_and_forwards_exact_correction_lineage(tmp_path):
