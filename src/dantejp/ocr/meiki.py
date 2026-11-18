@@ -20,6 +20,7 @@ from dantejp.ocr.crop_recovery import recovery_preserves_lines, split_glyphs
 from dantejp.ocr.models import local_model_paths
 from dantejp.ocr.scan_plan import ScanCosts
 from dantejp.ocr.values import TextCharacter, TextRegion
+from dantejp.ocr.wide_lines import recover_wide_lines
 from dantejp.runtime.ocr import CPU, CUDA, DML, create_sessions
 
 
@@ -52,6 +53,14 @@ class _LocalMeiki(MeikiOCR):
         # Retain the detector's original boxes, in its original ordering.
         self.detected = super().run_detection(image, conf_threshold)
         return self.detected
+
+    def read_pieces(self, image: Any, pieces: list[Rect]) -> tuple[TextRegion, ...]:
+        boxes = [{"bbox": [b.x, b.y, b.x + b.width, b.y + b.height]} for b in pieces]
+        results: list[dict[str, Any]] = [{} for _ in boxes]
+        self._process_recognition_pipeline(
+            image, boxes, list(range(len(boxes))), results, 0.1, 1, False
+        )
+        return convert_regions(boxes, results, image.shape[1], image.shape[0])
 
 
 def _verify_directml(sessions: list[Any], paths: tuple[Path, ...], threads: int) -> None:
@@ -216,16 +225,24 @@ class MeikiRecognizer:
         self, bgr: Any, width: int, height: int, *, origin: tuple[int, int] = (0, 0)
     ) -> tuple[TextRegion, ...]:
         # Meiki scales detection internally and maps both box types back to this image.
-        try:
+        def read() -> tuple[TextRegion, ...]:
             results = self._engine.run_ocr(bgr, det_threshold=0.5, rec_threshold=0.1)
+            regions = convert_regions(self._engine.detected, results, width, height, origin=origin)
+            # Padding belongs only to detection. Retry the original source pixels in
+            # the same coordinate system as the clipped regions.
+            x, y = origin
+            return recover_wide_lines(
+                regions,
+                lambda boxes: self._engine.read_pieces(bgr[y : y + height, x : x + width], boxes),
+            )
+
+        try:
+            return read()
         except Exception as error:
             if not self._device.startswith("auto") or self.provider == CPU:
                 raise
             self._fallback(error)
-            results = self._engine.run_ocr(bgr, det_threshold=0.5, rec_threshold=0.1)
-        # Padding is model input only, never scan coverage or inspector pixels.
-        # Clip to the actual crop; regional edge checks still reject cut-off words.
-        return convert_regions(self._engine.detected, results, width, height, origin=origin)
+            return read()
 
     def close(self) -> None:
         """Release all native ONNX sessions on their owning worker before it completes."""

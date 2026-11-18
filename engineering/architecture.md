@@ -167,7 +167,13 @@ Empty small crops may receive one background-padding retry without magnifying gl
 recovery requires unambiguous adjacent detections and connecting ink; accept only strong complete
 characters and preservation of unrelated lines. Otherwise keep the raw original. At most one extra
 pass; subtract padding from both box types. CUDA recognition pads to batch four then slices actual
-outputs; dummy detections never publish. Ordinary successful/full scans keep their preprocessing.
+outputs; dummy detections never publish.
+
+For unusually wide horizontal lines, retry recognition in overlapping pieces from the original
+pixels. Join pieces where adjacent characters agree in text and position. Keep the original read
+if any join is uncertain, the result is shorter, or previously observed glyph positions lose
+coverage. Recovered text and character boxes belong to one original detection. Bound the extra
+work per line and per scan.
 
 Tracking is deterministic and bounded (128 tracks, 512 candidate regions). Existing matches precede
 new admission; truncated input cannot vote for absence. Spatially gated bipartite components use optimal
