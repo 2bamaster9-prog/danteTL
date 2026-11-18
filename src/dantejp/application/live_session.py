@@ -276,6 +276,8 @@ class LiveSession:
                 self.assignments = self._tracker.observe(
                     candidate,
                     visually_absent=state.absent,
+                    pattern_loss=state.pattern_loss,
+                    visually_present=state.present,
                     visual_sequence=state.frame.sequence if state.frame else 0,
                     unchanged=state.unchanged,
                     visual_checked=state.checked,

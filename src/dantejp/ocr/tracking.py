@@ -84,7 +84,7 @@ class _PresenceReference:
 class _Absence:
     since: float
     sequence: int
-    pixels_changed: bool
+    pattern_lost: bool
     misses: int = 1
 
 
@@ -402,6 +402,8 @@ class TextTracker:
         result: OcrResult,
         *,
         visually_absent: frozenset[TextTrack] = frozenset(),
+        pattern_loss: frozenset[TextTrack] = frozenset(),
+        visually_present: frozenset[TextTrack] = frozenset(),
         visual_sequence: int = 0,
         unchanged: frozenset[TextTrack] = frozenset(),
         visual_checked: frozenset[TextTrack] = frozenset(),
@@ -478,22 +480,24 @@ class TextTracker:
             if key not in used and complete and result.covers(track.value.bounds):
                 reference = track.presence
                 current = evidence.fingerprint(reference.bounds) if reference else None
-                changed = (
-                    current is not None and reference is not None and current != reference.digest
-                )
-                if track.visual_same or (reference and current == reference.digest):
-                    # The same crop still contains the pixels that produced this text.
-                    # A missed detector result cannot erase or split its translation.
+                if (
+                    track.visual_same
+                    or (reference and current == reference.digest)
+                    or (visual_sequence >= frame.sequence and track.value in visually_present)
+                ):
+                    # Presence vetoes a miss. Only exact unchanged glyph evidence
+                    # may override a positive OCR reading on the edit path above.
                     track.absence = None
                     track.confirmed = True
                     track.discard_candidates()
                     continue
+                lost = visual_sequence == frame.sequence and track.value in pattern_loss
                 if track.absence is None:
-                    track.absence = _Absence(frame.captured_at, frame.sequence, changed)
+                    track.absence = _Absence(frame.captured_at, frame.sequence, lost)
                 else:
                     track.absence.misses += 1
                     track.absence.sequence = frame.sequence
-                    track.absence.pixels_changed = changed
+                    track.absence.pattern_lost = lost
                 track.discard_candidates()
                 if (
                     track.absence.misses >= self._policy.missing_frames
@@ -735,12 +739,12 @@ class TextTracker:
                     track.value = replace(track.value, bounds=track.observed)
                     track.geometry_candidate = None
                     track.presence = None
-            # Changed crop pixels AND a completed miss can settle on a now-static
-            # source without duplicate WGC frames. Time/unchanged pixels alone cannot.
+            # A static source may never emit a second frame. Require a covered
+            # miss and strong stroke-pattern loss on that same frame to retire it.
             if (
                 track.absence
                 and self._complete_observation
-                and track.absence.pixels_changed
+                and track.absence.pattern_lost
                 and track.absence.sequence == self._sequence
                 and latest.sequence == self._sequence
                 and now - max(latest.captured_at, self._completed_at)

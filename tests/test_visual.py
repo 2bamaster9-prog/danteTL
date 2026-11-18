@@ -60,17 +60,133 @@ def test_idle_frames_skip_inference_but_changes_and_periodic_refreshes_are_not_s
     assert analyzer.observe(picture(49, ink=False)).request_ocr
 
 
-def test_missing_strokes_hide_before_ocr_finishes_and_restore_without_forgetting_identity():
+def test_missing_strokes_supply_early_corroboration_for_a_covered_ocr_miss():
     analyzer = VisualAnalyzer()
     result, track = reference()
     analyzer.observe(picture(1), result, (track,), (1,))
     assert not analyzer.observe(picture(2, ink=False), result, (track,), (1,)).hidden
     gone = analyzer.observe(picture(3, ink=False), result, (track,), (1,))
     assert gone.hidden == {track}
-    # OCR still has exactly the old source. No negative OCR result is required to mask it.
+    assert not gone.cleared
     assert gone.ocr_sequence == 1
     assert analyzer.observe(picture(4), result, (track,), (1,)).hidden == {track}
     assert not analyzer.observe(picture(5), result, (track,), (1,)).hidden
+
+
+def test_lettering_loss_over_the_same_backing_needs_three_captures_at_eight_fps():
+    analyzer = VisualAnalyzer()
+    result, track = reference()
+
+    def observe(sequence, **kwargs):
+        return analyzer.observe(picture(sequence, **kwargs), result, (track,), (1,))
+
+    observe(1)
+    assert not observe(2, ink=False).cleared
+    assert not observe(3, ink=False).cleared
+    assert not observe(4).cleared
+    for sequence in (5, 6):
+        assert not observe(sequence, ink=False).cleared
+    for _ in range(5):
+        assert not observe(6, ink=False).cleared
+    assert observe(7, ink=False).cleared == {track}
+    assert not observe(8).cleared
+
+
+@pytest.mark.parametrize("shaded", (False, True))
+def test_panel_replacement_hides_on_first_capture_and_restores_on_first_return(shaded):
+    analyzer = VisualAnalyzer()
+    result, track = reference()
+    neighbor = TextTrack(2, "設定", Rect(20, 82, 148, 24))
+    result = replace(
+        result,
+        frame=picture(1, second=True),
+        regions=(*result.regions, TextRegion(neighbor.text, neighbor.bounds)),
+    )
+    tracks = (track, neighbor)
+    analyzer.observe(result.frame, result, tracks, (1, 2))
+    # Another label remains elsewhere. Only this panel changes color and loses its ink.
+    closed = picture(2, ink=False, second=True)
+    pixels = np.frombuffer(closed.bgra, np.uint8).reshape(240, 400, 4).copy()
+    pixels[40:82, 10:210, :3] = 95
+    if shaded:
+        pixels[40:82, 10:210, :3] += (np.arange(200, dtype=np.uint8) // 4)[:, None]
+    closed = replace(closed, bgra=pixels.tobytes())
+    assert analyzer.observe(closed, result, tracks, (1, 2)).cleared == {track}
+    assert not analyzer.observe(picture(3, second=True), result, tracks, (1, 2)).cleared
+
+
+@pytest.mark.parametrize("scene", ["blank_flash", "shifted_ink", "colored_ink"])
+def test_large_difference_alone_cannot_hide_on_first_capture(scene):
+    analyzer = VisualAnalyzer()
+    result, track = reference()
+    analyzer.observe(result.frame, result, (track,), (1,))
+    changed = picture(2, ink=False, brightness=65, second=scene != "blank_flash")
+    pixels = np.frombuffer(changed.bgra, np.uint8).reshape(240, 400, 4).copy()
+    if scene == "shifted_ink":
+        pixels[75:77, 30:190, :3] = 240  # Just beyond the old bottom edge.
+    elif scene == "colored_ink":
+        pixels[55:68, 30:190:6, :3] = (0, 162, 0)  # Same gray level as the new backing.
+    state = analyzer.observe(replace(changed, bgra=pixels.tobytes()), result, (track,), (1,))
+    assert not state.cleared
+
+
+def test_textured_screen_replacement_hides_on_its_first_capture_and_stays_hidden():
+    analyzer = VisualAnalyzer()
+    result, track = reference()
+    state = analyzer.observe(result.frame, result, (track,), (1,))
+    for seq in range(2, 10):
+        state = analyzer.observe(noisy_picture(seq, ink=False), result, (track,), (1,))
+        assert state.cleared == {track}
+    assert state.absent == {track}
+    assert not analyzer.observe(picture(10), result, (track,), (1,)).cleared
+
+
+def test_isolated_textured_replacement_requires_a_second_matching_capture():
+    analyzer = VisualAnalyzer()
+    result, track = reference()
+    analyzer.observe(result.frame, result, (track,), (1,))
+    closed = picture(2, ink=False)
+    pixels = np.frombuffer(closed.bgra, np.uint8).reshape(240, 400, 4).copy()
+    noise = np.random.default_rng(7).integers(30, 150, (24, 180, 1), dtype=np.uint8)
+    pixels[50:74, 20:200, :3] = noise
+    closed = replace(closed, bgra=pixels.tobytes())
+    for _ in range(3):
+        assert not analyzer.observe(closed, result, (track,), (1,)).cleared
+    assert analyzer.observe(
+        replace(closed, sequence=3, captured_at=0.25), result, (track,), (1,)
+    ).cleared == {track}
+
+
+def test_populated_screen_change_keeps_a_surviving_line_with_minor_glyph_and_position_changes():
+    analyzer = VisualAnalyzer()
+    result, track = reference()
+    analyzer.observe(result.frame, result, (track,), (1,))
+    updated = noisy_picture(2, ink=True)
+    pixels = np.frombuffer(updated.bgra, np.uint8).reshape(240, 400, 4).copy()
+    pixels[50:74, 20:200] = np.roll(pixels[50:74, 20:200], 3, axis=1)
+    pixels[50:74, 20:38, :3] = 75  # One glyph drops out, the rest slide a few pixels.
+    for seq in (2, 3, 4):
+        state = analyzer.observe(
+            replace(updated, sequence=seq, captured_at=seq / 8, bgra=pixels.tobytes()),
+            result,
+            (track,),
+            (1,),
+        )
+        assert not state.cleared
+
+
+def test_delayed_positive_from_before_a_closure_cannot_restore_a_cleared_label():
+    analyzer = VisualAnalyzer()
+    result, track = reference()
+    analyzer.observe(result.frame, result, (track,), (1,))
+    for seq in range(3, 7):
+        analyzer.observe(picture(seq, ink=False), result, (track,), (1,))
+    delayed = replace(result, frame=picture(2))
+    assert analyzer.observe(picture(7, ink=False), delayed, (track,), (1,)).cleared == {track}
+    # OCR recognizes the original label over a new backdrop, while its old template
+    # still disagrees. The exact positive observation supersedes the visual mask.
+    restored = replace(result, frame=noisy_picture(8, ink=True))
+    assert not analyzer.observe(restored.frame, restored, (track,), (1,)).cleared
 
 
 def test_duplicate_polling_is_not_disappearance_evidence():

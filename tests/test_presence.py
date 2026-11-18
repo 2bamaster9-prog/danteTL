@@ -98,7 +98,11 @@ def test_changed_pixels_and_static_negative_result_settle_after_completion() -> 
     original = tracker.visible(source, source.captured_at)
     gone = frame(2, ink=False)
     completed = gone.captured_at + 1.1
-    observe(tracker, OcrResult(gone, (), 1100, completed))
+    tracker.observe(
+        OcrResult(gone, (), 1100, completed),
+        pattern_loss=frozenset(original),
+        visual_sequence=gone.sequence,
+    )
     assert tracker.visible(gone, completed + 0.2) == original
     assert tracker.visible(gone, completed + 0.36) == ()
 
@@ -112,6 +116,34 @@ def test_changed_background_pixels_do_not_remove_text_that_ocr_still_recognizes(
     changed = frame(2, ink=False)
     observe(tracker, OcrResult(changed, (region,), 20, changed.captured_at))
     assert tracker.visible(changed, 100) == original
+
+
+def test_one_changed_pixel_and_a_static_ocr_miss_cannot_retire_a_label() -> None:
+    tracker = TextTracker()
+    source = frame(1)
+    observe(tracker, OcrResult(source, (TextRegion("設定", BOX),), 20, source.captured_at))
+    locked = tracker.translation_tracks(source, 1)
+    next_frame = frame(2)
+    pixels = bytearray(next_frame.bgra)
+    pixels[(BOX.y * next_frame.width + BOX.x) * 4] ^= 1
+    next_frame = replace(next_frame, bgra=bytes(pixels))
+    observe(tracker, OcrResult(next_frame, (), 20, 2))
+    assert locked and tracker.translation_tracks(next_frame, 60) == locked
+
+
+def test_positive_pattern_outvotes_repeated_misses_until_its_source_is_stale():
+    tracker = TextTracker()
+    first = frame(1)
+    observe(tracker, OcrResult(first, (TextRegion("設定", BOX),), 20, first.captured_at))
+    locked = tracker.translation_tracks(first, 1)
+    for seq in range(2, 12):
+        source = frame(seq)
+        tracker.observe(
+            OcrResult(source, (), 20, source.captured_at),
+            visually_present=frozenset(locked),
+            visual_sequence=min(seq, 8),
+        )
+        assert tracker.visible(source, source.captured_at) == (locked if seq < 11 else ())
 
 
 def test_static_text_commit_cannot_reuse_pixels_from_the_previous_reading() -> None:

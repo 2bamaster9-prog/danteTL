@@ -141,13 +141,22 @@ pause freezes both displayed languages only. Resume shows the newest pair. Model
 English; resize/minimize/stop also clear frozen source presentation.
 
 `VisualSession` owns bounded thumbnails, tiles, templates/probes and one pending job, never frame history.
-Reversible masking requires strong pattern loss on distinct captures. Retirement also needs completed
-negative OCR, matching revision/geometry and visual evidence at least as new as that OCR. Unchanged
-pixels override contradictory absence. Brightness/polarity/background motion are not semantic removal.
-Coarse thumbnails screen changes and hiding; compressed long/vertical lines need overlapping,
+Between OCR passes, a painted block can hide when every current member loses its glyph pattern.
+A vacant line can hide on the first detailed capture if its backing or surrounding area changes
+and native color edges confirm the space is clear. Other vacant lines require three distinct captures
+spanning at least 160 ms. For a textured replacement, compare separate stroke patches across the old
+line with positional tolerance. Strong surrounding change corroborates the loss immediately.
+An isolated replacement needs a second capture with the same new pattern. Weak or surviving glyph
+evidence defers to OCR. The publication and track survive so returning glyphs can
+restore the same English on the next capture. Retirement requires a covered OCR miss
+with corroborating pattern loss, or repeated covered misses across distinct captures. On a static
+source, a single miss can settle only with strong pattern loss on that exact capture. Matching pixels
+or a surviving stroke pattern at least as recent as a miss preserve the track. Positive OCR edits
+still use their own confirmation rules. Coarse thumbnails screen changes; compressed long/vertical lines need overlapping,
 aspect-preserving glyph-scale tiles before they can be declared unchanged. Reference pixels have
 per-line and aggregate budgets. Exhausted or ambiguous fine evidence allows ordinary OCR confirmation;
-it must not freeze a confident old reading. Fine comparison runs only for a new source-matched OCR review.
+it must not freeze a confident old reading. Fine comparison checks a new source-matched OCR review
+and verifies suspected clearing of a compressed line.
 Fine evidence may confirm unchanged glyphs despite a changed coarse thumbnail. Uniformly colored
 rows with complete character locations can also use a foreground-color projection to reject neutral
 background glints. Every letter/digit and reliable punctuation must contain that color; mixed text

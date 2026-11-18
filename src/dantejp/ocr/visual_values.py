@@ -27,3 +27,6 @@ class VisualState:
     changed_areas: tuple[Rect, ...] = ()
     pixel_evidence: PixelEvidence | None = None
     matching: MatchingEvidence | None = None
+    pattern_loss: frozenset[TextTrack] = frozenset()
+    present: frozenset[TextTrack] = frozenset()
+    cleared: frozenset[TextTrack] = frozenset()

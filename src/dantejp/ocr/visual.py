@@ -434,9 +434,15 @@ class _Anchor:
     x: Gray = field(init=False)
     y: Gray = field(init=False)
     mask: Mask = field(init=False)
+    stroke_count: int = field(init=False)
+    clear_since: float | None = None
+    clear_samples: int = 0
+    replacement: Gray | None = None
+    cleared: bool = False
     misses: int = 0
     hits: int = 0
     hidden: bool = False
+    present: bool = False
     last_sequence: int = 0
     content: _GlyphReference = field(init=False)
     fine_required: bool = False
@@ -447,6 +453,7 @@ class _Anchor:
         self.x, self.y = _edges(self.reference)
         strength = np.maximum(np.abs(self.x), np.abs(self.y))
         self.mask = strength >= max(35, float(np.percentile(strength, 80)))
+        self.stroke_count = int(self.mask.sum())
 
     def content_matches(self, pixels: Bytes) -> bool | None:
         crop = _crop(pixels, self.value.bounds)
@@ -481,22 +488,86 @@ class _Anchor:
                         return False
         return same
 
-    def observe(self, pixels: Bytes, sequence: int, changed: bool) -> bool:
-        if sequence == self.last_sequence:
+    def _panel_replaced(self, pixels: Bytes, current: Gray, surroundings_changed: bool) -> bool:
+        # Losing just the letters leaves most of the old backing pixels in place.
+        if (
+            not surroundings_changed
+            and np.count_nonzero(np.abs(self.reference - current) >= 16) < current.size * 0.9
+        ):
+            return False
+        # Check the native colors just outside the box too. A shifted glyph or
+        # isoluminant lettering can disappear in the reduced grayscale comparison.
+        box = padded(self.value.bounds, (pixels.shape[1], pixels.shape[0]), 4)
+        if box.width * box.height > 65_536:
+            return False
+        area = pixels[box.y : box.y + box.height, box.x : box.x + box.width]
+        # Smooth shading is consistent with an exposed background. Look for
+        # local color edges across a stroke's width, even in very faint text.
+        edges = cv2.morphologyEx(area, cv2.MORPH_GRADIENT, np.ones((5, 5), np.uint8))
+        return cv2.norm(edges, cv2.NORM_INF) <= 4
+
+    def _strokes_replaced(self, current: Gray) -> bool:
+        """Require loss across the old line, even when the new menu has its own edges."""
+        source = self.content.faint
+        if source is None or not source.valid:
+            return False
+        detail = current - cv2.GaussianBlur(current, (0, 0), 2)
+        old = source.detail
+        if self.value.vertical:
+            old, detail = old.T, detail.T
+        # Search three separate parts of the line, allowing small positional jitter.
+        # An edited character or changing background can spoil a whole-line score.
+        padded_detail = cv2.copyMakeBorder(detail, 4, 4, 4, 4, cv2.BORDER_REPLICATE)
+        informative = 0
+        for index in range(3):
+            left, right = index * old.shape[1] // 3, (index + 1) * old.shape[1] // 3
+            patch = old[:, left:right]
+            if patch.size < 32 or np.std(patch) < 8:
+                continue
+            scores = cv2.matchTemplate(
+                padded_detail[:, left : right + 8], patch, cv2.TM_CCOEFF_NORMED
+            )
+            if np.max(np.abs(scores)) >= 0.42:
+                return False
+            informative += 1
+        return informative >= 2
+
+    def observe(
+        self,
+        pixels: Bytes,
+        sequence: int,
+        now: float,
+        changed: bool,
+        scene_has_detail: bool,
+        surroundings_changed: bool,
+    ) -> bool:
+        if sequence <= self.last_sequence:
             return self.hidden
         needs_check = (
             changed
             or not self.last_sequence
             or self.misses == 1
+            or (self.clear_samples > 0 and not self.cleared)
+            or self.replacement is not None
             or (self.hidden and self.hits == 1)
         )
         self.last_sequence = sequence
         if not needs_check:
             return self.hidden
         current = _crop(pixels, self.value.bounds)
-        if current is None or int(self.mask.sum()) < 24:
+        self.present = False
+        if current is None or self.stroke_count < 24:
             return False  # Insufficient stroke evidence: let OCR decide.
-        if self.content.matches(current) is True:
+        glyph_match = self.content.matches(current)
+        if self.cleared and glyph_match is not True and self.fine is not None:
+            # Restored fine glyphs can be visible through a noisy coarse thumbnail.
+            glyph_match = self.fine.matches(pixels, self.value)
+        if glyph_match is True:
+            self.present = True
+            self.replacement = None
+            self.cleared = False
+            self.clear_samples = 0
+            self.clear_since = None
             self.misses = 0
             self.hits += 1
             if self.hits >= 2:
@@ -525,18 +596,74 @@ class _Anchor:
         )
         # Unrelated textured backgrounds can accidentally match many individual
         # edges. Require the spatial pattern too, with brightness/shift tolerance.
-        if (coverage < 0.12 and correlation < 0.4) or correlation < 0.1:
+        lost = (coverage < 0.12 and correlation < 0.4) or correlation < 0.1
+        if lost:
             self.hits = 0
             self.misses += 1
             if self.misses >= 2:
                 self.hidden = True
         elif coverage >= 0.4 or correlation >= 0.6:
+            # The line can still be present despite a glyph or background change.
+            # Only corroborated edge and spatial agreement can veto an OCR miss.
+            self.present = coverage >= 0.4 and correlation >= 0.7
             self.misses = 0
             self.hits += 1
             if self.hits >= 2:
                 self.hidden = False
         else:
             self.misses = 0  # Ambiguous evidence cannot accumulate disappearance votes.
+        # A cleared patch and a different occupied patch provide different evidence.
+        # In the latter case, look for surviving parts of the original lettering.
+        vacant = (
+            lost
+            and glyph_match is False
+            and np.count_nonzero(np.maximum(np.abs(x), np.abs(y)) >= 35) < self.stroke_count * 0.15
+        )
+        replaced = (
+            not vacant
+            and not self.cleared
+            and scene_has_detail
+            and glyph_match is False
+            and correlation < 0.35
+            and self._strokes_replaced(current)
+        )
+        if (
+            (vacant or replaced)
+            and self.fine_required
+            and not self.cleared
+            and (self.fine is None or self.fine.matches(pixels, self.value) is not False)
+        ):
+            vacant = replaced = False
+        previous_replacement, self.replacement = self.replacement, None
+        if replaced:
+            # Outside change corroborates a menu transition immediately. An isolated
+            # replacement must show the same new pattern on a second distinct capture.
+            if surroundings_changed or (
+                previous_replacement is not None and not _changed(previous_replacement, current)
+            ):
+                self.cleared = True
+                self.clear_since = now
+            else:
+                self.replacement = current
+            self.clear_samples = 0
+        elif vacant:
+            if self.clear_since is None:
+                self.clear_since = now
+            self.clear_samples += 1
+            sustained = self.clear_samples >= 3 and now - self.clear_since >= 0.16
+            self.cleared = (
+                self.cleared
+                or sustained
+                or (
+                    scene_has_detail and self._panel_replaced(pixels, current, surroundings_changed)
+                )
+            )
+        else:
+            self.clear_samples = 0
+            if self.present:
+                self.cleared = False
+            if not self.cleared:
+                self.clear_since = None
         return self.hidden
 
 
@@ -557,14 +684,27 @@ class _Probe:
     growth: bool = False
 
 
-def _touches(tiles: Mask, bounds: Rect, size: tuple[int, int]) -> bool:
+def _tile_bounds(bounds: Rect, size: tuple[int, int]) -> tuple[int, int, int, int]:
     w, h = size
     x1, y1 = max(0, bounds.x * 32 // w), max(0, bounds.y * 18 // h)
     x2, y2 = (
         min(32, ceil((bounds.x + bounds.width) * 32 / w)),
         min(18, ceil((bounds.y + bounds.height) * 18 / h)),
     )
+    return x1, y1, x2, y2
+
+
+def _touches(tiles: Mask, bounds: Rect, size: tuple[int, int]) -> bool:
+    x1, y1, x2, y2 = _tile_bounds(bounds, size)
     return bool(np.any(tiles[y1:y2, x1:x2]))
+
+
+def _surroundings_changed(tiles: Mask, bounds: Rect, size: tuple[int, int]) -> bool:
+    x1, y1, x2, y2 = _tile_bounds(bounds, size)
+    inside = tiles[y1:y2, x1:x2]
+    around = tiles[max(0, y1 - 1) : y2 + 1, max(0, x1 - 1) : x2 + 1]
+    count = around.size - inside.size
+    return count >= 4 and bool(np.count_nonzero(around) - np.count_nonzero(inside) >= count * 0.5)
 
 
 class VisualAnalyzer:
@@ -621,6 +761,19 @@ class VisualAnalyzer:
         color_candidates: list[tuple[_FineReference, TextTrack, TextRegion, Rect]] = []
         for track in job.tracks[:128]:
             region = by_id.get(track.track_id)
+            anchor = self._anchors.get(track)
+            if (
+                anchor is not None
+                and anchor.clear_since is not None
+                and result.frame.sequence > self._ocr_sequence
+                and result.frame.captured_at >= anchor.clear_since
+                and region is not None
+                and region.text == track.text
+            ):
+                # A positive reading from inside the clear interval supersedes its template.
+                if anchor.fine is not None:
+                    fine_budget += anchor.fine.pixels
+                del self._anchors[track]
             if track not in self._anchors and region is not None and region.text == track.text:
                 crop = _crop(source, track.bounds)
                 if crop is not None:
@@ -738,18 +891,30 @@ class VisualAnalyzer:
         )
         changed_tiles = np.ones((18, 32), dtype=bool)
         significant = np.zeros((18, 32), dtype=bool)
+        strong_changes = significant
         if self._previous is not None and fresh:
             delta = np.abs(small.astype(np.int16) - self._previous.astype(np.int16))
             energy = delta.reshape(18, 20, 32, 20).mean(axis=(1, 3))
             changed_tiles = energy > 0
             tiles = energy > 1.5
             significant = tiles
+            strong_changes = energy >= 12
             self._dirty |= (tiles & (self._streak == 0)) | (~tiles & (self._streak >= 2))
             self._streak = np.where(tiles, np.minimum(self._streak + 1, 8), 0).astype(np.uint8)
+        # A blank capture can be a one-frame flash. Require some surviving scene
+        # detail before using a single capture as evidence of a panel closing.
+        scene_has_detail = bool(self._anchors and fresh and np.ptp(small) >= 16)
         hidden = frozenset(
             key
             for key, anchor in self._anchors.items()
-            if anchor.observe(pixels, frame.sequence, _touches(changed_tiles, key.bounds, size))
+            if anchor.observe(
+                pixels,
+                frame.sequence,
+                now,
+                _touches(changed_tiles, key.bounds, size),
+                scene_has_detail,
+                _surroundings_changed(strong_changes, key.bounds, size),
+            )
         )
         stable, blocked = [], set()
         stable_tracks = []
@@ -831,6 +996,9 @@ class VisualAnalyzer:
             (time.perf_counter() - started) * 1000,
             self._avoided,
             absent=frozenset(t for t, a in self._anchors.items() if a.hidden and a.misses >= 2),
+            pattern_loss=frozenset(t for t, a in self._anchors.items() if a.misses),
+            present=frozenset(t for t, a in self._anchors.items() if a.present),
+            cleared=frozenset(t for t, a in self._anchors.items() if a.cleared),
             checked_sequence=candidate.frame.sequence if candidate else 0,
             unchanged=self._unchanged,
             checked=self._checked,
