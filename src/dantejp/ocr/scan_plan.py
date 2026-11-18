@@ -5,12 +5,13 @@ exactly rather than greedily merging a pair that prevents a better grouping.
 Geometry/quality gates precede cost comparison; the original plan is always valid.
 """
 
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
+from itertools import accumulate
 from math import ceil
 
 from dantejp.domain import Rect, union_bounds
 from dantejp.ocr.regions import intersects, scan_regions
-from dantejp.ocr.track_assignment import assign_tracks
 
 
 @dataclass(frozen=True, slots=True)
@@ -183,25 +184,74 @@ def choose_scan(
     return best
 
 
+def _line_candidates(
+    expected: tuple[ScanLine, ...], observed: tuple[ScanLine, ...]
+) -> list[list[int]] | None:
+    order = sorted(range(len(observed)), key=lambda i: observed[i].bounds.y)
+    tops = [observed[i].bounds.y for i in order]
+    # Prefix maxima keep tall detections in range even when shorter ones end first.
+    max_bottoms = list(
+        accumulate((observed[i].bounds.y + observed[i].bounds.height for i in order), max)
+    )
+    candidates = []
+    for previous in expected:
+        a = previous.bounds
+        if min(a.size) <= 0:
+            return None
+        first = bisect_right(max_bottoms, a.y)
+        last = bisect_left(tops, a.y + a.height, first)
+        area_needed = a.width * a.height * 0.65
+        confidence_needed = min(0.85, (previous.confidence or 0.9) - 0.05)
+        neighbors = []
+        for detected in order[first:last]:
+            current = observed[detected]
+            if previous.vertical != current.vertical or current.confidence is None:
+                continue
+            b = current.bounds
+            width = min(a.x + a.width, b.x + b.width) - max(a.x, b.x)
+            height = min(a.y + a.height, b.y + b.height) - max(a.y, b.y)
+            if (
+                width > 0
+                and height > 0
+                and width * height >= area_needed
+                and current.confidence >= confidence_needed
+            ):
+                neighbors.append(detected)
+        if not neighbors:
+            return None
+        candidates.append(neighbors)
+    return candidates
+
+
 def preserves_lines(expected: tuple[ScanLine, ...], observed: tuple[ScanLine, ...]) -> bool:
-    """Conservative post-scan veto; failure means retry the original plan on that frame."""
+    """Conservative post-scan veto; each expected line needs a distinct eligible detection."""
     if len(expected) > 128 or len(observed) > 512 or len(expected) > len(observed):
         return False
-    candidates = []
-    for index, previous in enumerate(expected):
-        a = previous.bounds
-        for detected, current in enumerate(observed):
-            b = current.bounds
-            width = max(0, min(a.x + a.width, b.x + b.width) - max(a.x, b.x))
-            height = max(0, min(a.y + a.height, b.y + b.height) - max(a.y, b.y))
-            if (
-                previous.vertical == current.vertical
-                and width * height >= a.width * a.height * 0.65
-                and min(*a.size, *b.size) > 0
-                and current.confidence is not None
-                and current.confidence >= min(0.85, (previous.confidence or 0.9) - 0.05)
-            ):
-                candidates.append((1.0, index, detected))
-    # Equal positive edges maximize cardinality. A large detection is still only
-    # one observation; it cannot prove that several original lines survived.
-    return len(assign_tracks(candidates, tuple(range(len(observed))))) == len(expected)
+    if not expected:
+        return True
+    candidates = _line_candidates(expected, observed)
+    if candidates is None:
+        return False
+    owners = [-1] * len(observed)
+
+    def reassign(line: int, visited: set[int]) -> bool:
+        # An alternating path to a free detection preserves every earlier match.
+        for detected in candidates[line]:
+            if detected in visited:
+                continue
+            visited.add(detected)
+            owner = owners[detected]
+            if owner == -1 or reassign(owner, visited):
+                owners[detected] = line
+                return True
+        return False
+
+    for line, neighbors in enumerate(candidates):
+        for detected in neighbors:
+            if owners[detected] == -1:
+                owners[detected] = line
+                break
+        else:
+            if not reassign(line, set()):
+                return False
+    return True

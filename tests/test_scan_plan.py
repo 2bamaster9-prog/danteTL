@@ -97,6 +97,25 @@ def test_guard_requires_distinct_support_and_finds_a_covering_assignment():
     assert not preserves_lines((first, second), (spanning, unrelated))
 
 
+def test_guard_reassigns_a_chain_and_rejects_a_shortage_within_one_group():
+    lines = tuple(ScanLine(Rect(30 * i, 0, 10, 10), 0.95) for i in range(4))
+    bridges = tuple(replace(line, bounds=replace(line.bounds, width=40)) for line in lines[:3])
+    # The first three claims must all move to free the only detection for line four.
+    assert preserves_lines(lines, (*bridges, lines[0]))
+    # All lines have support, but only two detections can cover the first three.
+    wide = replace(lines[0], bounds=Rect(0, 0, 70, 10))
+    assert not preserves_lines(lines, (wide, wide, lines[3], lines[3]))
+
+
+def test_guard_keeps_tall_earlier_detection_and_exact_coverage_cutoff():
+    line = ScanLine(Rect(0, 100, 20, 10), 0.95)
+    tall = ScanLine(Rect(7, 0, 20, 110), 0.85)
+    short = ScanLine(Rect(0, 80, 20, 20), 0.95)
+    assert preserves_lines((line,), (short, tall))  # Exactly 65% area, at the confidence floor.
+    assert not preserves_lines((line,), (short, replace(tall, bounds=Rect(8, 0, 20, 110))))
+    assert not preserves_lines((line,), (short, replace(tall, confidence=0.849)))
+
+
 def test_oversized_detection_retries_original_crops_without_publishing_lost_line():
     viewport = Rect(0, 0, *SIZE)
     frame = CapturedFrame(
