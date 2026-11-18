@@ -12,7 +12,8 @@ from unittest.mock import patch
 
 import shiboken6
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent
+from PySide6.QtWidgets import QApplication, QWidget
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 from verify_translation import process_memory
@@ -23,6 +24,25 @@ from dantejp.domain import CapturedFrame, WindowTarget
 from dantejp.ocr.worker import OcrChoice, OcrState, TextRegion
 from dantejp.translation.worker import TranslationState
 from dantejp.ui.demo import DIALOGUE_LINES, DemoWindow
+
+
+class EquipmentMenu(QWidget):
+    """A second populated screen with strong edges throughout the old dialogue area."""
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor("#354254"))
+        painter.setPen(QColor("#81909d"))
+        for x in range(-self.height(), self.width(), 7):
+            painter.drawLine(x, 0, x + self.height(), self.height())
+        painter.fillRect(0, 0, 16, 16, QColor("#624386"))
+        font = QFont("Yu Gothic UI")
+        font.setPixelSize(24)
+        painter.setFont(font)
+        for y, text in ((95, "装備一覧"), (165, "設定"), (235, "地図")):
+            painter.fillRect(45, y - 32, 250, 42, QColor("#263447"))
+            painter.setPen(QColor("#ffffff"))
+            painter.drawText(60, y, text)
 
 
 def main() -> int:
@@ -52,6 +72,11 @@ def main() -> int:
     parser.add_argument("--debug", action="store_true", help="Verify diagnostic overlay rendering")
     parser.add_argument("--transitions", action="store_true", help="Close/reopen the text panel")
     parser.add_argument(
+        "--populated-transition",
+        action="store_true",
+        help="Switch to a textured equipment menu and wait for its translation",
+    )
+    parser.add_argument(
         "--typewriter", action="store_true", help="Check gradual dialogue readiness"
     )
     args = parser.parse_args()
@@ -66,6 +91,8 @@ def main() -> int:
         parser.error("--typewriter requires --dialogue")
     if args.transitions and not args.dialogue:
         parser.error("--transitions requires --dialogue")
+    if args.populated_transition and not args.transitions:
+        parser.error("--populated-transition requires --transitions")
     if not 0 <= args.ocr_delay_ms <= 1500:
         parser.error("--ocr-delay-ms must be between 0 and 1500")
 
@@ -91,6 +118,9 @@ def main() -> int:
     app = QApplication([])
     app.setQuitOnLastWindowClosed(False)
     demo = DemoWindow(dialogue=args.dialogue, typewriter=args.typewriter)
+    next_menu = EquipmentMenu(demo) if args.populated_transition else None
+    if next_menu:
+        next_menu.hide()
     if args.typewriter:
         demo.reveal_active = False  # Begin after model initialization/first inference.
     expected = DIALOGUE_LINES[0] if args.dialogue else "新しい冒険が、ここから始まる。"
@@ -171,7 +201,16 @@ def main() -> int:
     failure = ""
     reveal_finished = 0.0
     transitions_done = False
+    locked_pixels = None
     timeout = 180 if args.device != "cpu" or args.translation else 45
+
+    def close_panel() -> None:
+        demo.panel_visible = False
+        demo.update()
+        if next_menu:
+            next_menu.setGeometry(demo.rect())
+            next_menu.show()
+            next_menu.raise_()
 
     def tick() -> None:
         nonlocal stage, stage_started, frozen, initial_size, failure, phrase_id, phrase_bounds
@@ -179,7 +218,7 @@ def main() -> int:
         nonlocal continuity_started, continuity_polls, continuity_request
         nonlocal border_owners, border_sequence
         nonlocal reveal_finished
-        nonlocal transitions_done
+        nonlocal transitions_done, locked_pixels
         now = time.monotonic()
         try:
             if now - started > timeout:
@@ -451,10 +490,22 @@ def main() -> int:
                     window.automatic_font.setChecked(True)
                     evidence["automatic_and_manual_font_controls"] = True
                     if args.transitions and not transitions_done:
-                        demo.panel_visible = False
+                        if args.ocr_delay_ms >= 900 and not args.debug:
+                            b = phrase_bounds
+                            assert b is not None
+                            locked_pixels = (
+                                window._overlay.grab().toImage().copy(b.x, b.y, b.width, b.height)
+                            )
+                            assert locked_pixels.pixelColor(b.width // 2, b.height // 2).alpha() > 0
+                        if args.ocr_delay_ms >= 900:
+                            demo.reveal_active = False
+                            demo.revealed = 0  # Temporary lettering loss on the original panel.
+                        else:
+                            close_panel()
                         demo.update()
                         continuity_request = None
-                        stage, stage_started = 10, now
+                        stage = 12 if args.ocr_delay_ms >= 900 else 10
+                        stage_started = time.monotonic()
                         return
                 evidence["repeated_ocr_keeps_dialogue_id_and_bounds"] = True
                 window.stabilize_check.setChecked(False)
@@ -465,24 +516,111 @@ def main() -> int:
                     args.output.parent.mkdir(parents=True, exist_ok=True)
                     window.grab().save(str(args.output))
                 stage, stage_started = 1, now
+            elif stage in (12, 13):
+                assert any(
+                    t.request.source == translation_source for t in window._overlay._translations
+                ), "A brief loss of the panel pattern blinked the locked translation"
+                if stage == 12:
+                    assert now - stage_started < 2, "Transient loss never reached the visual worker"
+                    if any(t.track_id == phrase_id for t in application.view.visual.absent):
+                        evidence["transient_pattern_loss_kept_english"] = True
+                        if locked_pixels is not None:
+                            b = phrase_bounds
+                            assert b is not None
+                            assert (
+                                window._overlay.grab().toImage().copy(b.x, b.y, b.width, b.height)
+                                == locked_pixels
+                            ), "Painted dialogue changed during visual loss"
+                            evidence["transient_pattern_loss_kept_painted_pixels"] = True
+                        demo.revealed = sum(map(len, DIALOGUE_LINES))
+                        demo.update()
+                        stage, stage_started = 13, now
+                elif (
+                    (accepted := application.live.accepted)
+                    and accepted.frame.captured_at > stage_started
+                    and expected in (r.text for r in accepted.regions)
+                ):
+                    close_panel()
+                    stage, stage_started = 10, time.monotonic()
             elif stage == 10:
-                if any(len(b.lines) > 1 for b in window._overlay._blocks or ()):
-                    assert now - stage_started < 1.0, "Closed panel retained its English too long"
+                assert application.capture.rate == 8
+                old_visible = any(
+                    t.request.source == translation_source for t in window._overlay._translations
+                )
+                visual_frame = application.view.visual.frame
+                if next_menu and visual_frame and visual_frame.captured_at >= stage_started:
+                    offset = 4 * (4 * visual_frame.width + 4)
+                    if visual_frame.bgra[offset : offset + 3] == bytes.fromhex("864362"):
+                        evidence.setdefault("old_visible_on_first_menu_analysis", old_visible)
+                        evidence.setdefault(
+                            "first_menu_capture_seconds",
+                            round(visual_frame.captured_at - stage_started, 3),
+                        )
+                if old_visible:
+                    assert now - stage_started < 4, "Closed panel stayed painted"
+                    if visual_frame and visual_frame.captured_at >= stage_started:
+                        b = phrase_bounds
+                        assert b is not None
+                        offset = 4 * (
+                            (b.y + b.height // 2) * visual_frame.width + b.x + b.width // 2
+                        )
+                        assert visual_frame.bgra[offset : offset + 3] != bytes.fromhex("422d17"), (
+                            "Dialogue stayed painted after visual analysis of the closed panel"
+                        )
                     return
                 evidence["panel_hide_seconds"] = round(now - stage_started, 3)
-                evidence["hidden_before_new_ocr"] = bool(
-                    result and result.frame.captured_at < stage_started
+                assert now - stage_started < 0.4, "Closed panel missed the fast hide at 8 FPS"
+                if next_menu:
+                    assert evidence.get("old_visible_on_first_menu_analysis") is False
+                accepted = application.live.accepted
+                before_ocr = accepted is None or accepted.frame.captured_at < stage_started
+                if before_ocr:
+                    assert any(t.track_id == phrase_id for t in application.view.visual.cleared)
+                evidence["panel_capture_fps"] = application.capture.rate
+                evidence["hidden_before_completed_ocr"] = before_ocr
+                if locked_pixels is not None:
+                    b = phrase_bounds
+                    assert b is not None
+                    center = (
+                        window._overlay.grab()
+                        .toImage()
+                        .pixelColor(b.x + b.width // 2, b.y + b.height // 2)
+                    )
+                    assert center.alpha() == 0, "Dialogue still painted over the closed panel"
+                if next_menu:
+                    stage = 14
+                else:
+                    demo.panel_visible = True
+                    demo.update()
+                    stage, stage_started = 11, time.monotonic()
+            elif stage == 14:
+                assert now - stage_started < 15, "Replacement menu never translated"
+                shown = {t.request.source for t in window._overlay._translations}
+                assert translation_source not in shown, (
+                    "Old dialogue returned while the menu translated"
                 )
-                if args.ocr_delay_ms:
-                    assert evidence["hidden_before_new_ocr"]
-                demo.panel_visible = True
-                demo.update()
-                stage, stage_started = 11, now
+                if "設定" in shown:
+                    evidence["new_menu_english_seconds"] = round(now - stage_started, 3)
+                    assert next_menu is not None
+                    next_menu.hide()
+                    demo.panel_visible = True
+                    demo.update()
+                    stage, stage_started = 11, time.monotonic()
             elif stage == 11:
-                if not any(len(b.lines) > 1 for b in window._overlay._blocks or ()):
-                    assert now - stage_started < 3, "Reopened panel never restored English"
+                if not any(
+                    t.request.source == translation_source for t in window._overlay._translations
+                ):
+                    assert now - stage_started < 6, "Reopened panel never restored English"
                     return
                 evidence["panel_restore_seconds"] = round(now - stage_started, 3)
+                if locked_pixels is not None:
+                    b = phrase_bounds
+                    assert b is not None
+                    assert (
+                        window._overlay.grab().toImage().copy(b.x, b.y, b.width, b.height)
+                        == locked_pixels
+                    )
+                    evidence["reopened_panel_restored_painted_pixels"] = True
                 assert result is not None
                 restored = next(
                     t

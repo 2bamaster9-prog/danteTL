@@ -131,7 +131,14 @@ through the unchanged native worker; its native load count must remain unchanged
 Gemma E2B → E4B → E2B, debug disclosure, pause, resize/minimize, CPU restart and clean shutdown.
 It requires complete grouped requests after the fixture's reveal and checks already-published
 English while OCR is delayed. `--typewriter` uses a fresh synthetic translation cache. Transition
-checks measure panel hiding/restoration and require fast masking before the next delayed OCR pass.
+checks briefly remove the lettering while its panel stays in place and require continuous published English.
+With debug drawing off, the fixture also compares the painted dialogue pixels during visual loss.
+At 8 FPS removing the entire panel must hide the dialogue on the first analyzed capture showing the
+exposed background and within 400 ms of closure, even with delayed OCR. Record the
+elapsed time and whether it hid before OCR observed the closure. Reopening must restore English.
+Repeat with `--populated-transition` to switch to a textured menu with new Japanese labels.
+Record the first menu capture, visibility of the old dialogue at the first visual analysis,
+elapsed time to hide, and time to the new English. Old dialogue stays hidden throughout inference.
 These fixtures exercise one reveal cadence; they do not establish every game's behavior.
 Grouping replays also cover long profile paragraphs and full/regional OCR quote readings, including
 damaged brackets and hanging marks, through tracking/publication as well as scaled/reordered boxes.
