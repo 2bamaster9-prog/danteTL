@@ -14,6 +14,8 @@ from dantejp.ocr.tracking import TextActivity, TextTrack
 from dantejp.translation.dialogue_paths import dialogue_segments
 
 _END = tuple("。！？!?」』")
+_MAX_ROW_OVERLAP = 0.1
+_MAX_ROW_GAP = 0.95
 _CHOICE = re.compile(r"^(?:[・•●○◆◇▶▷→\-]|[0-9０-９①-⑳]+[.．、:：)）]|[A-Za-z][.．)）])")
 # OCR can lose the bracket after a typographic dialogue dash (or read it as /).
 # A single ASCII hyphen still marks a choice unless followed by a real bracket.
@@ -132,7 +134,7 @@ def _can_follow(
     a, b = upper.bounds, lower.bounds
     height = max(1, min(a.height, b.height))
     gap = b.y - a.y - a.height
-    if not -height * 0.1 <= gap <= height * 0.95:
+    if not -height * _MAX_ROW_OVERLAP <= gap <= height * _MAX_ROW_GAP:
         return False  # Distant rows need no text/quote analysis in dense layouts.
     first, second = upper.text.strip(), lower.text.strip()
     introduces_value = first.endswith(("さらに", "更に", "最大で", "上限は"))
@@ -570,6 +572,7 @@ def _blocks(
     dash_edges: dict[TextTrack, int],
 ) -> tuple[TextBlock, ...]:
     ordered = sorted(tracks[:128], key=lambda t: (t.bounds.y, t.bounds.x, t.track_id))
+    row_tops = [t.bounds.y for t in ordered] if enabled else []
     openings = _quote_openings(ordered, dash_edges) if enabled else {}
     used: set[int] = set()
     blocks: list[TextBlock] = []
@@ -583,9 +586,16 @@ def _blocks(
         previous_row = None
         if enabled:
             while len(lines) < len(ordered):
+                # The exact gap uses the shorter row. The upper row alone bounds every
+                # possible successor, including after same-row fragments are combined.
+                bounds = last_row.bounds
+                bottom = bounds.y + bounds.height
+                height = max(1, bounds.height)
+                start = bisect_left(row_tops, bottom - height * _MAX_ROW_OVERLAP)
+                stop = bisect_right(row_tops, bottom + height * _MAX_ROW_GAP)
                 candidates = [
                     line
-                    for line in ordered
+                    for line in ordered[start:stop]
                     if line.track_id not in used
                     and line.track_id not in members
                     and line.track_id not in openings
