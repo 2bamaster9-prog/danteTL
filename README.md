@@ -88,6 +88,8 @@ Change shortcuts in **Settings → Hotkeys**. The main **Start capture** button 
 window; the capture shortcut uses the focused window by default.
 
 - **Settings → Appearance** adjusts text size and background opacity.
+- **Settings → Experimental → Blur behind English text** tries a clear Windows backdrop behind
+  each translation, including labels in dense menus.
 - **Inspection and diagnostics** shows the recognized Japanese and full English translations.
   Pause it to review or copy text while the game overlay continues updating.
 - **Settings → Experimental → Dialogue history** enables the optional reader. It is **off by

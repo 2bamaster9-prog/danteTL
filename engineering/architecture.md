@@ -112,6 +112,14 @@ size mismatch. Border edits reopen only the same native source while retaining p
 sequence. Screen-capture inclusion changes overlay affinity only; report failure and restore settings.
 Raw game capture must exclude our overlay. Affinity is not a universal recording/security guarantee.
 
+English labels have lightly rounded borders, measured text padding and a translucent text shadow.
+Windows rounds each native backdrop where the compositor supports the small-corner preference.
+Experimental backdrop blur uses one click-through native surface per placed English label, up to
+the live placement limit. English paints immediately with its regular background while new native
+surfaces appear over successive event-loop turns. Retired surfaces hide and can be reused until
+the overlay hides or blur is disabled. Surfaces share the overlay's recording preference.
+Native setup failures use the configured background opacity.
+
 Shortcuts use RegisterHotKey on Qt; no hooks or idle polling. Only a held show-original chord polls
 for release. This transient paint mask clears on focus loss/stop/close without resetting processing.
 Rebinding is transactional and rejects stale messages. Only the explicit capture shortcut may choose

@@ -171,6 +171,15 @@ class SettingsWindow(QDialog):
         note.setWordWrap(True)
         note.setObjectName("muted")
         experimental.addWidget(note)
+        self.backdrop_blur = Switch("Blur behind English text")
+        self.backdrop_blur.setChecked(preferences.backdrop_blur)
+        self._setting(
+            experimental,
+            self.backdrop_blur,
+            "Blur behind English text",
+            "Blur the game behind each English label. If Windows declines the effect, "
+            "the labels use the configured background opacity.",
+        )
         self.history_enabled = Switch("Dialogue history")
         self.history_enabled.setChecked(preferences.history_enabled)
         self._setting(
@@ -209,6 +218,7 @@ class SettingsWindow(QDialog):
             self.automatic_size,
             self.group_dialogue,
             self.history_enabled,
+            self.backdrop_blur,
         ):
             control.toggled.connect(lambda _: self.changed.emit())
         self.opacity.valueChanged.connect(self._opacity_changed)
@@ -270,6 +280,7 @@ class SettingsWindow(QDialog):
             translation=translation,
             stabilize=self.stabilize.isChecked(),
             opacity=self.opacity.value(),
+            backdrop_blur=self.backdrop_blur.isChecked(),
             automatic_size=self.automatic_size.isChecked(),
             text_size=self.text_size.value(),
             group_dialogue=self.group_dialogue.isChecked(),

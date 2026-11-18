@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from enum import StrEnum
 
+MAX_OVERLAY_LABELS = 128
+
 
 @dataclass(frozen=True, slots=True)
 class Rect:

@@ -1,9 +1,19 @@
 """Qt overlay rendering; receives geometry and never owns capture state."""
 
-from PySide6.QtCore import QPointF, QRect, QRectF, Qt
-from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen, QRegion
+from PySide6.QtCore import QPointF, QRect, QRectF, Qt, QTimer
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QGuiApplication,
+    QHideEvent,
+    QPainter,
+    QPaintEvent,
+    QPen,
+    QRegion,
+)
 from PySide6.QtWidgets import QWidget
 
+from dantejp.capture.backdrop import LabelBackdrops
 from dantejp.capture.windows import Windows
 from dantejp.domain import Rect, sample_box
 from dantejp.ocr.tracking import TextTrack
@@ -11,7 +21,7 @@ from dantejp.translation.grouping import TextBlock
 from dantejp.translation.values import TranslatedText, TranslationRequest
 from dantejp.ui.diagnostics import DebugDisplay
 from dantejp.ui.english_placement import EnglishLabel, EnglishPlacement
-from dantejp.ui.text_layout import EnglishLayout
+from dantejp.ui.text_layout import PAD_X, PAD_Y, EnglishLayout
 
 
 class OverlayWindow(QWidget):
@@ -42,6 +52,47 @@ class OverlayWindow(QWidget):
         self._debug: DebugDisplay | None = None
         self._placement = EnglishPlacement()
         self._layouts: dict[tuple[tuple[int, int, str], ...], EnglishLayout] = {}
+        self._backdrops: LabelBackdrops | None = None
+        self._backed: frozenset[Rect] = frozenset()
+        self._backdrop_update = QTimer(self)
+        self._backdrop_update.setSingleShot(True)
+        self._backdrop_update.timeout.connect(self._sync_backdrops)
+
+    def set_backdrop_blur(self, enabled: bool) -> None:
+        if enabled == (self._backdrops is not None) or QGuiApplication.platformName() != "windows":
+            return
+        if enabled:
+            self._backdrops = LabelBackdrops(self._windows)
+            self.destroyed.connect(self._backdrops.clear)
+            self._sync_backdrops()
+        elif self._backdrops is not None:
+            self._backdrop_update.stop()
+            self.destroyed.disconnect(self._backdrops.clear)
+            self._backdrops.clear()
+            self._backdrops = None
+            self._backed = frozenset()
+        self.update()
+
+    def hideEvent(self, event: QHideEvent) -> None:
+        self._backdrop_update.stop()
+        if self._backdrops is not None:
+            self._backdrops.clear()
+        self._backed = frozenset()
+        super().hideEvent(event)
+
+    def _sync_backdrops(self) -> None:
+        if self._backdrops is None or not self._configured or not self.isVisible():
+            return
+        boxes = tuple(layout.bounds for layout in self._layouts.values())
+        ready = self._backdrops.place(
+            int(self.winId()), self._bounds, boxes, included=self._include_in_capture
+        )
+        backed = ready or frozenset()
+        for box in backed ^ self._backed:
+            self.update(self._widget_box(box))
+        self._backed = backed
+        if ready is not None and any(box not in ready for box in boxes):
+            self._backdrop_update.start(1)
 
     def set_debug(self, display: DebugDisplay | None) -> None:
         if display != self._debug:
@@ -71,6 +122,7 @@ class OverlayWindow(QWidget):
         if not english:
             self._placement.clear()
             self._layouts.clear()
+            self._sync_backdrops()
             self.update()
         elif mode_changed or sources_changed or results_changed:
             self._layout_english()
@@ -117,6 +169,7 @@ class OverlayWindow(QWidget):
                     if layout is not None:
                         dirty |= QRegion(self._widget_box(layout.bounds))
         self._layouts = current
+        self._sync_backdrops()
         if not dirty.isEmpty():
             self.update(dirty)
 
@@ -153,14 +206,19 @@ class OverlayWindow(QWidget):
         elif changed:
             self._windows.place_overlay(hwnd, bounds)
         if changed or showing:
+            self._sync_backdrops()
             self.update()
 
     def set_capture_included(self, included: bool) -> None:
         """Change recording visibility without hiding/repainting or resetting live work."""
         if included != self._include_in_capture:
+            if self._backdrops is not None:
+                self._backdrops.clear()
+                self.update()
             if self._configured:
                 self._windows.set_overlay_capture(int(self.winId()), included)
             self._include_in_capture = included
+            self._sync_backdrops()
 
     def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
@@ -172,7 +230,7 @@ class OverlayWindow(QWidget):
             if self._english_mode:
                 for layout in self._layouts.values():
                     if event.region().intersects(self._widget_box(layout.bounds)):
-                        self._paint_english(painter, layout)
+                        self._paint_english(painter, layout, blurred=layout.bounds in self._backed)
                 self._paint_debug(painter, ratio)
                 return  # Pending regions leave the original game text visible.
             font = QFont("Segoe UI")
@@ -243,22 +301,26 @@ class OverlayWindow(QWidget):
         painter.drawText(area.adjusted(8, 6, -8, -6), Qt.AlignmentFlag.AlignLeft, self._debug.text)
         painter.restore()
 
-    def _paint_english(self, painter: QPainter, layout: EnglishLayout) -> None:
+    def _paint_english(self, painter: QPainter, layout: EnglishLayout, *, blurred: bool) -> None:
         area = QRectF(layout.bounds.x, layout.bounds.y, layout.bounds.width, layout.bounds.height)
         painter.save()
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(12, 20, 31, round(255 * self._opacity)))
-        # Paint uses physical pixels; keep the subtle rounding visible at high DPI.
-        radius = min(5 * self.devicePixelRatioF(), area.width() / 4, area.height() / 4)
-        painter.drawRoundedRect(area, radius, radius)
+        painter.setBrush(
+            Qt.BrushStyle.NoBrush if blurred else QColor(12, 20, 31, round(255 * self._opacity))
+        )
+        painter.setPen(QPen(QColor(255, 255, 255, 112), 1))
+        radius = min(4 * self.devicePixelRatioF(), area.width() / 2, area.height() / 2)
+        painter.drawRoundedRect(area.adjusted(0.5, 0.5, -0.5, -0.5), radius, radius)
         english_font = QFont("Segoe UI")
         english_font.setPixelSize(layout.pixel_size)
         painter.setFont(english_font)
-        painter.setPen(QColor("#f1f5f9"))
         painter.setClipRect(area)
+        shadow = QPointF(1, min(2, layout.pixel_size / 12))
         for index, line in enumerate(layout.lines):
-            painter.drawText(
-                QPointF(area.x() + 4, area.y() + 4 + layout.ascent + index * layout.line_height),
-                line,
+            origin = QPointF(
+                area.x() + PAD_X, area.y() + PAD_Y + layout.ascent + index * layout.line_height
             )
+            painter.setPen(QColor(0, 0, 0, 160))
+            painter.drawText(origin + shadow, line)
+            painter.setPen(QColor("#f1f5f9"))
+            painter.drawText(origin, line)
         painter.restore()

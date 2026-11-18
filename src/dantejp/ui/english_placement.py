@@ -9,7 +9,7 @@ from dataclasses import dataclass, replace
 import numpy as np
 from numpy.typing import NDArray
 
-from dantejp.domain import Rect, union_bounds
+from dantejp.domain import MAX_OVERLAY_LABELS, Rect, union_bounds
 from dantejp.ui.text_layout import EnglishLayout, layout_english
 
 
@@ -146,7 +146,7 @@ class EnglishPlacement:
         automatic: bool = True,
         pixels: int = 20,
     ) -> tuple[EnglishLayout, ...]:
-        if len(labels) > 128 or len(obstacles) > 128:
+        if len(labels) > MAX_OVERLAY_LABELS or len(obstacles) > MAX_OVERLAY_LABELS:
             raise ValueError("English placement exceeds the live track bound.")
         ordered = tuple(sorted(labels, key=lambda label: label.key))
         obstacles = tuple(sorted(set(obstacles), key=lambda box: (box.y, box.x, *box.size)))

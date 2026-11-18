@@ -124,6 +124,7 @@ class MainWindow(QMainWindow):
         self.automatic_font.toggled.connect(self._font_style_changed)
         self.font_size.valueChanged.connect(self._font_style_changed)
         self._settings.opacity.valueChanged.connect(self._overlay.set_opacity)
+        self._settings.backdrop_blur.toggled.connect(self._overlay.set_backdrop_blur)
         central = QWidget()
         scroll = QScrollArea()
         scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -293,6 +294,7 @@ class MainWindow(QMainWindow):
         self._settings.changed.connect(self._settings_changed)
         self.setStyleSheet(STYLE)
         self._overlay.set_opacity(preferences.opacity)
+        self._overlay.set_backdrop_blur(preferences.backdrop_blur)
         self._font_style_changed()
         self._update_notice()
 

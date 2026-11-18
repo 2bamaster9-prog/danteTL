@@ -1363,6 +1363,8 @@ def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_pat
     original = settings(window)
     window.settings_button.click()
     assert settings(window) is original
+    assert not original.backdrop_blur.isChecked()
+    original.backdrop_blur.click()
     window.stabilize_check.setChecked(False)
     settings(window).opacity.setValue(61)
     window.automatic_font.setChecked(False)
@@ -1379,6 +1381,7 @@ def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_pat
     window.close()
     window.deleteLater()
     restored = MainWindow(windows, factory, ocr_backends=choices, preferences_path=path)
+    assert settings(restored).backdrop_blur.isChecked()
     assert not restored.stabilize_check.isChecked() and not restored.group_dialogue.isChecked()
     assert restored._overlay._opacity == 0.61 and restored.font_size.value() == 26
     assert not restored.automatic_font.isChecked() and restored.font_size.isEnabled()

@@ -4,23 +4,96 @@ import argparse
 import json
 import os
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 import shiboken6
 from PySide6.QtCore import QPoint, Qt
-from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QBrush, QColor, QImage, QPainter, QPalette, QPixmap
+from PySide6.QtWidgets import QApplication, QWidget
 
 from dantejp.capture.windows import Windows
 from dantejp.capture.worker import CaptureSession
-from dantejp.domain import CaptureState, WindowTarget, sample_box
+from dantejp.domain import CaptureState, Rect, WindowTarget, sample_box
+from dantejp.ocr.tracking import TextTrack
+from dantejp.translation.values import TranslatedText, TranslationRequest
 from dantejp.ui.demo import DemoWindow
 from dantejp.ui.inspection import frame_image
 from dantejp.ui.overlay import OverlayWindow
 
 
+def verify_menu_blur(
+    demo: DemoWindow,
+    overlay: OverlayWindow,
+    client: Rect,
+    grab: Callable[[], QImage],
+    pump: Callable[[float], None],
+    output: Path,
+) -> list[int]:
+    # Fine stripes distinguish a real backdrop from both a dark fill and bare transparency.
+    pattern = QPixmap(8, 8)
+    pattern.fill(QColor(220, 220, 220))
+    painter = QPainter(pattern)
+    painter.fillRect(0, 0, 4, 8, QColor(40, 40, 40))
+    painter.end()
+    menu = QWidget(demo)
+    menu.setGeometry(demo.rect())
+    palette = menu.palette()
+    palette.setBrush(QPalette.ColorRole.Window, QBrush(pattern))
+    menu.setPalette(palette)
+    menu.setAutoFillBackground(True)
+    menu.show()
+    menu.raise_()
+    cell_width, cell_height = client.width // 8, client.height // 16
+    tracks = tuple(
+        TextTrack(
+            i + 1,
+            "項目",
+            Rect(i % 8 * cell_width, i // 8 * cell_height, cell_width - 6, cell_height - 4),
+        )
+        for i in range(128)
+    )
+    translations = tuple(TranslatedText(TranslationRequest.from_track(t), "A") for t in tracks)
+    overlay.set_text_style(False, 10)
+    overlay.set_backdrop_blur(True)
+
+    def stripe_values(image: QImage, box: Rect) -> list[int]:
+        y = box.y + box.height // 2
+        return [
+            image.pixelColor(x, y).red()
+            for x in range(box.x + box.width // 2, box.x + box.width - 3)
+        ]
+
+    def blurred(values: list[int]) -> bool:
+        return max(values) - min(values) < 32 and 75 < sum(values) / len(values) < 180
+
+    counts = [8, 16, 17, 32, 128, 17, 8, 0]
+    for count in counts:
+        overlay.set_scene(tracks, translations=translations[:count], english=True)
+        pump(0.4)
+        image = grab()
+        deadline = time.monotonic() + 5
+        while count and not blurred(stripe_values(image, tracks[count - 1].bounds)):
+            assert time.monotonic() < deadline, f"Blur did not reach menu label {count}"
+            pump(0.08)
+            image = grab()
+        for i, track in enumerate(tracks):
+            values = stripe_values(image, track.bounds)
+            if i < count:
+                assert blurred(values), (
+                    f"Missing blur at menu label {i + 1} with {count} translations"
+                )
+            else:
+                assert max(values) - min(values) > 120, f"Stale blur at menu label {i + 1}"
+        if count == len(tracks):
+            image.save(str(output / "dense-menu.png"))
+    return counts
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--menu-blur", action="store_true", help="Verify dense native backdrops")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     windows = Windows()
@@ -29,6 +102,7 @@ def main() -> None:
     demo = DemoWindow()
     demo.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint)
     demo.resize(700, 440)
+    demo.move(app.primaryScreen().availableGeometry().center() - demo.rect().center())
     demo.show()
     demo.raise_()
     app.processEvents()
@@ -141,6 +215,10 @@ def main() -> None:
         )
         assert evidence["native_affinity"] == 0
         assert evidence["border_visibly_disabled"], evidence
+        if args.menu_blur:
+            evidence["verified_blurred_label_counts"] = verify_menu_blur(
+                demo, overlay, restored.geometry.client, client_image, pump, args.output
+            )
     finally:
         session.request_stop()
         deadline = time.monotonic() + 10

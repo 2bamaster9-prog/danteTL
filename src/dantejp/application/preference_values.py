@@ -34,3 +34,4 @@ class Preferences:
     game_from_window: bool = True
     history_enabled: bool = False
     history_model: str = ""
+    backdrop_blur: bool = False
