@@ -163,6 +163,7 @@ def _admit(
     if (
         second.bounds.width < 0.60 * first.bounds.width
         and "。" not in second.text
+        and not ("、" in second.text and second.text.rstrip().endswith("…"))
         and not second.text.startswith(("は", "を", "に", "が"))
     ):
         return False

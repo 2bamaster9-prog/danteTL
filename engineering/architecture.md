@@ -241,6 +241,8 @@ for readiness, request identity and publication.
 The dialogue graph links mutually nearest rows by pitch, overlap, alignment and relative width.
 It can replace blocks fully covered by a path when Japanese prose supports the new grouping.
 Item markers, short endings and changes in lettering can stop a passage before a button.
+A short second row can complete a prose passage when it contains a Japanese comma (`、`)
+and ends in an ellipsis (`…`).
 Repeated section headings and highlighted effect sentences followed by an activation condition
 support independent instructions, including in a two-row crop. The OCR matching worker samples
 lettering on the source image. Tracking retains compact samples for the corresponding reading

@@ -3,6 +3,7 @@
 from dataclasses import replace
 
 import numpy as np
+import pytest
 from test_live_session import Replay
 
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
@@ -34,6 +35,29 @@ def test_prose_closing_with_an_ocr_comma_leaves_short_button_out_of_request():
     assert [b.text for b in replay.live.scene(source, 2, grouping=False).blocks] == [
         r.text for r in rows
     ]
+
+
+@pytest.mark.parametrize(
+    ("tail", "width", "joins"),
+    [
+        ("所についたが、まさか彼が……", 167, True),
+        ("設定を開く……", 66, False),
+        ("詳細を見る…", 55, False),
+    ],
+    ids=["todd-paragraph", "open-settings-button", "view-details-button"],
+)
+def test_short_ellipsis_row_needs_a_clause_break_to_join_prose(tail: str, width: int, joins: bool):
+    # Full-frame OCR dropped 場 at the wrap in 待ち合わせ場所.
+    first = (
+        "トッドはあなたにメッセージを送り、喜びをかち合おうとあなたを招待する。"
+        "あなたは約通り待ち合わせ"
+    )
+    rows = (
+        TextRegion(first, Rect(32, 20, 587, 12)),
+        TextRegion(tail, Rect(30, 40, width, 11)),
+    )
+    scene = Replay().observe(panel(rows, accent=False), rows)
+    assert [block.text for block in scene.requests] == ([first + tail] if joins else [first, tail])
 
 
 def test_two_effect_sentences_use_exact_crop_ink_and_survive_unrelated_scans():
