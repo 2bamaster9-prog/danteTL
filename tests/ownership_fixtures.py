@@ -140,7 +140,7 @@ class Replay:
         )
         self.setup = SetupCoordinator(self.inventory, (), PROFILES, self.dependencies)
 
-        def create(choice):
+        def create(choice, language):
             worker = PreparedWorker(choice)
             self.workers.append(worker)
             return worker

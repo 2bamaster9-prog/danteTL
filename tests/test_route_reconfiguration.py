@@ -11,6 +11,7 @@ from dantejp.application.cloud_services import CloudServices
 from dantejp.application.model_inventory import InventoryData, InventorySnapshot, ModelInventory
 from dantejp.application.preference_values import Preferences
 from dantejp.application.translation_coordinator import TranslationCoordinator
+from dantejp.languages.selection import source_language
 from dantejp.translation.cloud.values import CloudProfile
 from dantejp.translation.plan import TranslationPlan
 from dantejp.translation.routing import RoutedTranslationSession
@@ -51,11 +52,15 @@ class Routes:
         self.cloud.revision = 0
         self.cloud.credential_revision.return_value = 0
         self.cloud.available.return_value = True
-        self.cloud.create_backend.side_effect = lambda profile, game: self.remote[profile.key[-1]]()
+        self.cloud.create_backend.side_effect = lambda profile, game, language: self.remote[
+            profile.key[-1]
+        ]()
         self.owner = TranslationCoordinator(
             self.inventory,
             self.cloud,
-            lambda choice: TranslationSession(choice.create, root / "cache"),
+            lambda choice, language: TranslationSession(
+                choice.create, root / "cache", language=language
+            ),
             RoutedTranslationSession,
             root / "cache",
             Preferences(model="none", short_model="local:local", long_model=remote_ref("a")),
@@ -165,6 +170,53 @@ def test_identity_changes_replace_only_the_affected_model(tmp_path, change):
         routes.close()
 
 
+def test_source_switch_retires_only_the_incompatible_local_lane(tmp_path):
+    class Multilingual(Engine):
+        def set_source(self, language):
+            self.cache_identity = language.code
+
+    compatible, restricted = Multilingual("ja"), Engine("restricted")
+    choices = (
+        BackendChoice("Multilingual", Mock(return_value=compatible), "multi"),
+        BackendChoice("Restricted", Mock(return_value=restricted), "restricted"),
+    )
+    inventory = Mock(spec=ModelInventory)
+
+    def discover(backends):
+        inventory.snapshot.return_value = InventorySnapshot(
+            loaded=True, data=InventoryData(backends)
+        )
+
+    discover(choices)
+    cloud = Mock(spec=CloudServices)
+    cloud.profiles = ()
+    owner = TranslationCoordinator(
+        inventory,
+        cloud,
+        Mock(),
+        RoutedTranslationSession,
+        tmp_path / "cache",
+        Preferences(short_model="local:multi", long_model="local:restricted"),
+    )
+    owner.refresh_route()
+    route = owner.advance_activity(running=True, enabled=True).worker
+    assert isinstance(route, RoutedTranslationSession)
+    try:
+        until(lambda: all(lane.state == TranslationState.READY for lane in route.snapshot().lanes))
+        owner.language = source_language("pt")
+        discover((choices[0], replace(choices[1], unavailable_reason="Unsupported source")))
+        assert owner.refresh_route()
+        assert owner.advance_activity(running=True, enabled=True).worker is route
+        route.update((block(1, "Menu"), block(2, "Uma fala.", dialogue=True)))
+        until(lambda: restricted.closed.is_set() and route.snapshot().results)
+        assert [r.english for r in route.snapshot().results] == ["pt: Menu"]
+        assert not compatible.closed.is_set()
+        assert owner.plan.long == "local:restricted"
+    finally:
+        owner.lifecycle.shutdown()
+        until(owner.lifecycle.finish_shutdown)
+
+
 def test_shared_model_survives_lane_changes_until_last_assignment_removed(tmp_path):
     routes = Routes(tmp_path)
     try:
@@ -220,7 +272,7 @@ def test_cloud_edits_preserve_unaffected_work_and_scope_credential_changes(tmp_p
     counts = Counter()
     engines = []
 
-    def create_backend(profile, game):
+    def create_backend(profile, game, language):
         counts[profile.key] += 1
         engine = Engine(
             profile.key, release if profile.key == a.key and counts[a.key] == 1 else None

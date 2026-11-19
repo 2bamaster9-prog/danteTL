@@ -10,6 +10,9 @@ from dantejp.application.translation_activity import (
     TranslationActivity,
     TranslationMode,
 )
+from dantejp.i18n import tr
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
 from dantejp.translation.cloud.values import CloudProfile
 from dantejp.translation.plan import TranslationPlan
 from dantejp.translation.routing import RoutedTranslationSession
@@ -39,6 +42,7 @@ class RouteSelection:
     plan: TranslationPlan = TranslationPlan()
     identities: tuple[BackendChoice | CloudProfile | None, ...] = field(default=(), compare=False)
     model_keys: tuple[LocalIdentity | CloudIdentity | None, ...] = ()
+    language: SourceLanguage = DEFAULT_SOURCE
 
 
 @dataclass(frozen=True)
@@ -150,7 +154,7 @@ class ModelLifecycle:
         self, choice: BackendChoice | None, *, assignment: TranslationPlan | None = None
     ) -> None:
         if self._session or self._preparing:
-            raise ValueError("Initial selection can only be restored before loading a worker.")
+            raise ValueError(tr("Initial selection can only be restored before loading a worker."))
         self._assignment = assignment
         self._selected = choice if choice and self.is_prepared(choice) else None
         self._phase = ModelPhase.READY if self._selected else ModelPhase.IDLE
@@ -172,7 +176,7 @@ class ModelLifecycle:
     def request_assignment(self, plan: TranslationPlan, choice: BackendChoice | None) -> bool:
         """Stage assignments for consent without touching the committed route/worker."""
         if self._preparing or self._probing or self._phase == ModelPhase.CLOSING:
-            raise ValueError("Wait for the current model operation to finish.")
+            raise ValueError(tr("Wait for the current model operation to finish."))
         if choice and choice.unavailable_reason:
             raise ValueError(choice.unavailable_reason)
         if choice and not self.is_prepared(choice):
@@ -200,7 +204,7 @@ class ModelLifecycle:
         self._started = False
         self._standby = True
         self._phase = ModelPhase.DRAINING
-        self._message = "Finishing the previous model…"
+        self._message = tr("Finishing the previous model…")
         if self._session:
             self._session.request_stop()
 
@@ -222,7 +226,7 @@ class ModelLifecycle:
             self._started = True
             self._session.start()
             self._phase = ModelPhase.PREPARING
-            self._message = "Checking model files and running a test translation…"
+            self._message = tr("Checking model files and running a test translation…")
             return None
         elif session:
             result = session.snapshot()
@@ -263,6 +267,24 @@ class ModelLifecycle:
         previous = self._route
         changed = route != previous
         self._route, self._route_factory = route, factory
+        if (
+            changed
+            and route.language != previous.language
+            and isinstance(self._session, TranslationSession)
+            and self._worker_choice
+            and not self._preparing
+            and not self._session.finished
+        ):
+            for choice in route.identities:
+                if (
+                    isinstance(choice, BackendChoice)
+                    and self.is_prepared(choice)
+                    and choice.key == self._worker_choice.key
+                    and choice.preparation_id == self._worker_choice.preparation_id
+                ):
+                    self._session.set_source(route.language, choice.create)
+                    self._worker_choice = choice
+                    return True
         if changed and not preserve_prepared and not self._preparing:
             self._standby = False
             if isinstance(self._session, RoutedTranslationSession) and not self._session.stopping:
@@ -357,7 +379,7 @@ class ModelLifecycle:
         return TranslationActivity(
             TranslationMode.ACTIVE if worker else TranslationMode.SWITCHING,
             worker=worker,
-            model_name=self._selected.name if self._selected else "the translation model",
+            model_name=self._selected.name if self._selected else tr("the translation model"),
         )
 
     def _activate_route(self) -> Worker | None:

@@ -62,7 +62,7 @@ def test_successful_preparation_updates_options_even_if_receipt_write_fails(tmp_
         owner = TranslationCoordinator(
             replay.inventory,
             replay.cloud,
-            lambda _: worker,
+            lambda choice, language: worker,
             Mock(),
             tmp_path / "cache",
             Preferences(),

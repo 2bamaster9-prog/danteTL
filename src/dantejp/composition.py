@@ -57,10 +57,10 @@ def application_session(
     translation = TranslationCoordinator(
         inventory,
         cloud,
-        lambda choice: TranslationSession(
-            choice.create, cache, on_change=notify, language=language
+        lambda choice, source: TranslationSession(
+            choice.create, cache, on_change=notify, language=source
         ),
-        partial(RoutedTranslationSession, language=language),
+        RoutedTranslationSession,
         cache,
         preferences.initial,
         on_change=notify,

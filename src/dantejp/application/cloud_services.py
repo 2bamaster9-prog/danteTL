@@ -9,6 +9,7 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 
+from dantejp.i18n import tr
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
 from dantejp.languages.target import ENGLISH
@@ -53,7 +54,7 @@ class CloudServices:
         on_change: Callable[[], None] = lambda: None,
         language: SourceLanguage = DEFAULT_SOURCE,
     ) -> None:
-        self._language = language
+        self.language = language
         self.test_target = ENGLISH
         self.catalog = catalog
         self.api_connections = ApiConnections(self.catalog)
@@ -92,7 +93,7 @@ class CloudServices:
         self._closed = False
 
     def start(self) -> None:
-        self._run(lambda _: "", "Reading cloud settings…")
+        self._run(lambda _: "", tr("Reading cloud settings…"))
 
     @property
     def busy(self) -> bool:
@@ -146,7 +147,7 @@ class CloudServices:
 
     def acknowledge_welcome(self, account: str) -> None:
         if account:
-            self._run(lambda _: self._mark_welcome(account), "Saving account preferences…")
+            self._run(lambda _: self._mark_welcome(account), tr("Saving account preferences…"))
 
     def discard_draft(self) -> None:
         with self._lock:
@@ -161,14 +162,16 @@ class CloudServices:
         key = profile.account if profile.provider == "chatgpt" else profile.credential_key
         return self._credential_revisions.get((profile.provider, key), 0)
 
-    def create_backend(self, profile: CloudProfile, game: str) -> CloudBackend:
+    def create_backend(
+        self, profile: CloudProfile, game: str, language: SourceLanguage
+    ) -> CloudBackend:
         return CloudBackend(
             profile,
             "chatgpt-plan"
             if profile.provider == "chatgpt"
             else self.api_connections.secret(profile, self._secrets()),
             game=game,
-            language=self._language,
+            language=language,
             allowance=self.allowance(profile.key),
             access_token=(lambda work: self.connections.access_token(profile.account, work))
             if profile.provider == "chatgpt"
@@ -220,7 +223,7 @@ class CloudServices:
             try:
                 result = operation(self._secrets())
             except Exception as error:
-                result = str(error) or "Operation cancelled."
+                result = str(error) or tr("Operation cancelled.")
                 failed = True
             try:
                 secrets = self._secrets()
@@ -268,7 +271,7 @@ class CloudServices:
                     self.accounts,
                     self.api_accounts,
                     self._api_ready,
-                    str(error) or "Operation cancelled.",
+                    str(error) or tr("Operation cancelled."),
                     True,
                     self._catalogs,
                     changed_credentials=frozenset(self._credential_changes),
@@ -331,7 +334,7 @@ class CloudServices:
 
         def save(secrets: Secrets) -> str:
             if self._cancelled.is_set():
-                raise ValueError("Save cancelled.")
+                raise ValueError(tr("Save cancelled."))
             profile = draft.profile
             if profile.provider != "chatgpt":
                 previous_secret = (
@@ -348,20 +351,22 @@ class CloudServices:
                             profile.provider, saved.credential_key, draft.models
                         )
                     except (OSError, ValueError):
-                        return "Model saved. Catalog cache unavailable; refresh models when needed."
+                        return tr(
+                            "Model saved. Catalog cache unavailable; refresh models when needed."
+                        )
             else:
                 accounts = self.connections.accounts()
                 if not any(
                     a.key == profile.account and a.enabled and profile.model in dict(a.models)
                     for a in accounts
                 ):
-                    raise ValueError("Sign in and choose an available account model first.")
+                    raise ValueError(tr("Sign in and choose an available account model first."))
                 profiles = self.catalog.read()
                 self.catalog.write(tuple(p for p in profiles if p.key != profile.key) + (profile,))
-            return "Model saved. Select it on the main screen to use it."
+            return tr("Model saved. Select it on the main screen to use it.")
 
         self._select_after = draft.profile.key
-        self._run(save, "Saving model securely…", mutating=True, saving=True)
+        self._run(save, tr("Saving model securely…"), mutating=True, saving=True)
 
     def refresh_models(self, draft: CloudDraft) -> None:
         if self._closed or self.busy:
@@ -372,16 +377,20 @@ class CloudServices:
             key = draft.secret or self.api_connections.secret(profile, secrets)
             models = fetch_models(profile.provider, key, self._cancelled)
             if self._cancelled.is_set():
-                return "Model refresh cancelled; previous list kept."
+                return tr("Model refresh cancelled; previous list kept.")
             if draft.connection and not draft.secret:
                 self.catalog_cache.write(profile.provider, draft.connection, models)
             self._discovered = models
-            return (
-                f"Found {len(models)} models. Selection unchanged; "
-                "test unfamiliar models before use."
+            return tr(
+                "Found {count} models. Selection unchanged; test unfamiliar models before use.",
+                count=len(models),
             )
 
-        self._run(refresh, "Refreshing provider models…")
+        self._run(refresh, tr("Refreshing provider models…"))
+
+    @property
+    def test_sample(self) -> str:
+        return "会心率" if self.language == DEFAULT_SOURCE else self.language.warmup_text
 
     def test(self, draft: CloudDraft) -> None:
         if self._closed or self.busy:
@@ -391,7 +400,7 @@ class CloudServices:
 
         def test(secrets: Secrets) -> str:
             if self._cancelled.is_set():
-                return "Test cancelled."
+                return tr("Test cancelled.")
             source = (
                 replace(profile, credential=draft.connection)
                 if profile.provider != "chatgpt"
@@ -405,7 +414,7 @@ class CloudServices:
             backend = CloudBackend(
                 source,
                 key,
-                language=self._language,
+                language=self.language,
                 allowance=self.allowance(profile.key),
                 access_token=(lambda work: self.connections.access_token(profile.account, work))
                 if profile.provider == "chatgpt"
@@ -415,19 +424,21 @@ class CloudServices:
                 with self._lock:
                     self._testing = backend
                 if self._cancelled.is_set():
-                    return "Test cancelled."
-                result = backend.translate(("会心率",), target=target)[0]
+                    return tr("Test cancelled.")
+                result = backend.translate((self.test_sample,), target=target)[0]
                 return (
-                    "Test cancelled."
+                    tr("Test cancelled.")
                     if self._cancelled.is_set()
-                    else f"✓ Test successful ({target.name}): {result}"
+                    else tr(
+                        "✓ Test successful ({name}): {result}", name=tr(target.name), result=result
+                    )
                 )
             finally:
                 backend.close()
                 with self._lock:
                     self._testing = None
 
-        self._run(test, "Testing this model without saving changes…")
+        self._run(test, tr("Testing this model without saving changes…"))
 
     def remove(self, profile: CloudProfile) -> None:
         if self._closed or self.busy:
@@ -437,11 +448,11 @@ class CloudServices:
             self.catalog.write(tuple(p for p in self.catalog.read() if p.key != profile.key))
             with self._lock:
                 self._allowances.pop(profile.key, None)
-            return "Model removed. Its connection is still saved."
+            return tr("Model removed. Its connection is still saved.")
 
         self._available.discard(profile.key)
         self._changed()
-        self._run(remove, "Removing cloud model…", mutating=True)
+        self._run(remove, tr("Removing cloud model…"), mutating=True)
 
     def forget_key(self, key: str) -> None:
         if self._closed or self.busy:
@@ -456,9 +467,9 @@ class CloudServices:
                 (c.provider, key) for c in self.api_accounts if c.key == key
             )
             self.api_connections.forget(key, secrets)
-            return "Key forgotten on this PC. Revoke it at the provider if no longer needed."
+            return tr("Key forgotten on this PC. Revoke it at the provider if no longer needed.")
 
-        self._run(forget, "Forgetting saved API key…", mutating=True)
+        self._run(forget, tr("Forgetting saved API key…"), mutating=True)
 
     def sign_in(self, selected: str) -> None:
         if self._closed or self.busy:
@@ -472,18 +483,18 @@ class CloudServices:
             if not record.get("welcomed") and PLAN_SCOPE in record.get("scopes", []):
                 self._welcome = key
             return (
-                "ChatGPT connected. Choose a model and save it."
+                tr("ChatGPT connected. Choose a model and save it.")
                 if PLAN_SCOPE in record.get("scopes", [])
-                else "Signed in, but plan use was not enabled. Sign in again to approve it."
+                else tr("Signed in, but plan use was not enabled. Sign in again to approve it.")
             )
 
-        self._run(sign_in, "Finish sign-in and plan consent in your browser…", mutating=True)
+        self._run(sign_in, tr("Finish sign-in and plan consent in your browser…"), mutating=True)
 
     def _mark_welcome(self, account: str) -> str:
         with self.connections.store.lock(account):
             record = self.connections.store.read(account)
             self.connections.store.write(account, {**record, "welcomed": True})
-        return "Choose a ChatGPT model and save it."
+        return tr("Choose a ChatGPT model and save it.")
 
     def sign_out(self, account: str) -> None:
         if self._closed or self.busy:
@@ -498,7 +509,7 @@ class CloudServices:
 
             self._run(
                 sign_out,
-                "Signing out…",
+                tr("Signing out…"),
                 mutating=True,
             )
 
@@ -510,6 +521,6 @@ class CloudServices:
             def refresh(_: Secrets) -> str:
                 self._credential_changes.add(("chatgpt", account))
                 self.connections.refresh_models(account, AuthWork(self._cancelled))
-                return "ChatGPT models refreshed."
+                return tr("ChatGPT models refreshed.")
 
-            self._run(refresh, "Reading available models…", mutating=True)
+            self._run(refresh, tr("Reading available models…"), mutating=True)

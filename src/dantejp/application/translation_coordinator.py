@@ -20,6 +20,8 @@ from dantejp.application.translation_activity import (
     TranslationActivity,
     TranslationMode,
 )
+from dantejp.languages.selection import source_language
+from dantejp.languages.source import SourceLanguage
 from dantejp.translation.backend import TranslationBackend
 from dantejp.translation.cloud.values import CloudProfile
 from dantejp.translation.plan import TranslationPlan
@@ -47,14 +49,19 @@ class TranslationCoordinator:
         self,
         inventory: ModelInventory,
         cloud: CloudServices,
-        create: Callable[[BackendChoice], TranslationSession],
+        create: Callable[[BackendChoice, SourceLanguage], TranslationSession],
         route_create: Callable[..., RoutedTranslationSession],
         cache: Path,
         preferences: Preferences,
         *,
         on_change: Callable[[], None] = lambda: None,
     ) -> None:
-        self._lifecycle = ModelLifecycle(create, inventory.prepared, inventory.record_prepared)
+        self.language = source_language(preferences.source_language)
+        self._lifecycle = ModelLifecycle(
+            lambda choice: create(choice, self.language),
+            inventory.prepared,
+            inventory.record_prepared,
+        )
         self.inventory, self.cloud = inventory, cloud
         self._route_create, self._cache, self._notify = route_create, cache, on_change
         self._preferences = preferences
@@ -175,6 +182,7 @@ class TranslationCoordinator:
         choices = tuple(self.resolve(key) for key in self.plan.active_models)
         remote = any(isinstance(c, CloudProfile) for c in choices)
         route = RouteSelection(
+            language=self.language,
             game=self.game if remote else "",
             available=any(
                 self._lifecycle.is_prepared(c)
@@ -216,19 +224,22 @@ class TranslationCoordinator:
                 names[model_reference(choice)] = choice.name
             elif isinstance(choice, CloudProfile) and self.cloud.available(choice.key):
                 factories[model_reference(choice)] = partial(
-                    self.cloud.create_backend, choice, route.game
+                    self.cloud.create_backend, choice, route.game, route.language
                 )
                 identities[model_reference(choice)] = CloudIdentity.from_profile(
                     choice, route.game, self.cloud.credential_revision(choice)
                 )
                 names[model_reference(choice)] = choice.name
         if isinstance(local, RoutedTranslationSession):
-            local.reconfigure(route.plan, factories, identities=identities, names=names)
+            local.reconfigure(
+                route.plan, factories, language=route.language, identities=identities, names=names
+            )
             return local
         result = self._route_create(
             route.plan,
             factories,
             self._cache,
+            language=route.language,
             prepared=(model_reference(local.choice), local.worker)
             if isinstance(local, PreparedWorker)
             else None,
@@ -254,7 +265,7 @@ class TranslationCoordinator:
                 reference, LocalIdentity(choice.key, choice.preparation_id), available=True
             )
         elif isinstance(choice, CloudProfile) and self.cloud.available(choice.key):
-            factory = partial(self.cloud.create_backend, choice, "")
+            factory = partial(self.cloud.create_backend, choice, "", self.language)
             identity = ClassifierIdentity(
                 reference,
                 CloudIdentity.from_profile(choice, "", self.cloud.credential_revision(choice)),
