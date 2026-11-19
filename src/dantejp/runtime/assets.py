@@ -14,10 +14,12 @@ class ModelAsset:
     filename: str
     sha256: str
     size: int
+    remote_filename: str = ""
 
     @property
     def url(self) -> str:
-        return f"https://huggingface.co/{self.repo}/resolve/{self.revision}/{self.filename}"
+        remote = self.remote_filename or self.filename
+        return f"https://huggingface.co/{self.repo}/resolve/{self.revision}/{remote}"
 
 
 def assets_present(directory: Path, assets: tuple[ModelAsset, ...]) -> bool:

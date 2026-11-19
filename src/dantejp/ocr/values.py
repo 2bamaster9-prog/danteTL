@@ -21,11 +21,12 @@ class TextRegion:
     bounds: Rect
     characters: tuple[TextCharacter, ...] = ()
     vertical: bool = False
+    line_confidence: float | None = None
 
     @property
     def confidence(self) -> float | None:
         if not self.characters:
-            return None
+            return self.line_confidence
         return sum(char.confidence for char in self.characters) / len(self.characters)
 
 

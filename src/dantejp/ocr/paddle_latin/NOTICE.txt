@@ -1,0 +1,17 @@
+PaddleOCR models and Latin recognition vocabulary
+
+The Windows distribution includes PaddlePaddle's unmodified ONNX weights under
+the Apache License, Version 2.0 (see LICENSE.txt). Both upstream files are named
+inference.onnx and use the following names in the distribution:
+
+det.onnx: https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det_onnx/tree/e6f4fa85f00e168c862bc462aebca69eef9b3d3d
+SHA-256: a431985659dc921974177a95adcfbb90fd9e51989a5e04d70d0b75f597b6e61d
+rec.onnx: https://huggingface.co/PaddlePaddle/latin_PP-OCRv5_mobile_rec_onnx/tree/89d3a50e2c27e2e7cceeab0e944c25c807d5db4f
+SHA-256: 7888113072263cb471b93f66dd5e2ad70548dc526fa1ace760d0d973dd121498
+
+Source: PaddlePaddle/latin_PP-OCRv5_mobile_rec_onnx, inference.yml
+Revision: 89d3a50e2c27e2e7cceeab0e944c25c807d5db4f
+https://huggingface.co/PaddlePaddle/latin_PP-OCRv5_mobile_rec_onnx
+
+The PostProcess.character_dict entries are distributed here in JSON format,
+in their original order, under the Apache License, Version 2.0.

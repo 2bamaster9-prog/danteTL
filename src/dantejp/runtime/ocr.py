@@ -5,6 +5,7 @@ from importlib.metadata import PackageNotFoundError, distribution
 from pathlib import Path
 from typing import Any
 
+from dantejp.i18n import tr
 from dantejp.paths import state_root
 
 CPU = "CPUExecutionProvider"
@@ -56,18 +57,20 @@ def prepare_cuda(ort: Any) -> None:
     ort.preload_dlls(directory="")
 
 
-def create_sessions(paths: tuple[Any, ...], threads: int, provider: str) -> list[Any]:
+def create_sessions(
+    paths: tuple[Any, ...], threads: int, provider: str, *, cuda_arena_bytes: int = 512 * 1024**2
+) -> list[Any]:
     import onnxruntime as ort
 
     ort.set_default_logger_severity(3)
     if provider == CUDA:
         if CUDA not in ort.get_available_providers():
             raise RuntimeError(
-                "CUDA runtime is not installed. Open Settings → Acceleration or choose CPU."
+                tr("CUDA runtime is not installed. Open Settings → Acceleration or choose CPU.")
             )
         prepare_cuda(ort)
     if provider == DML and DML not in ort.get_available_providers():
-        raise RuntimeError("DirectML is unavailable. Choose CPU OCR; AMD Gemma uses Vulkan.")
+        raise RuntimeError(tr("DirectML is unavailable. Choose CPU OCR; AMD Gemma uses Vulkan."))
     options = ort.SessionOptions()
     options.intra_op_num_threads = threads
     options.inter_op_num_threads = 1
@@ -86,7 +89,7 @@ def create_sessions(paths: tuple[Any, ...], threads: int, provider: str) -> list
                 {
                     "device_id": 0,
                     "cudnn_conv_algo_search": "HEURISTIC",
-                    "gpu_mem_limit": 536_870_912,
+                    "gpu_mem_limit": cuda_arena_bytes,
                     "use_tf32": 0,
                 },
             ),
@@ -98,6 +101,8 @@ def create_sessions(paths: tuple[Any, ...], threads: int, provider: str) -> list
         session = ort.InferenceSession(str(path), sess_options=options, providers=providers)
         session.disable_fallback()  # The adapter owns visible whole-engine fallback.
         if provider not in session.get_providers():
-            raise RuntimeError(f"Requested OCR provider {provider} did not initialize.")
+            raise RuntimeError(
+                tr("Requested OCR provider {provider} did not initialize.", provider=provider)
+            )
         sessions.append(session)
     return sessions
