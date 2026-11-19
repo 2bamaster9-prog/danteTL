@@ -69,7 +69,7 @@ def translation_status(
             InactiveReason.NEEDS_RUNTIME: (
                 "Translation needs runtime setup. Select a model for instructions."
             ),
-            InactiveReason.OFF: "English translation is off.",
+            InactiveReason.OFF: "Translation is off.",
             InactiveReason.NO_MODEL: (
                 "No translation model selected. Open Settings to download one."
             ),
@@ -94,7 +94,7 @@ def translation_status(
     return snapshot.message or (
         f"Translating · oldest active call {now - snapshot.processing_since:.1f} s"
         if snapshot.processing_since is not None
-        else f"Ready · {len(snapshot.results)} English blocks"
+        else f"Ready · {len(snapshot.results)} translated blocks"
     )
 
 

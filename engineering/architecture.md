@@ -246,7 +246,14 @@ cues, OCR cleanup, and evidence for quoted speech, equipment text and speaker na
 combines that evidence with paragraph position, row geometry and competing choices. The reader and
 grouper use the same list syntax, with different evidence thresholds for possible and marked choices.
 Pixel measurements, ambiguity checks, settling and request limits belong to the shared pipeline.
-OCR model selection remains separate. The shipped recognizer reads Japanese.
+OCR model selection remains separate. The shipped recognizer reads Japanese. Output language is a separate saved
+preference, with English as the default. Each translation batch freezes the target for its prompt,
+cache hash and published result. Changing it clears pending translations and dialogue context while
+retaining OCR and loaded models. A completed reader entry keeps its original target even if the same
+line remains on screen during a switch. Speaker translations must match the entry's target. Regional
+variants have distinct prompt instructions and cache keys. PLaMo accepts only its documented PFML3
+output codes. Explicit cloud profile tests capture the selected output language when submitted.
+The Translation card and Appearance settings edit the same preference.
 
 `DialogueGrouper` forms bounded stable-line blocks with font-relative alignment/spacing and unambiguous
 continuity. Keep speakers, choices, vertical text and unrelated columns separate. When ordinary

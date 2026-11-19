@@ -33,6 +33,7 @@ from dantejp.domain import (
     WindowTarget,
     overlay_ready,
 )
+from dantejp.languages.target import TARGET_LANGUAGES
 from dantejp.ocr.values import OcrState
 from dantejp.ocr.worker import OcrChoice
 from dantejp.runtime.hardware_values import HardwareStatus
@@ -67,6 +68,7 @@ class ApplicationSession:
         self.ocr_options = tuple(OcrOption(c.name, c.key, c.capture_fps) for c in ocr_choices)
         self._hardware = hardware
         self.values = preferences.initial
+        self.cloud.test_target = TARGET_LANGUAGES[self.values.output_language]
         self.view = ApplicationView()
         self.original = False
         self.raw_boxes = False
@@ -85,6 +87,8 @@ class ApplicationSession:
     def configure(self, values: Preferences) -> None:
         # Assignment/preparation and setup intent have authoritative owners. A view
         # submits appearance/device preferences, not a stale copy of those decisions.
+        if values.output_language not in TARGET_LANGUAGES:
+            raise ValueError(f"Unknown output language: {values.output_language}")
         prior = self.values
         self.values = replace(
             values,
@@ -104,6 +108,11 @@ class ApplicationSession:
             if self.translation.restored
             else prior.translate_long,
         )
+        if prior.output_language != values.output_language:
+            self.cloud.test_target = TARGET_LANGUAGES[values.output_language]
+            if worker := self.translation.lifecycle.publication:
+                worker.invalidate()
+            self.clear_english(force=True)
         if prior.group_dialogue != values.group_dialogue:
             self.live.change_grouping(self.translation.lifecycle.publication)
             self.clear_english()
@@ -195,9 +204,9 @@ class ApplicationSession:
             self.refresh_routes()
         self.persist()
 
-    def clear_english(self) -> None:
+    def clear_english(self, *, force: bool = False) -> None:
         self.live.clear_english()
-        if not (self.view.english or self.view.results):
+        if not (force or self.view.english or self.view.results):
             return
         self.view = replace(
             self.view, blocks=(), english=(), results=(), english_reset=self.view.english_reset + 1
@@ -435,7 +444,12 @@ class ApplicationSession:
         snapshot = activity.snapshot
         if activity.worker is not None:
             scene = self.view.scene
-            published = self.live.publish(activity.worker, scene.requests, scene.blocks)
+            published = self.live.publish(
+                activity.worker,
+                scene.requests,
+                scene.blocks,
+                target=TARGET_LANGUAGES[self.values.output_language],
+            )
             snapshot = published.snapshot
             self.view = replace(
                 self.view,

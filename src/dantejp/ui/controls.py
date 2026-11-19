@@ -2,7 +2,7 @@
 
 from html import escape
 
-from PySide6.QtCore import QPoint, QRect, QRectF, QSize, Qt, QTimer
+from PySide6.QtCore import QPoint, QRect, QRectF, QSignalBlocker, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
     QFocusEvent,
@@ -32,6 +32,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from dantejp.languages.target import TARGET_LANGUAGES
+
 
 def add_model_section(combo: QComboBox, label: str) -> None:
     """A consistent, non-selectable category in any model selector."""
@@ -54,6 +56,23 @@ def set_tone(widget: QWidget, tone: str) -> None:
         widget.setProperty("tone", tone)
         widget.style().unpolish(widget)
         widget.style().polish(widget)
+
+
+class OutputLanguageCombo(QComboBox):
+    language_changed = Signal(str)
+
+    def __init__(self, selected: str) -> None:
+        super().__init__()
+        self.setAccessibleName("Output language")
+        for target in TARGET_LANGUAGES.values():
+            self.addItem(target.name, target.code)
+        self.set_language(selected)
+        self.currentIndexChanged.connect(lambda: self.language_changed.emit(self.currentData()))
+
+    def set_language(self, code: str) -> None:
+        if code != self.currentData():
+            with QSignalBlocker(self):
+                self.setCurrentIndex(self.findData(code))
 
 
 class StatusBanner(QWidget):

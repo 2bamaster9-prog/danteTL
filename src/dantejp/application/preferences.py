@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from dantejp.application.hotkeys import parse_shortcut
 from dantejp.application.preference_values import Preferences as Preferences
+from dantejp.languages.target import TARGET_LANGUAGES
 
 
 def decode_preferences(value: object) -> Preferences:
@@ -18,6 +19,7 @@ def decode_preferences(value: object) -> Preferences:
     defaults = asdict(Preferences())
     ranges = {"opacity": (20, 100), "text_size": (10, 60), "capture_rate": (2, 12)}
     choices = {
+        "output_language": set(TARGET_LANGUAGES),
         "translation_route": {"local", "cloud", "long", "short"},
         "ocr_device": {"auto", "cpu", "auto-directml"},
         "model": {

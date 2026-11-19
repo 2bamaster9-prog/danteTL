@@ -34,7 +34,13 @@ from dantejp.domain import WindowTarget
 from dantejp.paths import gui_executable, module_command
 from dantejp.runtime.hardware_values import HardwareReader
 from dantejp.translation.selection import ModelOption
-from dantejp.ui.controls import CaptureButton, OverlayToggleLayout, StatusBanner, Switch
+from dantejp.ui.controls import (
+    CaptureButton,
+    OutputLanguageCombo,
+    OverlayToggleLayout,
+    StatusBanner,
+    Switch,
+)
 from dantejp.ui.desktop_driver import DesktopDriver
 from dantejp.ui.diagnostics import debug_display
 from dantejp.ui.history_panel import HistoryPanel
@@ -221,6 +227,15 @@ class MainWindow(QMainWindow):
         self.status = self.capture_status.label
         game_layout.addWidget(self.capture_status)
         self._overlay.set_capture_included(preferences.include_overlay_in_capture)
+        self.output_language = OutputLanguageCombo(preferences.output_language)
+        language_row = QHBoxLayout()
+        language_label = QLabel("Output language")
+        language_label.setBuddy(self.output_language)
+        language_row.addWidget(language_label)
+        language_row.addWidget(self.output_language, 1)
+        self.sections.translation_layout.addLayout(language_row)
+        for combo in (self.output_language, self._settings.output_language):
+            combo.language_changed.connect(self._change_output_language)
         self.routing = RoutingControls(preferences)
         self.sections.translation_layout.addWidget(self.routing)
         self.routing.set_models(
@@ -302,14 +317,12 @@ class MainWindow(QMainWindow):
         self.application.configure(
             replace(
                 self._settings.values(
+                    self.application.values,
                     show_overlay=self.overlay_check.isChecked(),
                     translation=self.translate_check.isChecked(),
-                    model=self.application.values.model,
                 ),
-                setup_seen=self.application.values.setup_seen,
                 show_border=self.border_check.isChecked(),
                 include_overlay_in_capture=self.capture_overlay_check.isChecked(),
-                setup_model=self.application.values.setup_model,
                 short_model=self.routing.selection.short,
                 long_model=self.routing.selection.long,
                 translate_short=self.routing.selection.short_enabled,
@@ -326,6 +339,10 @@ class MainWindow(QMainWindow):
         title = target.title if isinstance(target, WindowTarget) else ""
         self.routing.set_window_title(title)
         self.application.set_window_title(title)
+
+    def _change_output_language(self, code: str) -> None:
+        self.application.configure(replace(self.application.values, output_language=code))
+        self._tick()
 
     def _refresh_history_models(self, selected: str | None = None) -> None:
         options = self.application.controls.options
@@ -729,6 +746,8 @@ class MainWindow(QMainWindow):
         if self.application.closing:
             self.close()
             return
+        for combo in (self.output_language, self._settings.output_language):
+            combo.set_language(self.application.values.output_language)
         if self.application.original and not self.application.show_original(
             True, modal=QApplication.activeModalWidget() is not None
         ):

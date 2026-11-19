@@ -68,7 +68,7 @@ class ModelManager(QDialog):
         category_row.addWidget(
             InfoButton(
                 "Model types",
-                "Translation turns recognized Japanese into English. "
+                "Translation turns recognized Japanese into the selected output language. "
                 "OCR reads the text from game images. Gemma E2B is the recommended translator; "
                 "MeikiOCR is included in the standalone app.",
             )

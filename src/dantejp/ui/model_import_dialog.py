@@ -41,7 +41,7 @@ class ModelImportDialog(QDialog):
         layout = QVBoxLayout(self)
         intro = QLabel(
             "Choose a single-file GGUF chat model. The file stays in its current folder; "
-            "DanteJP saves only a reference. Japanese → English remains the translation language."
+            "DanteJP saves only a reference. The import test uses Japanese and English."
         )
         intro.setWordWrap(True)
         layout.addWidget(intro)

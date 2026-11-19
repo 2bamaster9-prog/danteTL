@@ -11,6 +11,7 @@ from dataclasses import dataclass, field, replace
 
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
+from dantejp.languages.target import ENGLISH
 from dantejp.translation.cloud.api_connections import ApiConnections
 from dantejp.translation.cloud.auth_work import AuthWork
 from dantejp.translation.cloud.backend import CloudAllowance, CloudBackend
@@ -53,6 +54,7 @@ class CloudServices:
         language: SourceLanguage = DEFAULT_SOURCE,
     ) -> None:
         self._language = language
+        self.test_target = ENGLISH
         self.catalog = catalog
         self.api_connections = ApiConnections(self.catalog)
         self.catalog_cache = CatalogCache(self.catalog.path.parent / "cloud-catalogs")
@@ -385,6 +387,7 @@ class CloudServices:
         if self._closed or self.busy:
             return
         profile = draft.profile
+        target = self.test_target
 
         def test(secrets: Secrets) -> str:
             if self._cancelled.is_set():
@@ -413,11 +416,11 @@ class CloudServices:
                     self._testing = backend
                 if self._cancelled.is_set():
                     return "Test cancelled."
-                result = backend.translate(("会心率",))[0]
+                result = backend.translate(("会心率",), target=target)[0]
                 return (
                     "Test cancelled."
                     if self._cancelled.is_set()
-                    else "✓ Test successful: " + result
+                    else f"✓ Test successful ({target.name}): {result}"
                 )
             finally:
                 backend.close()

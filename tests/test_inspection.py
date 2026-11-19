@@ -1364,6 +1364,10 @@ def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_pat
     original = settings(window)
     window.settings_button.click()
     assert settings(window) is original
+    assert original.output_language.currentData() == "en"
+    window.output_language.setCurrentIndex(window.output_language.findData("pt-PT"))
+    assert original.output_language.currentData() == "pt-PT"
+    assert application.values.output_language == application.cloud.test_target.code == "pt-PT"
     assert not original.backdrop_blur.isChecked()
     original.backdrop_blur.click()
     window.stabilize_check.setChecked(False)
@@ -1383,6 +1387,9 @@ def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_pat
     window.deleteLater()
     restored = MainWindow(windows, factory, ocr_backends=choices, preferences_path=path)
     assert settings(restored).backdrop_blur.isChecked()
+    assert settings(restored).output_language.currentData() == "pt-PT"
+    assert restored.output_language.currentData() == "pt-PT"
+    assert app_owner(restored).cloud.test_target.code == "pt-PT"
     assert not restored.stabilize_check.isChecked() and not restored.group_dialogue.isChecked()
     assert restored._overlay._opacity == 0.61 and restored.font_size.value() == 26
     assert not restored.automatic_font.isChecked() and restored.font_size.isEnabled()

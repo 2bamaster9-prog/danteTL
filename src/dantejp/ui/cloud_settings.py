@@ -298,7 +298,8 @@ class CloudSettings(QWidget):
             QMessageBox.question(
                 self.editor or self,
                 "Test cloud translation?",
-                "Send the sample label 会心率 (Critical Rate) to this provider? "
+                "Send the sample label 会心率 (Critical Rate) to this provider "
+                "for translation into your selected output language? "
                 + (
                     "This uses your ChatGPT plan permissions; review Manage usage first."
                     if profile.provider == "chatgpt"

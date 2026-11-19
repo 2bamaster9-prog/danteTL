@@ -79,7 +79,7 @@ def test_cancelled_worker_drains_before_new_commands_and_owner_cleanup(tmp_path,
     entered, cancelled, cleanup, release = (threading.Event() for _ in range(4))
 
     class Backend:
-        def translate(self, texts):
+        def translate(self, texts, *, target):
             entered.set()
             assert cancelled.wait(3)
             return ("Cancelled",)

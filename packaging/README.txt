@@ -33,7 +33,8 @@ The reader keeps the last 20 completed conversation turns, independently
 of model context. Close the reader without stopping collection; Clear empties it. A new capture
 starts a fresh history. Nothing is written to disk. Lower-screen dialogue with a nearby speaker
 label is recognized conservatively; uncertain names show Unknown speaker and ambiguous UI is skipped.
-Each Japanese/English paragraph has a copy icon; it copies that paragraph as plain text.
+Choose the output language in Translation or Settings > Appearance. English is the default.
+Each original or translated paragraph has a copy icon.
 Show border controls the yellow Windows capture indicator without resetting translations.
 Windows policy or another capturing app can still require the indicator.
 To record or share the translations, use display capture/entire-screen sharing, such as OBS

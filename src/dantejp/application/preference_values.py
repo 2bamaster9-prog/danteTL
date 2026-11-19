@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from dantejp.application.hotkeys import DEFAULT_CAPTURE, DEFAULT_ORIGINAL, DEFAULT_OVERLAY
+from dantejp.languages.target import ENGLISH
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,3 +36,4 @@ class Preferences:
     history_enabled: bool = False
     history_model: str = ""
     backdrop_blur: bool = False
+    output_language: str = ENGLISH.code

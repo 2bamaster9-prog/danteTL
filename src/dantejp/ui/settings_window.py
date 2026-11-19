@@ -1,5 +1,7 @@
 """One nonmodal settings window owns appearance, recognition and background setup views."""
 
+from dataclasses import replace
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
@@ -22,7 +24,7 @@ from dantejp.application.preference_values import Preferences
 from dantejp.application.services import CloudCommands, SetupCommands
 from dantejp.runtime.setup_values import SetupLane
 from dantejp.translation.selection import OcrOption
-from dantejp.ui.controls import InfoButton, StatusBanner, Switch
+from dantejp.ui.controls import InfoButton, OutputLanguageCombo, StatusBanner, Switch
 from dantejp.ui.hotkey_settings import HotkeySettings
 from dantejp.ui.model_manager import ModelManager
 from dantejp.ui.runtime_dialog import RuntimeSetupDialog
@@ -62,6 +64,13 @@ class SettingsWindow(QDialog):
         self._pages: dict[str, QWidget] = {}
         layout.addWidget(self.tabs, 1)
         appearance = self._page("Appearance")
+        self.output_language = OutputLanguageCombo(preferences.output_language)
+        self._setting(
+            appearance,
+            self.output_language,
+            "Output language",
+            "Applies to the overlay, inspector, and new dialogue history entries.",
+        )
         self.stabilize = Switch("Stabilize game boxes")
         self.stabilize.setChecked(preferences.stabilize)
         self._setting(
@@ -90,7 +99,7 @@ class SettingsWindow(QDialog):
             self.automatic_size,
             "Automatic text size",
             "Starts near the original text height, then wraps and shrinks within limits "
-            "to fit the English.",
+            "to fit the translation.",
         )
         self.text_size = QSpinBox()
         self.text_size.setRange(10, 60)
@@ -102,7 +111,7 @@ class SettingsWindow(QDialog):
             appearance,
             self.text_size,
             "Text size",
-            "Fixed English font size in physical pixels. "
+            "Fixed translation font size in physical pixels. "
             "Used only when Automatic text size is off.",
         )
         appearance.addStretch()
@@ -171,13 +180,13 @@ class SettingsWindow(QDialog):
         note.setWordWrap(True)
         note.setObjectName("muted")
         experimental.addWidget(note)
-        self.backdrop_blur = Switch("Blur behind English text")
+        self.backdrop_blur = Switch("Blur behind translated text")
         self.backdrop_blur.setChecked(preferences.backdrop_blur)
         self._setting(
             experimental,
             self.backdrop_blur,
-            "Blur behind English text",
-            "Blur the game behind each English label. If Windows declines the effect, "
+            "Blur behind translated text",
+            "Blur the game behind each translated label. If Windows declines the effect, "
             "the labels use the configured background opacity.",
         )
         self.history_enabled = Switch("Dialogue history")
@@ -274,8 +283,9 @@ class SettingsWindow(QDialog):
         self._ocr_key = choice.key or "cpu"
         self.changed.emit()
 
-    def values(self, *, show_overlay: bool, translation: bool, model: str) -> Preferences:
-        return Preferences(
+    def values(self, current: Preferences, *, show_overlay: bool, translation: bool) -> Preferences:
+        return replace(
+            current,
             show_overlay=show_overlay,
             translation=translation,
             stabilize=self.stabilize.isChecked(),
@@ -286,7 +296,6 @@ class SettingsWindow(QDialog):
             group_dialogue=self.group_dialogue.isChecked(),
             ocr_device=self._ocr_key,
             capture_rate=self.capture_rate.value(),
-            model=model,
             overlay_hotkey=self.hotkeys.rows[HotkeyAction.OVERLAY].committed,
             capture_hotkey=self.hotkeys.rows[HotkeyAction.CAPTURE].committed,
             original_hotkey=self.hotkeys.rows[HotkeyAction.ORIGINAL].committed,

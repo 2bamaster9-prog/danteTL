@@ -26,6 +26,7 @@ def test_new_install_defaults_and_bad_individual_values_are_safe():
             "show_overlay": "false",
             "include_overlay_in_capture": "false",
             "ocr_device": "arbitrary.exe",
+            "output_language": "unknown",
             "model": "C:/models/unsafe",
             "group_dialogue": False,
             "unused_future_field": "ignored",

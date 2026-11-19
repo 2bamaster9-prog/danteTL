@@ -30,7 +30,7 @@ class OcrModelSettings(QWidget):
             InfoButton(
                 "Text recognition models",
                 "OCR reads text from game images. Translation models turn that text into "
-                "English. The standalone app includes MeikiOCR for Japanese; "
+                "your selected output language. The standalone app includes MeikiOCR for Japanese; "
                 "no download is needed.",
             )
         )

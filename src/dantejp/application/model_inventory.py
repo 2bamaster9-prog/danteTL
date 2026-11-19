@@ -87,7 +87,7 @@ def inspect_models(
                 model.key,
                 model.name,
                 f"Imported · {model.architecture} · {model.size / 2**30:.2f} GiB on disk. "
-                "Local Japanese → English translation. Quality depends on the model.",
+                "Local translation. Quality depends on the model.",
                 "translation",
                 model.size,
                 present,

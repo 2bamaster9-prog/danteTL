@@ -1,6 +1,6 @@
 # Engineering guide
 
-DanteJP captures a selected Windows window, recognizes Japanese locally and overlays English from
+DanteJP captures a selected Windows window, recognizes Japanese locally and overlays translations from
 an explicitly selected local or cloud translator. These documents describe current behavior.
 
 | Read when changing | Guidance |

@@ -23,6 +23,7 @@ from ui_fixtures import create_window as MainWindow
 from dantejp.application.preferences import Preferences, PreferenceStore  # noqa: E402
 from dantejp.application.translation_coordinator import model_reference
 from dantejp.domain import Rect  # noqa: E402
+from dantejp.languages.target import TARGET_LANGUAGES  # noqa: E402
 from dantejp.ocr.tracking import TextTrack  # noqa: E402
 from dantejp.translation.cloud.backend import CloudBackend  # noqa: E402
 from dantejp.translation.cloud.catalog import CatalogModel  # noqa: E402
@@ -771,6 +772,8 @@ def test_test_connection_is_explicit_and_does_not_save_draft_or_credentials(
         assert editor
         editor.provider.setCurrentIndex(editor.provider.findData("deepseek"))
         editor.key.setText("unsaved-secret")
+        target = TARGET_LANGUAGES["pt-PT"]
+        cloud_owner(panel).test_target = target
         editor.model.setCurrentIndex(1)
         editor.test.click()
         assert not factory.called
@@ -778,9 +781,9 @@ def test_test_connection_is_explicit_and_does_not_save_draft_or_credentials(
         editor.test.click()
         drain(app, lambda: not cloud_owner(panel).busy)
         assert factory.call_args.args[1] == "unsaved-secret"
-        backend.translate.assert_called_once_with(("会心率",))
+        backend.translate.assert_called_once_with(("会心率",), target=target)
         backend.close.assert_called_once()
-        assert "Test successful" in editor.status.text()
+        assert target.name in editor.status.text()
         assert (
             not panel.profiles
             and not cloud_owner(panel).catalog.path.exists()
@@ -798,7 +801,7 @@ def test_cancel_dialog_drains_test_cleanup_before_releasing_editor(app, tmp_path
     entered, cancelled, cleanup, release = (threading.Event() for _ in range(4))
 
     class SlowTest:
-        def translate(self, texts):
+        def translate(self, texts, *, target):
             entered.set()
             assert cancelled.wait(3)
             return ("Cancelled",)

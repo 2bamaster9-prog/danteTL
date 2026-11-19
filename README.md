@@ -1,8 +1,10 @@
 # DanteJP
 
-Translate Japanese games into English while you play. DanteJP reads text from a selected Windows
-game window and displays translations in a click-through overlay. Text recognition (OCR) runs on
-your PC; translation can use a local model or a supported cloud provider.
+DanteJP reads Japanese text from a selected Windows game and displays translations in a click-through
+overlay. Choose from 18 output languages in **Translation → Output language** or **Settings →
+Appearance**, including Portuguese (Portugal), Portuguese (Brazil), Korean, and both Chinese scripts.
+Text recognition (OCR) runs on your PC. Translation can
+use a local model or a supported cloud provider.
 
 ## Get started
 
@@ -88,9 +90,9 @@ Change shortcuts in **Settings → Hotkeys**. The main **Start capture** button 
 window; the capture shortcut uses the focused window by default.
 
 - **Settings → Appearance** adjusts text size and background opacity.
-- **Settings → Experimental → Blur behind English text** tries a clear Windows backdrop behind
+- **Settings → Experimental → Blur behind translated text** tries a clear Windows backdrop behind
   each translation, including labels in dense menus.
-- **Inspection and diagnostics** shows the recognized Japanese and full English translations.
+- **Inspection and diagnostics** shows the recognized Japanese and full translations.
   Pause it to review or copy text while the game overlay continues updating.
 - **Settings → Experimental → Dialogue history** enables the optional reader. It is **off by
   default**. Once enabled, open **Dialogue** beside the Settings gear to read recent turns.
@@ -107,8 +109,7 @@ runtimes do not need setup again for an app-only update. If GPU startup fails, l
 `DanteJP.exe --cpu` to use the bundled CPU environment.
 
 Tiny text, unusual fonts, names, dialogue choices and dense layouts can produce recognition or
-translation errors. Check the inspector when a result looks wrong. Japanese → English is the
-supported language pair. Exclusive fullscreen, protected windows, HDR and individual game or
+translation errors. Check the inspector when a result looks wrong. Exclusive fullscreen, protected windows, HDR and individual game or
 anti-cheat compatibility are not guaranteed.
 
 ## From source and contributing

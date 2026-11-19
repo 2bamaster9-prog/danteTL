@@ -68,9 +68,9 @@ class ProcessingPanel(QWidget):
             InfoButton(
                 "Processing timings",
                 "All processing stays on this PC. Timings describe the last completed work, "
-                "not total time from game text to English. Capture sampling, stability checks "
+                "not total time from game text to translation. Capture sampling, stability checks "
                 "and dialogue grouping add waiting time. Pausing inspection does not pause "
-                "these live metrics. Preview text is raw OCR; hover English cells for its source.",
+                "these live metrics. Hover over a translation to see its OCR source.",
             )
         )
         header.addStretch()
@@ -83,7 +83,7 @@ class ProcessingPanel(QWidget):
                 ("Visual check", "Last worker pass comparing pixels and accepted text patterns."),
                 (
                     "Text settling",
-                    "Groups not ready for a new translation; accepted English may remain.",
+                    "Groups not ready for a new translation; previous translations may remain.",
                 ),
                 ("Regions held", "Unchanged accepted regions retained through the latest OCR."),
             ),
