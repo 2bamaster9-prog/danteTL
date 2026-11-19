@@ -4,6 +4,8 @@ import logging
 from functools import partial
 from pathlib import Path
 
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
 from dantejp.ocr.models import model_directory
 from dantejp.ocr.worker import OcrChoice, Recognizer
 from dantejp.runtime.ocr import gpu_runtime_installed
@@ -43,7 +45,7 @@ def ocr_backends() -> tuple[OcrChoice, ...]:
     return (OcrChoice("CPU · GPU setup optional", create_recognizer, 8, "cpu"),)
 
 
-def translation_backends() -> tuple[BackendChoice, ...]:
+def translation_backends(*, language: SourceLanguage = DEFAULT_SOURCE) -> tuple[BackendChoice, ...]:
     from dantejp.runtime.llama import installed_device, supports_plamo
     from dantejp.runtime.model_store import (
         LANGUAGE_RUNTIME_SETUP,
@@ -58,9 +60,12 @@ def translation_backends() -> tuple[BackendChoice, ...]:
     choices = []
     device = installed_device()
     factories = {
-        "gemma": ("Gemma 4 E2B", create_gemma_translator),
+        "gemma": ("Gemma 4 E2B", partial(create_gemma_translator, language=language)),
         **{
-            model.key: (model.name.split(" · ")[0], partial(create_curated_translator, model.key))
+            model.key: (
+                model.name.split(" · ")[0],
+                partial(create_curated_translator, model.key, language=language),
+            )
             for model in MODELS
         },
     }
@@ -113,7 +118,7 @@ def translation_backends() -> tuple[BackendChoice, ...]:
         choices.append(
             BackendChoice(
                 f"{model.name} · Imported · {device or 'engine needed'}",
-                partial(create_imported_translator, model),
+                partial(create_imported_translator, model, language=language),
                 model.key,
                 imported_preparation_id(model, device) if device and not reason else "",
                 reason,
@@ -141,17 +146,21 @@ def imported_preparation_id(model: ImportedModel, device: str) -> str:
     )
 
 
-def create_imported_translator(model: ImportedModel) -> TranslationBackend:
+def create_imported_translator(
+    model: ImportedModel, *, language: SourceLanguage = DEFAULT_SOURCE
+) -> TranslationBackend:
     from dantejp.runtime.llama import installed_device
     from dantejp.translation.backends.gguf import GgufBackend
 
     device = installed_device()
     if device is None:
         raise RuntimeError("Language-model engine is missing. Open Acceleration.")
-    return GgufBackend(model, device=device)
+    return GgufBackend(model, device=device, language=language)
 
 
-def create_curated_translator(key: str) -> TranslationBackend:
+def create_curated_translator(
+    key: str, *, language: SourceLanguage = DEFAULT_SOURCE
+) -> TranslationBackend:
     from dantejp.runtime.llama import installed_device
     from dantejp.translation.models.curated import MODELS
 
@@ -159,14 +168,14 @@ def create_curated_translator(key: str) -> TranslationBackend:
     if device is None:
         raise RuntimeError("Language-model engine is missing. Open Acceleration.")
     model = next(model for model in MODELS if model.key == key)
-    return model.load(device)
+    return model.load(device, language=language)
 
 
-def create_gemma_translator() -> TranslationBackend:
+def create_gemma_translator(*, language: SourceLanguage = DEFAULT_SOURCE) -> TranslationBackend:
     from dantejp.runtime.llama import installed_device
     from dantejp.translation.backends.gemma import GemmaBackend, model_directory
 
     device = installed_device()
     if device is None:
         raise RuntimeError("Local language-model engine is not installed. Open runtime setup.")
-    return GemmaBackend(model_directory(), device=device)
+    return GemmaBackend(model_directory(), device=device, language=language)

@@ -237,6 +237,17 @@ own source sequence and reading. These records do not change confirmation or ret
 
 ## Translation, grouping and layout
 
+Desktop startup selects one immutable source-language policy for the session. The catalog in
+`languages.selection` currently registers Japanese. OCR evidence preparation, tracking, dialogue
+grouping, translation prompts and cache keys use that selection. Blocks carry it so reconstructed
+text, dialogue history and publication use the same word boundaries and script checks. The base
+policy accepts alphabetic text and preserves word spaces. Japanese supplies script and punctuation
+cues, OCR cleanup, and evidence for quoted speech, equipment text and speaker names. The grouper
+combines that evidence with paragraph position, row geometry and competing choices. The reader and
+grouper use the same list syntax, with different evidence thresholds for possible and marked choices.
+Pixel measurements, ambiguity checks, settling and request limits belong to the shared pipeline.
+OCR model selection remains separate. The shipped recognizer reads Japanese.
+
 `DialogueGrouper` forms bounded stable-line blocks with font-relative alignment/spacing and unambiguous
 continuity. Keep speakers, choices, vertical text and unrelated columns separate. When ordinary
 grouping finds no successor, a long unfinished row can pair with one tightly centered, shorter

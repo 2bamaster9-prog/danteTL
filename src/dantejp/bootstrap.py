@@ -3,6 +3,7 @@
 import logging
 import os
 import sys
+from functools import partial
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from types import TracebackType
@@ -12,6 +13,7 @@ from dantejp.application.model_factories import (
     ocr_backends,
     translation_backends,
 )
+from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.paths import is_standalone, state_root
 
 
@@ -90,12 +92,14 @@ def main() -> None:
     hotkeys = Hotkeys(WindowsHotkeyRegistrar())
     hotkey_events = WindowsHotkeyEvents(app, hotkeys)
     models = model_catalog()
-    inventory = model_inventory(models, translation_backends)
+    language = DEFAULT_SOURCE
+    inventory = model_inventory(models, partial(translation_backends, language=language))
     driver = DesktopDriver()
     application = application_session(
         windows,
         create_recognizer,
-        cloud=cloud_services(),
+        cloud=cloud_services(language=language),
+        language=language,
         inventory=inventory,
         setup=setup_coordinator(inventory, models, project_root()),
         ocr_backends=ocr_backends(),

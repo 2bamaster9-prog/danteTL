@@ -9,6 +9,8 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
 from dantejp.translation.cloud.api_connections import ApiConnections
 from dantejp.translation.cloud.auth_work import AuthWork
 from dantejp.translation.cloud.backend import CloudAllowance, CloudBackend
@@ -48,7 +50,9 @@ class CloudServices:
         connections: ChatGPTConnections,
         *,
         on_change: Callable[[], None] = lambda: None,
+        language: SourceLanguage = DEFAULT_SOURCE,
     ) -> None:
+        self._language = language
         self.catalog = catalog
         self.api_connections = ApiConnections(self.catalog)
         self.catalog_cache = CatalogCache(self.catalog.path.parent / "cloud-catalogs")
@@ -162,6 +166,7 @@ class CloudServices:
             if profile.provider == "chatgpt"
             else self.api_connections.secret(profile, self._secrets()),
             game=game,
+            language=self._language,
             allowance=self.allowance(profile.key),
             access_token=(lambda work: self.connections.access_token(profile.account, work))
             if profile.provider == "chatgpt"
@@ -397,6 +402,7 @@ class CloudServices:
             backend = CloudBackend(
                 source,
                 key,
+                language=self._language,
                 allowance=self.allowance(profile.key),
                 access_token=(lambda work: self.connections.access_token(profile.account, work))
                 if profile.provider == "chatgpt"

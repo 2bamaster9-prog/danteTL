@@ -16,6 +16,8 @@ from dantejp.application.shutdown import ShutdownCoordinator
 from dantejp.application.translation_coordinator import TranslationCoordinator
 from dantejp.capture.windows import Windows
 from dantejp.capture.worker import CaptureSession
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
 from dantejp.ocr.visual import VisualSession
 from dantejp.ocr.worker import OcrChoice, OcrSession, Recognizer
 from dantejp.paths import state_root
@@ -43,18 +45,22 @@ def application_session(
     hardware: HardwareCheck | None = None,
     hotkeys: Hotkeys | None = None,
     live_session: LiveSession | None = None,
+    language: SourceLanguage = DEFAULT_SOURCE,
 ) -> ApplicationSession:
     preferences = PreferenceStore(preferences_path)
     cache = cache_path or state_root() / "data/translations.sqlite3"
     live = live_session or LiveSession(
         ocr_factory=lambda factory: OcrSession(factory, require_ack=True, on_change=notify),
-        visual_factory=lambda: VisualSession(on_change=notify),
+        visual_factory=lambda: VisualSession(on_change=notify, language=language),
+        language=language,
     )
     translation = TranslationCoordinator(
         inventory,
         cloud,
-        lambda choice: TranslationSession(choice.create, cache, on_change=notify),
-        RoutedTranslationSession,
+        lambda choice: TranslationSession(
+            choice.create, cache, on_change=notify, language=language
+        ),
+        partial(RoutedTranslationSession, language=language),
         cache,
         preferences.initial,
         on_change=notify,
@@ -135,8 +141,10 @@ def setup_coordinator(inventory: ModelInventory, models: tuple[ModelBundle, ...]
     )
 
 
-def cloud_services() -> CloudServices:
-    service = CloudServices(CloudProfiles(), WindowsSecrets, ChatGPTConnections())
+def cloud_services(*, language: SourceLanguage = DEFAULT_SOURCE) -> CloudServices:
+    service = CloudServices(
+        CloudProfiles(), WindowsSecrets, ChatGPTConnections(), language=language
+    )
     service.start()
     return service
 
