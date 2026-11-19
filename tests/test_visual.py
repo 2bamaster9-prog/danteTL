@@ -348,7 +348,7 @@ def test_detector_order_does_not_drop_visual_probes_for_existing_tracks():
 def test_visual_initialization_failure_falls_back_and_still_finishes_shutdown(monkeypatch):
     calls = []
 
-    def fail():
+    def fail(language):
         calls.append(1)
         raise RuntimeError("Visual initialization unavailable")
 
@@ -396,7 +396,7 @@ def test_worker_coalesces_frames_and_rejects_evidence_after_invalidation(monkeyp
                 assert release.wait(3)
             return VisualState(frame, True)
 
-    monkeypatch.setattr("dantejp.ocr.visual.VisualAnalyzer", Analyzer)
+    monkeypatch.setattr("dantejp.ocr.visual.VisualAnalyzer", lambda language: Analyzer())
     notified = []
 
     def notification():

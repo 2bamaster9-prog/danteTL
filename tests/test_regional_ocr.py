@@ -277,7 +277,7 @@ def test_unconsumed_visual_requests_union_coverage_on_the_newest_frame(monkeypat
         def observe(self, source, *args):
             return VisualState(source, True, scan_areas=(a if source.sequence == 1 else b,))
 
-    monkeypatch.setattr("dantejp.ocr.visual.VisualAnalyzer", Analyzer)
+    monkeypatch.setattr("dantejp.ocr.visual.VisualAnalyzer", lambda language: Analyzer())
     session = VisualSession()
     session.start()
     try:

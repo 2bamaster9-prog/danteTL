@@ -23,7 +23,7 @@ from verification_isolation import create_window as MainWindow
 from dantejp.application.model_factories import create_recognizer, translation_backends
 from dantejp.capture.windows import Windows
 from dantejp.domain import CapturedFrame, Rect, WindowTarget
-from dantejp.ocr.text_content import has_japanese
+from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.ocr.worker import OcrChoice, OcrState, TextCharacter, TextRegion
 from dantejp.translation.grouping import TextBlock
 from dantejp.translation.worker import TranslatedText
@@ -129,10 +129,10 @@ def main() -> int:
                 return regions
             passes += 1
             if passes % 3 == 0:
-                return tuple(r for r in regions if not has_japanese(r.text))
+                return tuple(r for r in regions if not DEFAULT_SOURCE.contains_text(r.text))
             changed = []
             for r in regions:
-                if has_japanese(r.text):
+                if DEFAULT_SOURCE.contains_text(r.text):
                     b = r.bounds
                     b = Rect(
                         max(0, b.x - 5),

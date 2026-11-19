@@ -7,7 +7,8 @@ import numpy as np
 from numpy.typing import NDArray
 
 from dantejp.domain import CapturedFrame, Rect
-from dantejp.ocr.text_content import has_japanese
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
 from dantejp.ocr.values import TextRegion
 
 
@@ -64,9 +65,11 @@ def opening_dash_edges(
     raw: tuple[TextRegion, ...],
     rows: Sequence[tuple[int, TextRegion]],
     prior_bounds: Sequence[Rect],
+    language: SourceLanguage = DEFAULT_SOURCE,
 ) -> dict[int, int]:
     """Return source-image left edges, indexed by raw detection. Never synthesize OCR."""
-    if len(frame.bgra) != frame.width * frame.height * 4:
+    quotes = language.dash_quotes
+    if quotes is None or len(frame.bgra) != frame.width * frame.height * 4:
         return {}
     pixels = np.frombuffer(frame.bgra, np.uint8).reshape(frame.height, frame.width, 4)
     edges: dict[int, int] = {}
@@ -77,9 +80,8 @@ def opening_dash_edges(
         h = b.height
         if (
             row.vertical
-            or not row.text.startswith(("「", "『", "/"))
-            or not has_japanese(row.text)
-            or row.text.endswith(("」", "』"))
+            or not quotes.missing_dash_candidate(row.text)
+            or not language.contains_text(row.text)
             or not 6 <= h <= 128
             or b.x <= 0
             or b.y < 0

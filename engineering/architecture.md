@@ -13,6 +13,7 @@ The distribution, Python package and CLI are `dantejp`; app-specific environment
 | `application` | Commands, snapshots, preferences and coordination of capture, models, setup and shutdown |
 | `translation` | Workers, scheduling, routing, publication; `backends`, `cloud`, `models` and `dialogue` hold their specific integrations |
 | `ocr` | Recognition, scan planning, text tracking and visual retention |
+| `languages` | Source-language selection, word boundaries and linguistic evidence for game text |
 | `capture` | Native window identity, geometry and capture |
 | `ui` | Qt views, controls, layout and desktop event delivery |
 | `runtime` | Shared model assets, native library selection, downloads, contained processes and isolated runtime installation |

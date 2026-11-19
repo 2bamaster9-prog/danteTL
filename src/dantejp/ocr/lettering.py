@@ -6,6 +6,8 @@ import numpy as np
 from numpy.typing import NDArray
 
 from dantejp.domain import CapturedFrame
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
 from dantejp.ocr.values import TextRegion
 
 
@@ -38,7 +40,9 @@ def _runs(crop: NDArray[np.uint8]) -> tuple[bool, bool]:
 
 
 def sample_lettering(
-    frame: CapturedFrame, rows: list[tuple[int, TextRegion]]
+    frame: CapturedFrame,
+    rows: list[tuple[int, TextRegion]],
+    language: SourceLanguage = DEFAULT_SOURCE,
 ) -> tuple[tuple[int, Lettering], ...]:
     if len(frame.bgra) != frame.width * frame.height * 4:
         return ()
@@ -56,7 +60,7 @@ def sample_lettering(
         contrast = np.max(np.abs(points - surface), axis=1)
         ink = np.median(points[contrast >= np.percentile(contrast, 85)], axis=0)
         accent = neutral = False
-        if row.text.rstrip().endswith("。") and "を" in row.text:
+        if language.sample_effect_lettering(row.text):
             accent, neutral = _runs(crop)
         samples.append(
             (index, Lettering((float(ink[0]), float(ink[1]), float(ink[2])), accent, neutral))

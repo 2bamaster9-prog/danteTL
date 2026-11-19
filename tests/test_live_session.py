@@ -16,6 +16,7 @@ from dantejp.domain import (
     WindowGeometry,
     WindowTarget,
 )
+from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.ocr.tracking import prepare_matching
 from dantejp.ocr.visual import VisualState
 from dantejp.ocr.worker import OcrResult, OcrSnapshot, OcrState, TextCharacter, TextRegion
@@ -82,9 +83,10 @@ class Ocr(Worker):
 class Visual(Worker):
     current = VisualState()
 
-    def __init__(self, ocr=None):
+    def __init__(self, ocr=None, *, language=DEFAULT_SOURCE):
         super().__init__()
         self.ocr = ocr
+        self.language = language
         self.sources = ()
 
     def poll(self):
@@ -93,7 +95,10 @@ class Visual(Worker):
             and (result := self.ocr.current.result)
             and self.current.checked_sequence == result.frame.sequence
         ):
-            self.current = replace(self.current, matching=prepare_matching(result, self.sources))
+            self.current = replace(
+                self.current,
+                matching=prepare_matching(result, self.sources, language=self.language),
+            )
         return self.current
 
     def submit(
@@ -112,10 +117,12 @@ class Visual(Worker):
 
 
 class Replay:
-    def __init__(self):
+    def __init__(self, *, language=DEFAULT_SOURCE):
         self.ocr, self.capture = Ocr(), Capture()
-        self.visual = Visual(self.ocr)
-        self.live = LiveSession(ocr_factory=lambda _: self.ocr, visual_factory=lambda: self.visual)
+        self.visual = Visual(self.ocr, language=language)
+        self.live = LiveSession(
+            ocr_factory=lambda _: self.ocr, visual_factory=lambda: self.visual, language=language
+        )
         self.live.start(self.capture, Mock())
 
     def observe(self, source, regions, *, scanned=None, **evidence):

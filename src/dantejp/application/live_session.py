@@ -10,6 +10,8 @@ from typing import Protocol
 
 from dantejp.application.values import Scene as Scene
 from dantejp.domain import CapturedFrame, CaptureSnapshot, CaptureState, Rect, WindowTarget
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
 from dantejp.ocr.tracking import TextActivity, TextTrack, TextTracker
 from dantejp.ocr.values import OcrResult, OcrSnapshot, OcrState
 from dantejp.ocr.visual import VisualSession
@@ -78,10 +80,12 @@ class LiveSession:
         self,
         *,
         ocr_factory: Callable[[Callable[[], Recognizer]], OcrWorker] | None = None,
-        visual_factory: Callable[[], VisualWorker] = VisualSession,
+        visual_factory: Callable[[], VisualWorker] | None = None,
+        language: SourceLanguage = DEFAULT_SOURCE,
     ) -> None:
         self._ocr_factory = ocr_factory or (lambda factory: OcrSession(factory, require_ack=True))
-        self._visual_factory = visual_factory
+        self._language = language
+        self._visual_factory = visual_factory or (lambda: VisualSession(language=language))
         self.capture: CaptureWorker | None = None
         self.ocr: OcrWorker | None = None
         self.visual: VisualWorker | None = None
@@ -89,7 +93,7 @@ class LiveSession:
         self.accepted: OcrResult | None = None
         self.assignments: tuple[int | None, ...] = ()
         self.valid_size: tuple[int, int] | None = None
-        self._tracker = TextTracker()
+        self._tracker = TextTracker(language=language)
         self._grouper = DialogueGrouper()
         self._presentation = EnglishPresentation()
         self._context_reset_sequence = 0
@@ -270,7 +274,9 @@ class LiveSession:
                 state.checked_sequence == candidate.frame.sequence
                 and state.matching is not None
                 and state.matching.matches(
-                    candidate, self._tracker.matching_sources(candidate.frame)
+                    candidate,
+                    self._tracker.matching_sources(candidate.frame),
+                    language=self._language,
                 )
             ):
                 self.assignments = self._tracker.observe(

@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from hashlib import blake2b
 
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
 from dantejp.ocr.text_content import content_region
 from dantejp.ocr.values import OcrResult
 
@@ -25,7 +27,9 @@ class PixelEvidence:
         )
 
 
-def prepare_evidence(result: OcrResult, bounds: tuple[Rect, ...] = ()) -> PixelEvidence:
+def prepare_evidence(
+    result: OcrResult, bounds: tuple[Rect, ...] = (), *, language: SourceLanguage = DEFAULT_SOURCE
+) -> PixelEvidence:
     """Worker-only preparation of the bounded superset tracking may inspect.
 
     Track references and pending geometry occupy at most 512 slots; OCR contributes
@@ -34,7 +38,7 @@ def prepare_evidence(result: OcrResult, bounds: tuple[Rect, ...] = ()) -> PixelE
     consume retention evidence ahead of missed tracks.
     """
     queries = dict.fromkeys(
-        (*bounds[:512], *(content_region(r).bounds for r in result.regions[:512]))
+        (*bounds[:512], *(content_region(r, language).bounds for r in result.regions[:512]))
     )
     reader = FrameEvidence(result.frame, pixel_budget=1024 * 65_536)
     crops = tuple(

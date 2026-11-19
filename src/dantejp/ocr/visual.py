@@ -11,9 +11,11 @@ from math import ceil
 from typing import TYPE_CHECKING, Any
 
 from dantejp.domain import CapturedFrame, Rect
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
 from dantejp.ocr.presence import PixelEvidence, prepare_evidence
 from dantejp.ocr.regions import padded, scan_regions
-from dantejp.ocr.text_content import content_region, has_japanese
+from dantejp.ocr.text_content import content_region
 from dantejp.ocr.tracking import MatchingEvidence, TextActivity, TextTrack, prepare_matching
 from dantejp.ocr.values import OcrResult, TextRegion
 from dantejp.ocr.visual_values import VisualState as VisualState
@@ -715,7 +717,8 @@ class VisualAnalyzer:
     A periodic full OCR refresh covers uncertain changes and missed small/animated text.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, language: SourceLanguage = DEFAULT_SOURCE) -> None:
+        self._language = language
         global cv2, np
         import cv2
         import numpy as np
@@ -751,7 +754,7 @@ class VisualAnalyzer:
         source = _pixels(result.frame)
         if source is None or source.shape != pixels.shape:
             return
-        cleaned = [content_region(r) for r in result.regions[:512]]
+        cleaned = [content_region(r, self._language) for r in result.regions[:512]]
         by_id = {
             key: region
             for key, region in zip(job.assignments, cleaned, strict=False)
@@ -827,7 +830,7 @@ class VisualAnalyzer:
             if len(self._probes) >= 128:
                 break
             key = job.assignments[index] if index < len(job.assignments) else None
-            if key is None or not has_japanese(region.text):
+            if key is None or not self._language.contains_text(region.text):
                 continue
             b = region.bounds
             dialogue = not region.vertical and (len(region.text) >= 10 or key in growing)
@@ -869,7 +872,7 @@ class VisualAnalyzer:
         if pixels is None:
             return VisualState(frame, True, message="Visual evidence unavailable; using OCR.")
         if self._size != frame.geometry.client.size:
-            self.__init__()
+            self.__init__(self._language)
             self._size = frame.geometry.client.size
         size = frame.geometry.client.size
         fresh = frame.sequence > self._sequence
@@ -1019,7 +1022,13 @@ class VisualAnalyzer:
 class VisualSession:
     """One replaceable analysis job. No inference, Qt, full-frame history, or IO."""
 
-    def __init__(self, *, on_change: Callable[[], None] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        on_change: Callable[[], None] | None = None,
+        language: SourceLanguage = DEFAULT_SOURCE,
+    ) -> None:
+        self._language = language
         self._notify = on_change or (lambda: None)
         self._condition = threading.Condition()
         self._pending: tuple[int, _Job] | None = None
@@ -1127,7 +1136,7 @@ class VisualSession:
                     matching = None
                 try:
                     if analyzer is None and not failed:
-                        analyzer = VisualAnalyzer()
+                        analyzer = VisualAnalyzer(self._language)
                     state = (
                         VisualState(job.frame, True, message="Visual checks failed; using OCR.")
                         if analyzer is None or failed
@@ -1150,13 +1159,17 @@ class VisualSession:
                     if matching is None or not matching.matches(
                         job.candidate, job.matching_sources
                     ):
-                        matching = prepare_matching(job.candidate, job.matching_sources)
+                        matching = prepare_matching(
+                            job.candidate, job.matching_sources, language=self._language
+                        )
                     if (
                         evidence is None
                         or not evidence.matches(job.candidate.frame)
                         or evidence_bounds != job.evidence_bounds
                     ):
-                        evidence = prepare_evidence(job.candidate, job.evidence_bounds)
+                        evidence = prepare_evidence(
+                            job.candidate, job.evidence_bounds, language=self._language
+                        )
                         evidence_bounds = job.evidence_bounds
                     state = replace(
                         state,

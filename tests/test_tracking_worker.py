@@ -65,13 +65,13 @@ def test_completed_dense_ocr_waits_off_qt_and_retains_english(monkeypatch):
     scored, hashed = [], []
     original_score, original_hash = visual.prepare_matching, presence.blake2b
 
-    def score(*args):
+    def score(*args, **kwargs):
         scored.append(threading.get_ident())
         assert scored[-1] != owner
         if block.is_set():
             entered.set()
             assert release.wait(5)
-        return original_score(*args)
+        return original_score(*args, **kwargs)
 
     def digest(*args, **kwargs):
         hashed.append(threading.get_ident())
@@ -82,7 +82,7 @@ def test_completed_dense_ocr_waits_off_qt_and_retains_english(monkeypatch):
         def observe(self, frame, *args):
             return VisualState(frame, ocr_sequence=args[0].frame.sequence if args[0] else 0)
 
-    monkeypatch.setattr(visual, "VisualAnalyzer", Analyzer)
+    monkeypatch.setattr(visual, "VisualAnalyzer", lambda language: Analyzer())
     monkeypatch.setattr(visual, "prepare_matching", score)
     monkeypatch.setattr(presence, "blake2b", digest)
     ocr, worker = Ocr(), VisualSession()

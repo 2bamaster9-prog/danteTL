@@ -11,6 +11,8 @@ from dataclasses import dataclass, field, replace
 from math import isfinite
 
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
 from dantejp.ocr.lettering import Lettering, sample_lettering
 from dantejp.ocr.presence import EvidenceReader, PixelEvidence
 from dantejp.ocr.quote_dash import opening_dash_edges
@@ -141,10 +143,6 @@ class _Track:
         self.geometry_candidate = None
 
 
-def _normalized(text: str) -> str:
-    return "".join(unicodedata.normalize("NFKC", text).split())
-
-
 def _overlap(a: Rect, b: Rect) -> float:
     width = max(0, min(a.x + a.width, b.x + b.width) - max(a.x, b.x))
     height = max(0, min(a.y + a.height, b.y + b.height) - max(a.y, b.y))
@@ -183,12 +181,12 @@ def _improves(score: float | None, accepted: float | None) -> bool:
 _AMOUNT = re.compile(r"[-±]?\d+(?:[.,]\d+)*%?")
 
 
-def _minor_variant(old: str, new: str) -> bool:
+def _minor_variant(language: SourceLanguage, old: str, new: str) -> bool:
     """Conservative OCR ambiguity, not general semantic equivalence."""
     if min(len(old), len(new)) < 4:
         # A dropped bracket can surround even a two-character menu label. Keep
         # ordinary single-character substitutions on short names/choices meaningful.
-        brackets = "()[]「」『』【】"
+        brackets = language.tracking_brackets
         core = old.strip(brackets)
         return bool(core) and core == new.strip(brackets) and abs(len(old) - len(new)) <= 2
     numbers = tuple(c for c in old if c.isnumeric())
@@ -299,10 +297,24 @@ class MatchingEvidence:
     candidates: tuple[tuple[float, int, int], ...]
     dash_edges: tuple[tuple[int, int], ...]
     lettering: tuple[tuple[int, Lettering], ...]
+    language: SourceLanguage
 
-    def matches(self, result: OcrResult, sources: tuple[TextTrack, ...], limit: int = 512) -> bool:
+    def matches(
+        self,
+        result: OcrResult,
+        sources: tuple[TextTrack, ...],
+        limit: int = 512,
+        *,
+        language: SourceLanguage = DEFAULT_SOURCE,
+    ) -> bool:
         frame = result.frame
-        return (self.sequence, self.captured_at, self.geometry, self.sources, self.limit) == (
+        return self.language == language and (
+            self.sequence,
+            self.captured_at,
+            self.geometry,
+            self.sources,
+            self.limit,
+        ) == (
             frame.sequence,
             frame.captured_at,
             frame.geometry,
@@ -312,20 +324,24 @@ class MatchingEvidence:
 
 
 def prepare_matching(
-    result: OcrResult, sources: tuple[TextTrack, ...], limit: int = 512
+    result: OcrResult,
+    sources: tuple[TextTrack, ...],
+    limit: int = 512,
+    *,
+    language: SourceLanguage = DEFAULT_SOURCE,
 ) -> MatchingEvidence:
     """Worker-side geometry gating and text scoring; does not own or mutate tracks."""
     regions, normalized = [], {}
     for index, raw in enumerate(result.regions[:limit]):
-        region = content_region(raw)
-        text = _normalized(region.text)
+        region = content_region(raw, language)
+        text = language.matching_text(region.text)
         if text and min(region.bounds.size) > 0:
             regions.append((index, region))
             normalized[index] = text
     nearby = SpatialCandidates(regions)
     candidates = []
     for track in sources:
-        old = _normalized(track.text)
+        old = language.matching_text(track.text)
         scorer = LcsSimilarity(old)
         for index, region in nearby.for_bounds(track.bounds):
             score = _match_score(track, region, old, normalized[index], scorer)
@@ -347,14 +363,22 @@ def prepare_matching(
                 result.regions,
                 regions,
                 tuple(t.bounds for t in sources if not t.vertical) if result.scanned else (),
+                language,
             ).items()
         ),
-        sample_lettering(frame, regions),
+        sample_lettering(frame, regions, language),
+        language,
     )
 
 
 class TextTracker:
-    def __init__(self, policy: TrackingPolicy = TrackingPolicy()) -> None:
+    def __init__(
+        self,
+        policy: TrackingPolicy = TrackingPolicy(),
+        *,
+        language: SourceLanguage = DEFAULT_SOURCE,
+    ) -> None:
+        self._language = language
         self._policy = policy
         self._tracks: dict[int, _Track] = {}
         self._next_id = 1
@@ -417,12 +441,14 @@ class TextTracker:
             return self._assignments
         sources = self.matching_sources(frame)
         if matching is not None and not matching.matches(
-            result, sources, self._policy.max_tracks * 4
+            result, sources, self._policy.max_tracks * 4, language=self._language
         ):
             raise ValueError("Tracking evidence does not match the current source/state.")
         # Direct deterministic replays may score inline. LiveSession always supplies
         # source/state-checked worker evidence and never performs scoring on Qt.
-        matching = matching or prepare_matching(result, sources, self._policy.max_tracks * 4)
+        matching = matching or prepare_matching(
+            result, sources, self._policy.max_tracks * 4, language=self._language
+        )
         if self._size != frame.geometry.client.size:
             self.reset()
             self._size = frame.geometry.client.size
@@ -551,7 +577,9 @@ class TextTracker:
             track.record_appearance(
                 observations[index], dash_edges.get(index), lettering.get(index)
             )
-            if _normalized(observations[index].text) == _normalized(track.value.text):
+            if self._language.matching_text(
+                observations[index].text
+            ) == self._language.matching_text(track.value.text):
                 digest = evidence.fingerprint(track.value.bounds)
                 track.presence = (
                     _PresenceReference(digest, track.value.bounds) if digest is not None else None
@@ -570,7 +598,10 @@ class TextTracker:
         track.observed = track.value.bounds
         track.confirmed = True
         score = _confidence(region)
-        old, new = _normalized(track.value.text), _normalized(region.text)
+        old, new = (
+            self._language.matching_text(track.value.text),
+            self._language.matching_text(region.text),
+        )
         eligible = track.review_attempts < 3 and (
             track.best_confidence is None or track.best_confidence < 0.9
         )
@@ -582,7 +613,7 @@ class TextTracker:
             _improves(score, track.best_confidence)
             and _same_location(track.value.bounds, region.bounds)
             and (
-                _minor_variant(old, new)
+                _minor_variant(self._language, old, new)
                 or (
                     eligible
                     and score is not None
@@ -614,14 +645,17 @@ class TextTracker:
         # Completed observations count as evidence regardless of inference speed.
         # Actual misses, rather than elapsed processing time, break candidate runs.
         track.seen(frame)
-        old, new = _normalized(track.value.text), _normalized(region.text)
+        old, new = (
+            self._language.matching_text(track.value.text),
+            self._language.matching_text(region.text),
+        )
         candidate = track.text_candidate
         repeat = (
             candidate is not None
-            and _normalized(candidate.text) == new
+            and self._language.matching_text(candidate.text) == new
             and _same_location(track.observed, region.bounds)
         )
-        minor = old != new and _minor_variant(old, new)
+        minor = old != new and _minor_variant(self._language, old, new)
         if lost_pattern:
             correction = False
         elif repeat and candidate:
@@ -633,7 +667,7 @@ class TextTracker:
                 track.growing
                 and frame.captured_at - track.changed_at <= 1.25
                 and new.startswith(old)
-                and all(c in "。、！？!?」』" or c.isalnum() for c in new[len(old) :])
+                and all(c in self._language.reveal_marks or c.isalnum() for c in new[len(old) :])
             )
             correction = (
                 minor and _same_location(track.value.bounds, region.bounds) and not reveal_ending
@@ -665,8 +699,10 @@ class TextTracker:
             track.text_candidate = _TextCandidate(region.text, score, correction, needs_repeat=True)
             track.geometry_candidate = None
             return
-        previous = _normalized(track.reading)
-        if previous != new and not (minor if previous == old else _minor_variant(previous, new)):
+        previous = self._language.matching_text(track.reading)
+        if previous != new and not (
+            minor if previous == old else _minor_variant(self._language, previous, new)
+        ):
             track.changed_at = frame.captured_at
             track.growing = bool(previous) and (
                 new.startswith(previous)
