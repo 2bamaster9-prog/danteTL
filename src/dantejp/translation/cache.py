@@ -10,6 +10,7 @@ from collections import OrderedDict
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
+from dantejp.i18n import tr
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
 from dantejp.languages.target import ENGLISH, TargetLanguage
@@ -36,7 +37,7 @@ def translation_key(
 class TranslationCache:
     def __init__(self, path: Path, *, memory_limit: int = 512, disk_limit: int = 20_000) -> None:
         if min(memory_limit, disk_limit) < 1:
-            raise ValueError("Cache limits must be positive.")
+            raise ValueError(tr("Cache limits must be positive."))
         self._memory: OrderedDict[str, str] = OrderedDict()
         self._memory_limit, self._disk_limit = memory_limit, disk_limit
         self._touched: OrderedDict[str, None] = OrderedDict()
@@ -82,7 +83,7 @@ class TranslationCache:
             self._disable_disk(error)
 
     def _disable_disk(self, error: Exception) -> None:
-        self.warning = "Translation cache is using memory only; disk cache is unavailable."
+        self.warning = tr("Translation cache is using memory only; disk cache is unavailable.")
         logger.warning("Translation disk cache unavailable: %s", error)
         self._close_connection()
 

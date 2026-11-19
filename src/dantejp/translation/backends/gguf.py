@@ -8,6 +8,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from dantejp.i18n import tr
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
 from dantejp.languages.target import ENGLISH, TargetLanguage
@@ -64,7 +65,7 @@ def completed_answer(response: Any) -> str:
     choice = response["choices"][0]
     if choice["finish_reason"] != "stop":
         raise RequestRejected(
-            "Model reached its output limit; incomplete translation was discarded."
+            tr("Model reached its output limit; incomplete translation was discarded.")
         )
     text = choice["text"].strip()
     # Qwen's non-thinking template can emit an empty block. Never publish actual reasoning.
@@ -86,7 +87,10 @@ def completed_answer(response: Any) -> str:
         )
     ):
         raise RequestRejected(
-            "Model returned empty text, reasoning, or control tokens. Try another profile/model."
+            tr(
+                "Model returned empty text, reasoning, or control tokens. Try another "
+                "profile/model."
+            )
         )
     return text
 
@@ -104,15 +108,14 @@ class GgufBackend:
         verbose: bool = False,
         language: SourceLanguage = DEFAULT_SOURCE,
     ) -> None:
-        self._language = language
         if device not in ("cpu", "cuda", "vulkan"):
-            raise ValueError("Unknown language-model device.")
+            raise ValueError(tr("Unknown language-model device."))
         self._model: Any = None
         self.registration = registration
         path = Path(registration.path)
         info = inspect_gguf(path, registration.profile)
         if info.profile == "plamo3" and not supports_plamo():
-            raise RuntimeError("PLaMo needs an updated engine. Open Settings → Acceleration.")
+            raise RuntimeError(tr("PLaMo needs an updated engine. Open Settings → Acceleration."))
         digest, size = fingerprint(path, lambda _: None, threading.Event())
         if (
             digest != registration.sha256
@@ -121,7 +124,10 @@ class GgufBackend:
             or hashlib.sha256(info.template.encode()).hexdigest() != registration.template_hash
         ):
             raise ValueError(
-                "Model file changed. Open Models to verify / repair, or import the changed file."
+                tr(
+                    "Model file changed. Open Models to verify / repair, or import the "
+                    "changed file."
+                )
             )
         if device == "cuda":
             cache = Path(os.environ.get("CUDA_CACHE_PATH", str(state_root() / "data/cuda-cache")))
@@ -131,7 +137,7 @@ class GgufBackend:
         runtime = load_runtime(device)
         if device != "cpu" and not runtime.llama_supports_gpu_offload():
             raise RuntimeError(
-                "The selected runtime cannot accelerate this model. Open Acceleration."
+                tr("The selected runtime cannot accelerate this model. Open Acceleration.")
             )
         self._qwen = info.architecture.startswith("qwen")
         self._gemma = info.profile == "gemma4"
@@ -175,43 +181,49 @@ class GgufBackend:
                 # Translation prompts must not vary with wall-clock date behind the cache key.
                 self._formatter.strftime_now = lambda _: ""
             self._stops = [s for s in (eos, "<|im_end|>", "<|eot_id|>", "<turn|>", "<|turn>") if s]
-            from dantejp.translation.backends.gemma import translation_prompt
-            from dantejp.translation.backends.plamo import STOPS
-            from dantejp.translation.backends.plamo import translation_prompt as plamo_prompt
-
             if self._plamo:
+                from dantejp.translation.backends.plamo import STOPS
+
                 self._stops = list(STOPS)
-            prompt_version = (
-                plamo_prompt("", (), language=language)
-                if self._plamo
-                else translation_prompt("", (), language=language)
-                if self._gemma
-                else INSTRUCTION.format(source_language=language.name, target_language=ENGLISH.name)
-            )
-            identity = [
+            self._model_identity = (
                 "gguf-v1",
                 registration.sha256,
                 registration.template_hash,
                 info.profile,
                 runtime.__version__,
                 device,
-                f"{language.code}-{ENGLISH.code}",
-                CONTEXT,
-                OUTPUT_LIMIT,
-                batch,
-                template,
-                prompt_version,
-                "history2-512chars",
-                "no-thinking",
-                "qwen-sample-0.7-0.8-20-seed42" if self._qwen else "greedy-repeat1",
-            ]
-            self.cache_identity = (
-                "imported:" + hashlib.sha256(json.dumps(identity).encode()).hexdigest()
             )
+            self._generation_identity = (CONTEXT, OUTPUT_LIMIT, batch, template)
+            self.set_source(language)
             self.translate((language.warmup_text,))
         except Exception:
             self.close()
             raise
+
+    def set_source(self, language: SourceLanguage) -> None:
+        from dantejp.translation.backends.gemma import translation_prompt
+        from dantejp.translation.backends.plamo import translation_prompt as plamo_prompt
+
+        prompt = (
+            plamo_prompt("", (), language=language)
+            if self._plamo
+            else translation_prompt("", (), language=language)
+            if self._gemma
+            else INSTRUCTION.format(source_language=language.name, target_language=ENGLISH.name)
+        )
+        identity = (
+            *self._model_identity,
+            f"{language.code}-{ENGLISH.code}",
+            *self._generation_identity,
+            prompt,
+            "history2-512chars",
+            "no-thinking",
+            "qwen-sample-0.7-0.8-20-seed42" if self._qwen else "greedy-repeat1",
+        )
+        self.cache_identity = (
+            "imported:" + hashlib.sha256(json.dumps(identity).encode()).hexdigest()
+        )
+        self._language = language
 
     def _token_text(self, token: int) -> str:
         return self._model.detokenize([token], special=True).decode("utf-8") if token >= 0 else ""
@@ -220,16 +232,16 @@ class GgufBackend:
         self, texts: tuple[str, ...], *, target: TargetLanguage = ENGLISH
     ) -> tuple[str, ...]:
         if len(texts) > 4:
-            raise ValueError("At most four sources per call.")
+            raise ValueError(tr("At most four sources per call."))
         return tuple(self.translate_with_context(text, (), target=target) for text in texts)
 
     def translate_with_context(
         self, text: str, context: tuple[DialogueTurn, ...], *, target: TargetLanguage = ENGLISH
     ) -> str:
         if self._model is None:
-            raise RuntimeError("Imported model is closed.")
+            raise RuntimeError(tr("Imported model is closed."))
         if not text.strip() or len(text) > 512:
-            raise RequestRejected("Translation source must contain 1–512 characters.")
+            raise RequestRejected(tr("Translation source must contain 1–512 characters."))
         context = context[-2:]
         while sum(len(t.source) + len(t.english) for t in context) > 512:
             context = context[1:]
@@ -257,12 +269,14 @@ class GgufBackend:
                 )
                 prompt = formatted.prompt
             if len(prompt) > 65_536:
-                raise RequestRejected("Model chat template produced an oversized prompt.")
+                raise RequestRejected(tr("Model chat template produced an oversized prompt."))
             tokens = self._model.tokenize(prompt.encode(), add_bos=False, special=True)
             if len(tokens) + OUTPUT_LIMIT <= CONTEXT:
                 break
             if not context:
-                raise RequestRejected("Source exceeds the allocated context; refusing truncation.")
+                raise RequestRejected(
+                    tr("Source exceeds the allocated context; refusing truncation.")
+                )
             context = context[1:]
         response = self._model.create_completion(
             prompt=tokens,
@@ -284,7 +298,7 @@ class GgufBackend:
 
     def classify(self, value: ClassificationInput, cancelled: threading.Event) -> Classification:
         if self._plamo:
-            raise RequestRejected("This translation-only model cannot classify dialogue.")
+            raise RequestRejected(tr("This translation-only model cannot classify dialogue."))
         prompt = (
             gemma_prompt(value, language=self._language)
             if self._gemma

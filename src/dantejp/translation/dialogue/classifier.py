@@ -4,12 +4,13 @@ import json
 import threading
 from collections import OrderedDict
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
+from dantejp.i18n import tr
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
-from dantejp.translation.backend import RequestRejected
+from dantejp.translation.backend import MultilingualBackend, RequestRejected
 from dantejp.translation.dialogue.layout import PanelContext
 
 INSTRUCTION = (
@@ -89,9 +90,9 @@ class ClassificationInput:
 
     def payload(self) -> str:
         if not 1 <= len(self.text) <= 512 or len(self.speaker) > 64:
-            raise RequestRejected("History classification input exceeds its limit.")
+            raise RequestRejected(tr("History classification input exceeds its limit."))
         if len(self.panel.neighbors) > 4 or sum(len(n.text) for n in self.panel.neighbors) > 192:
-            raise RequestRejected("History panel context exceeds its limit.")
+            raise RequestRejected(tr("History panel context exceeds its limit."))
         return json.dumps(
             {"TEXT": self.text, "SPEAKER": self.speaker, "PANEL": self.panel.payload()},
             ensure_ascii=False,
@@ -134,7 +135,7 @@ def parse_classification(text: str) -> Classification:
         return Classification(value["kind"], value["speaker"])
     except (ValueError, TypeError):
         raise RequestRejected(
-            "Classifier returned an invalid verdict; history skipped it."
+            tr("Classifier returned an invalid verdict; history skipped it.")
         ) from None
 
 
@@ -152,12 +153,12 @@ def local_classification(
     from dantejp.translation.backends.gguf import completed_answer
 
     if model is None:
-        raise RuntimeError("Classifier model is closed.")
+        raise RuntimeError(tr("Classifier model is closed."))
     if len(prompt) > 65_536:
-        raise RequestRejected("Classifier prompt exceeds its limit.")
+        raise RequestRejected(tr("Classifier prompt exceeds its limit."))
     tokens = model.tokenize(prompt.encode(), add_bos=False, special=True)
     if len(tokens) + 128 > 2048 or cancelled.is_set():
-        raise RequestRejected("Classifier input exceeds context or was cancelled.")
+        raise RequestRejected(tr("Classifier input exceeds context or was cancelled."))
     response = model.create_completion(
         prompt=tokens,
         max_tokens=128,
@@ -169,7 +170,7 @@ def local_classification(
         stopping_criteria=lambda *_: cancelled.is_set(),
     )
     if cancelled.is_set():
-        raise RequestRejected("Classification cancelled.")
+        raise RequestRejected(tr("Classification cancelled."))
     return parse_classification(completed_answer(response))
 
 
@@ -184,7 +185,7 @@ class ClassifierBackend(Protocol):
 @dataclass(frozen=True, slots=True)
 class ClassifierSnapshot:
     results: tuple[tuple[ClassificationInput, Classification], ...] = ()
-    message: str = "Waiting for dialogue."
+    message: str = field(default_factory=lambda: tr("Waiting for dialogue."))
     pending: int = 0
 
 
@@ -199,7 +200,10 @@ class ClassifierSession:
     and discards its answer. Rejected inputs are cached too, until eviction or reset.
     """
 
-    def __init__(self, factory: Callable[[], object]) -> None:
+    def __init__(
+        self, factory: Callable[[], object], *, language: SourceLanguage = DEFAULT_SOURCE
+    ) -> None:
+        self._language = language
         self._factory = factory
         self._condition = threading.Condition()
         self._desired: tuple[ClassificationInput, ...] = ()
@@ -209,7 +213,7 @@ class ClassifierSession:
         self._stop = False
         self._cancelled = threading.Event()
         self._done = threading.Event()
-        self._message = "Waiting for dialogue."
+        self._message = tr("Waiting for dialogue.")
         self._active: ClassificationInput | None = None
         self._thread = threading.Thread(target=self._run, name="history-classifier", daemon=True)
         self._thread.start()
@@ -229,6 +233,11 @@ class ClassifierSession:
                 else:
                     self._pending.setdefault(key, None)
             self._condition.notify()
+
+    def set_source(self, language: SourceLanguage, factory: Callable[[], object]) -> None:
+        with self._condition:
+            self._language, self._factory = language, factory
+            self.invalidate()
 
     def invalidate(self) -> None:
         with self._condition:
@@ -254,15 +263,15 @@ class ClassifierSession:
             message = self._message
             if not active and not self._stop:
                 if pending:
-                    message = "Waiting to classify…"
+                    message = tr("Waiting to classify…")
                 elif not self._desired:
-                    message = "Waiting for dialogue."
+                    message = tr("Waiting for dialogue.")
                 else:
                     skipped = sum(self._cache.get(k) is None for k in self._desired)
                     message = (
-                        f"Ready · {skipped} text(s) could not be classified."
+                        tr("Ready · {skipped} text(s) could not be classified.", skipped=skipped)
                         if skipped
-                        else "Ready · Only confirmed dialogue enters history."
+                        else tr("Ready · Only confirmed dialogue enters history.")
                     )
             return ClassifierSnapshot(
                 tuple(
@@ -276,6 +285,7 @@ class ClassifierSession:
 
     def _run(self) -> None:
         engine: ClassifierBackend | None = None
+        active_language = None
         try:
             while True:
                 with self._condition:
@@ -285,21 +295,31 @@ class ClassifierSession:
                     key = next(iter(self._pending))
                     self._active = key
                     generation = self._generation
+                    language, factory = self._language, self._factory
                     self._cancelled = cancelled = threading.Event()
-                    self._message = "Checking dialogue…" if engine else "Loading classifier…"
+                    self._message = (
+                        tr("Checking dialogue…") if engine else tr("Loading classifier…")
+                    )
                 try:
+                    if engine is not None and language != active_language:
+                        if isinstance(engine, MultilingualBackend):
+                            engine.set_source(language)
+                        else:
+                            engine.close()
+                            engine = None
+                    active_language = language
                     if engine is None:
-                        backend = self._factory()
+                        backend = factory()
                         if not isinstance(backend, ClassifierBackend):
                             close = getattr(backend, "close", None)
                             if close:
                                 close()
-                            raise RuntimeError("This model cannot classify dialogue.")
+                            raise RuntimeError(tr("This model cannot classify dialogue."))
                         engine = backend
                     if cancelled.is_set():
                         continue
                     with self._condition:
-                        self._message = "Checking dialogue…"
+                        self._message = tr("Checking dialogue…")
                     try:
                         answer = engine.classify(key, cancelled)
                     except RequestRejected:
@@ -322,7 +342,7 @@ class ClassifierSession:
                 self._stop = True
                 self._desired = ()
                 self._pending.clear()
-                self._message = "Classifier failed. Choose a model or toggle Enable to retry."
+                self._message = tr("Classifier failed. Choose a model or toggle Enable to retry.")
         finally:
             try:
                 if engine is not None:

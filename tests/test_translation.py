@@ -6,6 +6,7 @@ import pytest
 
 from dantejp.application.live_session import LiveSession
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.languages.selection import source_language
 from dantejp.languages.target import ENGLISH, TARGET_LANGUAGES
 from dantejp.ocr.tracking import TextTrack, TextTracker
 from dantejp.ocr.worker import OcrResult, TextCharacter, TextRegion
@@ -91,6 +92,51 @@ def test_output_change_discards_inflight_answer_and_reuses_each_languages_cache(
             assert reopened.get(key) == target.name
     finally:
         reopened.close()
+
+
+def test_source_switch_keeps_model_and_scopes_inflight_work_and_cache(tmp_path):
+    first, second = source_language("es"), source_language("fr")
+
+    class Translator(Backend):
+        language = first
+
+        def set_source(self, language):
+            self.language = language
+
+        def translate(self, texts, *, target=ENGLISH):
+            language = self.language
+            super().translate(texts, target=target)
+            return (language.name,) * len(texts)
+
+    backend = Translator()
+    session = TranslationSession(lambda: backend, tmp_path / "cache", language=first)
+    rows = (track("Menu"),)
+
+    def unexpected_reload():
+        pytest.fail("Compatible source switch reopened the model")
+
+    backend.release.clear()
+    session.start()
+    try:
+        session.update(rows)
+        assert backend.entered.wait(2)
+        session.set_source(second, unexpected_reload)
+        session.update(rows)
+        assert not session.snapshot().results
+        backend.release.set()
+        until(lambda: session.snapshot().results)
+        assert [r.english for r in session.snapshot().results] == [second.name]
+        for language in (first, second):
+            session.set_source(language, unexpected_reload)
+            session.update(rows)
+            until(lambda: session.snapshot().results)
+            assert session.snapshot().cache_hits == 1
+            assert session.snapshot().results[0].english == language.name
+        assert not backend.closed and len(backend.calls) == 2
+    finally:
+        backend.release.set()
+        session.request_stop()
+        until(lambda: session.finished)
 
 
 def test_switching_region_starts_fresh_model_dialogue_context(tmp_path):

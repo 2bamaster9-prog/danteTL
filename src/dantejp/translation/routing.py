@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from pathlib import Path
 
+from dantejp.i18n import tr
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
 from dantejp.languages.target import ENGLISH, TargetLanguage
@@ -43,7 +44,7 @@ class RoutedTranslationSession:
     ) -> None:
         """Adopt one prepared owner and share one worker for identical assignments."""
         if prepared and prepared[0] not in plan.active_models:
-            raise ValueError("Prepared model does not belong to the active translation plan.")
+            raise ValueError(tr("Prepared model does not belong to the active translation plan."))
         self._language = language
         self._cache_path, self._notify = cache_path, on_change
         self._plan = plan
@@ -80,6 +81,7 @@ class RoutedTranslationSession:
         plan: TranslationPlan,
         factories: dict[str, Callable[[], TranslationBackend]],
         *,
+        language: SourceLanguage | None = None,
         identities: dict[str, ModelIdentity] | None = None,
         names: dict[str, str] | None = None,
     ) -> None:
@@ -90,22 +92,32 @@ class RoutedTranslationSession:
         workers keep processing while a changed lane drains.
         """
         if self._stopping:
-            raise ValueError("Cannot reconfigure a stopping session.")
+            raise ValueError(tr("Cannot reconfigure a stopping session."))
         desired = {k: factories[k] for k in plan.active_models if k in factories}
         next_identities = {k: (identities or {}).get(k, k) for k in plan.active_models}
         self._names = {k: (names or {}).get(k, k) for k in plan.active_models}
+        source_changed = language is not None and language != self._language
+        if language is not None:
+            self._language = language
         if (
-            plan == self._plan
+            not source_changed
+            and plan == self._plan
             and desired.keys() == self._factories.keys()
             and next_identities == self._identities
         ):
             self._factories = desired
             return  # Display names/recipes can change without revoking live results.
         for key, worker in tuple(self._workers.items()):
-            if key not in desired or self._identities.get(key) != next_identities[key]:
+            if (
+                key not in desired
+                or self._identities.get(key) != next_identities[key]
+                or (source_changed and worker.finished)
+            ):
                 del self._workers[key]
                 worker.request_stop()
                 self._retiring.append(worker)
+            elif source_changed:
+                worker.set_source(self._language, desired[key])
         self._plan, self._factories = plan, desired
         self._identities = next_identities
         self._generation += 1
@@ -221,7 +233,9 @@ class RoutedTranslationSession:
                     key,
                     self._names.get(key, key),
                     lanes[key].state if key in lanes else TranslationState.LOADING,
-                    lanes[key].message if key in lanes else "Waiting for previous model to unload…",
+                    lanes[key].message
+                    if key in lanes
+                    else tr("Waiting for previous model to unload…"),
                 )
                 for key in (*lanes, *pending_models)
             ),

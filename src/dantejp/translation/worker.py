@@ -8,6 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from dantejp.i18n import tr
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
 from dantejp.languages.target import ENGLISH, TargetLanguage
@@ -16,6 +17,7 @@ from dantejp.translation.backend import (
     BatchResult,
     ContextualBackend,
     DeferredBackend,
+    MultilingualBackend,
     RequestRejected,
     Source,
     TranslationBackend,
@@ -190,6 +192,15 @@ class TranslationSession:
         self._blocks.clear()
         self._condition.notify()
 
+    def set_source(
+        self, language: SourceLanguage, factory: Callable[[], TranslationBackend]
+    ) -> None:
+        with self._condition:
+            self._factory = factory
+            if self._language != language:
+                self._language = language
+                self._invalidate_locked()
+
     def switch_backend(self, factory: Callable[[], TranslationBackend]) -> None:
         with self._condition:
             if self._stop or self._state == TranslationState.FAILED:
@@ -242,7 +253,11 @@ class TranslationSession:
                         None,
                         (
                             self._message,
-                            f"{len(rejected)} text block(s) rejected: {rejected[0].message}"
+                            tr(
+                                "{count} text block(s) rejected: {message}",
+                                count=len(rejected),
+                                message=rejected[0].message,
+                            )
                             if rejected
                             else "",
                         ),
@@ -272,7 +287,8 @@ class TranslationSession:
         engine: TranslationBackend | None = None
         cache: TranslationCache | None = None
         active_backend = -1
-        schedule = TranslationSchedule(language=self._language)
+        schedule = TranslationSchedule()
+        active_language = None
         try:
             cache = TranslationCache(self._cache_path)
             while True:
@@ -340,14 +356,22 @@ class TranslationSession:
                             if key in self._blocks and self._blocks[key].dialogue
                         ),
                         target=self._target,
+                        language=self._language,
                     )
-                if active_backend != backend_generation:
+                if (
+                    active_backend == backend_generation
+                    and active_language != demand.language
+                    and isinstance(engine, MultilingualBackend)
+                ):
+                    engine.set_source(demand.language)
+                    active_language = demand.language
+                if active_backend != backend_generation or active_language != demand.language:
                     if engine is not None:
                         engine.close()
                         engine = None
                     started = time.perf_counter()
                     engine = factory()
-                    active_backend = backend_generation
+                    active_backend, active_language = backend_generation, demand.language
                     schedule.reset()
                     with self._condition:
                         published = not self._stop and active_backend == self._backend_generation
@@ -466,7 +490,7 @@ def translate_batch(
     """Isolate known rejections. Split a rejected batch once; native failures stay fatal."""
     answers: dict[Source, str] = {}
     rejected = {
-        source: "Source text exceeds the 512-character translation limit."
+        source: tr("Source text exceeds the 512-character translation limit.")
         for source in sources
         if len(source[0]) > 512
     }
@@ -474,7 +498,7 @@ def translate_batch(
 
     def accept(source: Source, english: str) -> None:
         if not english.strip() or len(english) > 4096:
-            rejected[source] = "Translation backend returned empty or oversized text."
+            rejected[source] = tr("Translation backend returned empty or oversized text.")
         else:
             answers[source] = english
 
@@ -483,13 +507,13 @@ def translate_batch(
             try:
                 accept(source, engine.translate_with_context(*source, target=target))
             except RequestRejected as error:
-                rejected[source] = str(error) or "Model rejected this request."
+                rejected[source] = str(error) or tr("Model rejected this request.")
     elif valid:
         try:
             translated = engine.translate(tuple(source[0] for source in valid), target=target)
         except RequestRejected as error:
             if len(valid) == 1:
-                rejected[valid[0]] = str(error) or "Model rejected this request."
+                rejected[valid[0]] = str(error) or tr("Model rejected this request.")
             else:
                 for source in valid:
                     good, bad = translate_batch(engine, (source,), target=target)

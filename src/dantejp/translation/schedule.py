@@ -32,6 +32,7 @@ class Demand:
     contexts: dict[TranslationRequest, tuple[DialogueTurn, ...]]
     dialogue: frozenset[TranslationRequest]
     target: TargetLanguage = ENGLISH
+    language: SourceLanguage = DEFAULT_SOURCE
 
 
 @dataclass(slots=True)
@@ -86,8 +87,7 @@ class TranslationSchedule:
     Futures wake that owner but never mutate this schedule from their callback thread.
     """
 
-    def __init__(self, *, language: SourceLanguage = DEFAULT_SOURCE) -> None:
-        self._language = language
+    def __init__(self) -> None:
         self._flights: list[tuple[Batch, Future[BatchResult]]] = []
         self._blocked: set[tuple[TranslationRequest, tuple[DialogueTurn, ...]]] | None = None
         self._waiting: dict[tuple[TranslationRequest, tuple[DialogueTurn, ...]], None] = {}
@@ -173,7 +173,7 @@ class TranslationSchedule:
                     json.dumps([text, [(t.source, t.english) for t in context]], ensure_ascii=False)
                     if context
                     else text,
-                    language=self._language,
+                    language=demand.language,
                     target=demand.target,
                 )
         self._keys = keys

@@ -6,6 +6,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from dantejp.i18n import tr
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
 from dantejp.languages.target import ENGLISH, TargetLanguage
@@ -84,14 +85,16 @@ def translation_prompt(
 def completed_translation(response: Any) -> str:
     choice = response["choices"][0]
     if choice["finish_reason"] != "stop":
-        raise RequestRejected("Gemma reached its output limit; refusing an incomplete translation.")
+        raise RequestRejected(
+            tr("Gemma reached its output limit; refusing an incomplete translation.")
+        )
     text = choice["text"].strip()
     if (
         not text
         or len(text) > 4096
         or any(marker in text for marker in ("<|channel>", "<channel|>", "<|turn>", "<think>"))
     ):
-        raise RequestRejected("Gemma returned empty, oversized, or non-answer text.")
+        raise RequestRejected(tr("Gemma returned empty, oversized, or non-answer text."))
     return text
 
 
@@ -105,9 +108,8 @@ class GemmaBackend:
     def __init__(
         self, directory: Path, *, device: str = "cuda", language: SourceLanguage = DEFAULT_SOURCE
     ) -> None:
-        self._language = language
         if device not in ("cuda", "vulkan", "cpu"):
-            raise ValueError("Unknown Gemma device.")
+            raise ValueError(tr("Unknown Gemma device."))
         for asset in ASSETS:
             validate_asset(directory / asset.filename, asset, None)
         try:
@@ -120,10 +122,10 @@ class GemmaBackend:
             runtime = load_runtime(device)
         except (ImportError, OSError, RuntimeError) as error:
             raise RuntimeError(
-                "Gemma runtime is unavailable. Open Settings → Acceleration, then restart."
+                tr("Gemma runtime is unavailable. Open Settings → Acceleration, then restart.")
             ) from error
         if device != "cpu" and not runtime.llama_supports_gpu_offload():
-            raise RuntimeError("Gemma GPU runtime unavailable. Open Settings → Acceleration.")
+            raise RuntimeError(tr("Gemma GPU runtime unavailable. Open Settings → Acceleration."))
         # CPU prompt evaluation benefits from batching; keep GPU's tested kernel shape.
         batch = 128 if device == "cpu" else 1
         threads = min(4, max(1, (os.cpu_count() or 2) // 2)) if device == "cpu" else 2
@@ -145,17 +147,8 @@ class GemmaBackend:
             **flash_attention_options(runtime, device),
             verbose=False,
         )
-        prompt_hash = hashlib.sha256(
-            translation_prompt(
-                "", (DialogueTurn("source", "translation"),), language=language
-            ).encode()
-        ).hexdigest()
-        self.cache_identity = (
-            f"gemma-4-e2b:{ASSETS[0].sha256}:llama-cpp-python-{runtime.__version__}:"
-            f"{device}:{language.code}-{ENGLISH.code}:ctx{CONTEXT}:prefill{batch}:"
-            f"max{OUTPUT_LIMIT}:greedy:repeat1:"
-            f"prompt-{prompt_hash}:no-think:history2-512chars-v1"
-        )
+        self._device, self._runtime_version, self._batch = device, runtime.__version__, batch
+        self.set_source(language)
         try:
             # Report first-use CUDA preparation as loading, not as a stalled game
             # translation. The project-local driver cache survives later launches.
@@ -164,20 +157,34 @@ class GemmaBackend:
             self.close()
             raise
 
+    def set_source(self, language: SourceLanguage) -> None:
+        self._language = language
+        prompt_hash = hashlib.sha256(
+            translation_prompt(
+                "", (DialogueTurn("source", "translation"),), language=language
+            ).encode()
+        ).hexdigest()
+        self.cache_identity = (
+            f"gemma-4-e2b:{ASSETS[0].sha256}:llama-cpp-python-{self._runtime_version}:"
+            f"{self._device}:{language.code}-{ENGLISH.code}:ctx{CONTEXT}:prefill{self._batch}:"
+            f"max{OUTPUT_LIMIT}:greedy:repeat1:"
+            f"prompt-{prompt_hash}:no-think:history2-512chars-v1"
+        )
+
     def translate(
         self, texts: tuple[str, ...], *, target: TargetLanguage = ENGLISH
     ) -> tuple[str, ...]:
         if len(texts) > 4:
-            raise ValueError("Gemma accepts at most four sources per call.")
+            raise ValueError(tr("Gemma accepts at most four sources per call."))
         return tuple(self.translate_with_context(text, (), target=target) for text in texts)
 
     def translate_with_context(
         self, text: str, context: tuple[DialogueTurn, ...], *, target: TargetLanguage = ENGLISH
     ) -> str:
         if self._model is None:
-            raise RuntimeError("Gemma is closed.")
+            raise RuntimeError(tr("Gemma is closed."))
         if not text.strip() or len(text) > 512:
-            raise RequestRejected("Gemma source must contain 1–512 characters.")
+            raise RequestRejected(tr("Gemma source must contain 1–512 characters."))
         context = context[-2:]
         while sum(len(t.source) + len(t.english) for t in context) > 512:
             context = context[1:]
@@ -193,7 +200,7 @@ class GemmaBackend:
                 context = context[1:]
                 continue
             raise RequestRejected(
-                "Gemma source exceeds its allocated context; refusing truncation."
+                tr("Gemma source exceeds its allocated context; refusing truncation.")
             )
         response = self._model.create_completion(
             prompt=tokens,

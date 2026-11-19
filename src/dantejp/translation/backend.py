@@ -3,6 +3,7 @@
 from concurrent.futures import Future
 from typing import Protocol, runtime_checkable
 
+from dantejp.languages.source import SourceLanguage
 from dantejp.languages.target import ENGLISH, TargetLanguage
 from dantejp.translation.dialogue.context import DialogueTurn
 
@@ -19,6 +20,13 @@ class TranslationBackend(Protocol):
         self, texts: tuple[str, ...], /, *, target: TargetLanguage = ENGLISH
     ) -> tuple[str, ...]: ...
     def close(self) -> None: ...
+
+
+@runtime_checkable
+class MultilingualBackend(TranslationBackend, Protocol):
+    """Switch prompt and cache identity on the inference thread with the same weights."""
+
+    def set_source(self, language: SourceLanguage) -> None: ...
 
 
 @runtime_checkable
