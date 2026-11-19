@@ -6,7 +6,6 @@ chains. This is a layout hypothesis, not proof that conversational text is a cho
 Only the latest scene is retained. Model identity uses relations, not pixel coordinates.
 """
 
-import re
 from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from hashlib import blake2s
@@ -14,8 +13,6 @@ from statistics import median
 
 from dantejp.domain import Rect, union_bounds
 from dantejp.translation.grouping import TextBlock
-
-_MARKER = re.compile(r"^(?:[・•●○◆◇▶▷→]|[0-9０-９①-⑳]+[.．、:：)）]|[A-Za-z][.．)）])")
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,8 +81,11 @@ def _compact_label(block: TextBlock) -> bool:
         1 <= len(text) <= 64
         and len(block.lines) <= 2
         and not any(t.vertical for t in block.lines)
-        and not _MARKER.match(text)
-        and (not any(c in text for c in "。！？!?、，") or not set(text) - set("?？"))
+        and not block.language.lists.panel_marker.match(text)
+        and (
+            not any(c in text for c in block.language.label_punctuation)
+            or not set(text) - set("?？")
+        )
     )
 
 
@@ -222,14 +222,17 @@ class PanelLayout:
             lines = tuple(t for b in parts for t in b.lines)
             if len(lines) != 2 or not all(_compact_label(b) for b in parts):
                 continue
-            first, second = (TextBlock((t,)) for t in sorted(lines, key=lambda t: t.bounds.y))
+            first, second = (
+                TextBlock((t,), language=body.language)
+                for t in sorted(lines, key=lambda t: t.bounds.y)
+            )
             separation = second.bounds.y - first.bounds.y - first.bounds.height
             # A greeting may be narrower than the name. In that case require
             # sentence evidence plus compact labels, not a minimum utterance length.
             wide_body = all(b.bounds.width <= body.bounds.width * 0.55 for b in (first, second))
             short_speech = (
                 len(body.text) <= 24
-                and body.text.rstrip().endswith(tuple("。！？!?…"))
+                and body.text.rstrip().endswith((*body.language.terminal, "…"))
                 and body.bounds.width >= unit * 2
             )
             if (
@@ -361,8 +364,8 @@ class PanelLayout:
         return self._peers.get(block, ())
 
     def marked_choice(self, block: TextBlock) -> bool:
-        return bool(_MARKER.match(block.text.strip())) or any(
-            _MARKER.match(peer.text.strip()) for peer in self.peers(block)
+        return bool(block.language.lists.panel_marker.match(block.text.strip())) or any(
+            peer.language.lists.panel_marker.match(peer.text.strip()) for peer in self.peers(block)
         )
 
     def context(self, block: TextBlock, speaker: TextBlock | None = None) -> PanelContext:

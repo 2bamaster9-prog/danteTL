@@ -6,7 +6,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from dantejp.domain import Rect
-from dantejp.ocr.text_content import has_japanese
 from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.dialogue.classifier import Classification, ClassificationInput
 from dantejp.translation.dialogue.layout import PanelLayout
@@ -14,33 +13,7 @@ from dantejp.translation.dialogue.values import HistoryTurn as HistoryTurn
 from dantejp.translation.grouping import TextBlock
 from dantejp.translation.values import TranslatedText, TranslationRequest
 
-_END = tuple("。！？!?」』…")
-_MENU = frozenset(
-    (
-        "詳細",
-        "説明",
-        "効果",
-        "スキル",
-        "秘技",
-        "天賦",
-        "アイテム",
-        "装備",
-        "能力",
-        "所持",
-        "確認",
-        "戻る",
-        "キャンセル",
-        "おすすめ",
-        "強化",
-        "消費",
-        "使用効果",
-        "基本情報",
-    )
-)
 _STAT = re.compile(r"(?:[+＋]\s*[0-9０-９]|[0-9０-９]\s*[%％]|[Ll][Vv][.．]?\s*[0-9０-９])")
-_CHOICE = re.compile(r"^[・•●○◆◇▶▷→]|^[0-9０-９]+[.．、:：)）]")
-_NAME_PUNCTUATION = frozenset("。！？!?、，:：%％+＋/／[]【】（）()")
-_READING = re.compile(r"(?:\([ぁ-ゖァ-ヺー・ ]+\)|（[ぁ-ゖァ-ヺー・ ]+）)$")
 
 
 @dataclass(slots=True)
@@ -209,7 +182,9 @@ class DialogueHistory:
             if not self._body(block, size):
                 continue
             neighbours = speakers.above(block)
-            if any(b.text.strip() in _MENU or _STAT.search(b.text) for b in neighbours):
+            if any(
+                b.text.strip() in b.language.menu_labels or _STAT.search(b.text) for b in neighbours
+            ):
                 continue
             names = [b for b in neighbours if self._name(b, block)]
             if len(names) > 1:
@@ -239,7 +214,7 @@ class DialogueHistory:
                 and abs(other.bounds.y - block.bounds.y) < block.line_height * 3
                 and (
                     other.dialogue
-                    or other.text.endswith(_END)
+                    or other.text.endswith((*other.language.endings, "…"))
                     or abs(other.bounds.x - block.bounds.x) < block.line_height
                     or _centered(other, block, block.line_height * 1.25)
                 )
@@ -313,7 +288,7 @@ class DialogueHistory:
         request = TranslationRequest.from_block(block)
         # Extra reader settling never delays inference or the overlay. Retained English
         # for an older revision/group is not a completed source for this transcript.
-        settle = 0.45 if block.text.endswith(_END) else 1.2
+        settle = 0.45 if block.text.endswith((*block.language.endings, "…")) else 1.2
         if request not in self._ready or self._now - candidate.since < settle:
             return
         result = next((r for r in results if r.request == request), None)
@@ -407,7 +382,7 @@ class DialogueHistory:
             header_source = self._header_source(block)
             if (
                 not 2 <= len(text) <= 512
-                or not has_japanese(text)
+                or not block.language.contains_text(text)
                 or any(t.vertical for t in block.lines)
                 or self._layout.is_header_label(block)
                 or self._layout.marked_choice(block)
@@ -504,7 +479,8 @@ class DialogueHistory:
             k
             for k, c in self._candidates.items()
             if TranslationRequest.from_block(c.block) in self._ready
-            and self._now - c.since >= (0.45 if c.block.text.endswith(_END) else 1.2)
+            and self._now - c.since
+            >= (0.45 if c.block.text.endswith((*c.block.language.endings, "…")) else 1.2)
         )
 
     def accept_classifications(
@@ -520,9 +496,9 @@ class DialogueHistory:
             w > 0
             and h > 0
             and 2 <= len(block.text) <= 2048
-            and has_japanese(block.text)
+            and block.language.contains_text(block.text)
             and not any(t.vertical for t in block.lines)
-            and not _CHOICE.match(block.text)
+            and not block.language.lists.numbered_or_bullet.match(block.text)
             and not _STAT.search(block.text)
             and 0.06 * w <= b.x <= 0.55 * w
             and b.x + b.width <= 0.95 * w
@@ -530,7 +506,11 @@ class DialogueHistory:
             and b.y + b.height <= 0.98 * h
             and b.height <= 0.28 * h
             and 0.01 * h <= block.line_height <= 0.08 * h
-            and (block.dialogue or block.text.endswith(_END) or len(block.text) >= 24)
+            and (
+                block.dialogue
+                or block.text.endswith((*block.language.endings, "…"))
+                or len(block.text) >= 24
+            )
         )
 
     @staticmethod
@@ -545,7 +525,7 @@ class DialogueHistory:
         return (
             len(block.lines) <= 3
             and len(block.text) >= 12
-            and block.text.endswith(_END)
+            and block.text.endswith((*block.language.endings, "…"))
             and bounds.y >= height * 0.68
             and bounds.height <= height * 0.16
             and bounds.width >= width * 0.3
@@ -558,9 +538,8 @@ class DialogueHistory:
     @staticmethod
     def _name(name: TextBlock, body: TextBlock) -> bool:
         text = name.text.strip()
-        # A parenthesized kana reading is part of a name, not a menu annotation.
-        # Validate its base normally; retain the exact full source for identity/confidence.
-        base = _READING.sub("", text).strip()
+        # Validate the base name; retain the full OCR text for identity and confidence.
+        base = name.language.speaker_base(text)
         # Some subtitle UIs center a larger speaker label above the body. Keep the
         # ordinary small-label limit elsewhere; a large nearby heading is not a name.
         maximum_height = 1.5 if _centered(name, body, body.line_height) else 1.15
@@ -571,8 +550,8 @@ class DialogueHistory:
             and (any(c.isalpha() for c in text) or not set(text) - set("?？"))
             and not text.isnumeric()
             and bool(base)
-            and (not any(c in _NAME_PUNCTUATION for c in base) or not set(base) - set("?？"))
-            and base not in _MENU
+            and (not name.language.has_speaker_punctuation(base) or not set(base) - set("?？"))
+            and base not in name.language.menu_labels
             and name.bounds.width <= body.line_height * 18
             and body.line_height * 0.45 <= name.line_height <= body.line_height * maximum_height
         )

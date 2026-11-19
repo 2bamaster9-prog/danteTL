@@ -83,9 +83,9 @@ class DialogueMemory:
             or (
                 self._bounds is not None
                 and _same_panel(self._bounds, b.bounds)
-                and b.text.endswith(tuple("。！？!?」』"))
+                and b.text.endswith(b.language.endings)
                 and len(b.text) >= 2
-                and not b.text.startswith(tuple("・•●○◆◇▶▷→0123456789０１２３４５６７８９"))
+                and not b.text.startswith(b.language.lists.possible_prefix)
             )
         )
         if len(candidates) != 1:

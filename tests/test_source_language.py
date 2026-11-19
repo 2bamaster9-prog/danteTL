@@ -2,10 +2,12 @@ import pytest
 from test_live_session import frame
 
 from dantejp.domain import Rect
+from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
 from dantejp.ocr.tracking import TextTrack, TextTracker, prepare_matching
 from dantejp.ocr.values import OcrResult, TextRegion
-from dantejp.translation.grouping import DialogueGrouper
+from dantejp.translation.dialogue.layout import PanelLayout
+from dantejp.translation.grouping import DialogueGrouper, TextBlock
 
 # Exercise the generic policy without registering another supported OCR language.
 PORTUGUESE = SourceLanguage("pt", "Portuguese", warmup_text="Mapa")
@@ -44,6 +46,25 @@ def test_percentage_label_needs_established_prose_and_text_after_the_value():
     ]:
         assert grouped_rows(language, first, second) == [[first], [second]]
     assert grouped_rows(PORTUGUESE, lead, tail) == [[lead], [tail]]
+
+
+@pytest.mark.parametrize(
+    ("marker", "generic", "japanese"),
+    [
+        ("A)", True, True),
+        ("•", True, True),
+        ("-", False, False),
+        ("・", False, True),
+        ("１、", False, True),
+    ],
+)
+def test_panel_uses_the_selected_list_notation(marker, generic, japanese):
+    for language, expected in [(PORTUGUESE, generic), (DEFAULT_SOURCE, japanese)]:
+        row = TextTrack(1, marker + " Item", Rect(100, 100, 180, 35))
+        block = TextBlock((row,), language=language)
+        layout = PanelLayout()
+        layout.update((block,))
+        assert layout.marked_choice(block) is expected
 
 
 @pytest.mark.parametrize("lower_length, expected_blocks", [(255, 1), (256, 2)])
