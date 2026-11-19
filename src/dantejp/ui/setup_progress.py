@@ -2,6 +2,7 @@
 
 from PySide6.QtWidgets import QLabel, QProgressBar, QVBoxLayout, QWidget
 
+from dantejp.i18n import tr
 from dantejp.runtime.setup_values import ModelProgress
 
 
@@ -25,11 +26,13 @@ class SetupProgressView(QWidget):
         if value.done:
             self.overall.setRange(0, 1)
             self.overall.setValue(0 if value.error or value.cancelled else 1)
-            self.overall.setFormat("Stopped" if value.error or value.cancelled else "Complete")
+            self.overall.setFormat(
+                tr("Stopped") if value.error or value.cancelled else tr("Complete")
+            )
         elif value.stages:
             self.overall.setRange(0, value.stages)
             self.overall.setValue(value.stage)
-            self.overall.setFormat("Setup step %v of %m")
+            self.overall.setFormat(tr("Setup step %v of %m"))
         else:
             self.overall.setRange(0, 0)
         download = value.download
@@ -41,10 +44,20 @@ class SetupProgressView(QWidget):
             if download.total:
                 self.download.setValue(min(1000, round(download.received * 1000 / download.total)))
                 self.download.setFormat(
-                    f"{download.received / 1e6:.1f} / {download.total / 1e6:.1f} MB · %p%"
+                    tr(
+                        "{value:.1f} / {value2:.1f} MB · %p%",
+                        value=download.received / 1000000.0,
+                        value2=download.total / 1000000.0,
+                    )
                 )
             else:
-                self.download.setFormat(f"{download.received / 1e6:.1f} MB · total unknown")
+                self.download.setFormat(
+                    tr("{value:.1f} MB · total unknown", value=download.received / 1000000.0)
+                )
                 self.download_label.setText(
-                    f"{download.name} · {download.received / 1e6:.1f} MB received; total unknown"
+                    tr(
+                        "{name} · {value:.1f} MB received; total unknown",
+                        name=download.name,
+                        value=download.received / 1000000.0,
+                    )
                 )

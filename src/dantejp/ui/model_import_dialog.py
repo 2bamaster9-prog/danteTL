@@ -17,8 +17,10 @@ from PySide6.QtWidgets import (
 )
 
 from dantejp.application.services import SetupCommands
+from dantejp.i18n import mark, tr
 from dantejp.runtime.setup_values import SetupLane
 from dantejp.translation.models.values import PROFILES, ImportedModel
+from dantejp.ui.localization import localized, localized_item
 
 
 class ModelImportDialog(QDialog):
@@ -30,7 +32,12 @@ class ModelImportDialog(QDialog):
         expected: ImportedModel | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Locate imported model" if expected else "Import local GGUF model")
+        localized(
+            self,
+            windowTitle=mark("Locate imported model")
+            if expected
+            else mark("Import local GGUF model"),
+        )
         self.resize(670, 600)
         self.setMinimumSize(540, 450)
         self.expected = expected
@@ -39,40 +46,47 @@ class ModelImportDialog(QDialog):
         self._completion = 0
         self._closing = False
         layout = QVBoxLayout(self)
-        intro = QLabel(
-            "Choose a single-file GGUF chat model. The file stays in its current folder; "
-            "DanteJP saves only a reference. The import test uses Japanese and English."
+        intro = localized(
+            QLabel(),
+            text=mark(
+                "Choose a single-file GGUF chat model. The file stays in its current folder; "
+                "DanteJP saves only a reference. The import test uses Japanese and English."
+            ),
         )
         intro.setWordWrap(True)
         layout.addWidget(intro)
         row = QHBoxLayout()
         self.file = QLineEdit(expected.path if expected else "")
-        self.file.setPlaceholderText("Path to a local .gguf file")
-        self.file.setAccessibleName("Model file")
+        localized(self.file, placeholderText=mark("Path to a local .gguf file"))
+        localized(self.file, accessibleName=mark("Model file"))
         row.addWidget(self.file, 1)
-        self.browse = QPushButton("Browse…")
+        self.browse = localized(QPushButton(), text=mark("Browse…"))
         self.browse.clicked.connect(self._browse)
         row.addWidget(self.browse)
         layout.addLayout(row)
         self.name = QLineEdit(expected.name if expected else "")
         self.name.setMaxLength(100)
-        self.name.setPlaceholderText("Use the model filename")
-        self.name.setAccessibleName("Display name")
-        layout.addWidget(QLabel("Display name (optional)"))
+        localized(self.name, placeholderText=mark("Use the model filename"))
+        localized(self.name, accessibleName=mark("Display name"))
+        layout.addWidget(localized(QLabel(), text=mark("Display name (optional)")))
         layout.addWidget(self.name)
         self.profile = QComboBox()
         for key, label in PROFILES.items():
-            self.profile.addItem(label, key)
+            localized_item(self.profile, label, key)
         if expected:
             self.profile.setCurrentIndex(self.profile.findData(expected.profile))
-        self.profile.setToolTip(
-            "Automatic uses Gemma 4's native format or the GGUF's embedded chat template. "
-            "Only choose another format when the model's documentation specifies it."
+        localized(
+            self.profile,
+            toolTip=mark(
+                "Automatic uses Gemma 4's native format or the GGUF's embedded chat template. "
+                "Only choose another format when the model's documentation specifies it."
+            ),
         )
-        layout.addWidget(QLabel("Prompt format"))
+        layout.addWidget(localized(QLabel(), text=mark("Prompt format")))
         layout.addWidget(self.profile)
-        self.status = QLabel(
-            "Test the model to check this app's runtime and view sample translations."
+        self.status = localized(
+            QLabel(),
+            text=mark("Test the model to check this app's runtime and view sample translations."),
         )
         self.status.setTextFormat(Qt.TextFormat.PlainText)
         self.status.setWordWrap(True)
@@ -82,24 +96,32 @@ class ModelImportDialog(QDialog):
         layout.addWidget(self.progress)
         self.results = QPlainTextEdit()
         self.results.setReadOnly(True)
-        self.results.setPlaceholderText(
-            "Test translations and timings appear here. "
-            "Passing a test does not guarantee translation quality."
+        localized(
+            self.results,
+            placeholderText=mark(
+                "Test translations and timings appear here. "
+                "Passing a test does not guarantee translation quality."
+            ),
         )
         layout.addWidget(self.results, 1)
-        note = QLabel(
-            "Testing temporarily pauses translation to free model memory; capture continues. "
-            "Your previous selection resumes after testing. First GPU use may take a minute."
+        note = localized(
+            QLabel(),
+            text=mark(
+                "Testing temporarily pauses translation to free model memory; capture continues. "
+                "Your previous selection resumes after testing. First GPU use may take a minute."
+            ),
         )
         note.setWordWrap(True)
         layout.addWidget(note)
         buttons = QHBoxLayout()
-        self.test_button = QPushButton("Test compatibility")
+        self.test_button = localized(QPushButton(), text=mark("Test compatibility"))
         self.test_button.clicked.connect(self.start_test)
-        self.add_button = QPushButton("Update location" if expected else "Add model")
+        self.add_button = localized(
+            QPushButton(), text=mark("Update location") if expected else mark("Add model")
+        )
         self.add_button.setEnabled(False)
         self.add_button.clicked.connect(self._add)
-        self.cancel_button = QPushButton("Close")
+        self.cancel_button = localized(QPushButton(), text=mark("Close"))
         self.cancel_button.clicked.connect(self._cancel_or_close)
         for button in (self.test_button, self.add_button, self.cancel_button):
             buttons.addWidget(button)
@@ -119,7 +141,7 @@ class ModelImportDialog(QDialog):
 
     def _browse(self) -> None:
         filename, _ = QFileDialog.getOpenFileName(
-            self, "Choose local model", self.file.text(), "GGUF models (*.gguf)"
+            self, tr("Choose local model"), self.file.text(), tr("GGUF models (*.gguf)")
         )
         if filename:
             self.file.setText(filename)
@@ -139,7 +161,7 @@ class ModelImportDialog(QDialog):
         for widget in (self.file, self.name, self.browse, self.profile, self.test_button):
             widget.setEnabled(not busy)
         self.add_button.setEnabled(False)
-        self.cancel_button.setText("Cancel" if busy else "Close")
+        self.cancel_button.setText(tr("Cancel") if busy else tr("Close"))
         self.progress.setVisible(busy)
         self.progress.setRange(0, 0)
 
@@ -150,7 +172,7 @@ class ModelImportDialog(QDialog):
     def cancel(self) -> None:
         if self.busy:
             self.service.cancel(SetupLane.MODELS)
-            self.status.setText("Cancelling… waiting for the test process to stop.")
+            self.status.setText(tr("Cancelling… waiting for the test process to stop."))
 
     @property
     def busy(self) -> bool:
@@ -183,11 +205,21 @@ class ModelImportDialog(QDialog):
         elif job.action == "probe" and succeeded and self.service.probe_result:
             result = self.service.probe_result
             self.results.setPlainText(
-                f"{result.model.name}\nArchitecture: {result.model.architecture} · "
-                f"Format: {PROFILES[result.model.profile]}\n"
-                f"{result.model.size / 2**30:.2f} GiB on disk · Tested: {result.device.upper()}"
-                + (f" · {result.offloaded_layers} GPU layers" if result.offloaded_layers else "")
-                + f"\nLoad + warm-up: {result.load_ms / 1000:.1f} s\n\n"
+                tr(
+                    "{name}\nArchitecture: {architecture} · Format: {value}\n{value2:.2f} "
+                    "GiB on disk · Tested: {value3}",
+                    name=result.model.name,
+                    architecture=result.model.architecture,
+                    value=tr(PROFILES[result.model.profile]),
+                    value2=result.model.size / 2**30,
+                    value3=result.device.upper(),
+                )
+                + (
+                    tr(" · {offloaded_layers} GPU layers", offloaded_layers=result.offloaded_layers)
+                    if result.offloaded_layers
+                    else ""
+                )
+                + tr("\nLoad + warm-up: {value:.1f} s\n\n", value=result.load_ms / 1000)
                 + "\n\n".join(
                     f"{source}\n{english}\n{ms:.0f} ms" for source, english, ms in result.samples
                 )

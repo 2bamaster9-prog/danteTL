@@ -3,7 +3,9 @@
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from dantejp.application.model_advice import ADVICE, COMPARISON_NOTE
+from dantejp.i18n import mark, tr
 from dantejp.ui.controls import InfoButton, set_tone
+from dantejp.ui.localization import localized
 
 
 class ModelSummary(QWidget):
@@ -15,9 +17,11 @@ class ModelSummary(QWidget):
         grid = QGridLayout(self.ratings)
         grid.setContentsMargins(0, 0, 0, 0)
         self.values: list[QLabel] = []
-        for index, name in enumerate(("Dialogue", "Game terms", "Speed", "Memory use")):
+        for index, name in enumerate(
+            (mark("Dialogue"), mark("Game terms"), mark("Speed"), mark("Memory use"))
+        ):
             row, column = index // 2, (index % 2) * 2
-            grid.addWidget(QLabel(name), row, column)
+            grid.addWidget(localized(QLabel(), text=name), row, column)
             value = QLabel()
             value.setObjectName("modelRating")
             self.values.append(value)
@@ -38,14 +42,19 @@ class ModelSummary(QWidget):
         footer.addWidget(self.size_label, 1)
         footer.addWidget(
             InfoButton(
-                "Model ratings",
-                COMPARISON_NOTE + " Speed assumes GPU for language models. "
-                "Capability checks indicate support, not an installed runtime. "
-                "Download size is not RAM/VRAM usage.",
+                mark("Model ratings"),
+                lambda: (
+                    tr(COMPARISON_NOTE)
+                    + tr(
+                        " Speed assumes GPU for language models. "
+                        "Capability checks indicate support, not an installed runtime. "
+                        "Download size is not RAM/VRAM usage."
+                    )
+                ),
             )
         )
         layout.addLayout(footer)
-        self.setToolTip(COMPARISON_NOTE)
+        localized(self, toolTip=COMPARISON_NOTE)
 
     def set_model(
         self, key: str, size: int, language_model: bool, *, imported: bool = False
@@ -58,17 +67,25 @@ class ModelSummary(QWidget):
                 (advice.dialogue, advice.terms, advice.speed, advice.memory),
                 strict=True,
             ):
-                label.setText(rating.text)
-                label.setToolTip(rating.detail)
+                label.setText(tr(rating.text))
+                label.setToolTip(tr(rating.detail))
                 set_tone(label, rating.tone)
-        self.cpu.setText("✓ CPU support")
-        self.gpu.setText("✓ GPU support" if language_model else "— CPU only")
-        self.context.setText("✓ Dialogue context" if language_model else "✕ No context")
-        self.gpu.setToolTip("NVIDIA CUDA or Vulkan; optional runtime setup is separate.")
-        self.cpu.setToolTip("CPU execution is supported; larger models can be slow.")
-        size_text = f"{size / 1e9:.2f} GB" if size >= 1e9 else f"{size / 1e6:.0f} MB"
+        self.cpu.setText(tr("✓ CPU support"))
+        self.gpu.setText(tr("✓ GPU support") if language_model else tr("— CPU only"))
+        self.context.setText(tr("✓ Dialogue context") if language_model else tr("✕ No context"))
+        self.gpu.setToolTip(tr("NVIDIA CUDA or Vulkan; optional runtime setup is separate."))
+        self.cpu.setToolTip(tr("CPU execution is supported; larger models can be slow."))
+        size_text = (
+            tr("{value:.2f} GB", value=size / 1000000000.0)
+            if size >= 1e9
+            else tr("{value:.0f} MB", value=size / 1000000.0)
+        )
         self.size_label.setText(
-            f"{'Local file' if imported else 'Download'}: {size_text}"
-            + (" · Not rated" if not advice else "")
+            (
+                tr("Local file: {size}", size=size_text)
+                if imported
+                else tr("Download: {size}", size=size_text)
+            )
+            + (tr(" · Not rated") if not advice else "")
         )
         self.setVisible(bool(size))

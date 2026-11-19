@@ -12,7 +12,9 @@ from PySide6.QtWidgets import (
 )
 
 from dantejp.application.model_values import ModelFile
+from dantejp.i18n import display, mark, tr
 from dantejp.ui.controls import InfoButton, set_tone
+from dantejp.ui.localization import localized
 
 
 class OcrModelSettings(QWidget):
@@ -23,15 +25,16 @@ class OcrModelSettings(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         header = QHBoxLayout()
-        heading = QLabel("Text recognition (OCR)")
+        heading = localized(QLabel(), text=mark("Text recognition (OCR)"))
         heading.setObjectName("sectionTitle")
         header.addWidget(heading)
         header.addWidget(
             InfoButton(
-                "Text recognition models",
-                "OCR reads text from game images. Translation models turn that text into "
-                "your selected output language. The standalone app includes MeikiOCR for Japanese; "
-                "no download is needed.",
+                mark("Text recognition models"),
+                mark(
+                    "The standalone app includes MeikiOCR for Japanese "
+                    "and PaddleOCR for Latin-script text."
+                ),
             )
         )
         header.addStretch()
@@ -40,7 +43,7 @@ class OcrModelSettings(QWidget):
         self.badge.setObjectName("modelBadge")
         self.summary = self._label(layout)
         self.manage = QToolButton()
-        self.manage.setText("Manage OCR files")
+        localized(self.manage, text=mark("Manage OCR files"))
         self.manage.setCheckable(True)
         self.manage.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.manage.setArrowType(Qt.ArrowType.RightArrow)
@@ -49,7 +52,7 @@ class OcrModelSettings(QWidget):
         details = QVBoxLayout(self.details)
         details.setContentsMargins(0, 0, 0, 0)
         self.choice = QComboBox()
-        self.choice.setAccessibleName("Text recognition model files")
+        localized(self.choice, accessibleName=mark("Text recognition model files"))
         self.choice.setMinimumContentsLength(20)
         self.choice.setSizeAdjustPolicy(
             QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
@@ -81,7 +84,7 @@ class OcrModelSettings(QWidget):
         self.choice.clear()
         for bundle in bundles:
             if bundle.category == "recognition":
-                self.choice.addItem(bundle.name, bundle)
+                self.choice.addItem(display(bundle.name), bundle)
                 if selected and bundle.key == selected.key:
                     self.choice.setCurrentIndex(self.choice.count() - 1)
         self.choice.blockSignals(False)
@@ -102,22 +105,30 @@ class OcrModelSettings(QWidget):
             return
         present = bundle.present
         self.badge.setText(
-            f"✓  {bundle.name.split(' · ')[0]} · Included with app"
+            tr("✓  {value} · Included with app", value=bundle.name.split(" · ")[0])
             if bundle.included
-            else f"✓  {bundle.name.split(' · ')[0]} · Downloaded"
+            else tr("✓  {value} · Downloaded", value=bundle.name.split(" · ")[0])
             if present
-            else f"↓  {bundle.name.split(' · ')[0]} · Download required"
+            else tr("↓  {value} · Download required", value=bundle.name.split(" · ")[0])
         )
         set_tone(self.badge, "success" if present else "warning")
         self.summary.setText(
-            "Reads Japanese text from game images; it does not translate it. "
-            "Already included — no download needed."
+            tr(
+                "Reads Japanese text from game images; it does not translate it. "
+                "Already included — no download needed."
+            )
             if bundle.included
-            else bundle.description
+            else display(bundle.description)
         )
-        self.status.setText(bundle.status)
+        self.status.setText(display(bundle.status))
         self.location.setText(
-            f"Model folder: {bundle.local_directory}"
-            + (f"\nRepairs folder: {bundle.directory}" if bundle.bundled_directory else "")
+            tr("Model folder: {local_directory}", local_directory=bundle.local_directory)
+            + (
+                tr("\nRepairs folder: {directory}", directory=bundle.directory)
+                if bundle.bundled_directory
+                else ""
+            )
         )
-        self.download.setText("Verify / repair OCR files" if present else "Download OCR files")
+        self.download.setText(
+            tr("Verify / repair OCR files") if present else tr("Download OCR files")
+        )
