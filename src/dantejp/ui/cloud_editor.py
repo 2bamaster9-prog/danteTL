@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from dantejp.i18n import mark, tr
 from dantejp.translation.cloud.state import CloudDraft
 from dantejp.translation.cloud.values import (
     MODELS,
@@ -33,6 +34,7 @@ from dantejp.translation.cloud.values import (
 )
 from dantejp.ui.chatgpt_controls import ChatGPTControls
 from dantejp.ui.controls import set_tone
+from dantejp.ui.localization import localized, localized_item
 
 
 class CloudModelDialog(QDialog):
@@ -47,7 +49,9 @@ class CloudModelDialog(QDialog):
 
     def __init__(self, profile: CloudProfile | None, parent: QWidget) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Edit cloud model" if profile else "Add cloud model")
+        localized(
+            self, windowTitle=mark("Edit cloud model") if profile else mark("Add cloud model")
+        )
         self.setWindowModality(Qt.WindowModality.WindowModal)
         self.resize(600, 640)
         self.setMinimumSize(480, 420)
@@ -78,11 +82,11 @@ class CloudModelDialog(QDialog):
             QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
         )
         for key, label in PROVIDERS.items():
-            self.provider.addItem(label, key)
+            localized_item(self.provider, label, key)
         if profile:
             self.provider.setCurrentIndex(self.provider.findData(profile.provider))
         self.provider.setEnabled(profile is None)
-        form.addRow("Provider", self.provider)
+        form.addRow(localized(QLabel(), text=mark("Provider")), self.provider)
         self.chatgpt = ChatGPTControls()
         form.addRow(self.chatgpt)
         self.api_fields = QWidget()
@@ -93,12 +97,15 @@ class CloudModelDialog(QDialog):
         self.connection.setSizeAdjustPolicy(
             QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
         )
-        self.connection.setAccessibleName("Saved API connection")
+        localized(self.connection, accessibleName=mark("Saved API connection"))
         api_row.addWidget(self.connection, 1)
-        self.forget = QPushButton("Forget key")
-        self.forget.setToolTip("Remove this saved key for every model using this connection.")
+        self.forget = localized(QPushButton(), text=mark("Forget key"))
+        localized(
+            self.forget,
+            toolTip=mark("Remove this saved key for every model using this connection."),
+        )
         api_row.addWidget(self.forget)
-        form.addRow("Connection", self.api_fields)
+        form.addRow(localized(QLabel(), text=mark("Connection")), self.api_fields)
         self._api_label = form.labelForField(self.api_fields)
         self.model = QComboBox()
         self.model.setMinimumContentsLength(16)
@@ -107,27 +114,33 @@ class CloudModelDialog(QDialog):
         )
         model_row = QHBoxLayout()
         model_row.addWidget(self.model, 1)
-        self.refresh_models = QPushButton("Refresh models")
-        self.refresh_models.setToolTip(
-            "Ask this provider for its model catalog. No translation request is sent."
+        self.refresh_models = localized(QPushButton(), text=mark("Refresh models"))
+        localized(
+            self.refresh_models,
+            toolTip=mark(
+                "Ask this provider for its model catalog. No translation request is sent."
+            ),
         )
         model_row.addWidget(self.refresh_models)
-        form.addRow("Model", model_row)
+        form.addRow(localized(QLabel(), text=mark("Model")), model_row)
         self.model_note = QLabel()
         self.model_note.setWordWrap(True)
         self.model_note.setObjectName("muted")
         form.addRow(self.model_note)
         self.name = QLineEdit(profile.name if profile else "")
         self.name.setMaxLength(80)
-        form.addRow("Display name", self.name)
+        form.addRow(localized(QLabel(), text=mark("Display name")), self.name)
         self.key = QLineEdit()
         self.key.setEchoMode(QLineEdit.EchoMode.Password)
         self.key.setMaxLength(2560)
-        self.key.setToolTip(
-            "Saved in Windows Credential Manager only when you save. Replacing a saved key "
-            "updates every model using that connection. Leave blank to reuse it."
+        localized(
+            self.key,
+            toolTip=mark(
+                "Saved in Windows Credential Manager only when you save. Replacing a saved key "
+                "updates every model using that connection. Leave blank to reuse it."
+            ),
         )
-        form.addRow("API key", self.key)
+        form.addRow(localized(QLabel(), text=mark("API key")), self.key)
         self._key_label = form.labelForField(self.key)
         body.addLayout(form)
         self.badge = QLabel()
@@ -135,7 +148,7 @@ class CloudModelDialog(QDialog):
         self.badge.setWordWrap(True)
         body.addWidget(self.badge)
         self.advanced = QToolButton()
-        self.advanced.setText("Advanced")
+        localized(self.advanced, text=mark("Advanced"))
         self.advanced.setCheckable(True)
         self.advanced.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         body.addWidget(self.advanced, alignment=Qt.AlignmentFlag.AlignLeft)
@@ -145,28 +158,26 @@ class CloudModelDialog(QDialog):
         self.rate = QSpinBox()
         self.rate.setRange(10, 600)
         self.rate.setValue(profile.requests_per_minute if profile else 120)
-        self.rate.setSuffix(" / minute")
-        self.rate.setToolTip(
-            "Maximum request starts, including retries. Cache hits use no requests."
+        localized(self.rate, suffix=mark(" / minute"))
+        localized(
+            self.rate,
+            toolTip=mark("Maximum request starts, including retries. Cache hits use no requests."),
         )
-        limits.addRow("Request rate", self.rate)
+        limits.addRow(localized(QLabel(), text=mark("Request rate")), self.rate)
         self.limit = QSpinBox()
         self.limit.setRange(1, 100_000)
         self.limit.setValue(profile.request_limit if profile else 1000)
-        self.limit.setToolTip(
-            "Maximum reserved attempts for this model until DanteJP exits. Not a spending cap."
+        localized(
+            self.limit,
+            toolTip=mark(
+                "Maximum reserved attempts for this model until DanteJP exits. Not a spending cap."
+            ),
         )
-        limits.addRow("Limit per app run", self.limit)
+        limits.addRow(localized(QLabel(), text=mark("Limit per app run")), self.limit)
         body.addWidget(self.limits)
         self.disclosure = QLabel()
         self.disclosure.setWordWrap(True)
         body.addWidget(self.disclosure)
-        note = QLabel(
-            "Model changes apply with Save. Sign-in, sign-out and Forget key apply immediately."
-        )
-        note.setWordWrap(True)
-        note.setObjectName("muted")
-        body.addWidget(note)
         body.addStretch()
         scroll.setWidget(self.form)
         layout.addWidget(scroll, 1)
@@ -179,7 +190,7 @@ class CloudModelDialog(QDialog):
         self.progress.hide()
         layout.addWidget(self.progress)
         footer = QHBoxLayout()
-        self.test = QPushButton("Test connection")
+        self.test = localized(QPushButton(), text=mark("Test connection"))
         self.test.setAutoDefault(False)
         footer.addWidget(self.test)
         footer.addStretch()
@@ -247,7 +258,7 @@ class CloudModelDialog(QDialog):
         if first and self.profile:
             index = self.model.findData(self.profile.model)
             if index < 0:
-                self.model.addItem(self.profile.model + " · unavailable", self.profile.model)
+                self.model.addItem(self.profile.model + tr(" · unavailable"), self.profile.model)
                 index = self.model.count() - 1
             self.model.setCurrentIndex(index)
             self.name.setText(self.profile.name)
@@ -284,7 +295,7 @@ class CloudModelDialog(QDialog):
             self.connection.addItem(
                 ("✓ " if connection.key in self._ready else "○ ") + connection.name, connection.key
             )
-        self.connection.addItem("New API key…", "")
+        self.connection.addItem(tr("New API key…"), "")
         index = self.connection.findData(requested)
         self.connection.setCurrentIndex(
             index
@@ -296,14 +307,14 @@ class CloudModelDialog(QDialog):
         self.connection.blockSignals(False)
         self._account_changed()
         self.disclosure.setText(
-            "Sends recognized text and dialogue context, never screenshots. "
+            tr("Sends recognized text and dialogue context, never screenshots. ")
             + (
-                "Uses ChatGPT plan permissions; no API-key fallback."
+                tr("Uses ChatGPT plan permissions; no API-key fallback.")
                 if chatgpt
-                else "Uses separate API billing, not a chat subscription."
+                else tr("Uses separate API billing, not a chat subscription.")
             )
             + (
-                " Use a workspace-scoped Claude API key."
+                tr(" Use a workspace-scoped Claude API key.")
                 if self.provider.currentData() == "claude"
                 else ""
             )
@@ -340,9 +351,9 @@ class CloudModelDialog(QDialog):
                     m.model,
                     m.label
                     + (
-                        " · retired"
+                        tr(" · retired")
                         if m.lifecycle == "retired"
-                        else " · deprecated"
+                        else tr(" · deprecated")
                         if m.lifecycle == "deprecated"
                         else ""
                     ),
@@ -352,7 +363,7 @@ class CloudModelDialog(QDialog):
         )
         self.model.blockSignals(True)
         self.model.clear()
-        self.model.addItem("Choose a model…", None)
+        self.model.addItem(tr("Choose a model…"), None)
         for key, label in models:
             self.model.addItem(label, key)
         self.model.setCurrentIndex(max(0, self.model.findData(previous)))
@@ -373,16 +384,16 @@ class CloudModelDialog(QDialog):
         self._populate_models()
         saved = self.connection.currentData() in self._ready
         self.key.setPlaceholderText(
-            "Saved key · leave blank to reuse" if saved else "Paste your API key"
+            tr("Saved key · leave blank to reuse") if saved else tr("Paste your API key")
         )
         self.forget.setEnabled(bool(self.connection.currentData()))
         account = self.chatgpt.selected
         chatgpt = self.provider.currentData() == "chatgpt"
         ready = bool(account and account.enabled) if chatgpt else saved
         self.badge.setText(
-            ("✓ Signed in" if ready else "Sign in to choose models")
+            (tr("✓ Signed in") if ready else tr("Sign in to choose models"))
             if chatgpt
-            else ("✓ Key saved · not a connection test" if saved else "API key required")
+            else (tr("✓ Key saved · not a connection test") if saved else tr("API key required"))
         )
         set_tone(self.badge, "success" if ready else "warning")
 
@@ -395,19 +406,19 @@ class CloudModelDialog(QDialog):
         self.status.clear()
         selected = self._models.get(self.model.currentData())
         if self.provider.currentData() == "chatgpt":
-            self.model_note.setText("Account models · list order is not a speed ranking.")
+            self.model_note.setText(tr("Account models · list order is not a speed ranking."))
         else:
             source = (
-                "Provider catalog"
+                tr("Provider catalog")
                 if self._discovered is not None
-                else "Cached catalog"
+                else tr("Cached catalog")
                 if self.connection.currentData() in self._catalogs and not self.key.text()
-                else "Suggested models · refresh for the provider's current list"
+                else tr("Suggested models · refresh for the provider's current list")
             )
             self.model_note.setText(
                 source
                 + (
-                    " · Provider defaults; use Test connection to check compatibility"
+                    tr(" · Provider defaults; use Test connection to check compatibility")
                     if selected and selected.decoding != "preset"
                     else ""
                 )
@@ -419,13 +430,13 @@ class CloudModelDialog(QDialog):
         try:
             provider = self.provider.currentData()
             if not refresh and not self.model.currentData():
-                raise ValueError("Choose a translation model first.")
+                raise ValueError(tr("Choose a translation model first."))
             selected = self._models.get(self.model.currentData())
             if selected and selected.lifecycle == "retired" and not refresh:
-                raise ValueError("This provider has retired the model. Choose another model.")
+                raise ValueError(tr("This provider has retired the model. Choose another model."))
             profile = CloudProfile(
                 self._id,
-                self.name.text().strip() or self.model.currentText() or "Catalog refresh",
+                self.name.text().strip() or self.model.currentText() or tr("Catalog refresh"),
                 provider,
                 self.model.currentData() or (MODELS[provider][0][0] if refresh else ""),
                 self.rate.value(),
@@ -477,7 +488,7 @@ class CloudModelDialog(QDialog):
         if self._busy:
             self._closing = True
             self.cancel_button.setEnabled(False)
-            self.status.setText("Cancelling… waiting for the current operation to finish.")
+            self.status.setText(tr("Cancelling… waiting for the current operation to finish."))
             self.cancel_requested.emit()
         else:
             super().reject()

@@ -7,6 +7,7 @@ from ctypes import wintypes
 from PySide6.QtCore import QAbstractNativeEventFilter, QByteArray, QCoreApplication, Qt, QTimer
 
 from dantejp.application.hotkeys import Hotkeys
+from dantejp.i18n import tr
 
 
 class WindowsHotkeyRegistrar:
@@ -26,9 +27,9 @@ class WindowsHotkeyRegistrar:
         if not self._user32.RegisterHotKey(None, identifier, modifiers | 0x4000, key):
             error = ctypes.get_last_error()
             reason = (
-                "Another app or Windows already uses this shortcut."
+                tr("Another app or Windows already uses this shortcut.")
                 if error == 1409
-                else f"Windows could not register this shortcut (error {error})."
+                else tr("Windows could not register this shortcut (error {error}).", error=error)
             )
             raise OSError(reason)
 

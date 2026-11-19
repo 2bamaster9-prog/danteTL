@@ -19,9 +19,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from dantejp.i18n import mark, tr
 from dantejp.translation.cloud.state import CloudDraft
 from dantejp.translation.cloud.values import PROVIDERS, CloudProfile
 from dantejp.ui.cloud_editor import CloudModelDialog
+from dantejp.ui.localization import localized, on_language_change
 
 if TYPE_CHECKING:
     from dantejp.application.services import CloudCommands
@@ -40,21 +42,21 @@ class CloudSettings(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         header = QHBoxLayout()
-        header.addWidget(QLabel("Cloud translation"))
+        header.addWidget(localized(QLabel(), text=mark("Cloud translation")))
         header.addStretch()
-        self.add = QPushButton("Add cloud model…")
+        self.add = localized(QPushButton(), text=mark("Add cloud model…"))
         self.add.clicked.connect(lambda: self.open_editor())
         header.addWidget(self.add)
         layout.addLayout(header)
-        self.empty = QLabel(
-            "No cloud models yet. Add a model using your ChatGPT account or an API key."
+        self.empty = localized(
+            QLabel(),
+            text=mark("No cloud models yet. Add a model using your ChatGPT account or an API key."),
         )
         self.empty.setWordWrap(True)
         layout.addWidget(self.empty)
         self.table = QTableWidget(0, 3)
         self.table.setObjectName("cloudModels")
-        self.table.setAccessibleName("Cloud models")
-        self.table.setHorizontalHeaderLabels(("Model", "Connection", "Status"))
+        localized(self.table, accessibleName=mark("Cloud models"))
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -69,21 +71,14 @@ class CloudSettings(QWidget):
         self.table.cellDoubleClicked.connect(lambda *_: self._edit_selected())
         layout.addWidget(self.table)
         actions = QHBoxLayout()
-        self.edit = QPushButton("Edit…")
-        self.remove = QPushButton("Remove")
+        self.edit = localized(QPushButton(), text=mark("Edit…"))
+        self.remove = localized(QPushButton(), text=mark("Remove"))
         self.edit.clicked.connect(self._edit_selected)
         self.remove.clicked.connect(self._remove)
         actions.addWidget(self.edit)
         actions.addWidget(self.remove)
         actions.addStretch()
         layout.addLayout(actions)
-        note = QLabel(
-            "Choose a saved model on the main screen to use it. "
-            "Removing a model keeps its connection."
-        )
-        note.setWordWrap(True)
-        note.setObjectName("muted")
-        layout.addWidget(note)
         self.progress = QProgressBar()
         self.progress.setRange(0, 0)
         self.progress.hide()
@@ -96,15 +91,24 @@ class CloudSettings(QWidget):
         self.usage.setWordWrap(True)
         self.usage.setObjectName("muted")
         self.usage.setTextFormat(Qt.TextFormat.PlainText)
-        self.usage.setToolTip(
-            "Counts belong to the selected saved model, including translation and "
-            "classifier requests. Cache hits make no requests. Token totals include only "
-            "usage reported by the provider; "
-            "these are not billing totals. Counts reset when DanteJP exits."
+        localized(
+            self.usage,
+            toolTip=mark(
+                "Counts belong to the selected saved model, including translation and "
+                "classifier requests. Cache hits make no requests. Token totals include only "
+                "usage reported by the provider; "
+                "these are not billing totals. Counts reset when DanteJP exits."
+            ),
         )
         layout.addWidget(self.usage)
         layout.addStretch()
-        self._render()
+        self._refresh_language()
+        on_language_change(self, self._refresh_language)
+
+    def _refresh_language(self) -> None:
+        self.table.setHorizontalHeaderLabels((tr("Model"), tr("Connection"), tr("Status")))
+        profile = self.selected_profile()
+        self._render(profile.key if profile else "")
 
     @property
     def busy(self) -> bool:
@@ -138,9 +142,15 @@ class CloudSettings(QWidget):
         if profile:
             usage = self.service.usage(profile.key)
             self.usage.setText(
-                f"{profile.name} · This app run: "
-                f"{usage.requests}/{profile.request_limit} reserved requests · "
-                f"{usage.input_tokens:,} input / {usage.output_tokens:,} output tokens reported"
+                tr(
+                    "{name} · This app run: {requests}/{request_limit} reserved requests · "
+                    "{input_tokens:,} input / {output_tokens:,} output tokens reported",
+                    name=profile.name,
+                    requests=usage.requests,
+                    request_limit=profile.request_limit,
+                    input_tokens=usage.input_tokens,
+                    output_tokens=usage.output_tokens,
+                )
             )
         else:
             self.usage.clear()
@@ -169,21 +179,23 @@ class CloudSettings(QWidget):
                 ),
                 None,
             )
-            label = account.label if account else connection.name if connection else "Not connected"
+            label = (
+                account.label if account else connection.name if connection else tr("Not connected")
+            )
             ready = profile.key in self._view.available
             status = (
-                ("✓ Signed in" if profile.provider == "chatgpt" else "✓ Key saved")
+                (tr("✓ Signed in") if profile.provider == "chatgpt" else tr("✓ Key saved"))
                 if ready
-                else "⚠ Connection needed"
+                else tr("⚠ Connection needed")
             )
             for column, value in enumerate(
-                (profile.name + "\n" + PROVIDERS[profile.provider], label, status)
+                (profile.name + "\n" + tr(PROVIDERS[profile.provider]), label, status)
             ):
                 item = QTableWidgetItem(value)
                 item.setToolTip(
-                    PROVIDERS[profile.provider] + "\n" + value
+                    tr(PROVIDERS[profile.provider]) + "\n" + value
                     if column != 2
-                    else "Saved credentials are not a connection test. Edit to test explicitly."
+                    else tr("Saved credentials are not a connection test. Edit to test explicitly.")
                 )
                 item.setData(Qt.ItemDataRole.UserRole, profile.key)
                 if column == 2:
@@ -284,10 +296,12 @@ class CloudSettings(QWidget):
         if account:
             QMessageBox.information(
                 self.editor or self,
-                "You're using your ChatGPT plan",
-                "Eligible translations use your ChatGPT plan. Manage allowance and credit "
-                "permissions in ChatGPT Settings → Usage. "
-                "DanteJP never falls back to an API key.",
+                tr("You're using your ChatGPT plan"),
+                tr(
+                    "Eligible translations use your ChatGPT plan. Manage allowance and credit "
+                    "permissions in ChatGPT Settings → Usage. "
+                    "DanteJP never falls back to an API key."
+                ),
             )
             self.service.acknowledge_welcome(account)
         self._refresh_usage()
@@ -297,15 +311,18 @@ class CloudSettings(QWidget):
         if (
             QMessageBox.question(
                 self.editor or self,
-                "Test cloud translation?",
-                "Send the sample label 会心率 (Critical Rate) to this provider "
-                "for translation into your selected output language? "
-                + (
-                    "This uses your ChatGPT plan permissions; review Manage usage first."
-                    if profile.provider == "chatgpt"
-                    else "This makes one small API request and may incur a charge."
+                tr("Test cloud translation?"),
+                tr(
+                    "Send the sample label {test_sample} to this provider for translation "
+                    "into your selected output language? ",
+                    test_sample=self.service.test_sample,
                 )
-                + " Model edits and new keys are not saved by this test.",
+                + (
+                    tr("This uses your ChatGPT plan permissions; review Manage usage first.")
+                    if profile.provider == "chatgpt"
+                    else tr("This makes one small API request and may incur a charge.")
+                )
+                + tr(" Model edits and new keys are not saved by this test."),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
@@ -322,8 +339,8 @@ class CloudSettings(QWidget):
         if (
             QMessageBox.question(
                 self,
-                "Remove cloud model?",
-                f"Remove “{profile.name}”? Its saved connection remains available.",
+                tr("Remove cloud model?"),
+                tr("Remove “{name}”? Its saved connection remains available.", name=profile.name),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
@@ -340,9 +357,12 @@ class CloudSettings(QWidget):
         if (
             QMessageBox.question(
                 self.editor or self,
-                "Forget API key?",
-                f"Remove this saved API key? {count} model entries use it and will need "
-                "a connection again. This does not revoke the key at the provider.",
+                tr("Forget API key?"),
+                tr(
+                    "Remove this saved API key? {count} model entries use it and will need "
+                    "a connection again. This does not revoke the key at the provider.",
+                    count=count,
+                ),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )

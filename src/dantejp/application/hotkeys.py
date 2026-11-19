@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
+from dantejp.i18n import tr
+
 
 class HotkeyAction(StrEnum):
     OVERLAY = "overlay"
@@ -35,7 +37,7 @@ def parse_shortcut(value: str) -> tuple[int, int] | None:
         return None
     modifiers, _, key = value.rpartition("+")
     if modifiers not in MODIFIERS or key not in KEYS:
-        raise ValueError("Choose Ctrl/Alt modifiers and a letter, number, or F1–F11.")
+        raise ValueError(tr("Choose Ctrl/Alt modifiers and a letter, number, or F1–F11."))
     return MODIFIERS[modifiers], KEYS[key]
 
 
@@ -93,12 +95,14 @@ class Hotkeys:
         if shortcut and shortcut == self.shortcut(action):
             return
         if shortcut and any(item.shortcut == shortcut for item in self._active.values()):
-            raise ValueError("The other action already uses this shortcut. Choose a different one.")
+            raise ValueError(
+                tr("The other action already uses this shortcut. Choose a different one.")
+            )
         new = None
         if parsed:
             # Never reuse IDs: an already queued WM_HOTKEY must not operate a new binding.
             if self._next_id > 0xBFFF:
-                raise ValueError("Restart DanteJP before changing more shortcuts.")
+                raise ValueError(tr("Restart DanteJP before changing more shortcuts."))
             identifier = self._next_id
             self._next_id += 1
             self._registrar.register(identifier, *parsed)

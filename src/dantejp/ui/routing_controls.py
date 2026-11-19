@@ -16,10 +16,12 @@ from PySide6.QtWidgets import (
 )
 
 from dantejp.application.preference_values import Preferences
+from dantejp.i18n import display, mark, tr
 from dantejp.translation.cloud.values import PROVIDERS
 from dantejp.translation.plan import TranslationPlan
 from dantejp.translation.selection import AssignmentChange, ModelOption
 from dantejp.ui.controls import InfoButton, StatusBanner, Switch, add_model_section
+from dantejp.ui.localization import localized, on_language_change
 
 
 def model_reference(choice: ModelOption | None) -> str:
@@ -43,53 +45,67 @@ class RoutingControls(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
         header = QHBoxLayout()
-        header.addWidget(QLabel("Model assignment"))
+        header.addWidget(localized(QLabel(), text=mark("Model assignment")))
         header.addWidget(
             InfoButton(
-                "Model assignment",
-                "Use one model for all enabled text, or assign a model to each category. Only "
-                "recognized text and the game hint are sent to cloud models; images stay on "
-                "this PC.",
+                mark("Model assignment"),
+                mark(
+                    "Use one model for all enabled text, or assign a model to each category. Only "
+                    "recognized text and the game hint are sent to cloud models; images stay on "
+                    "this PC."
+                ),
             )
         )
         header.addStretch()
-        self.advanced = Switch("Advanced routing")
+        self.advanced = localized(Switch(), text=mark("Advanced routing"))
         self.advanced.setChecked(preferences.advanced_routing)
-        self.advanced.setToolTip(
-            "Replace the single model selector with a model for each text category. Changing "
-            "this view does not change your assignments."
+        localized(
+            self.advanced,
+            toolTip=mark(
+                "Replace the single model selector with a model for each text category. Changing "
+                "this view does not change your assignments."
+            ),
         )
         header.addWidget(self.advanced)
         layout.addLayout(header)
-        self.simple = self._combo("Translation model")
+        self.simple = self._combo(mark("Translation model"))
         self.simple.currentIndexChanged.connect(self._simple_changed)
         self.simple.activated.connect(self._simple_changed)
-        layout.addWidget(self.simple)
         self.category_fields = QWidget()
         self.category_fields.setObjectName("routingSurface")
-        categories = QGridLayout(self.category_fields)
-        categories.setContentsMargins(0, 0, 0, 0)
-        categories.setHorizontalSpacing(16)
-        categories.setVerticalSpacing(10)
-        self.short_enabled = Switch("Short labels")
-        self.long_enabled = Switch("Long text & dialogue")
-        self.short_enabled.setToolTip(
-            "Translate short menus, buttons and names. Off leaves this text in Japanese and "
-            "makes no translation requests for it."
+        self.model_grid = QGridLayout(self.category_fields)
+        self.model_grid.setContentsMargins(0, 0, 0, 0)
+        self.model_grid.setHorizontalSpacing(16)
+        self.model_grid.setVerticalSpacing(10)
+        self.simple_label = localized(QLabel(), text=mark("Translation model"))
+        self.simple_label.setBuddy(self.simple)
+        self.model_grid.addWidget(self.simple_label, 0, 0)
+        self.model_grid.addWidget(self.simple, 0, 1)
+        self.short_enabled = localized(Switch(), text=mark("Short labels"))
+        self.long_enabled = localized(Switch(), text=mark("Long text & dialogue"))
+        localized(
+            self.short_enabled,
+            toolTip=mark(
+                "Translate short menus, buttons and names. Turning this off keeps the "
+                "original text."
+            ),
         )
-        self.long_enabled.setToolTip(
-            "Translate grouped paragraphs and text over 40 characters, including dialogue, "
-            "skill and item descriptions. This is a length/layout category, not a speaker "
-            "detector."
+        localized(
+            self.long_enabled,
+            toolTip=mark(
+                "Translate grouped paragraphs and text over 40 characters, including dialogue, "
+                "skill and item descriptions. This is a length/layout category, not a speaker "
+                "detector."
+            ),
         )
-        self.short_model = self._combo("Model for short labels")
-        self.long_model = self._combo("Model for long text and dialogue")
+        self.short_model = self._combo(mark("Model for short labels"))
+        self.long_model = self._combo(mark("Model for long text and dialogue"))
         for row, (toggle, picker) in enumerate(
-            ((self.short_enabled, self.short_model), (self.long_enabled, self.long_model))
+            ((self.short_enabled, self.short_model), (self.long_enabled, self.long_model)), start=1
         ):
-            categories.addWidget(toggle, row, 0)
-            categories.addWidget(picker, row, 1)
-        categories.setColumnStretch(1, 1)
+            self.model_grid.addWidget(toggle, row, 0)
+            self.model_grid.addWidget(picker, row, 1)
+        self.model_grid.setColumnStretch(1, 1)
         layout.addWidget(self.category_fields)
         self.short_model.currentIndexChanged.connect(lambda: self._category_changed(False))
         self.long_model.currentIndexChanged.connect(lambda: self._category_changed(True))
@@ -104,32 +120,34 @@ class RoutingControls(QWidget):
         fields = QVBoxLayout(self.cloud_fields)
         fields.setContentsMargins(0, 0, 0, 0)
         game_row = QHBoxLayout()
-        game_row.addWidget(QLabel("Game name"))
+        game_row.addWidget(localized(QLabel(), text=mark("Game name")))
         game_row.addWidget(
             InfoButton(
-                "Game name",
-                "Sent to cloud models as a terminology hint. The selected game window title is "
-                "the default; switch this off to enter a clearer name or leave it blank. Local "
-                "prompts are unchanged.",
+                mark("Game name"),
+                mark(
+                    "Sent to cloud models as a terminology hint. The selected game window title is "
+                    "the default; switch this off to enter a clearer name or leave it blank. Local "
+                    "prompts are unchanged."
+                ),
             )
         )
         game_row.addStretch()
-        self.game_from_window = Switch("Use window title")
+        self.game_from_window = localized(Switch(), text=mark("Use window title"))
         self.game_from_window.setChecked(preferences.game_from_window)
         game_row.addWidget(self.game_from_window)
         fields.addLayout(game_row)
         self.game = QLineEdit(preferences.game_hint)
-        self.game.setAccessibleName("Game name sent to cloud")
+        localized(self.game, accessibleName=mark("Game name sent to cloud"))
         self.game.setMaxLength(120)
-        self.game.setPlaceholderText("Optional game name")
+        localized(self.game, placeholderText=mark("Optional game name"))
         fields.addWidget(self.game)
         layout.addWidget(self.cloud_fields)
         self.plan_notice = QWidget()
         self.plan_notice.setObjectName("routingSurface")
         plan_row = QHBoxLayout(self.plan_notice)
         plan_row.setContentsMargins(0, 0, 0, 0)
-        plan_row.addWidget(QLabel("Using ChatGPT plan"))
-        manage = QPushButton("Manage usage ↗")
+        plan_row.addWidget(localized(QLabel(), text=mark("Using ChatGPT plan")))
+        manage = localized(QPushButton(), text=mark("Manage usage ↗"))
         manage.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl("https://chatgpt.com/settings/usage"))
         )
@@ -141,14 +159,15 @@ class RoutingControls(QWidget):
         self.advanced.toggled.connect(self._disclosed)
         self._game_mode_changed()
         self._render()
+        on_language_change(self, self._render)
 
     @staticmethod
     def _combo(name: str) -> QComboBox:
         combo = QComboBox()
-        combo.setAccessibleName(name)
+        localized(combo, accessibleName=name)
         combo.setMinimumContentsLength(18)
         combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-        combo.setToolTip("Download or configure models in Settings → Models.")
+        localized(combo, toolTip=mark("Download or configure models in Settings → Models."))
         return combo
 
     @property
@@ -224,13 +243,17 @@ class RoutingControls(QWidget):
         combo.blockSignals(True)
         combo.clear()
         if self._backends:
-            add_model_section(combo, "Local models")
+            add_model_section(combo, tr("Local models"))
             for backend in self._backends:
-                combo.addItem(backend.name + " · Local", backend)
+                combo.addItem(display(backend.name) + tr(" · Local"), backend)
         for provider, label in PROVIDERS.items():
             profiles = tuple(p for p in self._profiles if p.provider == provider)
             if profiles:
-                label = label.replace(" · API key", " API")
+                label = (
+                    tr("{provider} API", provider=label.partition(" · ")[0])
+                    if provider != "chatgpt"
+                    else tr(label)
+                )
                 add_model_section(combo, label)
                 for profile in profiles:
                     combo.addItem(profile.name + " · " + label, profile)
@@ -244,13 +267,13 @@ class RoutingControls(QWidget):
             -1,
         )
         if custom:
-            placeholder = "Different models · enable Advanced routing"
+            placeholder = tr("Different models · enable Advanced routing")
             index = -1
         elif reference and index < 0:
-            placeholder = "Model unavailable · open Settings"
+            placeholder = tr("Model unavailable · open Settings")
         else:
             placeholder = (
-                "Choose a model" if combo.count() else "No models available · open Settings"
+                tr("Choose a model") if combo.count() else tr("No models available · open Settings")
             )
         combo.setPlaceholderText(placeholder)
         combo.setCurrentIndex(index)
@@ -271,8 +294,10 @@ class RoutingControls(QWidget):
         self.short_model.setEnabled(plan.short_enabled)
         self.long_model.setEnabled(plan.long_enabled)
         self.memory_notice.set_message(
-            "Two local models stay loaded together. RAM / VRAM use can roughly double; choose "
-            "the same model in both rows to share one copy."
+            tr(
+                "Two local models stay loaded together. RAM / VRAM use can roughly double; choose "
+                "the same model in both rows to share one copy."
+            )
             if plan.two_local_models
             else ""
         )
@@ -283,6 +308,7 @@ class RoutingControls(QWidget):
     def _disclosed(self, *, notify: bool = True) -> None:
         advanced = self.advanced.isChecked()
         self.simple.setVisible(not advanced)
+        self.simple_label.setVisible(not advanced)
         self.short_model.setVisible(advanced)
         self.long_model.setVisible(advanced)
         if notify:
@@ -320,5 +346,5 @@ class RoutingControls(QWidget):
     @property
     def summary(self) -> str:
         return " / ".join(
-            c.name for key in self.selection.active_models if (c := self.resolve(key))
+            display(c.name) for key in self.selection.active_models if (c := self.resolve(key))
         )

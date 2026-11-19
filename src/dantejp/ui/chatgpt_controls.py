@@ -4,7 +4,9 @@ from PySide6.QtCore import QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
+from dantejp.i18n import mark, tr
 from dantejp.translation.cloud.values import USAGE_URL, ChatGPTAccount
+from dantejp.ui.localization import localized
 
 
 class ChatGPTControls(QWidget):
@@ -18,26 +20,29 @@ class ChatGPTControls(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         self.account = QComboBox()
-        self.account.setAccessibleName("ChatGPT account")
+        localized(self.account, accessibleName=mark("ChatGPT account"))
         self.account.setMinimumContentsLength(16)
         self.account.setSizeAdjustPolicy(
             QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
         )
         layout.addWidget(self.account)
         actions = QHBoxLayout()
-        self.sign_in = QPushButton("Continue with ChatGPT")
-        self.sign_out = QPushButton("Sign out")
-        self.refresh_models = QPushButton("Refresh models")
+        self.sign_in = localized(QPushButton(), text=mark("Continue with ChatGPT"))
+        self.sign_out = localized(QPushButton(), text=mark("Sign out"))
+        self.refresh_models = localized(QPushButton(), text=mark("Refresh models"))
         for button in (self.sign_in, self.sign_out, self.refresh_models):
             actions.addWidget(button)
         layout.addLayout(actions)
-        note = QLabel(
-            "Use your ChatGPT plan. To use only its included allowance, disable credit use "
-            "for DanteJP in ChatGPT's usage settings. No automatic API-key fallback."
+        note = localized(
+            QLabel(),
+            text=mark(
+                "Use your ChatGPT plan. To use only its included allowance, disable credit use "
+                "for DanteJP in ChatGPT's usage settings. No automatic API-key fallback."
+            ),
         )
         note.setWordWrap(True)
         layout.addWidget(note)
-        self.manage = QPushButton("Manage ChatGPT usage ↗")
+        self.manage = localized(QPushButton(), text=mark("Manage ChatGPT usage ↗"))
         self.manage.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(USAGE_URL)))
         layout.addWidget(self.manage)
         self.account.currentIndexChanged.connect(self._changed)
@@ -60,7 +65,7 @@ class ChatGPTControls(QWidget):
             self.account.addItem(("✓ " if account.enabled else "○ ") + account.label, account)
             if account.key == selected:
                 self.account.setCurrentIndex(self.account.count() - 1)
-        self.account.addItem("＋ Add ChatGPT account", None)
+        self.account.addItem(tr("＋ Add ChatGPT account"), None)
         self.account.blockSignals(False)
         self._update_buttons()
 
