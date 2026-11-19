@@ -313,14 +313,26 @@ class OverlayWindow(QWidget):
         english_font = QFont("Segoe UI")
         english_font.setPixelSize(layout.pixel_size)
         painter.setFont(english_font)
+        if layout.right_to_left:
+            painter.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         painter.setClipRect(area)
         shadow = QPointF(1, min(2, layout.pixel_size / 12))
+        align = Qt.AlignmentFlag.AlignRight if layout.right_to_left else Qt.AlignmentFlag.AlignLeft
+        flags = (
+            align
+            | Qt.AlignmentFlag.AlignAbsolute
+            | Qt.AlignmentFlag.AlignVCenter
+            | Qt.TextFlag.TextSingleLine
+        )
         for index, line in enumerate(layout.lines):
-            origin = QPointF(
-                area.x() + PAD_X, area.y() + PAD_Y + layout.ascent + index * layout.line_height
+            bounds = QRectF(
+                area.x() + PAD_X,
+                area.y() + PAD_Y + index * layout.line_height,
+                area.width() - 2 * PAD_X,
+                layout.line_height,
             )
             painter.setPen(QColor(0, 0, 0, 160))
-            painter.drawText(origin + shadow, line)
+            painter.drawText(bounds.translated(shadow), flags, line)
             painter.setPen(QColor("#f1f5f9"))
-            painter.drawText(origin, line)
+            painter.drawText(bounds, flags, line)
         painter.restore()

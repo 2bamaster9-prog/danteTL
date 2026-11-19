@@ -21,6 +21,17 @@ def label(i, x=100, y=100, text="This is a longer English translation for the sm
     return EnglishLabel(((i, 1, "日本語"),), text, Rect(x, y, 150, 24), 24)
 
 
+def test_wrapping_preserves_hindi_graphemes_and_arabic_paragraph_direction():
+    source = Rect(0, 0, 48, 450)
+    text = "कि" * 12
+    layout = layout_english(text, source, (320, 480), automatic=False, manual_pixels=20)
+    assert len(layout.lines) > 1 and "".join(layout.lines) == text
+    assert all(line.startswith("क") and line.endswith("ि") for line in layout.lines)
+    assert not layout.right_to_left
+    arabic = layout_english("30 ثانية متبقية", source, (320, 480))
+    assert arabic.right_to_left
+
+
 def test_neighboring_expansions_avoid_collision_without_losing_english():
     labels = (label(1), label(2, y=130))
     independent = tuple(layout_english(item.text, item.source, (800, 600)) for item in labels)

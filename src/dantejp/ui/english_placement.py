@@ -147,7 +147,7 @@ class EnglishPlacement:
         pixels: int = 20,
     ) -> tuple[EnglishLayout, ...]:
         if len(labels) > MAX_OVERLAY_LABELS or len(obstacles) > MAX_OVERLAY_LABELS:
-            raise ValueError("English placement exceeds the live track bound.")
+            raise ValueError("Translation placement exceeds the live track bound.")
         ordered = tuple(sorted(labels, key=lambda label: label.key))
         obstacles = tuple(sorted(set(obstacles), key=lambda box: (box.y, box.x, *box.size)))
         style = (viewport, automatic, pixels)

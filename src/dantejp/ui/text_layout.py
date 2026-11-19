@@ -2,8 +2,10 @@
 
 from dataclasses import dataclass, replace
 from functools import lru_cache
+from unicodedata import bidirectional
 
-from PySide6.QtGui import QFont, QFontMetricsF
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont, QFontMetricsF, QTextLayout, QTextOption
 
 from dantejp.domain import Rect
 
@@ -19,26 +21,24 @@ class EnglishLayout:
     ascent: float
     lines: tuple[str, ...]
     truncated: bool
+    right_to_left: bool = False
 
 
-def _wrap(text: str, metrics: QFontMetricsF, width: int) -> tuple[str, ...]:
+def _wrap(text: str, font: QFont, width: int) -> tuple[str, ...]:
+    # Qt wraps shaped glyph clusters and supplies Unicode line breaks for unspaced text.
+    text = " ".join(text.split())
+    layout = QTextLayout(text, font)
+    option = QTextOption()
+    option.setWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
+    layout.setTextOption(option)
+    encoded = text.encode("utf-16-le")  # QTextLine offsets count UTF-16 code units.
     lines: list[str] = []
-    current = ""
-    for word in text.split():
-        candidate = f"{current} {word}" if current else word
-        if metrics.horizontalAdvance(candidate) <= width:
-            current = candidate
-            continue
-        if current:
-            lines.append(current)
-            current = ""
-        for char in word:
-            if current and metrics.horizontalAdvance(current + char) > width:
-                lines.append(current)
-                current = ""
-            current += char
-    if current:
-        lines.append(current)
+    layout.beginLayout()
+    while (line := layout.createLine()).isValid():
+        line.setLineWidth(width)
+        start = line.textStart() * 2
+        lines.append(encoded[start : start + line.textLength() * 2].decode("utf-16-le").rstrip())
+    layout.endLayout()
     return tuple(lines)
 
 
@@ -91,7 +91,7 @@ def _measure_english(
 ) -> EnglishLayout:
     view_width, view_height = viewport
     if min(viewport) <= 0:
-        raise ValueError("English layout needs a nonempty viewport.")
+        raise ValueError("Translation layout needs a nonempty viewport.")
 
     glyph_height = source_line_height or (source.width if vertical else source.height)
     preferred = max(12, min(48, round(glyph_height * 0.72))) if automatic else manual_pixels
@@ -106,14 +106,14 @@ def _measure_english(
         font.setPixelSize(pixels)
         metrics = QFontMetricsF(font)
         line_height = max(1, round(metrics.lineSpacing()))
-        lines = _wrap(text, metrics, max(1, width - PAD_X * 2))
+        lines = _wrap(text, font, max(1, width - PAD_X * 2))
         if len(lines) * line_height + PAD_Y * 2 <= source.height:
             break
         if pixels == floor:
             # A limited width expansion preserves readability for longer English.
             if wrap_width is None and len(lines) > 1:
                 width = min(view_width, round(width * 1.5) + 2 * PAD_X)
-                lines = _wrap(text, metrics, max(1, width - PAD_X * 2))
+                lines = _wrap(text, font, max(1, width - PAD_X * 2))
             break
         pixels -= 1
     max_height = min(view_height, max(source.height, line_height * 4 + PAD_Y * 2))
@@ -121,13 +121,20 @@ def _measure_english(
     truncated = len(lines) > line_count
     lines = lines[:line_count]
     if truncated and lines:
-        tail = lines[-1]
-        while tail and metrics.horizontalAdvance(tail + "…") > width - PAD_X * 2:
-            tail = tail[:-1]
-        lines = (*lines[:-1], tail + "…")
+        tail = metrics.elidedText(
+            lines[-1] + "…", Qt.TextElideMode.ElideRight, max(1, width - PAD_X * 2)
+        )
+        lines = (*lines[:-1], tail)
     height = min(view_height, max(source.height, len(lines) * line_height + PAD_Y * 2))
     x = max(0, min(source.x, view_width - width))
     y = max(0, min(source.y, view_height - height))
     return EnglishLayout(
-        Rect(x, y, width, height), pixels, line_height, metrics.ascent(), lines, truncated
+        Rect(x, y, width, height),
+        pixels,
+        line_height,
+        metrics.ascent(),
+        lines,
+        truncated,
+        next((direction for c in text if (direction := bidirectional(c)) in ("L", "R", "AL")), "L")
+        != "L",
     )
