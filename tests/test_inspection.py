@@ -1350,6 +1350,80 @@ def test_preview_letterboxing_maps_physical_pixels_once() -> None:
     assert (target.x() + 960 * scale, target.y() + 540 * scale) == (320, 240)
 
 
+def test_output_language_controls_warn_before_capture_and_switch_only_the_affected_model(app):
+    from dantejp.translation.backends.plamo import OUTPUT_CODES
+    from dantejp.translation.plan import TranslationPlan
+
+    factory = Mock()
+    plamo = BackendChoice("PLaMo 2B", factory, "plamo-2b", output_codes=OUTPUT_CODES)
+    gemma = BackendChoice("Gemma E2B", factory, "gemma")
+    other = BackendChoice("Another model", factory, "other")
+    windows = Mock()
+    windows.list_targets.return_value = []
+    window = MainWindow(windows, Mock(), (plamo, gemma, other))
+    panel = settings(window)
+    owner = app_owner(window)
+    try:
+        window.show()
+        window.backend_combo.setCurrentIndex(find_model(window.backend_combo, plamo))
+        window.settings_button.click()
+        panel.output_language.setCurrentIndex(panel.output_language.findData("pt-BR"))
+        assert window.output_language.currentData() == owner.values.output_language == "pt-BR"
+        for banner in (window.language_notice, panel.language_notice):
+            assert banner.isVisible() and "Portuguese (Brazil)" in banner.label.text()
+            assert "PLaMo" in banner.label.text() and "Gemma" in banner.action.text()
+        window.output_language.setCurrentIndex(window.output_language.findData("fr"))
+        assert panel.output_language.currentData() == "fr" and panel.language_notice.isHidden()
+        window.routing.advanced.setChecked(True)
+        window.routing.short_model.setCurrentIndex(find_model(window.routing.short_model, other))
+        window.output_language.setCurrentIndex(window.output_language.findData("pt-PT"))
+        assert "long text and dialogue" in panel.language_notice.label.text()
+        assert "short labels" not in panel.language_notice.label.text()
+        window.routing.long_enabled.setChecked(False)
+        assert panel.language_notice.isHidden() and window.language_notice.isHidden()
+        window.routing.long_enabled.setChecked(True)
+        panel.language_notice.action.click()
+        assert owner.controls.assignment == TranslationPlan("local:other", "local:gemma")
+        assert panel.output_language.currentData() == "pt-PT"
+        assert panel.language_notice.isHidden() and window.language_notice.isHidden()
+        assert not owner.controls.capture_active
+        factory.assert_not_called()
+    finally:
+        window.close()
+        window.deleteLater()
+
+
+def test_language_warning_opens_missing_gemma_files_without_downloading(app, tmp_path):
+    from dantejp.runtime.model_store import ModelBundle
+
+    factory = Mock()
+    plamo = BackendChoice("PLaMo", factory, "plamo-2b", output_codes=frozenset({"en"}))
+    bundles = tuple(
+        ModelBundle(key, key, tmp_path / key, (), "", language_model=True)
+        for key in ("gemma", "plamo-2b")
+    )
+    windows = Mock()
+    windows.list_targets.return_value = []
+    window = MainWindow(windows, Mock(), (plamo,), models=bundles)
+    panel = settings(window)
+    try:
+        window.backend_combo.setCurrentIndex(find_model(window.backend_combo, plamo))
+        window.output_language.setCurrentIndex(window.output_language.findData("pt-BR"))
+        panel.show_models()
+        panel.models.choice.setCurrentIndex(1)
+        panel.models.category.setCurrentIndex(panel.models.category.findData("cloud"))
+        assert window.language_notice.action.text() == "Set up Gemma"
+        window.language_notice.action.click()
+        assert panel.models.isVisible() and panel.models.category.currentData() == "translation"
+        assert panel.models.choice.currentData().key == "gemma"
+        assert not panel.models.busy and not list(tmp_path.iterdir())
+        assert window.routing.selection.active_models == ("local:plamo-2b",)
+        factory.assert_not_called()
+    finally:
+        window.close()
+        window.deleteLater()
+
+
 def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_path, monkeypatch):
     from dantejp.ocr.worker import OcrChoice
 

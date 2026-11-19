@@ -25,6 +25,10 @@ def test_recommended_catalog_and_backend_order_do_not_mix_recognition(tmp_path, 
     assert choices[0].preference_key == "gemma" and "Recommended" in choices[0].name
     assert all(c.preference_key != "ocr" for c in choices)
     assert {"gemma", "gemma-e4b", "qwen35-4b", "plamo-0.8b"} <= {c.preference_key for c in choices}
+    for choice in choices:
+        if choice.preference_key in ("plamo-2b", "plamo-0.8b"):
+            assert choice.output_codes and "fr" in choice.output_codes
+            assert choice.output_codes.isdisjoint({"pt-PT", "pt-BR"})
 
 
 @pytest.fixture

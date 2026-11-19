@@ -194,6 +194,14 @@ class ModelManager(QDialog):
         self.pages.addWidget(scroll)
         return scroll, layout
 
+    def select_translation_file(self, key: str) -> None:
+        self.category.setCurrentIndex(self.category.findData("translation"))
+        for index in range(self.choice.count()):
+            item = self.choice.itemData(index)
+            if isinstance(item, ModelFile) and item.key == key:
+                self.choice.setCurrentIndex(index)
+                break
+
     def _details_toggled(self, expanded: bool) -> None:
         self.file_details.setVisible(expanded)
         self.details_toggle.setArrowType(

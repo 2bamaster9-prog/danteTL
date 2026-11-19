@@ -45,6 +45,7 @@ class BackendChoice:
     performance_notice: str = ""
     selection_id: str = ""
     classifies: bool = False
+    output_codes: frozenset[str] | None = None
 
     @property
     def preference_key(self) -> str:

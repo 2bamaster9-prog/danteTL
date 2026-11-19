@@ -403,6 +403,7 @@ class ApplicationSession:
                 ocr.provider if ocr else "",
                 ocr.message if ocr else "",
                 self.live.capture is not None,
+                target=TARGET_LANGUAGES[self.values.output_language],
             )
         )
 

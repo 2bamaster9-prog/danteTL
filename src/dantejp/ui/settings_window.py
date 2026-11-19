@@ -71,6 +71,8 @@ class SettingsWindow(QDialog):
             "Output language",
             "Applies to the overlay, inspector, and new dialogue history entries.",
         )
+        self.language_notice = StatusBanner()
+        appearance.addWidget(self.language_notice)
         self.stabilize = Switch("Stabilize game boxes")
         self.stabilize.setChecked(preferences.stabilize)
         self._setting(

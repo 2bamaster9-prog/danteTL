@@ -23,6 +23,11 @@ class ModelOption:
     unavailable_reason: str = ""
     performance_notice: str = ""
     classifies: bool = False
+    # None means the model declares no known restriction.
+    output_codes: frozenset[str] | None = None
+
+    def excludes_output(self, code: str) -> bool:
+        return self.output_codes is not None and code not in self.output_codes
 
     @property
     def local(self) -> bool:

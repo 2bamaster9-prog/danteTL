@@ -133,6 +133,7 @@ class TranslationCoordinator:
                 unavailable_reason=c.unavailable_reason,
                 performance_notice=c.performance_notice,
                 classifies=c.classifies,
+                output_codes=c.output_codes,
             )
             for c in self.choices
         ) + tuple(

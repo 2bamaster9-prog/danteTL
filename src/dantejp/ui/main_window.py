@@ -234,8 +234,12 @@ class MainWindow(QMainWindow):
         language_row.addWidget(language_label)
         language_row.addWidget(self.output_language, 1)
         self.sections.translation_layout.addLayout(language_row)
+        self.language_notice = StatusBanner()
+        self.sections.translation_layout.addWidget(self.language_notice)
         for combo in (self.output_language, self._settings.output_language):
             combo.language_changed.connect(self._change_output_language)
+        for banner in (self.language_notice, self._settings.language_notice):
+            banner.action.clicked.connect(self._resolve_language_notice)
         self.routing = RoutingControls(preferences)
         self.sections.translation_layout.addWidget(self.routing)
         self.routing.set_models(
@@ -243,7 +247,7 @@ class MainWindow(QMainWindow):
         )
         self.backend_combo = self.routing.simple
         self.routing.changed.connect(self._routing_changed)
-        self.routing.model_requested.connect(self._simple_model_changed)
+        self.routing.model_requested.connect(self._request_assignment)
         self.routing.disclosure_changed.connect(self._save_preferences)
         self.windows_combo.currentIndexChanged.connect(self._game_window_changed)
         self.onboarding = StatusBanner()
@@ -344,6 +348,14 @@ class MainWindow(QMainWindow):
         self.application.configure(replace(self.application.values, output_language=code))
         self._tick()
 
+    def _resolve_language_notice(self) -> None:
+        advice = self.application.notices().language
+        if advice.change:
+            self._request_assignment(advice.change)
+        elif advice.message:
+            self._settings.show_models()
+            self._settings.models.select_translation_file("gemma")
+
     def _refresh_history_models(self, selected: str | None = None) -> None:
         options = self.application.controls.options
         if options is not getattr(self, "_history_options", None):
@@ -371,7 +383,7 @@ class MainWindow(QMainWindow):
         self.history_panel.status.setText(self.application.history_status)
         self.history_panel.refresh()
 
-    def _simple_model_changed(self, change: AssignmentChange) -> None:
+    def _request_assignment(self, change: AssignmentChange) -> None:
         prompt = self.application.assign(change)
         if prompt:
             self.application.consent(prompt.token, self._ask_preparation(prompt.option))
@@ -382,6 +394,7 @@ class MainWindow(QMainWindow):
         self._render_preparation()
         self._handle_destination()
         self._render_application(False)
+        self._update_notice()
 
     def _clear_english_display(self) -> None:
         self.application.clear_english()
@@ -581,6 +594,8 @@ class MainWindow(QMainWindow):
         if value == getattr(self, "_last_notices", None):
             return
         self._last_notices = value
+        for banner in (self.language_notice, self._settings.language_notice):
+            banner.set_message(value.language.message, action=value.language.action)
         self._settings.model_notice.set_message(value.model_warning, action=value.model_action)
         self._settings.save_note.setText(value.save_note)
         self.onboarding.set_message(value.message, tone=value.tone, action=value.action)
@@ -673,6 +688,8 @@ class MainWindow(QMainWindow):
 
     def _render_preparation(self) -> None:
         preparing = self.application.controls.preparing
+        for banner in (self.language_notice, self._settings.language_notice):
+            banner.action.setEnabled(not preparing)
         self.routing.setEnabled(not preparing)
         self.backend_combo.setEnabled(not preparing)
         if preparing:

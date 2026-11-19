@@ -3,7 +3,8 @@
 DanteJP reads Japanese text from a selected Windows game and displays translations in a click-through
 overlay. Choose from 18 output languages in **Translation → Output language** or **Settings →
 Appearance**, including Portuguese (Portugal), Portuguese (Brazil), Korean, and both Chinese scripts.
-Text recognition (OCR) runs on your PC. Translation can
+If an assigned model lacks the selected language, the warning beside the selector offers a switch
+to Gemma or opens its setup page. Text recognition (OCR) runs on your PC. Translation can
 use a local model or a supported cloud provider.
 
 ## Get started

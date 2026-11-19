@@ -9,6 +9,7 @@ from dantejp.languages.source import SourceLanguage
 from dantejp.ocr.models import model_directory
 from dantejp.ocr.worker import OcrChoice, Recognizer
 from dantejp.runtime.ocr import gpu_runtime_installed
+from dantejp.translation.backends.plamo import OUTPUT_CODES as PLAMO_OUTPUT_CODES
 from dantejp.translation.models.gguf import available
 from dantejp.translation.models.values import ImportedModel
 from dantejp.translation.worker import BackendChoice, TranslationBackend
@@ -96,6 +97,7 @@ def translation_backends(*, language: SourceLanguage = DEFAULT_SOURCE) -> tuple[
                 else "",
                 selection_id=key,
                 classifies=not bundle.needs_plamo,
+                output_codes=PLAMO_OUTPUT_CODES if bundle.needs_plamo else None,
             )
         )
     from dantejp.translation.models.gguf import read_registry
@@ -126,6 +128,7 @@ def translation_backends(*, language: SourceLanguage = DEFAULT_SOURCE) -> tuple[
                 if device == "cpu"
                 else "",
                 classifies=model.profile != "plamo3",
+                output_codes=PLAMO_OUTPUT_CODES if model.profile == "plamo3" else None,
             )
         )
     rank = {bundle.selection_id: i for i, bundle in enumerate(bundles.values())}

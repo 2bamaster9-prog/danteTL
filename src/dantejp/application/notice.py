@@ -1,12 +1,13 @@
 """Pure, cached presentation policy. Inputs are values, never widgets or workers."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 
 from dantejp.application.setup_status import SetupAdvice, acceleration_advice
+from dantejp.languages.target import ENGLISH, TargetLanguage
 from dantejp.runtime.hardware_values import HardwareStatus
 from dantejp.translation.plan import TranslationPlan
-from dantejp.translation.selection import ModelOption
+from dantejp.translation.selection import AssignmentChange, ModelOption
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,58 @@ class NoticeInput:
     provider: str = ""
     fallback: str = ""
     capturing: bool = False
+    target: TargetLanguage = ENGLISH
+
+
+@dataclass(frozen=True)
+class LanguageAdvice:
+    message: str = ""
+    action: str = ""
+    change: AssignmentChange | None = None
+
+
+def _language_advice(
+    target: TargetLanguage, plan: TranslationPlan, options: dict[str, ModelOption]
+) -> LanguageAdvice:
+    affected: dict[str, list[str]] = {}
+    for reference, enabled, label in (
+        (plan.short, plan.short_enabled, "short labels"),
+        (plan.long, plan.long_enabled, "long text and dialogue"),
+    ):
+        model = options.get(reference)
+        if enabled and model and model.excludes_output(target.code):
+            affected.setdefault(reference, []).append(label)
+    if not affected:
+        return LanguageAdvice()
+    models = ", ".join(
+        options[key].name.partition(" · ")[0] + (f" ({labels[0]})" if len(labels) == 1 else "")
+        for key, labels in affected.items()
+    )
+    message = f"{target.name} output is unavailable with {models}."
+    # Prefer a Gemma already used by another category, then one ready for use.
+    candidates = (
+        option
+        for key in ("local:gemma", "local:gemma-e4b")
+        if (option := options.get(key)) and not option.excludes_output(target.code)
+    )
+    gemma = min(
+        candidates,
+        key=lambda c: (
+            bool(c.unavailable_reason),
+            c.reference not in plan.active_models,
+            not c.prepared,
+        ),
+        default=None,
+    )
+    if gemma is None:
+        return LanguageAdvice(message, "Set up Gemma")
+    updated = replace(
+        plan,
+        short=gemma.reference if plan.short in affected else plan.short,
+        long=gemma.reference if plan.long in affected else plan.long,
+    )
+    action = "Set up Gemma" if gemma.unavailable_reason else f"Use {gemma.name.partition(' · ')[0]}"
+    return LanguageAdvice(message, action, AssignmentChange(updated, gemma.reference))
 
 
 @dataclass(frozen=True)
@@ -42,6 +95,7 @@ class Notices:
     save_note: str = "Most settings save automatically. Save model edits; apply hotkeys."
     acceleration: SetupAdvice = SetupAdvice()
     model_destination: str = "models"
+    language: LanguageAdvice = LanguageAdvice()
 
 
 @lru_cache(maxsize=1)
@@ -132,4 +186,5 @@ def project_notices(value: NoticeInput) -> Notices:
         else "selection"
         if value.ocr_ready and options
         else "models",
+        _language_advice(value.target, value.plan, options),
     )
