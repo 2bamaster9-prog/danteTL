@@ -3,6 +3,8 @@
 import hashlib
 from dataclasses import dataclass
 
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
 from dantejp.paths import state_root
 from dantejp.runtime.assets import ModelAsset, validate_asset
 from dantejp.runtime.model_store import ModelBundle
@@ -31,7 +33,7 @@ class CuratedModel:
             needs_plamo=self.profile == "plamo3",
         )
 
-    def load(self, device: str) -> GgufBackend:
+    def load(self, device: str, *, language: SourceLanguage = DEFAULT_SOURCE) -> GgufBackend:
         """Called on the translator worker; no registry entry or implicit download."""
         bundle = self.bundle()
         weights, *notices = self.assets
@@ -52,7 +54,7 @@ class CuratedModel:
             hashlib.sha256(info.template.encode()).hexdigest(),
         )
         # The adapter checks the pinned weights hash before loading native inference.
-        return GgufBackend(registration, device=device)
+        return GgufBackend(registration, device=device, language=language)
 
 
 MODELS = (

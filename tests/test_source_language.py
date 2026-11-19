@@ -4,8 +4,13 @@ from test_live_session import frame
 from dantejp.domain import Rect
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
+from dantejp.languages.target import TARGET_LANGUAGES
 from dantejp.ocr.tracking import TextTrack, TextTracker, prepare_matching
 from dantejp.ocr.values import OcrResult, TextRegion
+from dantejp.translation.backend import RequestRejected
+from dantejp.translation.backends import gemma, gguf, plamo
+from dantejp.translation.cloud.protocol import request_body
+from dantejp.translation.cloud.values import CloudProfile
 from dantejp.translation.dialogue.layout import PanelLayout
 from dantejp.translation.grouping import DialogueGrouper, TextBlock
 
@@ -89,3 +94,41 @@ def test_matching_evidence_is_scoped_to_its_source_language():
     assert tracker.observe(result, matching=prepare_matching(result, (), language=PORTUGUESE)) == (
         1,
     )
+
+
+def test_backends_use_the_selected_language_in_their_native_prompt():
+    language = PORTUGUESE
+    assert "Translate Portuguese video game text" in gemma.translation_prompt(
+        "Mapa", language=language
+    )
+    assert "Translate Portuguese video game text" in gguf.user_prompt("Mapa", (), language=language)
+    prompt = plamo.translation_prompt("Mapa", (), language=language)
+    assert "<|plamo:val|>pt<|plamo:msg|>Mapa" in prompt
+    assert prompt.endswith("<|plamo:val|>en<|plamo:msg|>")
+    profile = CloudProfile.new("claude")
+    body = request_body(profile, "", ("Mapa", ()), language=language)
+    assert "Translate CURRENT from Portuguese" in str(body["system"])
+
+
+@pytest.mark.parametrize("target", TARGET_LANGUAGES.values(), ids=TARGET_LANGUAGES.keys())
+def test_backends_request_the_same_output_language(target):
+    from dantejp.translation.dialogue.context import DialogueTurn
+
+    history = (DialogueTurn("先に行って。", "…"),)
+    for prompt in (
+        gemma.translation_prompt("設定", history, target=target),
+        gguf.user_prompt("設定", history, target=target),
+        str(
+            request_body(CloudProfile.new("claude"), "", ("設定", history), target=target)["system"]
+        ),
+    ):
+        assert target.name in prompt
+        if target.code != "en":
+            assert "English" not in prompt
+    if target.code in ("pt-PT", "pt-BR"):
+        with pytest.raises(RequestRejected, match="PLaMo does not support Portuguese"):
+            plamo.translation_prompt("設定", history, target=target)
+        return
+    output = f"<|plamo:tag|>output<|plamo:key|>lang<|plamo:val|>{target.code}<|plamo:msg|>"
+    prompt = plamo.translation_prompt("設定", history, target=target)
+    assert prompt.count(output) == 2 and prompt.endswith(output)

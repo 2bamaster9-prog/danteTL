@@ -11,11 +11,13 @@ from concurrent.futures import Future, ThreadPoolExecutor
 
 import httpx2
 
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
+from dantejp.languages.target import ENGLISH, TargetLanguage
 from dantejp.translation.backend import BatchResult, RequestRejected, Source
 from dantejp.translation.cloud.auth_work import AuthInterrupted, AuthWork
 from dantejp.translation.cloud.credentials import valid_credential
 from dantejp.translation.cloud.protocol import (
-    INSTRUCTION,
     PROMPT_VERSION,
     account_error,
     decoding_identity,
@@ -23,6 +25,7 @@ from dantejp.translation.cloud.protocol import (
     request_headers,
     request_url,
     response_usage,
+    translation_instruction,
 )
 from dantejp.translation.cloud.protocol import (
     parse_answer as parse_answer,
@@ -134,12 +137,14 @@ class CloudBackend:
         secret: str,
         *,
         game: str = "",
+        language: SourceLanguage = DEFAULT_SOURCE,
         allowance: CloudAllowance | None = None,
         transport: httpx2.AsyncBaseTransport | None = None,
         timeout: float = 15.0,
         clock: Callable[[], float] = time.monotonic,
         access_token: Callable[[AuthWork], str] | None = None,
     ) -> None:
+        self._language = language
         self._profile = profile
         self._access_token = access_token
         self._secret = secret
@@ -159,10 +164,10 @@ class CloudBackend:
                         request_url(profile),
                         profile.model,
                         PROMPT_VERSION,
-                        INSTRUCTION,
+                        translation_instruction(language),
                         self._game,
-                        "ja",
-                        "en",
+                        language.code,
+                        ENGLISH.code,
                         *decoding_identity(profile),
                     ],
                     ensure_ascii=False,
@@ -186,20 +191,27 @@ class CloudBackend:
             self._loop.run_until_complete(self._loop.shutdown_default_executor())
             self._loop.close()
 
-    def submit_translation(self, sources: tuple[Source, ...]) -> Future[BatchResult]:
+    def submit_translation(
+        self, sources: tuple[Source, ...], *, target: TargetLanguage = ENGLISH
+    ) -> Future[BatchResult]:
         with self._pending_lock:
             self._pending = [(p, w) for p, w in self._pending if not p.done()]
             if len(sources) != 1 or len(self._pending) >= self.max_in_flight:
                 raise RuntimeError("Cloud backend accepts at most two independent requests.")
             work = AuthWork(deadline=time.monotonic() + self._timeout)
-            pending = asyncio.run_coroutine_threadsafe(self._batch(sources[0], work), self._loop)
+            pending = asyncio.run_coroutine_threadsafe(
+                self._batch(sources[0], work, target), self._loop
+            )
             self._pending.append((pending, work))
             return pending
 
-    async def _batch(self, source: Source, work: AuthWork) -> BatchResult:
+    async def _batch(self, source: Source, work: AuthWork, target: TargetLanguage) -> BatchResult:
         try:
             async with asyncio.timeout(max(0, work.deadline - time.monotonic())):
-                answer = await self._translate(source, work)
+                body = request_body(
+                    self._profile, self._game, source, language=self._language, target=target
+                )
+                answer = await self._translate(source, work, body)
             return {source: answer}, {}
         except (TimeoutError, AuthInterrupted):
             return {}, {
@@ -214,12 +226,9 @@ class CloudBackend:
         finally:
             work.cancelled.set()
 
-    async def _translate(
-        self, source: Source, work: AuthWork, body: dict[str, object] | None = None
-    ) -> str:
+    async def _translate(self, source: Source, work: AuthWork, body: dict[str, object]) -> str:
         if self._blocked:
             raise RequestRejected(self._blocked)
-        body = body if body is not None else request_body(self._profile, self._game, source)
         if self._client is None:
             self._client = httpx2.AsyncClient(
                 timeout=httpx2.Timeout(8.0, connect=5.0),
@@ -320,15 +329,19 @@ class CloudBackend:
                 ) from error
         raise RequestRejected("Cloud service is temporarily unavailable.")
 
-    def translate_with_context(self, text: str, context: tuple[DialogueTurn, ...]) -> str:
+    def translate_with_context(
+        self, text: str, context: tuple[DialogueTurn, ...], *, target: TargetLanguage = ENGLISH
+    ) -> str:
         source = (text, context)
-        good, bad = self.submit_translation((source,)).result()
+        good, bad = self.submit_translation((source,), target=target).result()
         if source in bad:
             raise RequestRejected(bad[source])
         return good[source]
 
-    def translate(self, texts: tuple[str, ...]) -> tuple[str, ...]:
-        return tuple(self.translate_with_context(text, ()) for text in texts)
+    def translate(
+        self, texts: tuple[str, ...], *, target: TargetLanguage = ENGLISH
+    ) -> tuple[str, ...]:
+        return tuple(self.translate_with_context(text, (), target=target) for text in texts)
 
     def cancel_pending(self) -> None:
         with self._pending_lock:
@@ -337,7 +350,11 @@ class CloudBackend:
                 pending.cancel()
 
     def classify(self, value: ClassificationInput, cancelled: threading.Event) -> Classification:
-        body = prompt_body(self._profile, classification_instruction(value), value.payload())
+        body = prompt_body(
+            self._profile,
+            classification_instruction(value, language=self._language),
+            value.payload(),
+        )
         work = AuthWork(deadline=time.monotonic() + self._timeout)
 
         async def run() -> str:

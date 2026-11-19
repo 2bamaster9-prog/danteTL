@@ -5,16 +5,17 @@ from dataclasses import replace
 import httpx2
 import pytest
 
+from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.translation.backend import RequestRejected
 from dantejp.translation.cloud.backend import CloudBackend
 from dantejp.translation.cloud.profiles import ENDPOINTS, MODELS, CloudProfile
 from dantejp.translation.cloud.protocol import (
     CLAUDE_VERSION,
-    INSTRUCTION,
     PROMPT_VERSION,
     parse_answer,
     request_body,
     response_usage,
+    translation_instruction,
 )
 from dantejp.translation.dialogue.context import DialogueTurn
 
@@ -66,7 +67,9 @@ def test_offered_models_send_native_text_only_requests_and_count_all_tokens(prov
             assert str(request.url) == ENDPOINTS[provider] + model + ":generateContent"
             assert request.headers["x-goog-api-key"] == "fixture-secret"
             assert "Authorization" not in request.headers
-            assert body["systemInstruction"]["parts"][0]["text"] == INSTRUCTION
+            assert body["systemInstruction"]["parts"][0]["text"] == translation_instruction(
+                DEFAULT_SOURCE
+            )
             user = json.loads(body["contents"][0]["parts"][0]["text"])
             config = body["generationConfig"]
             assert config["maxOutputTokens"] == 2048 and config["candidateCount"] == 1
@@ -78,7 +81,9 @@ def test_offered_models_send_native_text_only_requests_and_count_all_tokens(prov
             assert str(request.url) == ENDPOINTS[provider]
             assert request.headers["Authorization"] == "Bearer fixture-secret"
             assert request.headers["anthropic-version"] == CLAUDE_VERSION
-            assert body["system"] == INSTRUCTION and body["model"] == model
+            assert (
+                body["system"] == translation_instruction(DEFAULT_SOURCE) and body["model"] == model
+            )
             assert body["stream"] is False and len(body["messages"]) == 1
             user = json.loads(body["messages"][0]["content"])
             assert body["max_tokens"] == 768 and body["output_config"] == {"effort": "low"}
@@ -240,7 +245,7 @@ def test_existing_cache_identities_survive_protocol_extraction_and_new_models_ar
                         ENDPOINTS[provider],
                         model,
                         PROMPT_VERSION,
-                        INSTRUCTION,
+                        translation_instruction(DEFAULT_SOURCE),
                         "Game",
                         "ja",
                         "en",
