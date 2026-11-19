@@ -249,7 +249,14 @@ cues, OCR cleanup, and evidence for quoted speech, equipment text and speaker na
 combines that evidence with paragraph position, row geometry and competing choices. The reader and
 grouper use the same list syntax, with different evidence thresholds for possible and marked choices.
 Pixel measurements, ambiguity checks, settling and request limits belong to the shared pipeline.
-OCR model selection remains separate. The shipped recognizer reads Japanese. Output language is a separate saved
+Japanese uses bundled MeikiOCR. The other registered sources share one bundled pair
+of PP-OCRv5 mobile ONNX graphs. The Latin reader uses the pinned model's CTC vocabulary and a 2 GiB
+CUDA arena limit. The detector keeps its 512 MiB limit. Regional scans receive the full client's
+dimensions so Paddle detects at the same scale across scans. Its recognition crops include context
+around each line. Paddle reads overlapping fragments on a common baseline together to avoid decoding
+the same edge glyph twice. Tracking receives tighter horizontal text boxes and recognition confidence, with
+stronger evidence required for isolated short labels that resemble icons. Automatic NVIDIA fallback
+reruns the entire observation on CPU and reports it. Output language is a separate saved
 preference, with English as the default. Each translation batch freezes the target for its prompt,
 cache hash and published result. Changing it clears pending translations and dialogue context while
 retaining OCR and loaded models. A completed reader entry keeps its original target even if the same
@@ -430,7 +437,7 @@ without import registration. Preserve built-in prompts and distinct IDs; separat
 ## Packaging, updates and persistence
 
 PyInstaller owns the folder release/EXE; uv/Hatchling own wheel/source archives. See [building](building.md).
-Bundle only three verified MeikiOCR assets/notices, CPU ONNX/llama and the app wheel, never translation
+Bundle verified MeikiOCR and PaddleOCR assets/notices, CPU ONNX/llama and the app wheel, never translation
 weights, preferences/caches or development/GPU environments. `resource_root()` is read-only; `state_root()`
 is per-user AppData in releases, project-local in source. Optional environments use AppData-managed Python
 independent of movable bundle resources. Validate the selected environment's own receipt, not latest-prepared.

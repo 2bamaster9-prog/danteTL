@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from dantejp import paths
+from dantejp.languages.selection import source_language
 from dantejp.ocr import models
 from dantejp.runtime import application as runtime_application
 from dantejp.runtime import model_store
@@ -119,20 +120,38 @@ def test_bundled_ocr_is_available_offline_without_installing_or_copying(package,
     assert not next(b for b in model_store.model_catalog() if b.key == "ocr").present()
 
 
+@pytest.mark.parametrize(
+    "code,folder,assets,resolve,override",
+    [
+        ("ja", "meiki", "ASSETS", models.model_directory, "DANTEJP_MODEL_DIR"),
+        (
+            "en",
+            "paddle-latin-v5",
+            "PADDLE_ASSETS",
+            models.paddle_directory,
+            "DANTEJP_PADDLE_MODEL_DIR",
+        ),
+    ],
+)
 def test_complete_appdata_models_take_precedence_but_partial_files_do_not_mask_bundle(
-    package, monkeypatch
+    package, monkeypatch, code, folder, assets, resolve, override
 ):
     asset = ModelAsset("fixture", "pinned", "ocr.onnx", hashlib.sha256(b"good").hexdigest(), 4)
-    monkeypatch.setattr(models, "ASSETS", (asset,))
-    bundled = package / "models/meiki"
+    monkeypatch.setattr(models, assets, (asset,))
+    bundled = package / "models" / folder
     bundled.mkdir(parents=True)
     (bundled / asset.filename).write_bytes(b"good")
-    primary = models.download_directory()
+    bundle = next(b for b in model_store.model_catalog(source_language(code)) if b.key == "ocr")
+    assert bundle.included and bundle.present() and bundle.local_directory == resolve() == bundled
+    primary = bundle.directory
     primary.mkdir(parents=True)
     (primary / asset.filename).write_bytes(b"bad")
-    assert models.model_directory() == bundled
+    assert resolve() == bundled
     (primary / asset.filename).write_bytes(b"good")
-    assert models.model_directory() == primary
+    assert resolve() == primary
+    explicit = package.parent / "explicit"
+    monkeypatch.setenv(override, str(explicit))
+    assert resolve() == explicit
 
 
 def test_repair_cannot_write_to_standalone_resources(package):

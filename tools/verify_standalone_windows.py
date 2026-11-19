@@ -13,6 +13,9 @@ from pathlib import Path
 from uuid import uuid4
 from zipfile import ZipFile
 
+import cv2
+import numpy as np
+
 from dantejp.capture.windows import Windows
 from dantejp.domain import WindowTarget
 from dantejp.runtime.owned_process import OwnedProcess
@@ -184,6 +187,19 @@ def main() -> None:
         (state / "data").mkdir(parents=True)
         (state / "data/runtime.json").write_text(json.dumps(saved), encoding="utf-8")
     report = output / "runtime.json"
+    latin_fixture = output / "latin.png"
+    image = np.zeros((1080, 1920, 3), dtype=np.uint8)
+    cv2.putText(
+        image,
+        "Open inventory",
+        (120, 160),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1.4,
+        (255, 255, 255),
+        2,
+        cv2.LINE_AA,
+    )
+    latin_fixture.write_bytes(cv2.imencode(".png", image)[1].tobytes())
     process = OwnedProcess(
         [
             str(exe),
@@ -192,6 +208,8 @@ def main() -> None:
             "cpu",
             "--ocr-image",
             str(ROOT / "tests/fixtures/ocr.png"),
+            "--latin-ocr-image",
+            str(latin_fixture),
             "--report",
             str(report),
         ],
@@ -204,6 +222,7 @@ def main() -> None:
         process.close()
     result = json.loads(report.read_text("utf-8"))
     assert Path(result["ocr"]["models"]) == bundle / "_internal/app/models/meiki"
+    assert Path(result["latin_ocr"]["models"]) == bundle / "_internal/app/models/paddle-latin-v5"
     download_helper(exe, output, environment)
     if not args.headless:
         desktop(exe, output, environment, state)

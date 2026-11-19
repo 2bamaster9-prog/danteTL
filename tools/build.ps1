@@ -1,5 +1,5 @@
 <# Standard release entry point. PyInstaller owns bundling; uv/Hatchling own Python distributions.
-   Requires uv 0.13.8. -DownloadOcr explicitly prepares the three bundled OCR assets.
+   Requires uv 0.13.8. -DownloadOcr explicitly prepares the bundled OCR assets.
    The dedicated build environment never changes a running development/GPU environment. #>
 param([switch]$Offline, [switch]$DownloadOcr, [switch]$CpuWheelOnly)
 $ErrorActionPreference = 'Stop'
@@ -40,8 +40,10 @@ if ($CpuWheelOnly) { Write-Host "Built $($cpuWheel.FullName)"; exit 0 }
 $env:PATH = @((Split-Path -Parent $python), (Split-Path -Parent $uv), "$env:SystemRoot/System32", $env:SystemRoot) -join ';'
 $env:PYINSTALLER_CONFIG_DIR = Join-Path $PWD 'build/pyinstaller-cache'
 if ($DownloadOcr) {
-    & $python tools/setup_models.py
-    if ($LASTEXITCODE -ne 0) { throw 'OCR asset preparation failed.' }
+    foreach ($source in @('ja', 'en')) {
+        & $python tools/setup_models.py --ocr-source $source
+        if ($LASTEXITCODE -ne 0) { throw "OCR asset preparation failed for $source." }
+    }
 }
 & $uv build --no-build-isolation --python $python --out-dir dist
 if ($LASTEXITCODE -ne 0) { throw 'Python distribution build failed.' }

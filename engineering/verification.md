@@ -229,7 +229,7 @@ with no Python on PATH and native files unchanged.
 `tools/verify_standalone_windows.py --output ... --invalid-selection` relocates the real EXE to a
 Unicode path, removes Python from PATH, and checks fallback/fresh OCR. Distribution resources must
 remain unchanged/read-only. Models/preferences/cache/runtimes use per-user state; managed Python
-must be independent of the movable bundle. Only pinned MeikiOCR assets ship with notices/hashes;
+must be independent of the movable bundle. Pinned MeikiOCR and PaddleOCR assets ship with notices/hashes;
 never include translation weights, personal caches/preferences, or development/GPU environments.
 After package checks, remove verified task-owned extraction/build environments; retain small
 reports/screenshots and the current distribution. Inspect paths/reparse points and live processes

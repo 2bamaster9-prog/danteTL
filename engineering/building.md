@@ -8,8 +8,8 @@ From a checkout or extracted source distribution:
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/build.ps1 -DownloadOcr
 ```
 
-This explicit build action downloads dependencies, managed CPython 3.12.16 and the three pinned
-MeikiOCR assets. Omit `-DownloadOcr` if models are already present. `-Offline` requires all assets,
+This explicit build action downloads dependencies, managed CPython 3.12.16 and the pinned
+MeikiOCR and PaddleOCR assets. Omit `-DownloadOcr` if models are already present. `-Offline` requires all assets,
 Python and dependencies to be cached, plus a previously built CPU wheel and checksum in
 `build/cpu-runtime`. No translation weights are bundled/downloaded.
 
@@ -60,7 +60,7 @@ uv run python tools/verify_standalone_windows.py --invalid-selection --output ar
 ```
 
 The headless check extracts to a Unicode path, removes Python from PATH, uses disposable AppData,
-loads actual packaged native engines, and recognizes the original Japanese PNG fixture offline.
+loads the packaged engines, and recognizes both Japanese and Latin-text fixtures offline.
 It hashes the distribution before/after to catch writes into packaged resources. The desktop
 check additionally observes Qt welcome/startup acknowledgement and clean shutdown. Model tests
 and real capture checks are separate; see [verification](verification.md).
