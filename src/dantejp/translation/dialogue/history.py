@@ -303,6 +303,7 @@ class DialogueHistory:
                 for r in results
                 if speaker
                 and candidate.name_request in self._ready
+                and r.target == result.target
                 and r.request == candidate.name_request
                 and 0 < len(r.english.strip()) <= 160
             ),
@@ -313,12 +314,21 @@ class DialogueHistory:
             candidate.entry = self._number
             self._turns = (
                 *self._turns,
-                HistoryTurn(self._number, block.text, result.english, speaker, speaker_english),
+                HistoryTurn(
+                    self._number,
+                    block.text,
+                    result.english,
+                    speaker,
+                    speaker_english,
+                    result.target,
+                ),
             )[-20:]
         else:
             self._turns = tuple(
-                HistoryTurn(t.number, block.text, result.english, speaker, speaker_english)
-                if t.number == candidate.entry
+                HistoryTurn(
+                    t.number, block.text, result.english, speaker, speaker_english, result.target
+                )
+                if t.number == candidate.entry and t.target == result.target
                 else t
                 for t in self._turns
             )

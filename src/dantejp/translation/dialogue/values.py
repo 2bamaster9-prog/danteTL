@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+from dantejp.languages.target import ENGLISH, TargetLanguage
+
 
 @dataclass(frozen=True, slots=True)
 class HistoryTurn:
@@ -10,3 +12,4 @@ class HistoryTurn:
     english: str
     speaker: str | None = None
     speaker_english: str | None = None
+    target: TargetLanguage = ENGLISH

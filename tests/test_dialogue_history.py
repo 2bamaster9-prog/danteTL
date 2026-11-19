@@ -5,6 +5,7 @@ from dataclasses import replace
 import pytest
 
 from dantejp.domain import Rect
+from dantejp.languages.target import TARGET_LANGUAGES
 from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.dialogue.history import DialogueHistory
 from dantejp.translation.grouping import TextBlock
@@ -31,6 +32,26 @@ def accept(history, blocks, now=1.0, *, score=0.97, ready=None, english="Come wi
     history.observe(blocks, ready, SIZE, now, scores=scores)
     history.observe(blocks, ready, SIZE, now + 1.3)
     history.published(tuple(result(b, english) for b in blocks))
+
+
+def test_switch_preserves_visible_turn_and_only_pairs_same_target_speakers():
+    history = DialogueHistory()
+    first, second, speaker = body(), body("また明日会いましょう。", key=4), name()
+    pt, br = TARGET_LANGUAGES["pt-PT"], TARGET_LANGUAGES["pt-BR"]
+    for now, block, target in ((1, first, pt), (3, first, br), (5, second, br)):
+        blocks = (block, speaker)
+        history.observe(blocks, blocks, SIZE, now, scores={speaker.lines[0]: 0.99})
+        history.observe(blocks, blocks, SIZE, now + 1)
+        history.published(
+            (
+                replace(result(block, target.name), target=target),
+                replace(result(speaker, "Viajante"), target=pt),
+            )
+        )
+    assert [(t.source, t.target, t.english, t.speaker_english) for t in history.turns] == [
+        (first.text, pt, pt.name, "Viajante"),
+        (second.text, br, br.name, None),
+    ]
 
 
 def test_twenty_turns_named_and_unknown_with_session_boundaries():

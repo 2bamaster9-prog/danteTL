@@ -174,7 +174,7 @@ class OcrInspector(QWidget):
         self.copy_button.setToolTip("Copy the selected row, or all text when no row is selected.")
         self.copy_button.clicked.connect(self._copy_text)
         toolbar.addWidget(self.copy_button)
-        copy_english = QPushButton("Copy English")
+        copy_english = QPushButton("Copy translation")
         copy_english.clicked.connect(self._copy_english)
         toolbar.addWidget(copy_english)
         layout.addLayout(toolbar)
@@ -186,7 +186,7 @@ class OcrInspector(QWidget):
         scroll.setWidget(self.preview)
         splitter.addWidget(scroll)
         self.table = QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(["ID", "Japanese", "Confidence", "English"])
+        self.table.setHorizontalHeaderLabels(["ID", "Japanese", "Confidence", "Translation"])
         self.table.setAccessibleName("Detected Japanese text")
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -324,7 +324,10 @@ class OcrInspector(QWidget):
                     else f"↳ Group #{anchor}"
                 )
                 source = "\n".join(line[2] for line in translated.request.line_sources)
-                tooltip = f"Translation source:\n{source}\n\nEnglish:\n{translated.english}"
+                tooltip = (
+                    f"Translation source:\n{source}\n\n"
+                    f"{translated.target.name}:\n{translated.english}"
+                )
             cell = QTableWidgetItem(text or "—")
             cell.setToolTip(tooltip)
             self.table.setItem(row, 3, cell)

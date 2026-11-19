@@ -10,6 +10,7 @@ from PySide6.QtCore import QPoint, Qt  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QWidget  # noqa: E402
 
+from dantejp.languages.target import TARGET_LANGUAGES  # noqa: E402
 from dantejp.translation.dialogue.history import HistoryTurn  # noqa: E402
 from dantejp.ui.controls import (  # noqa: E402
     CaptureButton,
@@ -76,7 +77,7 @@ def test_overlay_controls_wrap_and_capture_state_keeps_icons_and_labels_consiste
 def test_reader_hides_without_losing_turns_escapes_text_and_preserves_scroll(app):
     parent = QWidget()
     turns = [
-        HistoryTurn(i, f"第{i}話。" * 15, f"Turn {i}. " * 30, "旅人", "Traveler")
+        HistoryTurn(i, f"第{i}話。" * 15, f"Turn {i}. " * 30, "旅人", f"Traveler {i}")
         for i in range(1, 21)
     ]
     panel = HistoryPanel(lambda: tuple(turns), turns.clear, parent)
@@ -88,7 +89,7 @@ def test_reader_hides_without_losing_turns_escapes_text_and_preserves_scroll(app
         assert bar.maximum() > 0 and bar.value() == 0
         text = panel.reader.toPlainText()
         assert text.index("Turn 20.") < text.index("Turn 19.") < text.index("Turn 1.")
-        assert "(Traveler) 旅人" in text
+        assert "(Traveler 20) 旅人" in text
         bar.setValue(bar.maximum() // 2)
         visible = panel.reader.cursorForPosition(QPoint(12, 12)).block().text()
         turns[-1] = HistoryTurn(
@@ -99,21 +100,24 @@ def test_reader_hides_without_losing_turns_escapes_text_and_preserves_scroll(app
         assert "<b>literal</b>" in panel.reader.toPlainText()
         assert "(<i>Name</i>) 名前" in panel.reader.toPlainText()
         panel.hide()
-        turns.append(HistoryTurn(21, "続き。", "Next."))
+        turns.append(HistoryTurn(21, "続き。", "A seguir.", target=TARGET_LANGUAGES["pt-PT"]))
         turns.pop(0)
         panel.refresh()
-        assert "Next." not in panel.reader.toPlainText()
+        assert "A seguir." not in panel.reader.toPlainText()
         panel.open_reader()
-        assert "Next." in panel.reader.toPlainText()
+        assert "A seguir." in panel.reader.toPlainText()
+        assert "Portuguese (Portugal)" in panel.reader.toPlainText()
+        assert "English" in panel.reader.toPlainText()
         assert "Unknown speaker" in panel.reader.toPlainText()
-        assert panel.reader.cursorForPosition(QPoint(12, 12)).block().text() == visible
+        current = panel.reader.cursorForPosition(QPoint(12, 12)).block().text()
+        assert current.removesuffix(" · English") == visible
         bar.setValue(0)
         turns.append(HistoryTurn(22, "新しい会話。", "Newest."))
         turns.pop(0)
         panel.refresh()
         assert bar.value() == 0
         assert panel.reader.toPlainText().index("Newest.") < panel.reader.toPlainText().index(
-            "Next."
+            "A seguir."
         )
         panel.clear_button.click()
         assert turns == [] and "Your conversation goes here." in panel.reader.toPlainText()

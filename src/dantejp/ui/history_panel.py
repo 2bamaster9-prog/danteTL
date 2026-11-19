@@ -31,9 +31,12 @@ class HistoryReader(QTextBrowser):
 
     def set_copies(self, turns: tuple[HistoryTurn, ...]) -> None:
         wanted = {
-            f"copy-{turn.number}-{language}": (language, text)
+            f"copy-{turn.number}-{code}": (language, text)
             for turn in turns
-            for language, text in (("Japanese", turn.source), ("English", turn.english))
+            for code, language, text in (
+                ("ja", "Japanese", turn.source),
+                (turn.target.code, turn.target.name, turn.english),
+            )
         }
         for key in set(self._copies) - wanted.keys():
             button = self._copies.pop(key)
@@ -124,7 +127,7 @@ class HistoryPanel(QDialog):
         )
         layout.addWidget(note)
         self.reader = HistoryReader()
-        self.reader.setAccessibleName("Recent dialogue in Japanese and English")
+        self.reader.setAccessibleName("Recent dialogue and translations")
         self.reader.setOpenExternalLinks(False)
         self.reader.setOpenLinks(False)
         self.reader.setTextInteractionFlags(
@@ -162,6 +165,7 @@ class HistoryPanel(QDialog):
         self.count.setText(f"Dialogue history · {len(turns)}/20")
         self.clear_button.setEnabled(bool(turns))
         parts = []
+        mixed_targets = len({turn.target for turn in turns}) > 1
         for turn in reversed(turns):
             speaker = turn.speaker or "Unknown speaker"
             if turn.speaker and turn.speaker_english:
@@ -169,12 +173,14 @@ class HistoryPanel(QDialog):
             parts.append(
                 f'<p style="color:#5eead4; margin-top:18px"><b><a name="turn-{turn.number}">'
                 + escape(speaker)
-                + "</a></b></p>"
+                + "</a></b>"
+                + (f" · {escape(turn.target.name)}" if mixed_targets else "")
+                + "</p>"
                 + '<p style="color:#9baabc; margin-right:36px">'
-                + f'<a name="copy-{turn.number}-Japanese">'
+                + f'<a name="copy-{turn.number}-ja">'
                 + escape(turn.source).replace("\n", "<br>")
                 + "</a></p>"
-                + f'<p style="margin-right:36px"><a name="copy-{turn.number}-English">'
+                + f'<p style="margin-right:36px"><a name="copy-{turn.number}-{turn.target.code}">'
                 + escape(turn.english).replace("\n", "<br>")
                 + '</a></p><hr style="background-color:#304259">'
             )
