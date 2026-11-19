@@ -2,6 +2,7 @@ import time
 from concurrent.futures import Future
 
 from dantejp.domain import Rect
+from dantejp.languages.target import ENGLISH
 from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.cache import TranslationCache, translation_key
 from dantejp.translation.grouping import TextBlock
@@ -17,13 +18,13 @@ class Deferred:
         self.calls = []
         self.closed = False
 
-    def translate(self, texts):
+    def translate(self, texts, *, target=ENGLISH):
         raise AssertionError("Must use deferred submission")
 
-    def translate_with_context(self, text, context):
+    def translate_with_context(self, text, context, *, target=ENGLISH):
         raise AssertionError("Must use deferred submission")
 
-    def submit_translation(self, sources):
+    def submit_translation(self, sources, *, target=ENGLISH):
         future = Future()
         self.calls.append((sources[0], future))
         return future

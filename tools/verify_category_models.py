@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from dantejp.application.model_factories import translation_backends
 from dantejp.domain import Rect
+from dantejp.languages.target import ENGLISH
 from dantejp.ocr.tracking import TextTrack
 from dantejp.runtime.llama import installed_device, load_runtime
 from dantejp.translation.grouping import TextBlock
@@ -26,7 +27,7 @@ class CloudFixture:
     def __init__(self, key):
         self.cache_identity = key
 
-    def translate(self, texts):
+    def translate(self, texts, *, target=ENGLISH):
         return tuple("Fixture translation: " + text for text in texts)
 
     def close(self):

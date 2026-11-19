@@ -10,13 +10,26 @@ from collections import OrderedDict
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
+from dantejp.languages.target import ENGLISH, TargetLanguage
+
 logger = logging.getLogger(__name__)
 # WAL/schema initialization must not race when two category owners start together.
 _schema_lock = threading.Lock()
 
 
-def translation_key(identity: str, source: str) -> str:
-    payload = json.dumps(["ja", "en", identity, source], ensure_ascii=False).encode("utf-8")
+def translation_key(
+    identity: str,
+    source: str,
+    *,
+    language: SourceLanguage = DEFAULT_SOURCE,
+    target: TargetLanguage = ENGLISH,
+) -> str:
+    # Backends fingerprint their default prompt once. The actual output is a per-request key.
+    payload = json.dumps([language.code, target.code, identity, source], ensure_ascii=False).encode(
+        "utf-8"
+    )
     return hashlib.sha256(payload).hexdigest()
 
 

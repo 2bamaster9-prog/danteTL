@@ -3,6 +3,7 @@
 from concurrent.futures import Future
 from dataclasses import replace
 
+from dantejp.languages.target import ENGLISH
 from dantejp.translation.backend import BatchResult
 from dantejp.translation.cache import TranslationCache, translation_key
 from dantejp.translation.dialogue.context import DialogueTurn
@@ -15,13 +16,13 @@ class Backend:
     batch_size = 1
     max_in_flight = 2
 
-    def translate(self, texts):
+    def translate(self, texts, *, target=ENGLISH):
         raise AssertionError("Planning must not infer")
 
-    def translate_with_context(self, text, context):
+    def translate_with_context(self, text, context, *, target=ENGLISH):
         raise AssertionError("Planning must not infer")
 
-    def submit_translation(self, sources):
+    def submit_translation(self, sources, *, target=ENGLISH):
         raise AssertionError("The worker owns dispatch")
 
     def cancel_pending(self):

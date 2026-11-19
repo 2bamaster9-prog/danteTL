@@ -8,6 +8,7 @@ import httpx2
 import pytest
 
 from dantejp.domain import Rect
+from dantejp.languages.target import ENGLISH, TARGET_LANGUAGES
 from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.backend import RequestRejected
 from dantejp.translation.cache import TranslationCache, translation_key
@@ -98,6 +99,42 @@ def response(text="Settings", *, provider="openai", **changes):
         "choices": [{"finish_reason": "stop", "message": {"content": text, **changes}}],
         "usage": {"prompt_tokens": 80, "completion_tokens": 3},
     }
+
+
+def test_target_switch_cancels_old_cloud_work_and_sends_new_language(tmp_path):
+    instructions = []
+    cancelled = threading.Event()
+
+    async def handle(request):
+        instruction = json.loads(request.content)["messages"][0]["content"]
+        instructions.append(instruction)
+        if "English" in instruction:
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled.set()
+        return httpx2.Response(200, json=response("Ajustes"))
+
+    engine = CloudBackend(
+        replace(CloudProfile.new("openai"), requests_per_minute=600),
+        "fixture",
+        transport=httpx2.MockTransport(handle),
+    )
+    session = TranslationSession(lambda: engine, tmp_path / "cache")
+    session.start()
+    try:
+        rows = (track(),)
+        session.update(rows)
+        until(lambda: len(instructions) == 1)
+        session.update(rows, target=TARGET_LANGUAGES["es"])
+        until(lambda: bool(session.snapshot().results))
+        assert cancelled.is_set() and len(instructions) == 2
+        assert "Spanish" in instructions[1]
+        assert [(r.target.code, r.english) for r in session.snapshot().results] == [
+            ("es", "Ajustes")
+        ]
+    finally:
+        stop(session)
 
 
 def test_ocr_revision_interrupts_only_the_obsolete_cloud_request(tmp_path):
@@ -361,7 +398,7 @@ def test_hybrid_groups_dialogue_and_local_work_is_not_blocked(tmp_path, provider
         batch_size = 4
         cache_identity = "local-fixture"
 
-        def translate(self, texts):
+        def translate(self, texts, *, target=ENGLISH):
             return tuple("Local " + text for text in texts)
 
         def close(self):

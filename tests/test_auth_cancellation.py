@@ -84,7 +84,7 @@ def test_translation_owner_drains_slow_auth_without_losing_saved_tokens(tmp_path
                 cache_identity = "replacement-fixture"
                 batch_size = 1
 
-                def translate(self, texts):
+                def translate(self, texts, *, target=None):
                     return tuple("Settings" for _ in texts)
 
                 def close(self):

@@ -1,6 +1,5 @@
 """Conservative text-only observations for tracking; raw OCR remains untouched."""
 
-import re
 from dataclasses import replace
 from math import isfinite
 from statistics import median
@@ -10,12 +9,7 @@ from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
 from dantejp.ocr.values import TextCharacter, TextRegion
 
-_JAPANESE = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uff66-\uff9f]")
 _STRUCTURAL = frozenset("（）()[]“”\"'，．：；？！!?…+-−±%％")
-
-
-def has_japanese(text: str) -> bool:
-    return _JAPANESE.search(text) is not None
 
 
 def _isolated_icon(

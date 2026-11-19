@@ -16,6 +16,7 @@ from ui_fixtures import (
 )
 
 from dantejp.application.setup_coordinator import SetupLane
+from dantejp.languages.target import ENGLISH
 from dantejp.ui.setup_assistant import SetupAssistant
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -1006,7 +1007,7 @@ def test_switch_clears_painted_and_paused_english_rejects_late_reply_and_keeps_m
             self.entered, self.release = threading.Event(), threading.Event()
             self.release.set()
 
-        def translate(self, texts):
+        def translate(self, texts, *, target=ENGLISH):
             self.calls.append(texts)
             self.entered.set()
             assert self.release.wait(3)

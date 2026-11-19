@@ -10,6 +10,7 @@ import pytest
 from dantejp.application.model_lifecycle import ModelLifecycle, RouteSelection
 from dantejp.application.preferences import Preferences, decode_preferences
 from dantejp.domain import Rect
+from dantejp.languages.target import ENGLISH
 from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.grouping import TextBlock
 from dantejp.translation.plan import TranslationPlan
@@ -38,7 +39,7 @@ class Engine:
         self.closed = threading.Event()
         self.calls = []
 
-    def translate(self, texts):
+    def translate(self, texts, *, target=ENGLISH):
         self.calls.append(texts)
         self.entered.set()
         if self.release:

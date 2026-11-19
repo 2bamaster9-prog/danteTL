@@ -542,7 +542,7 @@ def test_simple_local_preparation_commits_only_when_ready_and_reuses_worker(
         batch_size = 1
         closed = False
 
-        def translate(self, texts):
+        def translate(self, texts, *, target):
             return tuple("Local answer" for _ in texts)
 
         def close(self):

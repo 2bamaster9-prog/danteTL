@@ -25,6 +25,7 @@ from dantejp.application.model_factories import create_recognizer, translation_b
 from dantejp.capture.windows import Windows
 from dantejp.composition import application_session, setup_coordinator
 from dantejp.domain import WindowTarget
+from dantejp.languages.target import ENGLISH
 from dantejp.ocr.worker import OcrChoice
 from dantejp.paths import state_root
 from dantejp.translation.backend import ContextualBackend
@@ -185,12 +186,14 @@ def main() -> int:
             self.engine = engine
             self.batch_size, self.cache_identity = engine.batch_size, engine.cache_identity
 
-        def translate(self, texts: tuple[str, ...]) -> tuple[str, ...]:
-            return tuple(self.translate_with_context(text, ()) for text in texts)
+        def translate(self, texts: tuple[str, ...], *, target=ENGLISH) -> tuple[str, ...]:
+            return tuple(self.translate_with_context(text, (), target=target) for text in texts)
 
-        def translate_with_context(self, text: str, context: tuple[DialogueTurn, ...]) -> str:
+        def translate_with_context(
+            self, text: str, context: tuple[DialogueTurn, ...], *, target=ENGLISH
+        ) -> str:
             started = time.perf_counter()
-            answer = self.engine.translate_with_context(text, context)
+            answer = self.engine.translate_with_context(text, context, target=target)
             with calls_lock:
                 calls.append(dict(source=text, ms=(time.perf_counter() - started) * 1000))
             return answer

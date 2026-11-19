@@ -12,6 +12,7 @@ from dantejp.application.values import Scene as Scene
 from dantejp.domain import CapturedFrame, CaptureSnapshot, CaptureState, Rect, WindowTarget
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
+from dantejp.languages.target import ENGLISH, TargetLanguage
 from dantejp.ocr.tracking import TextActivity, TextTrack, TextTracker
 from dantejp.ocr.values import OcrResult, OcrSnapshot, OcrState
 from dantejp.ocr.visual import VisualSession
@@ -382,6 +383,8 @@ class LiveSession:
         session: TranslationWorker,
         requests: tuple[TextBlock, ...],
         retained: tuple[TextBlock, ...],
+        *,
+        target: TargetLanguage = ENGLISH,
     ) -> EnglishScene:
         state = self.visual_state
         broad_change = bool(
@@ -396,13 +399,14 @@ class LiveSession:
             requests,
             retain=retained,
             reset_context=broad_change,
+            target=target,
             corrections=self._tracker.display_predecessors(),
         )
         snapshot = session.snapshot()
         published = self._presentation.update(
             retained,
             snapshot.results,
-            scope=(session, snapshot.backend_generation),
+            scope=(session, snapshot.backend_generation, target),
             cleared=state.cleared,
         )
         if self.history_enabled:

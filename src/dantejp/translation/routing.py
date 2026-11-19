@@ -3,6 +3,9 @@
 from collections.abc import Callable
 from pathlib import Path
 
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
+from dantejp.languages.target import ENGLISH, TargetLanguage
 from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.backend import TranslationBackend
 from dantejp.translation.grouping import TextBlock
@@ -32,6 +35,7 @@ class RoutedTranslationSession:
         factories: dict[str, Callable[[], TranslationBackend]],
         cache_path: Path,
         *,
+        language: SourceLanguage = DEFAULT_SOURCE,
         prepared: tuple[str, TranslationSession] | None = None,
         on_change: Callable[[], None] | None = None,
         identities: dict[str, ModelIdentity] | None = None,
@@ -40,6 +44,7 @@ class RoutedTranslationSession:
         """Adopt one prepared owner and share one worker for identical assignments."""
         if prepared and prepared[0] not in plan.active_models:
             raise ValueError("Prepared model does not belong to the active translation plan.")
+        self._language = language
         self._cache_path, self._notify = cache_path, on_change
         self._plan = plan
         self._routes: dict[TranslationRequest, str] = {}
@@ -54,7 +59,9 @@ class RoutedTranslationSession:
             if prepared and prepared[0] == key:
                 self._workers[key] = prepared[1]
             elif key in factories:
-                worker = TranslationSession(factories[key], cache_path, on_change=on_change)
+                worker = TranslationSession(
+                    factories[key], cache_path, on_change=on_change, language=language
+                )
                 self._workers[key] = worker
                 unstarted.append(worker)
         self._unstarted = tuple(unstarted)
@@ -112,7 +119,9 @@ class RoutedTranslationSession:
             return
         for key, factory in self._factories.items():
             if key not in self._workers:
-                worker = TranslationSession(factory, self._cache_path, on_change=self._notify)
+                worker = TranslationSession(
+                    factory, self._cache_path, on_change=self._notify, language=self._language
+                )
                 self._workers[key] = worker
                 worker.start()
 
@@ -121,6 +130,7 @@ class RoutedTranslationSession:
         tracks: tuple[TextTrack | TextBlock, ...],
         *,
         retain: tuple[TextBlock, ...] = (),
+        target: TargetLanguage = ENGLISH,
         reset_context: bool = False,
         corrections: tuple[tuple[TextTrack, TextTrack], ...] = (),
     ) -> None:
@@ -145,6 +155,7 @@ class RoutedTranslationSession:
                     item for item in retain[:128] if self._routes.get(key(item)) == remote
                 ),
                 reset_context=reset_context,
+                target=target,
                 corrections=corrections,
             )
 

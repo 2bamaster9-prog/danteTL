@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from dantejp.languages.target import ENGLISH, TargetLanguage
 from dantejp.runtime.llama import load_runtime
 from dantejp.translation.backend import RequestRejected
 from dantejp.translation.backends.gguf import completed_answer
@@ -114,10 +115,16 @@ class SpecialistBackend:
             self.close()
             raise
 
-    def translate(self, texts: tuple[str, ...]) -> tuple[str, ...]:
-        return tuple(self.translate_with_context(t, ()) for t in texts)
+    def translate(
+        self, texts: tuple[str, ...], *, target: TargetLanguage = ENGLISH
+    ) -> tuple[str, ...]:
+        return tuple(self.translate_with_context(t, (), target=target) for t in texts)
 
-    def translate_with_context(self, text: str, context: tuple[DialogueTurn, ...]) -> str:
+    def translate_with_context(
+        self, text: str, context: tuple[DialogueTurn, ...], *, target: TargetLanguage = ENGLISH
+    ) -> str:
+        if target != ENGLISH:
+            raise RequestRejected("This benchmark uses Japanese-to-English reference translations.")
         context = bounded_history(context)
         while True:
             content = specialist_prompt(self.profile, text, context)

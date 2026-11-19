@@ -8,7 +8,9 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from dantejp.ocr.text_content import has_japanese
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
+from dantejp.languages.target import ENGLISH, TargetLanguage
 from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.backend import (
     BatchResult,
@@ -70,7 +72,10 @@ class TranslationSession:
         cache_path: Path,
         *,
         on_change: Callable[[], None] | None = None,
+        language: SourceLanguage = DEFAULT_SOURCE,
     ) -> None:
+        self._language = language
+        self._target = ENGLISH
         self._factory, self._cache_path = factory, cache_path
         self._notify = on_change or (lambda: None)
         self._condition = threading.Condition()
@@ -109,6 +114,7 @@ class TranslationSession:
         tracks: tuple[TextTrack | TextBlock, ...],
         *,
         retain: tuple[TextBlock, ...] = (),
+        target: TargetLanguage = ENGLISH,
         reset_context: bool = False,
         corrections: tuple[tuple[TextTrack, TextTrack], ...] = (),
     ) -> None:
@@ -117,7 +123,7 @@ class TranslationSession:
             if isinstance(t, TextBlock)
             else TranslationRequest.from_track(t)
             for t in tracks
-            if has_japanese(t.text)
+            if self._language.contains_text(t.text)
         )[:128]
         desired_set = set(desired)
         retained = tuple(
@@ -126,6 +132,9 @@ class TranslationSession:
             if (key := TranslationRequest.from_block(block)) not in desired_set
         )[: 128 - len(desired)]
         with self._condition:
+            if target != self._target:
+                self._target = target
+                self._invalidate_locked()
             now = time.monotonic()
             blocks = tuple(t for t in tracks[:128] if isinstance(t, TextBlock))
             allowed = desired_set.union(retained)
@@ -166,16 +175,19 @@ class TranslationSession:
 
     def invalidate(self) -> None:
         with self._condition:
-            self._generation += 1
-            self._desired = ()
-            self._retained = ()
-            self._results.clear()
-            self._rejections.clear()
-            self._queued_at.clear()
-            self._dialogue.reset()
-            self._contexts.clear()
-            self._blocks.clear()
-            self._condition.notify()
+            self._invalidate_locked()
+
+    def _invalidate_locked(self) -> None:
+        self._generation += 1
+        self._desired = ()
+        self._retained = ()
+        self._results.clear()
+        self._rejections.clear()
+        self._queued_at.clear()
+        self._dialogue.reset()
+        self._contexts.clear()
+        self._blocks.clear()
+        self._condition.notify()
 
     def switch_backend(self, factory: Callable[[], TranslationBackend]) -> None:
         with self._condition:
@@ -259,7 +271,7 @@ class TranslationSession:
         engine: TranslationBackend | None = None
         cache: TranslationCache | None = None
         active_backend = -1
-        schedule = TranslationSchedule()
+        schedule = TranslationSchedule(language=self._language)
         try:
             cache = TranslationCache(self._cache_path)
             while True:
@@ -326,6 +338,7 @@ class TranslationSession:
                             for key in jobs
                             if key in self._blocks and self._blocks[key].dialogue
                         ),
+                        target=self._target,
                     )
                 if active_backend != backend_generation:
                     if engine is not None:
@@ -365,11 +378,15 @@ class TranslationSession:
                             min(batch.started, since) if since is not None else batch.started
                         )
                 if batch.missing and isinstance(engine, DeferredBackend):
-                    future = engine.submit_translation(batch.missing)
+                    future = engine.submit_translation(batch.missing, target=batch.target)
                     schedule.submitted(batch, future)
                     future.add_done_callback(self._wake)
                 else:
-                    outcome = translate_batch(engine, batch.missing) if batch.missing else ({}, {})
+                    outcome = (
+                        translate_batch(engine, batch.missing, target=batch.target)
+                        if batch.missing
+                        else ({}, {})
+                    )
                     self._publish_batch(batch, outcome, cache, inference=bool(batch.missing))
         except Exception as error:
             logger.exception("Translation failed")
@@ -429,7 +446,7 @@ class TranslationSession:
                             self._rejections.popitem(last=False)
                     english = batch.answers.get(source)
                     if english is not None:
-                        self._results[key] = TranslatedText(key, english)
+                        self._results[key] = TranslatedText(key, english, batch.target)
                         if key in self._blocks:
                             self._dialogue.published(self._blocks[key], english, time.monotonic())
                 self._duration, self._queue_ms = duration, batch.queue_ms
@@ -443,7 +460,7 @@ class TranslationSession:
 
 
 def translate_batch(
-    engine: TranslationBackend, sources: tuple[Source, ...]
+    engine: TranslationBackend, sources: tuple[Source, ...], *, target: TargetLanguage = ENGLISH
 ) -> tuple[dict[Source, str], dict[Source, str]]:
     """Isolate known rejections. Split a rejected batch once; native failures stay fatal."""
     answers: dict[Source, str] = {}
@@ -463,18 +480,18 @@ def translate_batch(
     if isinstance(engine, ContextualBackend):
         for source in valid:
             try:
-                accept(source, engine.translate_with_context(*source))
+                accept(source, engine.translate_with_context(*source, target=target))
             except RequestRejected as error:
                 rejected[source] = str(error) or "Model rejected this request."
     elif valid:
         try:
-            translated = engine.translate(tuple(source[0] for source in valid))
+            translated = engine.translate(tuple(source[0] for source in valid), target=target)
         except RequestRejected as error:
             if len(valid) == 1:
                 rejected[valid[0]] = str(error) or "Model rejected this request."
             else:
                 for source in valid:
-                    good, bad = translate_batch(engine, (source,))
+                    good, bad = translate_batch(engine, (source,), target=target)
                     answers.update(good)
                     rejected.update(bad)
         else:

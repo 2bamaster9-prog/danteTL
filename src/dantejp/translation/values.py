@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
+from dantejp.languages.target import ENGLISH, TargetLanguage
 from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.grouping import TextBlock
 
@@ -35,6 +36,7 @@ class TranslationRequest:
 class TranslatedText:
     request: TranslationRequest
     english: str
+    target: TargetLanguage = ENGLISH
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,6 +86,7 @@ class TranslationWorker(Protocol):
         tracks: tuple[TextTrack | TextBlock, ...],
         *,
         retain: tuple[TextBlock, ...] = (),
+        target: TargetLanguage = ENGLISH,
         reset_context: bool = False,
         corrections: tuple[tuple[TextTrack, TextTrack], ...] = (),
     ) -> None: ...

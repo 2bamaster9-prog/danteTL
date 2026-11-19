@@ -3,6 +3,7 @@
 from concurrent.futures import Future
 from typing import Protocol, runtime_checkable
 
+from dantejp.languages.target import ENGLISH, TargetLanguage
 from dantejp.translation.dialogue.context import DialogueTurn
 
 
@@ -14,13 +15,17 @@ class TranslationBackend(Protocol):
     cache_identity: str
     batch_size: int
 
-    def translate(self, texts: tuple[str, ...], /) -> tuple[str, ...]: ...
+    def translate(
+        self, texts: tuple[str, ...], /, *, target: TargetLanguage = ENGLISH
+    ) -> tuple[str, ...]: ...
     def close(self) -> None: ...
 
 
 @runtime_checkable
 class ContextualBackend(TranslationBackend, Protocol):
-    def translate_with_context(self, text: str, context: tuple[DialogueTurn, ...]) -> str: ...
+    def translate_with_context(
+        self, text: str, context: tuple[DialogueTurn, ...], *, target: TargetLanguage = ENGLISH
+    ) -> str: ...
 
 
 Source = tuple[str, tuple[DialogueTurn, ...]]
@@ -31,7 +36,9 @@ BatchResult = tuple[dict[Source, str], dict[Source, str]]
 class DeferredBackend(ContextualBackend, Protocol):
     """Network I/O completes elsewhere; the session retains cache/publication ownership."""
 
-    def submit_translation(self, sources: tuple[Source, ...]) -> Future[BatchResult]: ...
+    def submit_translation(
+        self, sources: tuple[Source, ...], *, target: TargetLanguage = ENGLISH
+    ) -> Future[BatchResult]: ...
     def cancel_pending(self) -> None: ...
 
 

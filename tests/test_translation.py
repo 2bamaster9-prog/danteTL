@@ -6,10 +6,11 @@ import pytest
 
 from dantejp.application.live_session import LiveSession
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.languages.target import ENGLISH, TARGET_LANGUAGES
 from dantejp.ocr.tracking import TextTrack, TextTracker
 from dantejp.ocr.worker import OcrResult, TextCharacter, TextRegion
 from dantejp.translation.backend import RequestRejected
-from dantejp.translation.cache import TranslationCache
+from dantejp.translation.cache import TranslationCache, translation_key
 from dantejp.translation.dialogue.context import DialogueTurn
 from dantejp.translation.grouping import DialogueGrouper, TextBlock
 from dantejp.translation.worker import TranslationRequest, TranslationSession, TranslationState
@@ -37,7 +38,7 @@ class Backend:
         self.release = threading.Event()
         self.release.set()
 
-    def translate(self, texts: tuple[str, ...]) -> tuple[str, ...]:
+    def translate(self, texts: tuple[str, ...], *, target=ENGLISH) -> tuple[str, ...]:
         self.calls.append(texts)
         self.entered.set()
         assert self.release.wait(3)
@@ -47,6 +48,78 @@ class Backend:
         self.closed = True
 
 
+@pytest.mark.parametrize("initial,following", [("en", "es"), ("pt-PT", "pt-BR")])
+def test_output_change_discards_inflight_answer_and_reuses_each_languages_cache(
+    tmp_path, initial, following
+):
+    first, second = TARGET_LANGUAGES[initial], TARGET_LANGUAGES[following]
+    started, release = threading.Event(), threading.Event()
+
+    class Translator(Backend):
+        def translate(self, texts, *, target=ENGLISH):
+            self.calls.append((target.code, *texts))
+            if target == first:
+                started.set()
+                assert release.wait(3)
+            return tuple(target.name for _ in texts)
+
+    backend = Translator()
+    session = TranslationSession(lambda: backend, tmp_path / "cache")
+    session.start()
+    rows = (track(),)
+    try:
+        session.update(rows, target=first)
+        assert started.wait(3)
+        session.update(rows, target=second)
+        assert not session.snapshot().results
+        release.set()
+        until(lambda: any(r.target == second for r in session.snapshot().results))
+        assert [r.english for r in session.snapshot().results] == [second.name]
+        for target in (first, second):
+            session.update(rows, target=target)
+            until(lambda: session.snapshot().cache_hits == 1 and session.snapshot().results)
+            assert [r.english for r in session.snapshot().results] == [target.name]
+        assert backend.calls == [(initial, rows[0].text), (following, rows[0].text)]
+    finally:
+        release.set()
+        session.request_stop()
+        until(lambda: session.finished)
+    reopened = TranslationCache(tmp_path / "cache")
+    try:
+        for target in (first, second):
+            key = translation_key(backend.cache_identity, rows[0].text, target=target)
+            assert reopened.get(key) == target.name
+    finally:
+        reopened.close()
+
+
+def test_switching_region_starts_fresh_model_dialogue_context(tmp_path):
+    class Contextual(Backend):
+        def translate_with_context(self, source, context, *, target):
+            self.calls.append((source, target.code, context))
+            return target.name
+
+    backend = Contextual()
+    worker = TranslationSession(lambda: backend, tmp_path / "cache.sqlite3")
+    pt, br = TARGET_LANGUAGES["pt-PT"], TARGET_LANGUAGES["pt-BR"]
+    first = TextBlock((track("私の名前はリナです。"),), dialogue=True)
+    second = TextBlock((track("明日は一緒に行きましょう。", key=2),), dialogue=True)
+    third = TextBlock((track("また明日会いましょう。", key=3),), dialogue=True)
+    worker.start()
+    try:
+        for block, target in ((first, pt), (second, pt), (second, br), (third, br)):
+            worker.update((block,), target=target)
+            until(lambda: worker.snapshot().pending == 0 and worker.snapshot().results)
+        assert backend.calls == [
+            (first.text, pt.code, ()),
+            (second.text, pt.code, (DialogueTurn(first.text, pt.name),)),
+            (second.text, br.code, ()),
+            (third.text, br.code, (DialogueTurn(second.text, br.name),)),
+        ]
+    finally:
+        stop(worker)
+
+
 def test_worker_serves_stable_text_while_earlier_box_keeps_changing(tmp_path):
     stable = track("ここで待っています。", key=2)
 
@@ -54,7 +127,7 @@ def test_worker_serves_stable_text_while_earlier_box_keeps_changing(tmp_path):
         batch_size = 1
         revision = 0
 
-        def translate(self, texts):
+        def translate(self, texts, *, target=ENGLISH):
             self.calls.append(texts)
             if texts[0] != stable.text and self.revision < 20:
                 self.revision += 1
@@ -119,7 +192,7 @@ def test_worker_context_preserves_negation_and_forwards_exact_correction_lineage
             super().__init__()
             self.contexts = []
 
-        def translate_with_context(self, source, context):
+        def translate_with_context(self, source, context, *, target=ENGLISH):
             self.contexts.append((source, context))
             return "English " + source
 
@@ -149,7 +222,7 @@ def test_worker_context_preserves_negation_and_forwards_exact_correction_lineage
 
 def test_request_rejection_preserves_other_results_and_does_not_retry(tmp_path):
     class Selective(Backend):
-        def translate(self, texts):
+        def translate(self, texts, *, target=ENGLISH):
             self.calls.append(texts)
             if "拒否" in texts:
                 raise RequestRejected("Incomplete answer")
@@ -182,7 +255,7 @@ def test_request_rejection_preserves_other_results_and_does_not_retry(tmp_path):
 
 def test_stale_rejection_cannot_block_new_revision_or_backend(tmp_path):
     class Rejecting(Backend):
-        def translate(self, texts):
+        def translate(self, texts, *, target=ENGLISH):
             self.entered.set()
             assert self.release.wait(3)
             raise RequestRejected("Fixture rejection")
@@ -205,7 +278,7 @@ def test_stale_rejection_cannot_block_new_revision_or_backend(tmp_path):
 
 def test_native_backend_failure_remains_terminal(tmp_path):
     class Broken(Backend):
-        def translate(self, texts):
+        def translate(self, texts, *, target=ENGLISH):
             raise RuntimeError("Native engine unusable")
 
     backend = Broken()
@@ -220,7 +293,7 @@ def test_rejection_is_context_scoped_and_context_reset_releases_same_request(tmp
     class Contextual(Backend):
         batch_size = 1
 
-        def translate_with_context(self, source, context):
+        def translate_with_context(self, source, context, *, target=ENGLISH):
             if context:
                 raise RequestRejected("Cannot answer with this context")
             return "Standalone English"
@@ -244,7 +317,7 @@ def test_rejection_is_context_scoped_and_context_reset_releases_same_request(tmp
 
 def test_rejected_history_is_bounded_and_reset_does_not_suppress_new_work(tmp_path):
     class Rejecting(Backend):
-        def translate(self, texts):
+        def translate(self, texts, *, target=ENGLISH):
             self.calls.append(texts)
             raise RequestRejected("Unusable answer")
 
@@ -280,7 +353,7 @@ def test_context_is_frozen_per_request_menu_independent_and_cache_scoped(tmp_pat
             super().__init__()
             self.contexts = []
 
-        def translate_with_context(self, source, context):
+        def translate_with_context(self, source, context, *, target=ENGLISH):
             self.contexts.append((source, context))
             return f"English {source} ({len(context)})"
 
@@ -319,7 +392,7 @@ def test_context_reset_rejects_in_flight_context_and_retries_without_it(tmp_path
         batch_size = 1
         contexts = []
 
-        def translate_with_context(self, source, context):
+        def translate_with_context(self, source, context, *, target=ENGLISH):
             self.contexts.append(context)
             return self.translate((source,))[0] + (" context" if context else " standalone")
 
@@ -349,7 +422,7 @@ def test_serial_llm_publishes_first_label_before_waiting_for_second(tmp_path):
     class Serial(Backend):
         batch_size = 1
 
-        def translate(self, texts):
+        def translate(self, texts, *, target=ENGLISH):
             if self.calls:
                 self.release.clear()
             return super().translate(texts)
@@ -479,7 +552,7 @@ def test_cache_sweep_revalidates_frozen_dialogue_context(tmp_path, monkeypatch):
     class Contextual(Backend):
         batch_size = 1
 
-        def translate_with_context(self, source, context):
+        def translate_with_context(self, source, context, *, target=ENGLISH):
             return f"{source}: {'context' if context else 'standalone'}"
 
     session = TranslationSession(Contextual, tmp_path / "cache.sqlite3")

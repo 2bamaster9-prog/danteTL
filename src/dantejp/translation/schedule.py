@@ -8,6 +8,9 @@ from concurrent.futures import Future
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
+from dantejp.languages.target import ENGLISH, TargetLanguage
 from dantejp.translation.backend import (
     BatchResult,
     ConcurrentBackend,
@@ -28,6 +31,7 @@ class Demand:
     jobs: tuple[TranslationRequest, ...]
     contexts: dict[TranslationRequest, tuple[DialogueTurn, ...]]
     dialogue: frozenset[TranslationRequest]
+    target: TargetLanguage = ENGLISH
 
 
 @dataclass(slots=True)
@@ -41,6 +45,7 @@ class Batch:
     answers: dict[Source, str | None]
     missing: tuple[Source, ...]
     serial: bool
+    target: TargetLanguage = ENGLISH
     measured: float = 0.0
     queue_ms: float = 0.0
     started: float = 0.0
@@ -81,11 +86,12 @@ class TranslationSchedule:
     Futures wake that owner but never mutate this schedule from their callback thread.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, language: SourceLanguage = DEFAULT_SOURCE) -> None:
+        self._language = language
         self._flights: list[tuple[Batch, Future[BatchResult]]] = []
         self._blocked: set[tuple[TranslationRequest, tuple[DialogueTurn, ...]]] | None = None
         self._waiting: dict[tuple[TranslationRequest, tuple[DialogueTurn, ...]], None] = {}
-        self._scope: tuple[int, str] | None = None
+        self._scope: tuple[int, str, TargetLanguage] | None = None
         self._keys: dict[Source, str] = {}
 
     def reset(self) -> None:
@@ -142,7 +148,7 @@ class TranslationSchedule:
     ) -> Batch | None:
         # Demand order is screen order, not waiting age. Preserve surviving requests
         # ahead of new revisions so a changing early box cannot starve later text.
-        scope = demand.generation, engine.cache_identity
+        scope = demand.generation, engine.cache_identity, demand.target
         reset = self._scope != scope
         if reset:
             self._waiting.clear()
@@ -167,6 +173,8 @@ class TranslationSchedule:
                     json.dumps([text, [(t.source, t.english) for t in context]], ensure_ascii=False)
                     if context
                     else text,
+                    language=self._language,
+                    target=demand.target,
                 )
         self._keys = keys
         hits = cache.lookup_pending(keys.values(), reset=reset)
@@ -205,4 +213,5 @@ class TranslationSchedule:
             answers,
             missing,
             any(source in serial for source in missing),
+            target=demand.target,
         )

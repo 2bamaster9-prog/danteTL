@@ -1,18 +1,21 @@
 import pytest
-from test_live_session import frame
+from test_live_session import Replay, frame
+from test_translation import Backend, until
 
 from dantejp.domain import Rect
-from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.selection import DEFAULT_SOURCE, source_language
 from dantejp.languages.source import SourceLanguage
 from dantejp.languages.target import TARGET_LANGUAGES
 from dantejp.ocr.tracking import TextTrack, TextTracker, prepare_matching
 from dantejp.ocr.values import OcrResult, TextRegion
 from dantejp.translation.backend import RequestRejected
 from dantejp.translation.backends import gemma, gguf, plamo
+from dantejp.translation.cache import TranslationCache, translation_key
 from dantejp.translation.cloud.protocol import request_body
 from dantejp.translation.cloud.values import CloudProfile
 from dantejp.translation.dialogue.layout import PanelLayout
 from dantejp.translation.grouping import DialogueGrouper, TextBlock
+from dantejp.translation.worker import TranslationSession
 
 # Exercise the generic policy without registering another supported OCR language.
 PORTUGUESE = SourceLanguage("pt", "Portuguese", warmup_text="Mapa")
@@ -70,6 +73,66 @@ def test_panel_uses_the_selected_list_notation(marker, generic, japanese):
         layout = PanelLayout()
         layout.update((block,))
         assert layout.marked_choice(block) is expected
+
+
+def test_generic_language_groups_and_publishes_through_the_live_pipeline(tmp_path):
+    replay = Replay(language=PORTUGUESE)
+    rows = (
+        TextRegion("Mapa", Rect(50, 40, 100, 30)),
+        TextRegion("O caminho leva até", Rect(100, 650, 380, 35)),
+        TextRegion("à praça da vila.", Rect(100, 695, 360, 35)),
+    )
+    replay.observe(frame(1), rows)
+    scene = replay.observe(frame(2, 1.5), rows)
+    phrase = "O caminho leva até à praça da vila."
+    assert [b.text for b in scene.requests] == ["Mapa", phrase]
+    assert [line.text for line in scene.requests[1].lines] == [r.text for r in rows[1:]]
+
+    backend = Backend()
+    path = tmp_path / "cache.sqlite3"
+    cache = TranslationCache(path)
+    cache.put(translation_key(backend.cache_identity, "Mapa"), "Wrong language")
+    cache.close()
+    session = TranslationSession(lambda: backend, path, language=PORTUGUESE)
+    session.start()
+    try:
+        replay.live.publish(session, scene.requests, scene.blocks)
+        until(lambda: len(session.snapshot().results) == 2)
+        english = replay.live.publish(session, scene.requests, scene.blocks)
+        assert english.blocks == scene.blocks
+        assert [t.english for t in english.translations] == [
+            f"{backend.cache_identity}: Mapa",
+            f"{backend.cache_identity}: {phrase}",
+        ]
+    finally:
+        session.request_stop()
+        until(lambda: session.finished)
+
+
+def test_japanese_remains_selected_and_rejects_latin_only_ocr(tmp_path):
+    assert source_language("ja") is DEFAULT_SOURCE
+    with pytest.raises(KeyError):
+        source_language("unregistered")
+    regions = (
+        TextRegion("Mapa", Rect(50, 40, 100, 30)),
+        TextRegion("マップ", Rect(50, 300, 100, 30)),
+    )
+    replay = Replay()
+    replay.observe(frame(1), regions)
+    scene = replay.observe(frame(2, 1.5), regions)
+    assert len(scene.blocks) == 2
+    backend = Backend()
+    session = TranslationSession(lambda: backend, tmp_path / "cache.sqlite3")
+    session.start()
+    try:
+        replay.live.publish(session, scene.requests, scene.blocks)
+        until(lambda: session.snapshot().results)
+        english = replay.live.publish(session, scene.requests, scene.blocks)
+        assert [b.text for b in english.blocks] == ["マップ"]
+        assert backend.calls == [("マップ",)]
+    finally:
+        session.request_stop()
+        until(lambda: session.finished)
 
 
 @pytest.mark.parametrize("lower_length, expected_blocks", [(255, 1), (256, 2)])
