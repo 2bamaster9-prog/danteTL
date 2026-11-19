@@ -3,7 +3,10 @@
 from collections.abc import Callable
 
 # English source strings and the locales for which we ship Qt catalogs, in picker order.
-INTERFACE_LANGUAGES = ("en",)
+INTERFACE_LANGUAGES = (
+    "en",
+    "pt-PT",
+)
 
 
 def mark(source: str) -> str:

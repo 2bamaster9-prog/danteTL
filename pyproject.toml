@@ -88,7 +88,7 @@ requires-dist = ["numpy", "opencv-python-headless", "huggingface-hub"]
 packages = ["src/dantejp"]
 
 [tool.hatch.build.targets.sdist]
-include = ["/src", "/tools", "/tests", "/engineering", "/packaging", "/.github", "/README.md", "/AGENTS.md", "/pyproject.toml", "/uv.lock", "/.python-version", "/Run DanteJP.cmd"]
+include = ["/src", "/translations", "/tools", "/tests", "/engineering", "/packaging", "/.github", "/README.md", "/AGENTS.md", "/pyproject.toml", "/uv.lock", "/.python-version", "/Run DanteJP.cmd"]
 
 [tool.ruff]
 target-version = "py312"

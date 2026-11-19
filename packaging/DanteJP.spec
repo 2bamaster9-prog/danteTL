@@ -17,6 +17,7 @@ data = [
 data += [(str(root / "packaging/standalone.json"), "app")]
 data += [(str(root / "src/dantejp/ocr/paddle_latin"), "dantejp/ocr/paddle_latin")]
 icons = root / "src/dantejp/ui/icons"
+data += [(str(root / "src/dantejp/ui/locales"), "dantejp/ui/locales")]
 data += [(str(icons), "dantejp/ui/icons")]
 app_version = tomllib.loads((root / "pyproject.toml").read_text("utf-8"))["project"]["version"]
 app_wheel = f"dantejp-{app_version}-py3-none-any.whl"
