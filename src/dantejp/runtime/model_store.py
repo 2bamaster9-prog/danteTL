@@ -15,6 +15,9 @@ from typing import Literal
 from dantejp import paths
 from dantejp.application.model_advice import MODEL_ORDER
 from dantejp.application.model_advice import RECOMMENDED_TRANSLATION as RECOMMENDED_TRANSLATION
+from dantejp.i18n import CatalogText, mark, tr
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
 from dantejp.paths import is_standalone, state_root
 from dantejp.runtime.assets import ModelAsset, asset_directory, assets_present
 from dantejp.runtime.download_transport import download_file
@@ -23,12 +26,12 @@ from dantejp.runtime.setup_values import DownloadProgress as DownloadProgress
 from dantejp.runtime.setup_values import ModelProgress as ModelProgress
 from dantejp.runtime.setup_values import Progress as Progress
 
-LANGUAGE_RUNTIME_SETUP = (
+LANGUAGE_RUNTIME_SETUP = mark(
     "The model is downloaded, but its language-model engine is not installed in this environment. "
     "Open Settings → Acceleration and choose CPU or GPU, then restart. "
     "Your model files are already present; no model download is needed."
 )
-PLAMO_RUNTIME_SETUP = (
+PLAMO_RUNTIME_SETUP = mark(
     "PLaMo is downloaded, but this engine predates its tokenizer. "
     "Open Settings → Acceleration, install an updated CPU or GPU runtime, then restart. "
     "Your downloaded models are kept."
@@ -67,7 +70,7 @@ class ModelBundle:
         return bool(self.bundled_directory and assets_present(self.bundled_directory, self.assets))
 
 
-def model_catalog() -> tuple[ModelBundle, ...]:
+def model_catalog(language: SourceLanguage = DEFAULT_SOURCE) -> tuple[ModelBundle, ...]:
     from dantejp.ocr import models
     from dantejp.translation.backends import gemma
     from dantejp.translation.models.curated import MODELS
@@ -75,20 +78,35 @@ def model_catalog() -> tuple[ModelBundle, ...]:
     bundles = (
         ModelBundle(
             "ocr",
-            "MeikiOCR · Japanese text recognition",
+            CatalogText("MeikiOCR · Japanese text recognition"),
             models.download_directory(),
             models.ASSETS,
-            "Reads Japanese text from the game image; it does not translate it. "
-            "Included in the standalone app.",
+            CatalogText(
+                "Reads Japanese text from the game image; it does not translate it. "
+                "Included in the standalone app."
+            ),
             models.bundled_model_directory(),
+            category="recognition",
+        )
+        if models.ocr_model_for(language) == models.OcrModel.MEIKI
+        else ModelBundle(
+            "ocr",
+            CatalogText("PaddleOCR Latin · PP-OCRv5 mobile"),
+            models.paddle_download_directory(),
+            models.PADDLE_ASSETS,
+            CatalogText(
+                "Reads {name} game text. All Latin-script sources share these files.",
+                name=CatalogText(language.name),
+            ),
+            models.bundled_paddle_directory(),
             category="recognition",
         ),
         ModelBundle(
             "gemma",
-            "Gemma 4 E2B · Recommended",
+            CatalogText("Gemma 4 E2B · Recommended"),
             gemma.model_directory(),
             gemma.ASSETS,
-            "Recommended balance of game terminology, quality and speed.",
+            CatalogText("Recommended balance of game terminology, quality and speed."),
             language_model=True,
         ),
         *(model.bundle() for model in MODELS),
@@ -99,17 +117,17 @@ def model_catalog() -> tuple[ModelBundle, ...]:
 def model_status(bundle: ModelBundle) -> str:
     """Distinguish downloaded weights from the runtime available to this process."""
     if not bundle.present():
-        return "Not downloaded. Choose Download to install this model's files."
-    origin = "Included with app." if bundle.included else "Downloaded."
+        return CatalogText("Not downloaded. Choose Download to install this model's files.")
+    origin = CatalogText("Included with app.") if bundle.included else CatalogText("Downloaded.")
     if bundle.language_model:
         from dantejp.runtime.llama import installed_device, supports_plamo
 
         if installed_device() is None:
-            return LANGUAGE_RUNTIME_SETUP
+            return CatalogText(LANGUAGE_RUNTIME_SETUP)
         if bundle.needs_plamo and not supports_plamo():
-            return PLAMO_RUNTIME_SETUP
+            return CatalogText(PLAMO_RUNTIME_SETUP)
         if installed_device() == "cpu":
-            return (
+            return CatalogText(
                 "Downloaded. Runtime available on CPU; translations may be slower. "
                 "GPU acceleration is optional. Integrity is checked before use."
             )
@@ -117,12 +135,15 @@ def model_status(bundle: ModelBundle) -> str:
         from dantejp.runtime.ocr import gpu_runtime_installed
 
         if not (gpu_runtime_installed() or gpu_runtime_installed("onnxruntime-directml")):
-            return (
-                f"{origin} CPU OCR is ready. The Automatic NVIDIA OCR option needs a separate "
-                "runtime: open Acceleration, install NVIDIA support, then restart. "
-                "OCR model files do not install GPU support."
+            return CatalogText(
+                "{origin} CPU OCR is ready. The Automatic NVIDIA OCR option needs a "
+                "separate runtime: open Acceleration, install NVIDIA support, then "
+                "restart. OCR model files do not install GPU support.",
+                origin=origin,
             )
-    return f"{origin} Runtime available; integrity is checked before use."
+    return CatalogText(
+        "{origin} Runtime available; integrity is checked before use.", origin=origin
+    )
 
 
 def _check_cancel(cancel: threading.Event) -> None:
@@ -145,22 +166,26 @@ def install_model(bundle: ModelBundle, progress: Progress, cancel: threading.Eve
     """Called only by an explicit UI/CLI download action. Atomic verified files."""
     _check_cancel(cancel)
     if bundle.bundled_directory and bundle.local_directory == bundle.bundled_directory:
-        progress(ModelProgress("Checking included OCR files…", 0, bundle.size))
+        progress(ModelProgress(tr("Checking included OCR files…"), 0, bundle.size))
         if all(_valid(bundle.bundled_directory / a.filename, a, cancel) for a in bundle.assets):
-            progress(ModelProgress("Included OCR files verified.", bundle.size, bundle.size))
+            progress(ModelProgress(tr("Included OCR files verified."), bundle.size, bundle.size))
             return
     if is_standalone() and bundle.directory.resolve().is_relative_to(
         paths.resource_root().resolve()
     ):
         raise RuntimeError(
-            "App resources are read-only. Repair models in AppData or a user folder."
+            tr("App resources are read-only. Repair models in AppData or a user folder.")
         )
     bundle.directory.mkdir(parents=True, exist_ok=True)
     completed = 0
     for asset in bundle.assets:
         _check_cancel(cancel)
         destination = bundle.directory / asset.filename
-        progress(ModelProgress(f"Checking {asset.filename}…", completed, bundle.size))
+        progress(
+            ModelProgress(
+                tr("Checking {filename}…", filename=asset.filename), completed, bundle.size
+            )
+        )
         if _valid(destination, asset, cancel):
             completed += asset.size
             continue
@@ -188,7 +213,9 @@ def install_model(bundle: ModelBundle, progress: Progress, cancel: threading.Eve
                 ) -> None:
                     progress(
                         ModelProgress(
-                            f"{'Restoring' if local else 'Downloading'} {asset.filename}",
+                            tr("Restoring {filename}", filename=asset.filename)
+                            if local
+                            else tr("Downloading {filename}", filename=asset.filename),
                             completed + received,
                             bundle.size,
                             download=DownloadProgress(asset.filename, received, asset.size),
@@ -207,7 +234,10 @@ def install_model(bundle: ModelBundle, progress: Progress, cancel: threading.Eve
             _check_cancel(cancel)
             if not _valid(temporary, asset, cancel):
                 raise RuntimeError(
-                    f"Checksum/size mismatch for {asset.filename}. Retry the download."
+                    tr(
+                        "Checksum/size mismatch for {filename}. Retry the download.",
+                        filename=asset.filename,
+                    )
                 )
             _check_cancel(cancel)
             os.replace(temporary, destination)
@@ -215,7 +245,7 @@ def install_model(bundle: ModelBundle, progress: Progress, cancel: threading.Eve
         finally:
             if temporary is not None:
                 temporary.unlink(missing_ok=True)
-    progress(ModelProgress("Model files ready and verified.", bundle.size, bundle.size))
+    progress(ModelProgress(tr("Model files ready and verified."), bundle.size, bundle.size))
 
 
 class ModelOperation:
@@ -251,11 +281,11 @@ class ModelOperation:
         except Cancelled:
             self._progress(
                 ModelProgress(
-                    "Cancelled. Verified files were kept for retry.", done=True, cancelled=True
+                    tr("Cancelled. Verified files were kept for retry."), done=True, cancelled=True
                 )
             )
         except Exception as error:
-            self._progress(ModelProgress("Setup failed.", done=True, error=str(error)))
+            self._progress(ModelProgress(tr("Setup failed."), done=True, error=str(error)))
 
 
 def preparation_id(bundle: ModelBundle, device: str) -> str:

@@ -1,5 +1,6 @@
 """PLaMo 3 Translate's native PFML3 prompt, independent of chat-model instructions."""
 
+from dantejp.i18n import tr
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
 from dantejp.languages.target import ENGLISH, TargetLanguage
@@ -18,6 +19,15 @@ OUTPUT_CODES = frozenset({
 # fmt: on
 
 
+def source_problem(language: SourceLanguage) -> str:
+    if language.code.split("-")[0] in OUTPUT_CODES:
+        return ""
+    return tr(
+        "PLaMo does not support {name} as a source. Choose a model such as Gemma.",
+        name=language.name,
+    )
+
+
 def translation_prompt(
     text: str,
     context: tuple[DialogueTurn, ...],
@@ -25,15 +35,21 @@ def translation_prompt(
     language: SourceLanguage = DEFAULT_SOURCE,
     target: TargetLanguage = ENGLISH,
 ) -> str:
+    if problem := source_problem(language):
+        raise RequestRejected(problem)
     if target.code not in OUTPUT_CODES:
         raise RequestRejected(
-            f"PLaMo does not support {target.name}. Choose a multilingual model such as Gemma."
+            tr(
+                "PLaMo does not support {name}. Choose a multilingual model such as Gemma.",
+                name=target.name,
+            )
         )
 
     def escaped(value: str) -> str:
         return value.replace("<", "＜").replace(">", "＞")
 
-    source = f"<|plamo:tag|>input<|plamo:key|>lang<|plamo:val|>{language.code}<|plamo:msg|>"
+    code = language.code.split("-")[0]
+    source = f"<|plamo:tag|>input<|plamo:key|>lang<|plamo:val|>{code}<|plamo:msg|>"
     output = f"<|plamo:tag|>output<|plamo:key|>lang<|plamo:val|>{target.code}<|plamo:msg|>"
     history = "".join(source + escaped(t.source) + output + escaped(t.english) for t in context)
     # Explicit BOS exactly once; the caller tokenizes with add_bos=False, special=True.

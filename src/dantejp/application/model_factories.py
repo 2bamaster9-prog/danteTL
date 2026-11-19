@@ -4,31 +4,42 @@ import logging
 from functools import partial
 from pathlib import Path
 
+from dantejp.i18n import CatalogText
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
-from dantejp.ocr.models import model_directory
+from dantejp.ocr.models import OcrModel, model_directory, ocr_model_for, paddle_directory
 from dantejp.ocr.worker import OcrChoice, Recognizer
 from dantejp.runtime.ocr import gpu_runtime_installed
 from dantejp.translation.backends.plamo import OUTPUT_CODES as PLAMO_OUTPUT_CODES
+from dantejp.translation.backends.plamo import source_problem
 from dantejp.translation.models.gguf import available
 from dantejp.translation.models.values import ImportedModel
 from dantejp.translation.worker import BackendChoice, TranslationBackend
 
 
-def create_recognizer(*, device: str = "cpu") -> Recognizer:
+def create_recognizer(
+    *, device: str = "cpu", language: SourceLanguage = DEFAULT_SOURCE
+) -> Recognizer:
     # Import native inference dependencies on the OCR worker, keeping GUI startup light.
+    if ocr_model_for(language) == OcrModel.PADDLE_LATIN:
+        from dantejp.ocr.paddle import PaddleRecognizer
+
+        return PaddleRecognizer(paddle_directory(), device=device)
     from dantejp.ocr.meiki import MeikiRecognizer
 
     return MeikiRecognizer(model_directory(), device=device)
 
 
-def ocr_backends() -> tuple[OcrChoice, ...]:
+def ocr_backends(language: SourceLanguage = DEFAULT_SOURCE) -> tuple[OcrChoice, ...]:
+    create = partial(create_recognizer, language=language)
     if gpu_runtime_installed("onnxruntime-directml"):
+        if ocr_model_for(language) == OcrModel.PADDLE_LATIN:
+            return (OcrChoice(CatalogText("CPU · AMD package"), create, 8, "cpu"),)
         return (
-            OcrChoice("CPU · recommended with the AMD package", create_recognizer, 8, "cpu"),
+            OcrChoice(CatalogText("CPU · recommended with the AMD package"), create, 8, "cpu"),
             OcrChoice(
-                "DirectML · experimental, checked CPU fallback",
-                partial(create_recognizer, device="auto-directml"),
+                CatalogText("DirectML · experimental, checked CPU fallback"),
+                partial(create, device="auto-directml"),
                 8,
                 "auto-directml",
             ),
@@ -36,14 +47,14 @@ def ocr_backends() -> tuple[OcrChoice, ...]:
     if gpu_runtime_installed():
         return (
             OcrChoice(
-                "Automatic · GPU with CPU fallback",
-                partial(create_recognizer, device="auto"),
+                CatalogText("Automatic · GPU with CPU fallback"),
+                partial(create, device="auto"),
                 8,
                 "auto",
             ),
-            OcrChoice("CPU · low resource use", create_recognizer, 8, "cpu"),
+            OcrChoice(CatalogText("CPU · low resource use"), create, 8, "cpu"),
         )
-    return (OcrChoice("CPU · GPU setup optional", create_recognizer, 8, "cpu"),)
+    return (OcrChoice(CatalogText("CPU · GPU setup optional"), create, 8, "cpu"),)
 
 
 def translation_backends(*, language: SourceLanguage = DEFAULT_SOURCE) -> tuple[BackendChoice, ...]:
@@ -74,25 +85,40 @@ def translation_backends(*, language: SourceLanguage = DEFAULT_SOURCE) -> tuple[
         bundle = bundles.get(key)
         if bundle is None or not bundle.present():
             continue
-        label = {"vulkan": "Vulkan GPU", "cuda": "NVIDIA GPU", "cpu": "CPU · slower"}.get(
-            device or "", "runtime setup needed"
-        )
+        label = {
+            "vulkan": CatalogText("Vulkan GPU"),
+            "cuda": CatalogText("NVIDIA GPU"),
+            "cpu": CatalogText("CPU · slower"),
+        }.get(device or "", CatalogText("runtime setup needed"))
         reason = (
-            LANGUAGE_RUNTIME_SETUP
+            CatalogText(LANGUAGE_RUNTIME_SETUP)
             if device is None
-            else (PLAMO_RUNTIME_SETUP if bundle.needs_plamo and not supports_plamo() else "")
+            else (
+                CatalogText(PLAMO_RUNTIME_SETUP)
+                if bundle.needs_plamo and not supports_plamo()
+                else ""
+            )
         )
         if reason:
-            label = "runtime setup needed"
+            label = CatalogText("runtime setup needed")
+        elif bundle.needs_plamo and (reason := source_problem(language)):
+            label = CatalogText("source language unsupported")
         choices.append(
             BackendChoice(
-                f"{name} · {label}" + (" · Recommended" if key == RECOMMENDED_TRANSLATION else ""),
+                CatalogText(
+                    "{name} · {label}",
+                    name=name,
+                    label=label,
+                    suffix=CatalogText(" · Recommended") if key == RECOMMENDED_TRANSLATION else "",
+                ),
                 factory,
                 f"{key}-{device or 'unavailable'}",
                 preparation_id(bundle, device) if device and not reason else "",
                 reason,
-                "CPU translation is available. It may be slower, especially on busy screens. "
-                "GPU acceleration is optional."
+                CatalogText(
+                    "CPU translation is available. It may be slower, especially on busy screens. "
+                    "GPU acceleration is optional."
+                )
                 if device == "cpu"
                 else "",
                 selection_id=key,
@@ -109,22 +135,28 @@ def translation_backends(*, language: SourceLanguage = DEFAULT_SOURCE) -> tuple[
         imported = ()
     for model in imported:
         reason = (
-            "Imported model file is missing or changed size. Open Models → Locate file."
+            CatalogText(
+                "Imported model file is missing or changed size. Open Models → Locate file."
+            )
             if not available(model)
-            else "Language-model engine is missing. Open Settings → Acceleration."
+            else CatalogText("Language-model engine is missing. Open Settings → Acceleration.")
             if not device
-            else PLAMO_RUNTIME_SETUP
+            else CatalogText(PLAMO_RUNTIME_SETUP)
             if model.profile == "plamo3" and not supports_plamo()
             else ""
         )
+        if model.profile == "plamo3":
+            reason = reason or source_problem(language)
         choices.append(
             BackendChoice(
-                f"{model.name} · Imported · {device or 'engine needed'}",
+                CatalogText(
+                    "{name} · Imported · {value}", name=model.name, value=device or "engine needed"
+                ),
                 partial(create_imported_translator, model, language=language),
                 model.key,
                 imported_preparation_id(model, device) if device and not reason else "",
                 reason,
-                "CPU translation may be slower; GPU acceleration is optional."
+                CatalogText("CPU translation may be slower; GPU acceleration is optional.")
                 if device == "cpu"
                 else "",
                 classifies=model.profile != "plamo3",
@@ -157,7 +189,7 @@ def create_imported_translator(
 
     device = installed_device()
     if device is None:
-        raise RuntimeError("Language-model engine is missing. Open Acceleration.")
+        raise RuntimeError(CatalogText("Language-model engine is missing. Open Acceleration."))
     return GgufBackend(model, device=device, language=language)
 
 
@@ -169,7 +201,7 @@ def create_curated_translator(
 
     device = installed_device()
     if device is None:
-        raise RuntimeError("Language-model engine is missing. Open Acceleration.")
+        raise RuntimeError(CatalogText("Language-model engine is missing. Open Acceleration."))
     model = next(model for model in MODELS if model.key == key)
     return model.load(device, language=language)
 
@@ -180,5 +212,7 @@ def create_gemma_translator(*, language: SourceLanguage = DEFAULT_SOURCE) -> Tra
 
     device = installed_device()
     if device is None:
-        raise RuntimeError("Local language-model engine is not installed. Open runtime setup.")
+        raise RuntimeError(
+            CatalogText("Local language-model engine is not installed. Open runtime setup.")
+        )
     return GemmaBackend(model_directory(), device=device, language=language)

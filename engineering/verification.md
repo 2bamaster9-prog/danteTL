@@ -56,7 +56,7 @@ checks once after changes settle; repeat only for new changes, failures or unres
 | Change | Required additional verification |
 | --- | --- |
 | Capture/coordinates/overlay | `tools/verify_windows.py`; `tools/verify_capture_controls.py --output artifacts/<slice>/controls` (add `--menu-blur` for native backdrop changes); manual click-through, focus, move, resize, minimize and source closure |
-| OCR adapter/provider | `tools/verify_ocr.py`, then `--dense`; `tools/verify_ocr_windows.py` |
+| OCR adapter/provider | `tools/verify_ocr.py`, then `--dense`; `tools/verify_ocr_windows.py`. For the Latin reader run `tools/verify_paddle.py` on CPU and with `--device cuda` in the GPU environment |
 | Tracking/content/presence/visual/regional OCR | Dense OCR; `tools/verify_retention_windows.py --appearance`; live translation/dialogue with `--ocr-delay-ms 900 --typewriter --transitions` |
 | Grouping/readiness/English publication | `tools/verify_translation.py`; `tools/verify_ocr_windows.py --translation --dialogue --typewriter --transitions --ocr-delay-ms 900` |
 | Translation scheduling/cache/swapping | Offline translation; live `--translation --dialogue --gemma --debug`; retention/slow-OCR checks above |

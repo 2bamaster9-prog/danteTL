@@ -3,6 +3,7 @@
 import argparse
 import threading
 
+from dantejp.languages.selection import DEFAULT_SOURCE, SOURCE_LANGUAGES
 from dantejp.runtime.model_store import ModelProgress, install_model, model_catalog
 
 
@@ -16,9 +17,11 @@ def main() -> None:
     )
     group.add_argument("--gemma", action="store_true", help="Install optional Gemma 4 E2B QAT")
     group.add_argument("--model", choices=tuple(bundle.key for bundle in model_catalog()))
+    group.add_argument("--ocr-source", choices=SOURCE_LANGUAGES, help="Install OCR for this source")
     args = parser.parse_args()
     key = args.model or ("gemma" if args.gemma or args.translation else "ocr")
-    bundle = next(b for b in model_catalog() if b.key == key)
+    source = SOURCE_LANGUAGES[args.ocr_source] if args.ocr_source else DEFAULT_SOURCE
+    bundle = next(b for b in model_catalog(source) if b.key == key)
     previous = ""
 
     def progress(value: ModelProgress) -> None:

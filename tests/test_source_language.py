@@ -228,8 +228,10 @@ def test_backends_use_the_selected_language_in_their_native_prompt():
         "Mapa", language=language
     )
     assert "Translate Portuguese video game text" in gguf.user_prompt("Mapa", (), language=language)
-    prompt = plamo.translation_prompt("Mapa", (), language=language)
-    assert "<|plamo:val|>pt<|plamo:msg|>Mapa" in prompt
+    with pytest.raises(RequestRejected, match="Portuguese as a source"):
+        plamo.translation_prompt("Mapa", (), language=language)
+    prompt = plamo.translation_prompt("Mapa", (), language=source_language("es"))
+    assert "<|plamo:val|>es<|plamo:msg|>Mapa" in prompt
     assert prompt.endswith("<|plamo:val|>en<|plamo:msg|>")
     profile = CloudProfile.new("claude")
     body = request_body(profile, "", ("Mapa", ()), language=language)
@@ -258,3 +260,41 @@ def test_backends_request_the_same_output_language(target):
     output = f"<|plamo:tag|>output<|plamo:key|>lang<|plamo:val|>{target.code}<|plamo:msg|>"
     prompt = plamo.translation_prompt("設定", history, target=target)
     assert prompt.count(output) == 2 and prompt.endswith(output)
+
+
+def test_every_published_latin_source_shares_one_install_and_ocr_factory(monkeypatch):
+    from unittest.mock import Mock
+
+    from dantejp.application.model_factories import ocr_backends
+    from dantejp.languages.selection import SOURCE_LANGUAGES
+    from dantejp.ocr import models, paddle
+    from dantejp.runtime.model_store import model_catalog
+
+    # The publisher's Latin table includes English, Occitan, Māori and Latin itself.
+    published_codes = (
+        "en fr de af it es bs pt cs cy da et ga hr uz hu sr-Latn id oc is lt mi ms nl no pl "
+        "sk sl sq sv sw tl tr la"
+    )
+    published = set(published_codes.split())
+    assert set(SOURCE_LANGUAGES) == published | {"ja"}
+    create = Mock()
+    monkeypatch.setattr(paddle, "PaddleRecognizer", create)
+    monkeypatch.setattr(
+        "dantejp.application.model_factories.gpu_runtime_installed",
+        lambda name="onnxruntime-gpu": name == "onnxruntime-gpu",
+    )
+    for code in published:
+        source = SOURCE_LANGUAGES[code]
+        assert isinstance(source, PaddleOCRLanguage)
+        (bundle,) = [b for b in model_catalog(source) if b.category == "recognition"]
+        assert (
+            bundle.assets == models.PADDLE_ASSETS and bundle.directory == models.paddle_directory()
+        )
+        assert bundle.bundled_directory is None
+        gpu, cpu = ocr_backends(source)
+        assert gpu.key == "auto" and cpu.key == "cpu"
+        gpu.create()
+        create.assert_called_with(bundle.directory, device="auto")
+        assert all(a.url.endswith("/inference.onnx") for a in bundle.assets)
+    (jp,) = [b for b in model_catalog(SOURCE_LANGUAGES["ja"]) if b.category == "recognition"]
+    assert jp.assets == models.ASSETS
