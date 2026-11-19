@@ -121,10 +121,10 @@ def main() -> int:
             return getattr(self.engine, "scan_costs", None)
 
         def recognize(
-            self, frame: CapturedFrame, *, cropped: bool = False
+            self, frame: CapturedFrame, *, full_size: tuple[int, int] | None = None
         ) -> tuple[TextRegion, ...]:
             nonlocal passes
-            regions = self.engine.recognize(frame, cropped=cropped)
+            regions = self.engine.recognize(frame, full_size=full_size)
             if not armed.is_set():
                 return regions
             passes += 1

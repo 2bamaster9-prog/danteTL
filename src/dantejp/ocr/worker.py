@@ -9,6 +9,7 @@ from dataclasses import dataclass, replace
 from typing import Protocol, runtime_checkable
 
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.i18n import tr
 from dantejp.ocr.regions import scan_regions
 from dantejp.ocr.scan_plan import ScanCosts, ScanLine, ScanPlan, ScanPlanner, preserves_lines
 from dantejp.ocr.values import OcrResult as OcrResult
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 class Recognizer(Protocol):
     def recognize(
-        self, frame: CapturedFrame, /, *, cropped: bool = False
+        self, frame: CapturedFrame, /, *, full_size: tuple[int, int] | None = None
     ) -> tuple[TextRegion, ...]: ...
     def close(self) -> None: ...
 
@@ -44,7 +45,7 @@ class OcrChoice:
 class OcrSession:
     """Own models on a worker thread. No Qt, Windows calls, or unbounded job queues.
 
-    A new capture gets a new session. Invalidation discards in-flight results after
+    A compatible source switch may reuse the worker. Invalidation discards in-flight results after
     resize/minimize; inspection pause is independent. Shutdown drains inference and cleanup.
     """
 
@@ -109,7 +110,7 @@ class OcrSession:
             self._last_sequence = 0
             self._acknowledged = 0
             self._pending = None
-            self._snapshot = OcrSnapshot(self._snapshot.state, message=self._snapshot.message)
+            self._snapshot = replace(self._snapshot, result=None)
 
     def request_stop(self) -> None:
         with self._condition:
@@ -271,7 +272,7 @@ def recognize_regions(
     if areas is None:
         return engine.recognize(frame), None
     if len(frame.bgra) != frame.width * frame.height * 4:
-        raise ValueError("Invalid source pixels for regional OCR")
+        raise ValueError(tr("Invalid source pixels for regional OCR"))
     pixels = memoryview(frame.bgra)
     regions = []
     for area in areas:
@@ -286,7 +287,7 @@ def recognize_regions(
             WindowGeometry(bounds, bounds, bounds, frame.geometry.dpi),
             b"".join(rows),
         )
-        for region in engine.recognize(crop, cropped=True):
+        for region in engine.recognize(crop, full_size=frame.geometry.client.size):
             b = region.bounds
             if (
                 (area.x > 0 and b.x <= 3)

@@ -54,8 +54,8 @@ def test_crops_use_source_pixels_and_translate_line_and_character_coordinates_on
     seen = []
 
     class Engine:
-        def recognize(self, image, *, cropped=False):
-            assert cropped
+        def recognize(self, image, *, full_size=None):
+            assert full_size == source.geometry.client.size
             seen.append(image)
             return (
                 TextRegion(
@@ -84,8 +84,8 @@ def test_cut_off_detection_retries_full_frame_instead_of_publishing_a_fragment()
     calls = []
 
     class Engine:
-        def recognize(self, image, *, cropped=False):
-            assert cropped == (image.width != 1000)
+        def recognize(self, image, *, full_size=None):
+            assert full_size == (None if image.width == 1000 else (1000, 600))
             calls.append(image.width)
             return (
                 TextRegion("完全な文章" if image.width == 1000 else "完全", Rect(0, 10, 80, 20)),
@@ -106,9 +106,9 @@ def test_four_small_crops_can_cost_five_calls_but_publish_only_full_frame_output
     calls = []
 
     class Engine:
-        def recognize(self, image, *, cropped=False):
-            calls.append((image.width, cropped))
-            if not cropped:
+        def recognize(self, image, *, full_size=None):
+            calls.append((image.width, full_size))
+            if full_size is None:
                 return (TextRegion("完全な文章", Rect(10, 10, 80, 20)),)
             return (TextRegion("部分", Rect(0 if len(calls) == 4 else 10, 10, 60, 20)),)
 
@@ -118,7 +118,7 @@ def test_four_small_crops_can_cost_five_calls_but_publish_only_full_frame_output
     areas = tuple(Rect(50 + i * 200, 100, 80, 120) for i in range(4))
     regions, coverage = recognize_regions(Engine(), frame(), areas)
     assert sum(a.width * a.height for a in areas) / 600000 == 0.064
-    assert len(calls) == 5 and calls[-1] == (1000, False)
+    assert len(calls) == 5 and calls[-1] == (1000, None)
     assert coverage is None and tuple(r.text for r in regions) == ("完全な文章",)
 
 
@@ -173,7 +173,7 @@ def test_worker_unions_waiting_coverage_on_latest_frame_and_waits_for_acknowledg
     calls = []
 
     class Engine:
-        def recognize(self, source, *, cropped=False):
+        def recognize(self, source, *, full_size=None):
             calls.append((source.sequence, source.width))
             if source.sequence == 1:
                 entered.set()

@@ -36,7 +36,9 @@ class BlockingRecognizer:
         self.release = threading.Event()
         self.sequences: list[int] = []
 
-    def recognize(self, source: CapturedFrame, *, cropped: bool = False) -> tuple[TextRegion, ...]:
+    def recognize(
+        self, source: CapturedFrame, *, full_size: tuple[int, int] | None = None
+    ) -> tuple[TextRegion, ...]:
         self.sequences.append(source.sequence)
         self.entered.set()
         assert self.release.wait(3)
@@ -136,7 +138,7 @@ def test_pause_or_resize_discards_inflight_result_and_pending_work() -> None:
             self.second_release = threading.Event()
 
         def recognize(
-            self, source: CapturedFrame, *, cropped: bool = False
+            self, source: CapturedFrame, *, full_size: tuple[int, int] | None = None
         ) -> tuple[TextRegion, ...]:
             if not self.sequences:
                 return super().recognize(source)
@@ -177,7 +179,7 @@ def test_pause_or_resize_discards_inflight_result_and_pending_work() -> None:
 def test_inference_failure_clears_previous_detections() -> None:
     class FailingRecognizer:
         def recognize(
-            self, source: CapturedFrame, *, cropped: bool = False
+            self, source: CapturedFrame, *, full_size: tuple[int, int] | None = None
         ) -> tuple[TextRegion, ...]:
             if source.sequence == 2:
                 raise RuntimeError("Inference failed")

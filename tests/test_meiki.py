@@ -37,7 +37,7 @@ def test_crop_padding_preserves_pixels_bounds_and_full_scan_behavior(tmp_path, m
     frame = CapturedFrame(
         7, 12, WindowGeometry(bounds, bounds, bounds, 168), bytes((20, 35, 55, 255)) * 195 * 210
     )
-    regions = recognizer.recognize(frame, cropped=True)
+    regions = recognizer.recognize(frame, full_size=(1920, 1080))
     assert [(r.text, r.bounds) for r in regions] == [("設定", Rect(15, 20, 40, 25))]
     assert seen[-1].shape == (544, 960, 3)
     assert len(seen) == 2
@@ -50,7 +50,7 @@ def test_crop_padding_preserves_pixels_bounds_and_full_scan_behavior(tmp_path, m
         replace(
             frame, geometry=WindowGeometry(large, large, large, 168), bgra=bytes(1200 * 200 * 4)
         ),
-        cropped=True,
+        full_size=(1920, 1080),
     )
     assert seen[-1].shape == (200, 1200, 3)
     recognizer.close()
@@ -76,7 +76,7 @@ def test_crop_retry_is_bounded_and_keeps_successful_original_results(
     bounds = Rect(0, 0, 195, 210)
     frame = CapturedFrame(1, 0, WindowGeometry(bounds, bounds, bounds, 96), bytes(195 * 210 * 4))
     recognizer = MeikiRecognizer(tmp_path)
-    regions = recognizer.recognize(frame, cropped=True)
+    regions = recognizer.recognize(frame, full_size=(1920, 1080))
     assert len(seen) == calls
     assert regions[0].text == text and regions[0].bounds == Rect(10, 10, 50, 30)
     recognizer.close()

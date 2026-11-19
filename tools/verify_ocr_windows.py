@@ -105,10 +105,10 @@ def main() -> int:
             return getattr(self.engine, "scan_costs", None)
 
         def recognize(
-            self, frame: CapturedFrame, *, cropped: bool = False
+            self, frame: CapturedFrame, *, full_size: tuple[int, int] | None = None
         ) -> tuple[TextRegion, ...]:
             time.sleep(args.ocr_delay_ms / 1000)
-            return self.engine.recognize(frame, cropped=cropped)
+            return self.engine.recognize(frame, full_size=full_size)
 
         def close(self) -> None:
             self.engine.close()

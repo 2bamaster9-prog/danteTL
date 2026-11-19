@@ -127,7 +127,7 @@ def test_oversized_detection_retries_original_crops_without_publishing_lost_line
     calls = []
 
     class Engine:
-        def recognize(self, source, *, cropped=False):
+        def recognize(self, source, *, full_size=None):
             calls.append((source.sequence, source.captured_at, source.height))
             box = Rect(20, 20, 150, 130 if source.height == 180 else 30)
             text = "一行だけ" if source.height == 180 else "新しい文字"
@@ -155,8 +155,8 @@ def test_failed_candidate_discards_every_provisional_row_and_retries_same_source
     calls = []
 
     class Engine:
-        def recognize(self, frame, *, cropped=False):
-            calls.append((frame.sequence, frame.captured_at, frame.width, cropped))
+        def recognize(self, frame, *, full_size=None):
+            calls.append((frame.sequence, frame.captured_at, frame.width, full_size))
             if frame.width in (600, 1920):
                 if failure == "missing":
                     return ()
@@ -185,7 +185,7 @@ def test_unmodified_plan_does_not_retry_negative_ocr():
     calls = []
 
     class Engine:
-        def recognize(self, frame, *, cropped=False):
+        def recognize(self, frame, *, full_size=None):
             calls.append(frame)
             return ()
 
@@ -250,7 +250,7 @@ def test_worker_owns_planning_preserves_acknowledgement_and_resets_hints():
     class Engine:
         scan_costs = COSTS
 
-        def recognize(self, frame, *, cropped=False):
+        def recognize(self, frame, *, full_size=None):
             assert threading.get_ident() != owner
             calls.append((frame.sequence, frame.width))
             if frame.width == SIZE[0]:

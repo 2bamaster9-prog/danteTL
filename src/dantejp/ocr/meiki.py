@@ -16,6 +16,7 @@ from meikiocr import MeikiOCR
 from meikiocr.ocr import INPUT_DET_HEIGHT, INPUT_DET_WIDTH
 
 from dantejp.domain import CapturedFrame, Rect
+from dantejp.i18n import tr
 from dantejp.ocr.crop_recovery import recovery_preserves_lines, split_glyphs
 from dantejp.ocr.models import local_model_paths
 from dantejp.ocr.scan_plan import ScanCosts
@@ -88,7 +89,7 @@ def _verify_directml(sessions: list[Any], paths: tuple[Path, ...], threads: int)
             for a, b in zip(actual, expected, strict=True)
         ):
             raise RuntimeError(
-                "DirectML model accuracy check failed; CPU OCR is required on this setup."
+                tr("DirectML model accuracy check failed; CPU OCR is required on this setup.")
             )
 
 
@@ -130,10 +131,10 @@ def convert_regions(
 class MeikiRecognizer:
     def __init__(self, directory: Path, *, threads: int = 2, device: str = "cpu") -> None:
         if device not in ("cpu", "auto", "cuda", "directml", "auto-directml"):
-            raise ValueError("Unknown OCR device.")
+            raise ValueError(tr("Unknown OCR device."))
         self._paths = local_model_paths(directory)  # Validate before GPU fallback.
         if not 1 <= threads <= 8:
-            raise ValueError("OCR CPU threads must be between 1 and 8.")
+            raise ValueError(tr("OCR CPU threads must be between 1 and 8."))
         cv2.setNumThreads(1)
         self._threads, self._device = threads, device
         self.message = ""
@@ -163,16 +164,22 @@ class MeikiRecognizer:
     def _fallback(self, error: Exception) -> None:
         logging.getLogger(__name__).warning("GPU OCR unavailable; using CPU: %s", error)
         detail = (str(error).splitlines() or [type(error).__name__])[0][:180]
-        self.message = f"GPU unavailable; using CPU. {detail}"
+        self.message = tr("GPU unavailable; using CPU. {detail}", detail=detail)
         if hasattr(self, "_engine"):
             del self._engine  # Release GPU sessions before allocating the CPU engine.
         self._engine = _LocalMeiki(self._paths, self._threads, CPU)
 
-    def recognize(self, frame: CapturedFrame, *, cropped: bool = False) -> tuple[TextRegion, ...]:
+    def recognize(
+        self, frame: CapturedFrame, *, full_size: tuple[int, int] | None = None
+    ) -> tuple[TextRegion, ...]:
         bgra = np.frombuffer(frame.bgra, dtype=np.uint8).reshape(frame.height, frame.width, 4)
         bgr = cv2.cvtColor(bgra, cv2.COLOR_BGRA2BGR)
         regions = self._recognize(bgr, frame.width, frame.height)
-        if cropped and frame.width < INPUT_DET_WIDTH and frame.height < INPUT_DET_HEIGHT:
+        if (
+            full_size is not None
+            and frame.width < INPUT_DET_WIDTH
+            and frame.height < INPUT_DET_HEIGHT
+        ):
             empty = not any(region.text.strip() for region in regions)
             fragments = () if empty else split_glyphs(bgr, regions)
             if not empty and not fragments:

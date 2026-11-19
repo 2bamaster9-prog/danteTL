@@ -136,7 +136,7 @@ def test_empty_retry_can_recover_severed_glyphs_once_without_rescaling_source_pi
     rgba[:, :, :3] = image
     frame = CapturedFrame(8, 2.4, WindowGeometry(bounds, bounds, bounds, 168), rgba.tobytes())
     engine = MeikiRecognizer(tmp_path)
-    result = engine.recognize(frame, cropped=True)
+    result = engine.recognize(frame, full_size=(1920, 1080))
     assert len(seen) == 2 + empty_first
     assert result == (row("設定", Rect(10, 20, 60, 22), 0.95),) if accepted else result == halves
     assert seen[0].shape == (100, 195, 3)
