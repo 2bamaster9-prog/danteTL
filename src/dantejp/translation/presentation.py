@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, replace
 
-from dantejp.ocr.text_content import has_japanese
 from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.grouping import TextBlock
 from dantejp.translation.values import TranslatedText, TranslationRequest
@@ -57,7 +56,7 @@ class EnglishPresentation:
         if inputs == self._inputs:
             return self._visible
         self._inputs = inputs
-        blocks = tuple(b for b in inputs[0] if has_japanese(b.text))
+        blocks = tuple(b for b in inputs[0] if b.language.contains_text(b.text))
         results = {t.request: t for t in inputs[1]}
         requests = tuple(TranslationRequest.from_block(b) for b in blocks)
         self._ready = {

@@ -94,7 +94,7 @@ class LiveSession:
         self.assignments: tuple[int | None, ...] = ()
         self.valid_size: tuple[int, int] | None = None
         self._tracker = TextTracker(language=language)
-        self._grouper = DialogueGrouper()
+        self._grouper = DialogueGrouper(language=language)
         self._presentation = EnglishPresentation()
         self._context_reset_sequence = 0
         self.history = DialogueHistory()

@@ -8,73 +8,55 @@ from itertools import groupby
 from statistics import median
 
 from dantejp.domain import Rect, union_bounds
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
 from dantejp.ocr.lettering import Lettering
-from dantejp.ocr.text_content import has_japanese
 from dantejp.ocr.tracking import TextActivity, TextTrack
 from dantejp.translation.dialogue_paths import dialogue_segments
 
-_END = tuple("。！？!?」』")
 _MAX_ROW_OVERLAP = 0.1
 _MAX_ROW_GAP = 0.95
-_CHOICE = re.compile(r"^(?:[・•●○◆◇▶▷→\-]|[0-9０-９①-⑳]+[.．、:：)）]|[A-Za-z][.．)）])")
-# OCR can lose the bracket after a typographic dialogue dash (or read it as /).
-# A single ASCII hyphen still marks a choice unless followed by a real bracket.
-_QUOTE = re.compile(r"^(?:[―—–−]{1,3}|-{1,3}\s*[「『]|[「『])")
-_DASHED_BRACKET = re.compile(r"^(?:-{2,}|[―—–]+)\s*(?=[「『/])")
-_CLOSING_BRACKET = {"「": "」", "『": "』"}
-# Short inline labels start items even when a leading icon is included or lost by OCR.
-# Exclude sentence/quote punctuation so a colon inside prose does not create a label.
-_LABEL = re.compile(r"^([^\s:：。、，！？!?「『]{1,10})[:：]\s*(?=\S)")
 _PERCENT_NUMBER = r"[0-9０-９]+(?:[.．][0-9０-９]+)?[%％]"
-_PERCENT = re.compile(rf"[tTｔＴ*＊]?[+＋\-−±:：]?{_PERCENT_NUMBER}[。.!！]?")
-_PERCENT_OPERAND = re.compile(rf"[+＋\-−±]?{_PERCENT_NUMBER}(?:$|[。.!！])")
-_PERCENT_CLAUSE = re.compile(
-    rf"(?:[がはをもに]?(?:さらに|更に)|[がはをもに])[+＋\-−±:：]?\s*{_PERCENT_NUMBER}[。.!！]?"
-)
+_PERCENT = re.compile(rf"[tTｔＴ*＊]?[+＋\-−±:：]?{_PERCENT_NUMBER}")
+_CLAUSE_VALUE = re.compile(rf"[+＋\-−±:：]?\s*{_PERCENT_NUMBER}")
+_SIGNED_PERCENT = re.compile(rf"[+＋\-−±]?{_PERCENT_NUMBER}")
 
 
-def _is_choice(text: str) -> bool:
-    return bool(_CHOICE.match(text)) and not _QUOTE.match(text)
+def _percentage_row(language: SourceLanguage, text: str, *, clause: bool = False) -> bool:
+    if text.endswith((language.period, ".", "!", "！")):
+        text = text[:-1]
+    if clause:
+        lead = language.percentage_lead and language.percentage_lead.match(text)
+        return bool(lead and _CLAUSE_VALUE.fullmatch(text, lead.end()))
+    return bool(_PERCENT.fullmatch(text))
 
 
-def _labelled(text: str) -> bool:
-    if marker := _CHOICE.match(text):
-        text = text[marker.end() :].lstrip()
-    return bool(_LABEL.match(text))
-
-
-def _item_start(text: str) -> bool:
-    return _is_choice(text) or _labelled(text)
-
-
-def _continues_percentage(text: str, *, in_paragraph: bool) -> bool:
-    """OCR can read the plus in a Japanese clause as a label separator."""
-    if _PERCENT_CLAUSE.fullmatch(text):
+def _continues_percentage(language: SourceLanguage, text: str, *, in_paragraph: bool) -> bool:
+    if _percentage_row(language, text, clause=True):
         return True
-    if not in_paragraph or _CHOICE.match(text):
+    if (
+        not in_paragraph
+        or not language.percentage_label_terms
+        or language.lists.line_marker.match(text)
+    ):
         return False
-    label = _LABEL.match(text)
-    if not label or not ("による" in label[1] or "に対する" in label[1]):
+    label = language.lists.inline_label.match(text)
+    if not label or not any(term in label[1] for term in language.percentage_label_terms):
         return False
-    operand = _PERCENT_OPERAND.match(text, label.end())
-    # A noun phrase can itself be a stat label. Require more prose after its value
-    # before treating such a mid-row colon as a damaged operator.
-    return operand is not None and has_japanese(text[operand.end() :])
+    # A stat label and value alone cannot continue prose. Require more text after the operand.
+    operand = _SIGNED_PERCENT.match(text, label.end())
+    if not operand:
+        return False
+    tail = text[operand.end() :]
+    return tail.startswith((language.period, ".", "!", "！")) and language.contains_text(tail[1:])
 
 
-def join_lines(lines: tuple[TextTrack, ...]) -> str:
+def join_lines(lines: tuple[TextTrack, ...], language: SourceLanguage = DEFAULT_SOURCE) -> str:
     text = ""
     for line in lines:
         part = line.text.strip()
-        if (
-            text
-            and part
-            and text[-1].isascii()
-            and text[-1].isalnum()
-            and part[0].isascii()
-            and part[0].isalnum()
-        ):
-            text += " "  # Keep Latin names/words separated across a Japanese line wrap.
+        if language.needs_space(text[-1:], part[:1]):
+            text += " "
         text += part
     return text
 
@@ -83,6 +65,7 @@ def join_lines(lines: tuple[TextTrack, ...]) -> str:
 class TextBlock:
     lines: tuple[TextTrack, ...]
     dialogue: bool = field(default=False, compare=False)
+    language: SourceLanguage = field(default=DEFAULT_SOURCE, kw_only=True)
 
     def __post_init__(self) -> None:
         if not self.lines:
@@ -90,7 +73,7 @@ class TextBlock:
 
     @property
     def text(self) -> str:
-        return join_lines(self.lines)
+        return join_lines(self.lines, self.language)
 
     @property
     def bounds(self) -> Rect:
@@ -124,6 +107,7 @@ def _on_column_pitch(previous: Rect, current: Rect, following: Rect) -> bool:
 
 
 def _can_follow(
+    language: SourceLanguage,
     upper: TextTrack,
     lower: TextTrack,
     *,
@@ -137,62 +121,60 @@ def _can_follow(
     if not -height * _MAX_ROW_OVERLAP <= gap <= height * _MAX_ROW_GAP:
         return False  # Distant rows need no text/quote analysis in dense layouts.
     first, second = upper.text.strip(), lower.text.strip()
-    introduces_value = first.endswith(("さらに", "更に", "最大で", "上限は"))
+    introduces_value = first.endswith(language.value_introductions)
     paragraph = previous_row is not None
     percentage = (
-        _PERCENT.fullmatch(second)
-        if (paragraph or introduces_value) and len(second) <= 16
-        else None
+        (paragraph or introduces_value) and len(second) <= 16 and _percentage_row(language, second)
     )
     on_pitch = bool(percentage and previous_row and _on_column_pitch(previous_row, a, b))
     numeric_tail = (
-        percentage is not None
-        and not first.endswith(_END)
+        percentage
+        and not first.endswith(language.endings)
         and (not second.startswith(("*", "＊")) or on_pitch)
         and b.width <= min(a.width * 0.35, a.height * 4)
     )
     if (
         upper.vertical
         or lower.vertical
-        or not has_japanese(first)
-        or not (has_japanese(second) or numeric_tail)
+        or not language.contains_text(first)
+        or not (language.contains_text(second) or numeric_tail)
     ):
         return False
-    labelled = _labelled(first)
+    labelled = language.lists.has_inline_label(first)
     if (
         (len(first) < 10 and not (introduces_value and numeric_tail))
         or not second
         or (first.endswith((":", "：")) and not labelled)
     ):
         return False
-    quoted = opening_quote or bool(_QUOTE.match(first))
-    if _is_choice(first) and not (labelled or opening_quote):
+    quoted = opening_quote or bool(language.quote_start.match(first))
+    if language.is_choice(first) and not (labelled or opening_quote):
         return False  # Bare menu choices stay independent; labelled descriptions can wrap.
-    if not numeric_tail and _QUOTE.match(second):
+    if not numeric_tail and language.quote_start.match(second):
         return False
     if (
         not numeric_tail
-        and _item_start(second)
+        and language.starts_item(second)
         and (
-            first.endswith(_END)
-            or not _continues_percentage(second, in_paragraph=paragraph or labelled)
+            first.endswith(language.endings)
+            or not _continues_percentage(language, second, in_paragraph=paragraph or labelled)
         )
     ):
         return False
-    item = not opening_quote and _item_start(first)
-    # A final kana plus punctuation can have shorter ink bounds than a full kanji line.
+    item = not opening_quote and language.starts_item(first)
+    # A few final glyphs can have shorter ink bounds than a full line.
     # Relax height only for a narrow terminal fragment, never an ordinary smaller label.
     short_ending = numeric_tail or (
         1 < len(second) <= 4
-        and second.endswith(_END)
+        and second.endswith(language.endings)
         and b.width <= min(a.width * 0.35, a.height * 4)
         and b.height < a.height
     )
     width_growth = (
         paragraph
         or revealing
-        or _internal_prose(first)
-        or first.endswith((*_END, "、", "，", ","))
+        or language.internal_prose(first)
+        or first.endswith((*language.endings, *language.commas))
         or quoted
     )
     height_ratio = 1.45 if short_ending else 1.3
@@ -206,7 +188,7 @@ def _can_follow(
         <= (max(a.width * 1.5, a.width + height * 4) if width_growth else a.width * 1.25)
         and (
             abs(a.x - b.x) <= max(6, height * 0.75)
-            or (not item and _centered_wrap(upper, lower))
+            or (not item and _centered_wrap(language, upper, lower))
             # Ink extents include or omit the leading dash/bracket depending on the
             # scan. Allow a hanging mark or indent; overlap/gap/font checks still apply.
             or (quoted and abs(a.x - b.x) <= height * 2)
@@ -218,18 +200,13 @@ def _can_follow(
         # Require tightly spaced full prose rows; marked choices remain excluded.
         and (
             revealing
-            or not first.endswith(_END)
+            or not first.endswith(language.endings)
             or (gap <= height * 0.55 and min(a.width, b.width) >= height * 8)
         )
     )
 
 
-def _internal_prose(text: str) -> bool:
-    # Japanese sentence punctuation inside a long unfinished row is also wrap evidence.
-    return len(text) >= 14 and any(mark in text[:-1] for mark in "、，。")
-
-
-def _centered_subtitle_tail(upper: TextTrack, lower: TextTrack) -> bool:
+def _centered_subtitle_tail(language: SourceLanguage, upper: TextTrack, lower: TextTrack) -> bool:
     """Recognize a short final row from its inset on both sides and a textual continuation."""
     a, b = upper.bounds, lower.bounds
     unit = min(a.height, b.height)
@@ -244,46 +221,35 @@ def _centered_subtitle_tail(upper: TextTrack, lower: TextTrack) -> bool:
     ):
         return False
     first, second = upper.text.rstrip(), lower.text.strip()
-    if not second or second[-1] not in "。！？!?" or _item_start(second):
+    if not second or second[-1] not in language.terminal or language.starts_item(second):
         return False
     body = second[:-1]
-    if not body or any(mark in body for mark in "。！？!?"):
+    if not body or any(mark in body for mark in language.terminal):
         return False
-    # A wrap can split a katakana word or leave the end of a conjugation on row two.
-    if "ァ" <= first[-1] <= "ヺ" and body[0] in "ァィゥェォャュョ":
-        return True
-    if first.endswith("っ") and body[0] in "たて":
-        return True
-    # A quoted term plus a copula can finish the upper clause. A button can also
-    # quote a term in a command such as 「設定」を開く。 OCR may omit the opener.
-    if first[-1] not in "のはがをにとでへもて" and not _internal_prose(first):
-        return False
-    for opener, closer in _CLOSING_BRACKET.items():
-        term, mark, suffix = body.partition(closer)
-        if mark and suffix in ("だ", "です", "だった", "でした") and has_japanese(term):
-            return body[0] == opener or not _QUOTE.match(body)
-    return False
+    return language.subtitle_continuation(first, body)
 
 
-def _centered_subtitle(first: TextTrack, available: Iterable[TextTrack]) -> tuple[TextTrack, ...]:
+def _centered_subtitle(
+    language: SourceLanguage, first: TextTrack, available: Iterable[TextTrack]
+) -> tuple[TextTrack, ...]:
     text = first.text.strip()
     if (
         first.vertical
         or len(text) < 14
-        or text.endswith((*_END, "：", ":"))
-        or not has_japanese(text)
-        or _item_start(text)
+        or text.endswith((*language.endings, "：", ":"))
+        or not language.contains_text(text)
+        or language.starts_item(text)
     ):
         return (first,)
-    tails = [row for row in available if _centered_subtitle_tail(first, row)]
+    tails = [row for row in available if _centered_subtitle_tail(language, first, row)]
     if len(tails) == 1:
         pair = (first, tails[0])
-        if len(join_lines(pair)) <= 512:
+        if len(join_lines(pair, language)) <= 512:
             return pair
     return (first,)
 
 
-def _centered_wrap(upper: TextTrack, lower: TextTrack) -> bool:
+def _centered_wrap(language: SourceLanguage, upper: TextTrack, lower: TextTrack) -> bool:
     """A centered continuation under prose, not generally centered menu rows.
 
     Similar-width rows use the ordinary alignment tolerance. A narrow final row gets
@@ -295,20 +261,22 @@ def _centered_wrap(upper: TextTrack, lower: TextTrack) -> bool:
     tolerance = 1.25 if b.width <= a.width * 0.7 else 0.75
     text = upper.text.strip()
     return abs((a.x + a.width / 2) - (b.x + b.width / 2)) <= unit * tolerance and (
-        _internal_prose(text) or text.endswith(("、", "，", ",")) or bool(_QUOTE.match(text))
+        language.internal_prose(text)
+        or text.endswith(language.commas)
+        or bool(language.quote_start.match(text))
     )
 
 
-def _wrapped_prose(lines: tuple[TextTrack, ...]) -> bool:
+def _wrapped_prose(language: SourceLanguage, lines: tuple[TextTrack, ...]) -> bool:
     if len(lines) < 2:
         return False
     first, second = lines[:2]
-    if first.text.rstrip().endswith(_END) or not any(
-        _internal_prose(line.text.strip()) for line in lines[:-1]
+    if first.text.rstrip().endswith(language.endings) or not any(
+        language.internal_prose(line.text.strip()) for line in lines[:-1]
     ):
         return False
     return (
-        _centered_wrap(first, second)
+        _centered_wrap(language, first, second)
         or (
             len(second.text.strip()) >= 10
             and min(first.bounds.width, second.bounds.width)
@@ -318,31 +286,36 @@ def _wrapped_prose(lines: tuple[TextTrack, ...]) -> bool:
         # Two body rows at the predicted spacing independently support that opening.
         or (
             len(lines) >= 3
-            and _labelled(first.text.lstrip())
+            and language.lists.has_inline_label(first.text.lstrip())
             and first.bounds.x + second.bounds.height * 0.5 < second.bounds.x
             and _on_column_pitch(first.bounds, second.bounds, lines[2].bounds)
         )
     )
 
 
-def _dialogue_evidence(lines: tuple[TextTrack, ...]) -> bool:
+def _dialogue_evidence(language: SourceLanguage, lines: tuple[TextTrack, ...]) -> bool:
     first, last = lines[0].text.lstrip(), lines[-1].text.strip()
     return (
-        last.endswith(_END)
-        or bool(_QUOTE.match(first))
-        or (len(lines) > 1 and bool(_PERCENT.fullmatch(last) or _PERCENT_CLAUSE.fullmatch(last)))
-        or any(line.text.rstrip().endswith(("、", "，", ",")) for line in lines[:-1])
-        or _wrapped_prose(lines)
+        last.endswith(language.endings)
+        or bool(language.quote_start.match(first))
+        or (
+            len(lines) > 1
+            and (_percentage_row(language, last) or _percentage_row(language, last, clause=True))
+        )
+        or any(line.text.rstrip().endswith(language.commas) for line in lines[:-1])
+        or _wrapped_prose(language, lines)
     )
 
 
-def _paragraph_boundary(lines: tuple[TextTrack, ...], upper: TextTrack, lower: TextTrack) -> bool:
+def _paragraph_boundary(
+    language: SourceLanguage, lines: tuple[TextTrack, ...], upper: TextTrack, lower: TextTrack
+) -> bool:
     """A ragged terminal row followed by a full row starts a new paragraph.
 
     Establish the column from earlier rows, so a sentence ending on a full-width
     row stays joined. A trailing dash is continuation, not terminal punctuation.
     """
-    if len(lines) < 2 or not upper.text.rstrip().endswith(_END):
+    if len(lines) < 2 or not upper.text.rstrip().endswith(language.endings):
         return False
     width = max(line.bounds.width for line in lines)
     unit = max(1, min(upper.bounds.height, lower.bounds.height))
@@ -354,7 +327,11 @@ def _paragraph_boundary(lines: tuple[TextTrack, ...], upper: TextTrack, lower: T
 
 
 def _row_fragments(
-    first: TextTrack, available: tuple[TextTrack, ...], column: Rect, limit: int
+    language: SourceLanguage,
+    first: TextTrack,
+    available: tuple[TextTrack, ...],
+    column: Rect,
+    limit: int,
 ) -> tuple[TextTrack, ...]:
     """Join split detections only inside a column established by earlier prose rows."""
     row = (first,)
@@ -367,8 +344,8 @@ def _row_fragments(
             if (
                 next_line not in row
                 and not next_line.vertical
-                and has_japanese(next_line.text)
-                and not _is_choice(next_line.text.lstrip())
+                and language.contains_text(next_line.text)
+                and not language.is_choice(next_line.text.lstrip())
                 and 0 <= b.x - a.x - a.width <= height * 2
                 and max(a.height, b.height) <= height * 1.3
                 and abs((a.y + a.height / 2) - (b.y + b.height / 2)) <= height * 0.25
@@ -394,14 +371,17 @@ def _same_row(previous: TextTrack, current: TextTrack) -> bool:
 
 
 def _supported_row(
-    row: TextTrack, parts: tuple[TextTrack, ...], nearby: tuple[TextTrack, ...]
+    language: SourceLanguage,
+    row: TextTrack,
+    parts: tuple[TextTrack, ...],
+    nearby: tuple[TextTrack, ...],
 ) -> bool:
     """Infer a new horizontal join only at character-like spacing inside wrapped prose."""
     if len(row.text) < 10 or (
         all(len(t.text.strip()) < 10 for t in parts)
         and row.bounds.width <= row.bounds.height * 6.5 * len(parts)
-        and not _internal_prose(row.text)
-        and not _QUOTE.match(row.text)
+        and not language.internal_prose(row.text)
+        and not language.quote_start.match(row.text)
     ):
         # A strip of compact labels above body text can fill precisely the same width.
         # Only an intact observation can disambiguate such an unmarked pair.
@@ -417,7 +397,7 @@ def _supported_row(
     supporting: list[TextTrack] = []
     for t in nearby:
         b = t.bounds
-        if _item_start(t.text.lstrip()) or abs(a.x - b.x) > a.height * 0.75:
+        if language.starts_item(t.text.lstrip()) or abs(a.x - b.x) > a.height * 0.75:
             continue
         if not (a.height * 0.75 <= abs(a.y - b.y) <= a.height * 3.8):
             continue
@@ -427,30 +407,39 @@ def _supported_row(
         right_edge = b.x + b.width
         ragged_ending = (
             b.y > a.y
-            and t.text.rstrip().endswith(_END)
+            and t.text.rstrip().endswith(language.endings)
             and parts[-1].bounds.x + a.height <= right_edge <= a.x + a.width
         )
         if ragged_ending or abs((a.x + a.width) - right_edge) <= a.height * 1.5:
             supporting.append(t)
-    adjacent = [t for t in supporting if _can_follow(row, t) or _can_follow(t, row)]
+    adjacent = [
+        t for t in supporting if _can_follow(language, row, t) or _can_follow(language, t, row)
+    ]
     below = sum(t.bounds.y > a.y for t in adjacent)
     if below > 1 or len(adjacent) - below > 1:
         return False
     if len(adjacent) == 2:
         return True  # An intact row on either side supports the same column.
     return any(
-        _dialogue_evidence((row, t) if a.y < t.bounds.y else (t, row))
-        or any(_can_follow(t, other) or _can_follow(other, t) for other in supporting)
+        _dialogue_evidence(language, (row, t) if a.y < t.bounds.y else (t, row))
+        or any(
+            _can_follow(language, t, other) or _can_follow(language, other, t)
+            for other in supporting
+        )
         for t in adjacent
     )
 
 
 def _physical_rows(
-    tracks: tuple[TextTrack, ...], previous: dict[int, TextTrack]
+    language: SourceLanguage, tracks: tuple[TextTrack, ...], previous: dict[int, TextTrack]
 ) -> dict[TextTrack, tuple[TextTrack, ...]]:
     """Find unambiguous left-to-right chains before walking the paragraph top-to-bottom."""
     ordered = sorted(
-        (t for t in tracks if not t.vertical and min(t.bounds.size) > 0 and has_japanese(t.text)),
+        (
+            t
+            for t in tracks
+            if not t.vertical and min(t.bounds.size) > 0 and language.contains_text(t.text)
+        ),
         key=lambda t: t.bounds.y + t.bounds.height / 2,
     )
     centers = [t.bounds.y + t.bounds.height / 2 for t in ordered]
@@ -465,7 +454,7 @@ def _physical_rows(
     for center, right in zip(centers, ordered, strict=True):
         b = right.bounds
         text = right.text.lstrip()
-        if _item_start(text) or _QUOTE.match(text):
+        if language.starts_item(text) or language.quote_start.match(text):
             continue
         lefts = []
         for left in near(center, b.height * 0.25):
@@ -475,7 +464,7 @@ def _physical_rows(
                 0 <= b.x - a.x - a.width <= unit * 0.8
                 and max(a.height, b.height) <= unit * 1.3
                 and abs(center - a.y - a.height / 2) <= unit * 0.25
-                and not _item_start(left.text.lstrip())
+                and not language.starts_item(left.text.lstrip())
             ):
                 lefts.append(left)
         # Cut the edge at a recurring column margin, preserving joins inside either column.
@@ -499,44 +488,41 @@ def _physical_rows(
             continue
         parts = tuple(chain)
         row = replace(
-            first, text=join_lines(parts), bounds=union_bounds(tuple(t.bounds for t in parts))
+            first,
+            text=join_lines(parts, language),
+            bounds=union_bounds(tuple(t.bounds for t in parts)),
         )
         if len(row.text) > 512:
             continue
         center = row.bounds.y + row.bounds.height / 2
         if any(
             (old := previous.get(t.track_id)) is not None and _same_row(old, row) for t in parts
-        ) or _supported_row(row, parts, tuple(near(center, row.bounds.height * 4))):
+        ) or _supported_row(language, row, parts, tuple(near(center, row.bounds.height * 4))):
             rows[row] = parts
     return rows
 
 
 def _quote_openings(
-    rows: list[TextTrack], dash_edges: dict[TextTrack, int]
+    language: SourceLanguage, rows: list[TextTrack], dash_edges: dict[TextTrack, int]
 ) -> dict[int, tuple[TextTrack, int]]:
     """Geometry for a supported opening and the only row it may newly join."""
+    quotes = language.dash_quotes
+    if quotes is None:
+        return {}
     openings = {}
     for row in rows:
         text = row.text.strip()
         edge = dash_edges.get(row)
         if row.vertical or not text:
             continue
-        if edge is None:
-            if not (dash := _DASHED_BRACKET.match(text)):
-                continue
-            body = text[dash.end() :]
-        else:
-            body = text
+        body = quotes.opening(text, recovered=edge is not None)
         if (
-            not body.startswith(("「", "『", "/"))
-            or not has_japanese(body)
-            or (_labelled(body) or "%" in body or "％" in body)
+            not body
+            or not language.contains_text(body)
+            or language.lists.has_inline_label(body)
+            or "%" in body
+            or "％" in body
         ):
-            continue
-        if closer := _CLOSING_BRACKET.get(body[0]):
-            if body.count(closer) >= body.count(body[0]):
-                continue  # A complete quoted label cannot open a wrapped quotation.
-        elif body.endswith(("」", "』", "/")):
             continue
         a = row.bounds
         if edge is not None:
@@ -552,20 +538,25 @@ def _quote_openings(
                 (above if step < 0 else below).append(other)
         if len(above) > 1 or len(below) != 1:
             continue
-        if above and (not above[0].text.rstrip().endswith(_END) or _item_start(above[0].text)):
+        if above and (
+            not above[0].text.rstrip().endswith(language.endings)
+            or language.starts_item(above[0].text)
+        ):
             continue
         next_text = below[0].text.strip()
-        if _item_start(next_text) or not (
-            next_text.endswith(("」", "』", "、", "，", ",", "/")) or _internal_prose(next_text)
+        if language.starts_item(next_text) or not (
+            next_text.endswith((*quotes.closers, *language.commas, "/"))
+            or language.internal_prose(next_text)
         ):
             continue
         opening = replace(row, bounds=a)
-        if _can_follow(opening, below[0], opening_quote=True):
+        if _can_follow(language, opening, below[0], opening_quote=True):
             openings[row.track_id] = (opening, below[0].track_id)
     return openings
 
 
 def _blocks(
+    language: SourceLanguage,
     tracks: tuple[TextTrack, ...],
     enabled: bool,
     growing: frozenset[int],
@@ -573,7 +564,7 @@ def _blocks(
 ) -> tuple[TextBlock, ...]:
     ordered = sorted(tracks[:128], key=lambda t: (t.bounds.y, t.bounds.x, t.track_id))
     row_tops = [t.bounds.y for t in ordered] if enabled else []
-    openings = _quote_openings(ordered, dash_edges) if enabled else {}
+    openings = _quote_openings(language, ordered, dash_edges) if enabled else {}
     used: set[int] = set()
     blocks: list[TextBlock] = []
     for first in ordered:
@@ -600,6 +591,7 @@ def _blocks(
                     and line.track_id not in members
                     and line.track_id not in openings
                     and _can_follow(
+                        language,
                         last_row,
                         line,
                         revealing=revealing or line.track_id in growing,
@@ -612,6 +604,7 @@ def _blocks(
                     # extend an existing paragraph or recruit a third row below the pair.
                     if not candidates and len(lines) == 1 and continuation is None:
                         lines = _centered_subtitle(
+                            language,
                             first,
                             (
                                 t
@@ -626,11 +619,12 @@ def _blocks(
                     and candidates[0].track_id != continuation
                 ):
                     break
-                if _paragraph_boundary(lines, last_row, candidates[0]):
+                if _paragraph_boundary(language, lines, last_row, candidates[0]):
                     break
                 row = (candidates[0],)
-                if len(lines) >= 2 and _dialogue_evidence(lines):
+                if len(lines) >= 2 and _dialogue_evidence(language, lines):
                     row = _row_fragments(
+                        language,
                         candidates[0],
                         tuple(
                             t
@@ -641,7 +635,7 @@ def _blocks(
                         len(ordered) - len(lines),
                     )
                 proposed = (*lines, *row)
-                source = join_lines(proposed)
+                source = join_lines(proposed, language)
                 if len(source) > 512:
                     break
                 lines = proposed
@@ -650,22 +644,23 @@ def _blocks(
                 # Aggregate geometry is private to adjacency; requests retain every raw member.
                 previous_row = last_row.bounds
                 last_row = replace(
-                    row[0], text=join_lines(row), bounds=union_bounds(tuple(t.bounds for t in row))
+                    row[0],
+                    text=join_lines(row, language),
+                    bounds=union_bounds(tuple(t.bounds for t in row)),
                 )
                 # An unmarked button can share the column width and pitch immediately
                 # below the closing quote. Its proximity adds no continuation evidence.
-                if continuation is not None and last_row.text.rstrip().endswith(("」", "』", "/")):
-                    opener = _DASHED_BRACKET.sub("", first.text.strip())[0]
-                    closer = _CLOSING_BRACKET.get(opener)
-                    if (
-                        closer is None
-                        or source.endswith("/")
-                        or source.count(closer) >= source.count(opener)
-                    ):
-                        break
+                quotes = language.dash_quotes
+                if (
+                    continuation is not None
+                    and quotes
+                    and last_row.text.rstrip().endswith((*quotes.closers, "/"))
+                    and quotes.complete(first.text.strip(), source)
+                ):
+                    break
         if len(lines) > 1 and not (
             first.track_id in openings
-            or _dialogue_evidence(lines)
+            or _dialogue_evidence(language, lines)
             or any(line.track_id in growing for line in lines)
         ):
             lines = (first,)  # Nearby menu labels alone are not evidence of a dialogue box.
@@ -673,19 +668,25 @@ def _blocks(
         dialogue = enabled and (
             len(lines) > 1
             or (
-                len(join_lines(lines)) >= 10
-                and _dialogue_evidence(lines)
-                and (first.track_id in growing or bool(_QUOTE.match(first.text.lstrip())))
+                len(join_lines(lines, language)) >= 10
+                and _dialogue_evidence(language, lines)
+                and (
+                    first.track_id in growing
+                    or bool(language.quote_start.match(first.text.lstrip()))
+                )
             )
         )
-        blocks.append(TextBlock(lines, dialogue=dialogue))
+        blocks.append(TextBlock(lines, dialogue=dialogue, language=language))
     return tuple(blocks)
 
 
 class DialogueGrouper:
     """Wait briefly for a whole group to settle; never queue partial old paragraphs."""
 
-    def __init__(self, settle_seconds: float = 0.35) -> None:
+    def __init__(
+        self, settle_seconds: float = 0.35, *, language: SourceLanguage = DEFAULT_SOURCE
+    ) -> None:
+        self._language = language
         self._settle_seconds = settle_seconds
         self._since: dict[tuple[tuple[int, int, str], ...], float] = {}
         self._layout_key: (
@@ -716,7 +717,7 @@ class DialogueGrouper:
         dash_edges: dict[TextTrack, int],
         lettering: dict[TextTrack, Lettering],
     ) -> tuple[TextBlock, ...]:
-        rows = _physical_rows(tracks, self._prior_rows) if enabled else {}
+        rows = _physical_rows(self._language, tracks, self._prior_rows) if enabled else {}
         self._fragment_ids = {t.track_id for parts in rows.values() for t in parts}
         # Carry intact-row evidence only through an exact reconstruction in this scene.
         self._prior_rows = {
@@ -729,13 +730,16 @@ class DialogueGrouper:
         row_growth = growing | {
             row.track_id for row, parts in rows.items() if any(t.track_id in growing for t in parts)
         }
-        blocks = _blocks(physical, enabled, row_growth, dash_edges)
+        blocks = _blocks(self._language, physical, enabled, row_growth, dash_edges)
         if enabled:
             owners = {row: block.lines for block in blocks for row in block.lines}
-            segments = list(dialogue_segments(physical, owners, lettering, _item_start))
+            segments = list(dialogue_segments(physical, owners, lettering, self._language))
             if segments:
                 claimed = {row for segment in segments for row in segment}
-                result = [TextBlock(segment, dialogue=True) for segment in segments]
+                result = [
+                    TextBlock(segment, dialogue=True, language=self._language)
+                    for segment in segments
+                ]
                 for block in blocks:
                     if not claimed.intersection(block.lines):
                         result.append(block)
@@ -743,7 +747,11 @@ class DialogueGrouper:
                     for taken, run in groupby(block.lines, claimed.__contains__):
                         if not taken:
                             retained = tuple(run)
-                            result.append(TextBlock(retained, dialogue=len(retained) > 1))
+                            result.append(
+                                TextBlock(
+                                    retained, dialogue=len(retained) > 1, language=self._language
+                                )
+                            )
                 blocks = tuple(
                     sorted(
                         result,
@@ -757,7 +765,7 @@ class DialogueGrouper:
         if not rows:
             return blocks
         return tuple(
-            TextBlock(tuple(t for row in b.lines for t in rows.get(row, (row,))), b.dialogue)
+            replace(b, lines=tuple(t for row in b.lines for t in rows.get(row, (row,))))
             for b in blocks
         )
 
@@ -799,8 +807,7 @@ class DialogueGrouper:
                 and not ((value := observed.get(t.track_id)) and value.pending)
             )
         blocks = tuple(
-            TextBlock(tuple(displayed[t.track_id] for t in b.lines), dialogue=b.dialogue)
-            for b in self._layout
+            replace(b, lines=tuple(displayed[t.track_id] for t in b.lines)) for b in self._layout
         )
         ready_keys = {(line.track_id, line.text_revision, line.text) for line in confirmed}
         since = {block.key: self._since.get(block.key, now) for block in blocks}
@@ -825,11 +832,14 @@ class DialogueGrouper:
             return False
         revealing = any(t.growing for t in members)
         dialogue = enabled and (
-            len(block.lines) > 1 or (len(block.text) >= 10 and not _is_choice(block.text))
+            len(block.lines) > 1
+            or (len(block.text) >= 10 and not self._language.is_choice(block.text))
         )
         if not revealing and not dialogue:
             return True  # Ordinary short menu labels need no extra debounce.
-        complete = block.text.rstrip().endswith(_END)
-        unfinished_prose = revealing or len(block.lines) > 1 or _internal_prose(block.text)
+        complete = block.text.rstrip().endswith(self._language.endings)
+        unfinished_prose = (
+            revealing or len(block.lines) > 1 or self._language.internal_prose(block.text)
+        )
         quiet = 0.18 if complete else 0.55 if unfinished_prose else 0.35
         return now - max(t.changed_at for t in members) >= quiet
