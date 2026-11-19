@@ -2,6 +2,7 @@
 
 import json
 
+from dantejp.i18n import tr
 from dantejp.translation.backend import RequestRejected
 
 
@@ -14,7 +15,7 @@ class ResponseStream:
     def feed(self, data: bytes) -> None:
         self._received += len(data)
         if self._received > 131_072:
-            raise RequestRejected("ChatGPT response exceeded the size limit.")
+            raise RequestRejected(tr("ChatGPT response exceeded the size limit."))
         self._buffer += data
         # SSE accepts LF or CRLF. Bound the entire buffer before parsing it.
         self._buffer = self._buffer.replace(b"\r\n", b"\n")
@@ -28,9 +29,9 @@ class ResponseStream:
             try:
                 value = json.loads(payload)
             except ValueError as error:
-                raise RequestRejected("ChatGPT returned an invalid response stream.") from error
+                raise RequestRejected(tr("ChatGPT returned an invalid response stream.")) from error
             if not isinstance(value, dict):
-                raise RequestRejected("ChatGPT returned an invalid response stream.")
+                raise RequestRejected(tr("ChatGPT returned an invalid response stream."))
             kind = value.get("type")
             if kind in ("error", "response.failed", "response.incomplete"):
                 response = value.get("response", {})
@@ -41,10 +42,13 @@ class ResponseStream:
                     "subscription_sharing_usage_unavailable",
                 ):
                     raise PlanUnavailable(
-                        "ChatGPT plan usage is unavailable or at its limit. Manage usage in Models."
+                        tr(
+                            "ChatGPT plan usage is unavailable or at its limit. Manage "
+                            "usage in Models."
+                        )
                     )
                 raise RequestRejected(
-                    "ChatGPT did not complete this translation. No partial answer was shown."
+                    tr("ChatGPT did not complete this translation. No partial answer was shown.")
                 )
             if kind == "response.completed":
                 self.completed = value.get("response")
@@ -52,18 +56,18 @@ class ResponseStream:
     def finish(self) -> tuple[str, object]:
         response = self.completed
         if not isinstance(response, dict) or response.get("status") != "completed":
-            raise RequestRejected("ChatGPT stream ended before a complete answer arrived.")
+            raise RequestRejected(tr("ChatGPT stream ended before a complete answer arrived."))
         output = response.get("output")
         if not isinstance(output, list) or any(
             not isinstance(item, dict) or item.get("type") not in ("message", "reasoning")
             for item in output
         ):
-            raise RequestRejected("ChatGPT returned no complete translation.")
+            raise RequestRejected(tr("ChatGPT returned no complete translation."))
         messages = [
             item for item in output if isinstance(item, dict) and item.get("type") == "message"
         ]
         if len(messages) != 1 or messages[0].get("role") != "assistant":
-            raise RequestRejected("ChatGPT returned an unsupported answer.")
+            raise RequestRejected(tr("ChatGPT returned an unsupported answer."))
         content = messages[0].get("content")
         if (
             not isinstance(content, list)
@@ -75,10 +79,10 @@ class ResponseStream:
                 for item in content
             )
         ):
-            raise RequestRejected("ChatGPT refused or did not complete this translation.")
+            raise RequestRejected(tr("ChatGPT refused or did not complete this translation."))
         text = "".join(item["text"] for item in content).strip()
         if not text or len(text) > 4096 or "<think" in text.lower():
-            raise RequestRejected("ChatGPT returned empty, oversized or reasoning text.")
+            raise RequestRejected(tr("ChatGPT returned empty, oversized or reasoning text."))
         return text, response.get("usage")
 
 

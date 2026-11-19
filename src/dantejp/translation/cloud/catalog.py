@@ -11,6 +11,7 @@ from uuid import uuid4
 
 import httpx2
 
+from dantejp.i18n import tr
 from dantejp.translation.cloud.credentials import valid_credential
 from dantejp.translation.cloud.protocol import request_headers
 from dantejp.translation.cloud.values import CatalogModel as CatalogModel
@@ -112,7 +113,9 @@ def fetch_models(
 ) -> tuple[CatalogModel, ...]:
     """Metadata only. Never test inference, follow provider URLs, or switch credentials."""
     if provider not in URLS or not valid_credential(secret):
-        raise _DiscoveryError("Choose an API provider and enter its key before refreshing models.")
+        raise _DiscoveryError(
+            tr("Choose an API provider and enter its key before refreshing models.")
+        )
     headers = request_headers(CloudProfile.new(provider), secret)
     rows: dict[str, CatalogModel] = {}
     params: dict[str, str | int] = {}
@@ -125,25 +128,33 @@ def fetch_models(
             for _ in range(8):
                 if cancel.is_set() or time.monotonic() > deadline:
                     raise _DiscoveryError(
-                        "Model refresh cancelled or timed out; the previous list is kept."
+                        tr("Model refresh cancelled or timed out; the previous list is kept.")
                     )
                 with client.stream(
                     "GET", URLS[provider], headers=headers, params=params
                 ) as response:
                     if response.status_code != 200:
                         raise _DiscoveryError(
-                            f"Model refresh failed (HTTP {response.status_code}). "
-                            "Check the connection; the previous list is kept."
+                            tr(
+                                "Model refresh failed (HTTP {status_code}). Check the "
+                                "connection; the previous list is kept.",
+                                status_code=response.status_code,
+                            )
                         )
                     content = bytearray()
                     for chunk in response.iter_bytes():
                         if cancel.is_set() or time.monotonic() > deadline:
                             raise _DiscoveryError(
-                                "Model refresh cancelled or timed out; the previous list is kept."
+                                tr(
+                                    "Model refresh cancelled or timed out; the previous "
+                                    "list is kept."
+                                )
                             )
                         content.extend(chunk)
                         if len(content) > 262_144:
-                            raise _DiscoveryError("Provider model catalog exceeded the size limit.")
+                            raise _DiscoveryError(
+                                tr("Provider model catalog exceeded the size limit.")
+                            )
                 value = json.loads(content)
                 page = (
                     value.get("models" if provider == "gemini" else "data")
@@ -151,13 +162,15 @@ def fetch_models(
                     else None
                 )
                 if not isinstance(page, list) or len(page) > 1024:
-                    raise _DiscoveryError("Provider returned an unsupported model catalog.")
+                    raise _DiscoveryError(tr("Provider returned an unsupported model catalog."))
                 for raw in page:
                     model = _model(provider, raw)
                     if model:
                         rows[model.model] = model
                     if len(rows) > 512:
-                        raise _DiscoveryError("Provider model catalog exceeded the model limit.")
+                        raise _DiscoveryError(
+                            tr("Provider model catalog exceeded the model limit.")
+                        )
                 token = (
                     value.get("nextPageToken", "")
                     if provider == "gemini"
@@ -167,21 +180,24 @@ def fetch_models(
                 )
                 if not token:
                     if cancel.is_set():
-                        raise _DiscoveryError("Model refresh cancelled.")
+                        raise _DiscoveryError(tr("Model refresh cancelled."))
                     return tuple(rows.values())
                 if not isinstance(token, str) or len(token) > 2048 or token in tokens:
-                    raise _DiscoveryError("Provider returned invalid catalog pagination.")
+                    raise _DiscoveryError(tr("Provider returned invalid catalog pagination."))
                 tokens.add(token)
                 params = {"pageToken" if provider == "gemini" else "after_id": token}
-            raise _DiscoveryError("Provider catalog exceeded the pagination limit.")
+            raise _DiscoveryError(tr("Provider catalog exceeded the pagination limit."))
     except (httpx2.HTTPError, json.JSONDecodeError, UnicodeError):
         raise _DiscoveryError(
-            "Could not read the provider catalog. Check your connection; the previous list is kept."
+            tr(
+                "Could not read the provider catalog. Check your connection; the previous "
+                "list is kept."
+            )
         ) from None
     except _DiscoveryError:
         raise
     except Exception:
-        raise _DiscoveryError("Provider discovery failed; the previous list is kept.") from None
+        raise _DiscoveryError(tr("Provider discovery failed; the previous list is kept.")) from None
 
 
 class CatalogCache:
@@ -190,7 +206,7 @@ class CatalogCache:
 
     def _path(self, connection: str) -> Path:
         if not re.fullmatch(r"(?:api|cloud)-[0-9a-f]{32}", connection):
-            raise ValueError("Invalid catalog connection.")
+            raise ValueError(tr("Invalid catalog connection."))
         return self.root / (connection + ".json")
 
     def read(self, provider: str, connection: str) -> tuple[CatalogModel, ...] | None:
@@ -216,12 +232,12 @@ class CatalogCache:
     def write(self, provider: str, connection: str, models: tuple[CatalogModel, ...]) -> None:
         path = self._path(connection)
         if len(models) > 512:
-            raise ValueError("Catalog exceeded the model limit.")
+            raise ValueError(tr("Catalog exceeded the model limit."))
         payload = json.dumps(
             {"version": 1, "provider": provider, "models": [asdict(m) for m in models]}
         )
         if len(payload.encode("utf-8")) > 262_144:
-            raise ValueError("Catalog exceeded the size limit.")
+            raise ValueError(tr("Catalog exceeded the size limit."))
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_name("." + uuid4().hex + ".tmp")
         try:

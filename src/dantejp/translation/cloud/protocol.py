@@ -2,6 +2,7 @@
 
 import json
 
+from dantejp.i18n import tr
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
 from dantejp.languages.target import ENGLISH, TargetLanguage
@@ -102,9 +103,9 @@ def request_body(
 ) -> dict[str, object]:
     text, context = source
     if not text.strip() or len(text) > 512:
-        raise RequestRejected("Source text exceeds the 512-character translation limit.")
+        raise RequestRejected(tr("Source text exceeds the 512-character translation limit."))
     if len(context) > 2 or sum(len(t.source) + len(t.english) for t in context) > 512:
-        raise RequestRejected("Dialogue context exceeds the translation limit.")
+        raise RequestRejected(tr("Dialogue context exceeds the translation limit."))
     user = json.dumps(
         {
             "GAME": game,
@@ -263,7 +264,9 @@ def parse_answer(value: object, provider: str = "openai") -> str:
             raise ValueError
         return text.strip()
     except (KeyError, TypeError, ValueError, IndexError):
-        raise RequestRejected("Cloud model returned an incomplete or unsupported answer.") from None
+        raise RequestRejected(
+            tr("Cloud model returned an incomplete or unsupported answer.")
+        ) from None
 
 
 def response_usage(provider: str, value: object) -> object:

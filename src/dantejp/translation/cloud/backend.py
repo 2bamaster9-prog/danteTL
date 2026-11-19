@@ -11,6 +11,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 
 import httpx2
 
+from dantejp.i18n import tr
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
 from dantejp.languages.target import ENGLISH, TargetLanguage
@@ -75,7 +76,7 @@ class CloudAllowance:
         with self._lock:
             if len(self._waiting) >= 16:
                 raise RequestRejected(
-                    "Cloud request queue is full. Retry after pending work finishes."
+                    tr("Cloud request queue is full. Retry after pending work finishes.")
                 )
             self._waiting.append(ticket)
         try:
@@ -84,7 +85,7 @@ class CloudAllowance:
                 with self._lock:
                     if self._usage.requests >= profile.request_limit:
                         raise RequestRejected(
-                            "Cloud request limit reached for this app run. Open Models."
+                            tr("Cloud request limit reached for this app run. Open Models.")
                         )
                     delay = self._next_call - clock()
                     if self._waiting[0] is ticket and delay <= 0:
@@ -152,10 +153,10 @@ class CloudBackend:
         self._allowance = allowance or CloudAllowance()
         self._transport, self._timeout, self._clock = transport, timeout, clock
         self._blocked = (
-            "" if secret else "API key is missing. Open Settings → Models → Cloud models."
+            "" if secret else tr("API key is missing. Open Settings → Models → Cloud models.")
         )
         if secret and not valid_credential(secret):
-            self._blocked = "Cloud credential is malformed. Reconnect in Models."
+            self._blocked = tr("Cloud credential is malformed. Reconnect in Models.")
         self.cache_identity = (
             "cloud:"
             + hashlib.sha256(
@@ -197,7 +198,7 @@ class CloudBackend:
         with self._pending_lock:
             self._pending = [(p, w) for p, w in self._pending if not p.done()]
             if len(sources) != 1 or len(self._pending) >= self.max_in_flight:
-                raise RuntimeError("Cloud backend accepts at most two independent requests.")
+                raise RuntimeError(tr("Cloud backend accepts at most two independent requests."))
             work = AuthWork(deadline=time.monotonic() + self._timeout)
             pending = asyncio.run_coroutine_threadsafe(
                 self._batch(sources[0], work, target), self._loop
@@ -215,14 +216,18 @@ class CloudBackend:
             return {source: answer}, {}
         except (TimeoutError, AuthInterrupted):
             return {}, {
-                source: "Cloud request timed out or was cancelled. Restart translation to retry."
+                source: tr(
+                    "Cloud request timed out or was cancelled. Restart translation to retry."
+                )
             }
         except RequestRejected as error:
             return {}, {source: str(error)}
         except Exception:
             # Unanticipated transport exceptions can include headers. Keep the failure
             # fatal, but never let its original text/exception chain enter app logs.
-            raise RuntimeError("Cloud request failed unexpectedly. Reconnect in Models.") from None
+            raise RuntimeError(
+                tr("Cloud request failed unexpectedly. Reconnect in Models.")
+            ) from None
         finally:
             work.cancelled.set()
 
@@ -243,7 +248,7 @@ class CloudBackend:
                     self._auth_owner, self._access_token, work
                 )
                 if not valid_credential(self._secret):
-                    raise ValueError("ChatGPT returned an invalid credential. Sign in again.")
+                    raise ValueError(tr("ChatGPT returned an invalid credential. Sign in again."))
             except AuthInterrupted:
                 raise
             except (ValueError, OSError) as error:
@@ -280,7 +285,7 @@ class CloudBackend:
                         async for chunk in response.aiter_bytes():
                             content.extend(chunk)
                             if len(content) > 65_536:
-                                raise RequestRejected("Cloud response exceeded the size limit.")
+                                raise RequestRejected(tr("Cloud response exceeded the size limit."))
                         status = response.status_code
                         try:
                             value = json.loads(content)
@@ -295,13 +300,13 @@ class CloudBackend:
                             status in (401, 403, 429)
                             or code == "subscription_sharing_usage_unavailable"
                         ):
-                            self._blocked = (
+                            self._blocked = tr(
                                 "ChatGPT plan unavailable. Check sign-in and usage in Models. "
                                 "No API-key fallback was used."
                             )
                             raise RequestRejected(self._blocked)
                         if status in (401, 402, 403) or account_error(value):
-                            self._blocked = (
+                            self._blocked = tr(
                                 "Cloud account needs attention. Check its API key and balance "
                                 "in Models, then restart translation."
                             )
@@ -314,20 +319,23 @@ class CloudBackend:
                             continue
                         if status != 200:
                             raise RequestRejected(
-                                f"Cloud request failed (HTTP {status}). "
-                                "Toggle translation to retry."
+                                tr(
+                                    "Cloud request failed (HTTP {status}). Toggle "
+                                    "translation to retry.",
+                                    status=status,
+                                )
                             )
                         self._allowance.record(response_usage(self._profile.provider, value))
                         return parse_answer(value, self._profile.provider)
             except (TimeoutError, httpx2.TimeoutException) as error:
                 raise RequestRejected(
-                    "Cloud request timed out. Restart translation to retry."
+                    tr("Cloud request timed out. Restart translation to retry.")
                 ) from error
             except httpx2.HTTPError as error:
                 raise RequestRejected(
-                    "Cloud connection failed. Check your internet connection."
+                    tr("Cloud connection failed. Check your internet connection.")
                 ) from error
-        raise RequestRejected("Cloud service is temporarily unavailable.")
+        raise RequestRejected(tr("Cloud service is temporarily unavailable."))
 
     def translate_with_context(
         self, text: str, context: tuple[DialogueTurn, ...], *, target: TargetLanguage = ENGLISH
@@ -368,8 +376,8 @@ class CloudBackend:
                     return parse_classification(pending.result(timeout=0.05))
                 except TimeoutError:
                     if pending.done():
-                        raise RequestRejected("Classification timed out.") from None
-            raise RequestRejected("Classification cancelled.")
+                        raise RequestRejected(tr("Classification timed out.")) from None
+            raise RequestRejected(tr("Classification cancelled."))
         finally:
             work.cancelled.set()
             pending.cancel()

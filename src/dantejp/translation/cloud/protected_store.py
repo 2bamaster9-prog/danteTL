@@ -12,6 +12,8 @@ from ctypes import wintypes
 from pathlib import Path
 from uuid import uuid4
 
+from dantejp.i18n import tr
+
 
 class _Blob(ctypes.Structure):
     _fields_ = [("size", wintypes.DWORD), ("data", ctypes.POINTER(ctypes.c_ubyte))]
@@ -37,7 +39,7 @@ def _protect(data: bytes, *, decrypt: bool = False) -> bytes:
     kernel.LocalFree.restype = ctypes.c_void_p
     try:
         if not call(ctypes.byref(source), None, None, None, None, 1, ctypes.byref(output)):
-            raise OSError("Windows could not unlock/save this ChatGPT connection.")
+            raise OSError(tr("Windows could not unlock/save this ChatGPT connection."))
         return ctypes.string_at(output.data, output.size)
     finally:
         ctypes.memset(raw, 0, len(data))
@@ -53,7 +55,7 @@ class ProtectedStore:
 
     def _path(self, key: str) -> Path:
         if not re.fullmatch(r"(?:account-[0-9a-f]{32}|host)", key):
-            raise ValueError("Invalid protected record ID.")
+            raise ValueError(tr("Invalid protected record ID."))
         return self.directory / (key + ".dat")
 
     def read(self, key: str) -> dict:
@@ -61,17 +63,17 @@ class ProtectedStore:
         if not path.exists():
             return {}
         if path.stat().st_size > 131_072:
-            raise ValueError("ChatGPT connection record is too large.")
+            raise ValueError(tr("ChatGPT connection record is too large."))
         value = json.loads(_protect(path.read_bytes(), decrypt=True))
         if not isinstance(value, dict):
-            raise ValueError("Invalid ChatGPT connection record.")
+            raise ValueError(tr("Invalid ChatGPT connection record."))
         if "_protected_record" in value:
             if (
                 value.get("_protected_record") != 1
                 or value.get("key") != key
                 or not isinstance(value.get("value"), dict)
             ):
-                raise ValueError("ChatGPT connection record does not match this account.")
+                raise ValueError(tr("ChatGPT connection record does not match this account."))
             return value["value"]
         # Existing encrypted records are upgraded on their next successful write.
         return value
@@ -82,7 +84,7 @@ class ProtectedStore:
             {"_protected_record": 1, "key": key, "value": value}, ensure_ascii=False
         ).encode("utf-8")
         if len(data) > 100_000:
-            raise ValueError("ChatGPT connection record exceeds its size limit.")
+            raise ValueError(tr("ChatGPT connection record exceeds its size limit."))
         encrypted = _protect(data)
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_name(f".{path.name}-{uuid4().hex}.tmp")
@@ -114,7 +116,7 @@ class ProtectedStore:
                 except OSError:
                     if time.monotonic() >= deadline:
                         raise OSError(
-                            "Another DanteJP instance is updating this ChatGPT account."
+                            tr("Another DanteJP instance is updating this ChatGPT account.")
                         ) from None
                     time.sleep(0.05)
             try:

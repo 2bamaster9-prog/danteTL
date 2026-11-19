@@ -6,6 +6,8 @@ import time
 
 import httpx2
 
+from dantejp.i18n import tr
+
 AUTH_RESPONSE_LIMIT = 128 * 1024
 
 
@@ -27,9 +29,9 @@ class AuthWork:
 
     def check(self) -> None:
         if self.cancelled.is_set():
-            raise AuthInterrupted("ChatGPT authentication cancelled.")
+            raise AuthInterrupted(tr("ChatGPT authentication cancelled."))
         if time.monotonic() >= self.deadline:
-            raise AuthInterrupted("ChatGPT authentication timed out.")
+            raise AuthInterrupted(tr("ChatGPT authentication timed out."))
 
     def request(
         self, method: str, url: str, *, max_response_bytes: int = AUTH_RESPONSE_LIMIT, **kwargs
@@ -65,16 +67,19 @@ class AuthWork:
                         self.check()
                         if len(data) + len(chunk) > max_response_bytes:
                             raise AuthInterrupted(
-                                "ChatGPT setup response exceeds its size limit "
-                                f"({max_response_bytes // 1024:,} KiB)."
+                                tr(
+                                    "ChatGPT setup response exceeds its size limit "
+                                    "({value:,} KiB).",
+                                    value=max_response_bytes // 1024,
+                                )
                             )
                         data.extend(chunk)
                     self.check()
                     return response.status_code, bytes(data)
         except asyncio.CancelledError:
-            raise AuthInterrupted("ChatGPT authentication cancelled.") from None
+            raise AuthInterrupted(tr("ChatGPT authentication cancelled.")) from None
         except TimeoutError:
-            raise AuthInterrupted("ChatGPT authentication timed out.") from None
+            raise AuthInterrupted(tr("ChatGPT authentication timed out.")) from None
         finally:
             watcher.cancel()
             await asyncio.gather(watcher, return_exceptions=True)

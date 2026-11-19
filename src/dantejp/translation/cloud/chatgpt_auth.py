@@ -14,6 +14,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlencode, urlparse
 from uuid import uuid4
 
+from dantejp.i18n import tr
 from dantejp.paths import state_root
 from dantejp.translation.cloud.auth_work import AuthInterrupted, AuthWork
 from dantejp.translation.cloud.credentials import valid_credential
@@ -36,7 +37,7 @@ class AuthResponseError(ValueError):
 
 def _client_id(value: object) -> str:
     if not isinstance(value, str) or not re.fullmatch(r"oaiapp_[A-Za-z0-9_-]{1,200}", value):
-        raise ValueError("ChatGPT did not return a valid client registration.")
+        raise ValueError(tr("ChatGPT did not return a valid client registration."))
     return value
 
 
@@ -48,7 +49,7 @@ def _json_request(work: AuthWork, method: str, url: str, **kwargs) -> dict:
         except ValueError:
             value = {}
         if not isinstance(value, dict):
-            raise AuthResponseError("ChatGPT setup returned an unsupported response.")
+            raise AuthResponseError(tr("ChatGPT setup returned an unsupported response."))
         if status != 200:
             code = value.get("error")
             if isinstance(code, dict):
@@ -61,13 +62,15 @@ def _json_request(work: AuthWork, method: str, url: str, **kwargs) -> dict:
                 "refresh_token_invalidated",
                 "refresh_token_reused",
             }:
-                raise SessionExpired("ChatGPT session expired. Continue with ChatGPT again.")
-            raise AuthResponseError(f"ChatGPT setup failed (HTTP {status}). Try again later.")
+                raise SessionExpired(tr("ChatGPT session expired. Continue with ChatGPT again."))
+            raise AuthResponseError(
+                tr("ChatGPT setup failed (HTTP {status}). Try again later.", status=status)
+            )
         return value
     except (AuthResponseError, SessionExpired, AuthInterrupted):
         raise
     except Exception:
-        raise OSError("Could not connect to ChatGPT. Check your internet connection.") from None
+        raise OSError(tr("Could not connect to ChatGPT. Check your internet connection.")) from None
 
 
 class SessionExpired(ValueError):
@@ -83,15 +86,15 @@ def authorization_callback(path: str, state: str) -> dict[str, str]:
         or parsed.path != "/auth/callback"
         or len(path) > 16_384
     ):
-        raise ValueError("Invalid authorization callback.")
+        raise ValueError(tr("Invalid authorization callback."))
     query = parse_qs(parsed.query, max_num_fields=12)
     if any(len(value) != 1 for value in query.values()):
-        raise ValueError("Invalid authorization callback.")
+        raise ValueError(tr("Invalid authorization callback."))
     supplied = query.get("state", [""])[0]
     if not supplied.isascii() or not hmac.compare_digest(supplied, state):
-        raise ValueError("Invalid authorization callback state.")
+        raise ValueError(tr("Invalid authorization callback state."))
     if "iss" in query and query["iss"] != [ISSUER]:
-        raise ValueError("Unexpected authorization issuer.")
+        raise ValueError(tr("Unexpected authorization issuer."))
     return {key: values[0] for key, values in query.items()}
 
 
@@ -140,7 +143,9 @@ def validate_identity(token: str, jwks: dict, client_id: str, nonce: str) -> dic
             raise ValueError
         return claims
     except (ValueError, TypeError, KeyError, jwt.PyJWTError) as error:
-        raise ValueError("ChatGPT identity validation failed; no account was activated.") from error
+        raise ValueError(
+            tr("ChatGPT identity validation failed; no account was activated.")
+        ) from error
 
 
 def require_sign_in_dependencies() -> None:
@@ -151,8 +156,10 @@ def require_sign_in_dependencies() -> None:
         from cryptography.hazmat.primitives.asymmetric import rsa  # noqa: F401
     except ImportError as error:
         raise ValueError(
-            "This runtime predates ChatGPT sign-in. Repair it in Settings → Acceleration "
-            "and restart, or select the bundled CPU runtime."
+            tr(
+                "This runtime predates ChatGPT sign-in. Repair it in Settings → Acceleration "
+                "and restart, or select the bundled CPU runtime."
+            )
         ) from error
 
 
@@ -167,10 +174,10 @@ def token_record(previous: dict, response: dict) -> dict:
         or not 1 <= expiry <= 604_800
         or (refresh is not None and not valid_credential(refresh))
     ):
-        raise ValueError("ChatGPT returned an invalid token response.")
+        raise ValueError(tr("ChatGPT returned an invalid token response."))
     scope = response.get("scope")
     if scope is not None and not isinstance(scope, str):
-        raise ValueError("ChatGPT returned invalid permissions.")
+        raise ValueError(tr("ChatGPT returned invalid permissions."))
     return {
         **previous,
         "access_token": access,
@@ -217,7 +224,7 @@ class ChatGPTConnections:
         work.check()
         previous = self.store.read(account) if account else {}
         if not account and len(self.store.account_keys()) >= 8:
-            raise ValueError("Eight ChatGPT accounts are already registered.")
+            raise ValueError(tr("Eight ChatGPT accounts are already registered."))
         key = account or "account-" + uuid4().hex
         state, nonce, verifier = (secrets.token_urlsafe(32) for _ in range(3))
         challenge = (
@@ -286,15 +293,17 @@ class ChatGPTConnections:
             while not callback and not cancelled.is_set() and time.monotonic() < deadline:
                 server.handle_request()
         if cancelled.is_set() or not callback:
-            raise ValueError("ChatGPT sign-in cancelled or timed out.")
+            raise ValueError(tr("ChatGPT sign-in cancelled or timed out."))
         if callback.get("error"):
-            raise ValueError("ChatGPT sign-in was declined. Your previous connection is unchanged.")
+            raise ValueError(
+                tr("ChatGPT sign-in was declined. Your previous connection is unchanged.")
+            )
         client_id = _client_id(callback.get("client_id", previous.get("client_id")))
         if previous.get("client_id") and client_id != previous["client_id"]:
-            raise ValueError("ChatGPT returned a different registration; account unchanged.")
+            raise ValueError(tr("ChatGPT returned a different registration; account unchanged."))
         code = callback.get("code", "")
         if not code or len(code) > 8192:
-            raise ValueError("ChatGPT did not return an authorization code.")
+            raise ValueError(tr("ChatGPT did not return an authorization code."))
         if not previous:
             # Preserve the issued registration if exchange fails; do not activate it yet.
             previous = {"client_id": client_id, "host": params["ext_agent_host_id"]}
@@ -317,7 +326,7 @@ class ChatGPTConnections:
         jwks = _json_request(work, "GET", ISSUER + "/.well-known/jwks.json")
         claims = validate_identity(response.get("id_token", ""), jwks, client_id, nonce)
         if previous.get("subject") and previous["subject"] != claims["sub"]:
-            raise ValueError("The signed-in account does not match this registration.")
+            raise ValueError(tr("The signed-in account does not match this registration."))
         record = token_record(previous, response)
         record.update(subject=claims["sub"], email=str(claims.get("email", ""))[:254])
         work.check()
@@ -333,9 +342,11 @@ class ChatGPTConnections:
         with self.store.lock(account, check=work.check):
             record = self.store.read(account)
             if not record.get("access_token") or PLAN_SCOPE not in record.get("scopes", []):
-                raise ValueError("Enable ChatGPT plan use in Models → Continue with ChatGPT.")
+                raise ValueError(tr("Enable ChatGPT plan use in Models → Continue with ChatGPT."))
             if not valid_credential(record["access_token"]):
-                raise ValueError("Saved ChatGPT connection is malformed. Sign in again in Models.")
+                raise ValueError(
+                    tr("Saved ChatGPT connection is malformed. Sign in again in Models.")
+                )
             if record.get("expires_at", 0) > time.time() + 60:
                 return record["access_token"]
             try:
@@ -358,7 +369,9 @@ class ChatGPTConnections:
                 self.store.write(account, self._without_tokens(record))
                 raise
             if PLAN_SCOPE not in record["scopes"]:
-                raise ValueError("ChatGPT plan permission was removed. Sign in again in Models.")
+                raise ValueError(
+                    tr("ChatGPT plan permission was removed. Sign in again in Models.")
+                )
             return record["access_token"]
 
     def refresh_models(
@@ -375,7 +388,7 @@ class ChatGPTConnections:
         )
         rows = value.get("models")
         if not isinstance(rows, list) or len(rows) > 256:
-            raise ValueError("ChatGPT did not return an account model catalog.")
+            raise ValueError(tr("ChatGPT did not return an account model catalog."))
         models = tuple(
             (row["slug"], row["display_name"])
             for row in rows
@@ -419,7 +432,7 @@ class ChatGPTConnections:
                     )
                     endpoint = discovery.get("revocation_endpoint")
                     if endpoint != ISSUER + "/api/accounts/oauth/revoke":
-                        raise ValueError("Unrecognized ChatGPT revocation endpoint.")
+                        raise ValueError(tr("Unrecognized ChatGPT revocation endpoint."))
                     _json_request(
                         work,
                         "POST",
@@ -437,8 +450,10 @@ class ChatGPTConnections:
             finally:
                 self.store.write(account, self._without_tokens(record))
         return (
-            "Signed out of ChatGPT."
+            tr("Signed out of ChatGPT.")
             if confirmed
-            else "Signed out locally. Remote revocation was not confirmed; "
-            "disconnect DanteJP in ChatGPT usage settings."
+            else tr(
+                "Signed out locally. Remote revocation was not confirmed; "
+                "disconnect DanteJP in ChatGPT usage settings."
+            )
         )

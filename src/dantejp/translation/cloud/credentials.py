@@ -4,6 +4,8 @@ import ctypes
 from ctypes import wintypes
 from typing import Protocol
 
+from dantejp.i18n import tr
+
 
 class Secrets(Protocol):
     def read(self, key: str) -> str | None: ...
@@ -60,26 +62,26 @@ class WindowsSecrets:
         if not self._api.CredReadW(f"{self._namespace}/{key}", 1, 0, ctypes.byref(pointer)):
             if ctypes.get_last_error() == 1168:
                 return None
-            raise OSError("Windows could not read the saved API key.")
+            raise OSError(tr("Windows could not read the saved API key."))
         try:
             credential = pointer.contents
             if credential.CredentialBlobSize > 2560:
-                raise ValueError("Saved API key exceeds the supported size.")
+                raise ValueError(tr("Saved API key exceeds the supported size."))
             value = ctypes.string_at(
                 credential.CredentialBlob, credential.CredentialBlobSize
             ).decode("ascii")
             if not valid_credential(value, limit=2560):
-                raise ValueError("Saved API key is malformed. Replace it in Models.")
+                raise ValueError(tr("Saved API key is malformed. Replace it in Models."))
             return value
         except UnicodeError:
-            raise ValueError("Saved API key is malformed. Replace it in Models.") from None
+            raise ValueError(tr("Saved API key is malformed. Replace it in Models.")) from None
         finally:
             ctypes.memset(pointer.contents.CredentialBlob, 0, pointer.contents.CredentialBlobSize)
             self._api.CredFree(pointer)
 
     def write(self, key: str, secret: str) -> None:
         if not valid_credential(secret.strip(), limit=2560):
-            raise ValueError("Enter a valid API key without whitespace.")
+            raise ValueError(tr("Enter a valid API key without whitespace."))
         value = secret.strip().encode("ascii")
         blob = (ctypes.c_ubyte * len(value)).from_buffer_copy(value)
         credential = _Credential()
@@ -90,7 +92,7 @@ class WindowsSecrets:
         credential.CredentialBlob = blob
         try:
             if not self._api.CredWriteW(ctypes.byref(credential), 0):
-                raise OSError("Windows could not save the API key.")
+                raise OSError(tr("Windows could not save the API key."))
         finally:
             ctypes.memset(blob, 0, len(value))
 
@@ -99,4 +101,4 @@ class WindowsSecrets:
             not self._api.CredDeleteW(f"{self._namespace}/{key}", 1, 0)
             and ctypes.get_last_error() != 1168
         ):
-            raise OSError("Windows could not remove the saved API key.")
+            raise OSError(tr("Windows could not remove the saved API key."))
