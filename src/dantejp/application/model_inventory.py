@@ -12,6 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from dantejp.application.model_values import ModelFile as ModelFile
+from dantejp.i18n import tr
 from dantejp.runtime.model_store import ModelBundle
 from dantejp.translation.models.gguf import available
 from dantejp.translation.worker import BackendChoice
@@ -79,15 +80,19 @@ def inspect_models(
         imported = read_registry() if include_imports else ()
     except (OSError, ValueError) as error:
         imported = ()
-        import_problem = f"Cannot read imported models: {error}"
+        import_problem = tr("Cannot read imported models: {error}", error=error)
     for model in imported:
         present = available(model)
         files += (
             ModelFile(
                 model.key,
                 model.name,
-                f"Imported · {model.architecture} · {model.size / 2**30:.2f} GiB on disk. "
-                "Local translation. Quality depends on the model.",
+                tr(
+                    "Imported · {architecture} · {value:.2f} GiB on disk. Local "
+                    "translation. Quality depends on the model.",
+                    architecture=model.architecture,
+                    value=model.size / 2**30,
+                ),
                 "translation",
                 model.size,
                 present,
@@ -97,11 +102,13 @@ def inspect_models(
                 model.path,
                 "",
                 model.path,
-                "File is missing or changed size. Use Locate file to check its new location."
+                tr("File is missing or changed size. Use Locate file to check its new location.")
                 if not present
-                else "Language-model engine missing. Open Acceleration to set up CPU or GPU."
+                else tr("Language-model engine missing. Open Acceleration to set up CPU or GPU.")
                 if device is None
-                else "Local model registered. Select it on the main screen to prepare and use it.",
+                else tr(
+                    "Local model registered. Select it on the main screen to prepare and use it."
+                ),
                 device,
                 model.profile == "plamo3" and not plamo,
                 model,
@@ -145,6 +152,11 @@ class ModelInventory:
     def prepared(self, choice: BackendChoice) -> bool:
         return not choice.preparation_id or choice.preparation_id in self._snapshot.data.prepared
 
+    def set_inspector(self, inspect: Callable[[], InventoryData]) -> None:
+        self._inspect = inspect
+        self._snapshot = InventorySnapshot(revision=self._snapshot.revision + 1)
+        self.invalidate()
+
     def invalidate(self) -> None:
         self._epoch += 1
         self._due = 0.0
@@ -152,7 +164,7 @@ class ModelInventory:
     def record_prepared(self, key: str) -> None:
         if key:
             if len(self._receipts) >= 64 and key not in self._receipts:
-                raise OSError("Preparation receipt queue is full.")
+                raise OSError(tr("Preparation receipt queue is full."))
             self._receipts.add(key)
             self.invalidate()
 
@@ -195,7 +207,7 @@ class ModelInventory:
             return changed
         if now < self._due and not self._receipts:
             return changed
-        epoch = self._epoch
+        epoch, inspect = self._epoch, self._inspect
         receipts = tuple(self._receipts)
         self._receipts.clear()
 
@@ -207,9 +219,11 @@ class ModelInventory:
                     self._record(key)
                 except OSError as error:
                     logger.warning("Could not save preparation receipt: %s", error)
-                    self._receipt_problem = f"Could not save model preparation: {error}"
+                    self._receipt_problem = tr(
+                        "Could not save model preparation: {error}", error=error
+                    )
             try:
-                data = self._inspect()
+                data = inspect()
                 problem = "\n".join(p for p in (self._receipt_problem, data.import_problem) if p)
                 result = (epoch, data, problem)
             except Exception as error:

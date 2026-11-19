@@ -36,4 +36,6 @@ class Preferences:
     history_enabled: bool = False
     history_model: str = ""
     backdrop_blur: bool = False
+    source_language: str = "ja"
     output_language: str = ENGLISH.code
+    interface_language: str = ENGLISH.code

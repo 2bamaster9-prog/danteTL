@@ -58,6 +58,32 @@ def test_cached_queries_and_ticks_do_no_discovery_or_receipt_io():
     assert not calls
 
 
+def test_source_change_hides_previous_catalog_and_discards_its_pending_scan():
+    entered, release = threading.Event(), threading.Event()
+    previous = InventoryData(prepared=frozenset({"old"}))
+    current = InventoryData(prepared=frozenset({"new"}))
+
+    def inspect_previous():
+        entered.set()
+        assert release.wait(2)
+        return previous
+
+    owner = ModelInventory(inspect_previous, lambda key: None, initial=previous)
+    try:
+        owner.advance(1)
+        assert entered.wait(1)
+        owner.set_inspector(lambda: current)
+        snapshot = owner.snapshot()
+        assert not snapshot.loaded and snapshot.data != previous
+        release.set()
+        settle(owner, lambda: owner.snapshot().loaded)
+        assert owner.snapshot().data == current
+    finally:
+        release.set()
+        owner.close()
+        settle(owner, lambda: owner.finished)
+
+
 @pytest.mark.parametrize("failed", [False, True])
 def test_default_fallback_waits_after_slow_scan_then_discovers_external_change(failed):
     entered, release = threading.Event(), threading.Event()

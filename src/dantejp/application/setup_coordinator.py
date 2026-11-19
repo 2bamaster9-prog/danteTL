@@ -12,6 +12,7 @@ from pathlib import Path
 
 from dantejp.application.model_inventory import ModelInventory
 from dantejp.application.model_values import ModelFile
+from dantejp.i18n import tr
 from dantejp.runtime.first_run import SetupPlan
 from dantejp.runtime.hardware_values import HardwareStatus
 from dantejp.runtime.model_store import ModelBundle, ModelOperation
@@ -66,6 +67,10 @@ class SetupCoordinator:
         self._plan: SetupPlan | None = None
         self._guide_target: Path | None = None
         self._completed_review: int | None = None
+
+    def set_models(self, models: tuple[ModelBundle, ...]) -> None:
+        self._models = {model.key: model for model in models}
+        self._review = self._plan = None
 
     @property
     def inventory_revision(self) -> int:
@@ -171,8 +176,10 @@ class SetupCoordinator:
                 "probe",
                 progress=ModelProgress(
                     done=True,
-                    error="A language-model engine is needed. "
-                    "Open Settings → Acceleration and select CPU or GPU.",
+                    error=tr(
+                        "A language-model engine is needed. "
+                        "Open Settings → Acceleration and select CPU or GPU."
+                    ),
                 ),
             )
             return False
@@ -202,7 +209,7 @@ class SetupCoordinator:
     def detect_runtime(self) -> bool:
         def work(progress: Progress, cancel: threading.Event) -> None:
             self._runtime_result = self._dependencies.runtime_status()
-            progress(ModelProgress("Hardware check complete. Nothing has been installed."))
+            progress(ModelProgress(tr("Hardware check complete. Nothing has been installed.")))
 
         return self._start(SetupLane.RUNTIME, "detect", "", work)
 
@@ -223,16 +230,20 @@ class SetupCoordinator:
 
         def work(progress: Progress, cancel: threading.Event) -> None:
             self._dependencies.select_runtime(target)
-            progress(ModelProgress("Selected for next launch. This session continues unchanged."))
+            progress(
+                ModelProgress(tr("Selected for next launch. This session continues unchanged."))
+            )
 
         return self._start(SetupLane.RUNTIME, "select", key, work)
 
     def review(self, model_key: str, runtime_key: str, hardware: HardwareStatus) -> SetupReview:
         if self.job(SetupLane.GUIDE).busy:
-            raise ValueError("Wait for the active setup to finish before reviewing another plan.")
+            raise ValueError(
+                tr("Wait for the active setup to finish before reviewing another plan.")
+            )
         selected_file = next((f for f in self.guide_models if f.key == model_key), None)
         if selected_file is None:
-            raise ValueError("Choose a translation model offered by the setup guide.")
+            raise ValueError(tr("Choose a translation model offered by the setup guide."))
         model, ocr = self._models[model_key], self._models["ocr"]
         files = {f.key: f for f in self.files}
         profile = next(p for p in self.profiles if p.key == runtime_key)
@@ -316,7 +327,7 @@ class SetupCoordinator:
             job = self._jobs[lane]
             if job.cancelling and not (value.cancelled or value.error):
                 value = replace(
-                    value, cancelled=True, message="Cancelled. Verified files were kept."
+                    value, cancelled=True, message=tr("Cancelled. Verified files were kept.")
                 )
             succeeded = not (value.error or value.cancelled)
             if lane == SetupLane.MODELS and job.action == "probe":
@@ -324,8 +335,10 @@ class SetupCoordinator:
                 if result and self._expected and result.model.key != self._expected.key:
                     value = replace(
                         value,
-                        error="This is a different model. Import it separately; "
-                        "the original registration was kept.",
+                        error=tr(
+                            "This is a different model. Import it separately; "
+                            "the original registration was kept."
+                        ),
                     )
                     result = None
                 self._probe_result, self._probe = result, None

@@ -10,16 +10,20 @@ from uuid import uuid4
 
 from dantejp.application.hotkeys import parse_shortcut
 from dantejp.application.preference_values import Preferences as Preferences
+from dantejp.i18n import INTERFACE_LANGUAGES, tr
+from dantejp.languages.selection import SOURCE_LANGUAGES
 from dantejp.languages.target import TARGET_LANGUAGES
 
 
 def decode_preferences(value: object) -> Preferences:
     if not isinstance(value, dict) or value.get("version") != 1:
-        raise ValueError("Unsupported settings format; defaults are being used.")
+        raise ValueError(tr("Unsupported settings format; defaults are being used."))
     defaults = asdict(Preferences())
     ranges = {"opacity": (20, 100), "text_size": (10, 60), "capture_rate": (2, 12)}
     choices = {
+        "source_language": set(SOURCE_LANGUAGES),
         "output_language": set(TARGET_LANGUAGES),
+        "interface_language": set(INTERFACE_LANGUAGES),
         "translation_route": {"local", "cloud", "long", "short"},
         "ocr_device": {"auto", "cpu", "auto-directml"},
         "model": {
@@ -95,7 +99,7 @@ class PreferenceStore:
         if path and path.exists():
             try:
                 if path.stat().st_size > 16_384:
-                    raise ValueError("Settings file is too large; defaults are being used.")
+                    raise ValueError(tr("Settings file is too large; defaults are being used."))
                 self.initial = decode_preferences(json.loads(path.read_text("utf-8")))
             except (OSError, ValueError, TypeError) as error:
                 # Never silently overwrite corrupt or newer settings on startup.
@@ -112,13 +116,19 @@ class PreferenceStore:
         with self._lock:
             return self._error or self.load_warning
 
+    @property
+    def current(self) -> Preferences:
+        with self._lock:
+            return self._last or self.initial
+
     def save(self, value: Preferences) -> None:
-        if self.path is None or self._read_only:
-            return
         with self._lock:
             if value == self._last and not self._error:
                 return
-            self._last = self._pending = value
+            self._last = value
+            if self.path is None or self._read_only:
+                return
+            self._pending = value
             if self._thread is None:
                 self._thread = threading.Thread(
                     target=self._write_pending, daemon=True, name="settings"
@@ -136,7 +146,7 @@ class PreferenceStore:
                 self._write(value)
                 error = ""
             except OSError as failure:
-                error = f"Could not save settings: {failure}"
+                error = tr("Could not save settings: {failure}", failure=failure)
             with self._lock:
                 self._error = error
 
