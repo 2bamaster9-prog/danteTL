@@ -31,9 +31,11 @@ from PySide6.QtWidgets import (
 )
 
 from dantejp.domain import CapturedFrame, Rect
+from dantejp.i18n import mark, tr
 from dantejp.ocr.text_content import content_region
 from dantejp.ocr.values import OcrResult, TextRegion
 from dantejp.translation.values import TranslatedText
+from dantejp.ui.localization import localized, localized_item, on_language_change
 
 
 def frame_image(frame: CapturedFrame) -> QImage:
@@ -96,7 +98,9 @@ class CapturePreview(QWidget):
         painter.fillRect(self.rect(), Qt.GlobalColor.black)
         if self._image.isNull():
             painter.setPen(Qt.GlobalColor.gray)
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "Your capture appears here")
+            painter.drawText(
+                self.rect(), Qt.AlignmentFlag.AlignCenter, tr("Your capture appears here")
+            )
             return
         target = image_target(
             (self._image.width(), self._image.height()), (self.width(), self.height())
@@ -154,27 +158,33 @@ class OcrInspector(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         toolbar = QHBoxLayout()
-        self.pause = QCheckBox("Pause inspection")
-        self.pause.setToolTip("Freeze only the inspector. Capture, OCR and translation continue.")
+        self.pause = localized(QCheckBox(), text=mark("Pause inspection"))
+        localized(
+            self.pause,
+            toolTip=mark("Freeze only the inspector. Capture, OCR and translation continue."),
+        )
         self.pause.toggled.connect(self._pause_changed)
         toolbar.addWidget(self.pause)
-        characters = QCheckBox("Character boxes")
+        characters = localized(QCheckBox(), text=mark("Character boxes"))
         characters.toggled.connect(self._characters_changed)
         toolbar.addWidget(characters)
         toolbar.addStretch()
         layout.addLayout(toolbar)
         toolbar = QHBoxLayout()
         zoom = QComboBox()
-        zoom.setAccessibleName("Preview zoom")
-        for label, scale in (("Fit", 0.0), ("100%", 1.0), ("200%", 2.0)):
-            zoom.addItem(label, scale)
+        localized(zoom, accessibleName=mark("Preview zoom"))
+        for label, scale in ((mark("Fit"), 0.0), ("100%", 1.0), ("200%", 2.0)):
+            localized_item(zoom, label, scale)
         zoom.currentIndexChanged.connect(lambda: self.preview.set_zoom(zoom.currentData()))
         toolbar.addWidget(zoom)
-        self.copy_button = QPushButton("Copy Japanese")
-        self.copy_button.setToolTip("Copy the selected row, or all text when no row is selected.")
+        self.copy_button = localized(QPushButton(), text=mark("Copy source text"))
+        localized(
+            self.copy_button,
+            toolTip=mark("Copy the selected row, or all text when no row is selected."),
+        )
         self.copy_button.clicked.connect(self._copy_text)
         toolbar.addWidget(self.copy_button)
-        copy_english = QPushButton("Copy translation")
+        copy_english = localized(QPushButton(), text=mark("Copy translation"))
         copy_english.clicked.connect(self._copy_english)
         toolbar.addWidget(copy_english)
         layout.addLayout(toolbar)
@@ -186,8 +196,8 @@ class OcrInspector(QWidget):
         scroll.setWidget(self.preview)
         splitter.addWidget(scroll)
         self.table = QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(["ID", "Japanese", "Confidence", "Translation"])
-        self.table.setAccessibleName("Detected Japanese text")
+        self._set_headers()
+        localized(self.table, accessibleName=mark("Detected source text"))
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -201,11 +211,26 @@ class OcrInspector(QWidget):
         splitter.setSizes([620, 520])
         splitter.setChildrenCollapsible(False)
         layout.addWidget(splitter, 1)
-        self.details = QLabel("Select a row to highlight its box. Pause to review a stable result.")
+        self.details = localized(
+            QLabel(),
+            text=mark("Select a row to highlight its box. Pause to review a stable result."),
+        )
         self.details.setWordWrap(True)
         self.details.setObjectName("muted")
         layout.addWidget(self.details)
         self.clear()
+        on_language_change(self, self._refresh_language)
+
+    def _set_headers(self) -> None:
+        self.table.setHorizontalHeaderLabels(
+            ["ID", tr("Source text"), tr("Confidence"), tr("Translation")]
+        )
+
+    def _refresh_language(self) -> None:
+        self._set_headers()
+        self._refresh_english()
+        self._selection_changed()
+        self.preview.update()
 
     def set_result(
         self, result: OcrResult, track_ids: tuple[int | None, ...] | None = None
@@ -276,7 +301,7 @@ class OcrInspector(QWidget):
             confidence = region.confidence
             values = (
                 labels[row],
-                region.text or "(detected, no characters recognized)",
+                region.text or tr("(detected, no characters recognized)"),
                 f"{confidence:.0%}" if confidence is not None else "—",
             )
             for column, value in enumerate(values):
@@ -321,12 +346,14 @@ class OcrInspector(QWidget):
                 text = (
                     translated.english
                     if item and item.text() == str(anchor)
-                    else f"↳ Group #{anchor}"
+                    else tr("↳ Group #{anchor}", anchor=anchor)
                 )
                 source = "\n".join(line[2] for line in translated.request.line_sources)
-                tooltip = (
-                    f"Translation source:\n{source}\n\n"
-                    f"{translated.target.name}:\n{translated.english}"
+                tooltip = tr(
+                    "Translation source:\n{source_text}\n\n{name}:\n{english}",
+                    source_text=source,
+                    name=tr(translated.target.name),
+                    english=translated.english,
                 )
             cell = QTableWidgetItem(text or "—")
             cell.setToolTip(tooltip)
@@ -361,16 +388,26 @@ class OcrInspector(QWidget):
         self.preview.update()
         if self.result is None or not 0 <= row < len(self.result.regions):
             self.details.setText(
-                "Select a row to highlight its box. Confidence is the mean character score, "
-                "not a probability that the sentence is correct."
+                tr(
+                    "Select a row to highlight its box. Confidence is the mean character score, "
+                    "not a probability that the sentence is correct."
+                )
             )
             return
         region = self.result.regions[row]
         box = region.bounds
         self.details.setText(
-            f"Raw row {row + 1}: x={box.x}, y={box.y}, {box.width} × {box.height} physical px · "
-            f"{'vertical' if region.vertical else 'horizontal'} · "
-            f"{len(region.characters)} recognized characters"
+            tr(
+                "Raw row {value}: x={x}, y={y}, {width} × {height} physical px · {value2} "
+                "· {count} recognized characters",
+                value=row + 1,
+                x=box.x,
+                y=box.y,
+                width=box.width,
+                height=box.height,
+                value2="vertical" if region.vertical else "horizontal",
+                count=len(region.characters),
+            )
         )
 
     def _characters_changed(self, enabled: bool) -> None:

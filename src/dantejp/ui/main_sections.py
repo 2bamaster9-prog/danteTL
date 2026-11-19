@@ -4,6 +4,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import QGridLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
+from dantejp.i18n import mark
+from dantejp.ui.localization import localized
+
 
 class MainSections(QWidget):
     def __init__(self) -> None:
@@ -12,8 +15,8 @@ class MainSections(QWidget):
         self._grid = QGridLayout(self)
         self._grid.setContentsMargins(0, 0, 0, 0)
         self._grid.setSpacing(16)
-        self.game, self.game_layout = self._card("Game & overlay")
-        self.translation, self.translation_layout = self._card("Translation")
+        self.game, self.game_layout = self._card(mark("Game & overlay"))
+        self.translation, self.translation_layout = self._card(mark("Translation"))
         self._wide: bool | None = None
         self._arrange(False)
 
@@ -26,7 +29,7 @@ class MainSections(QWidget):
         layout = QVBoxLayout(card)
         layout.setContentsMargins(18, 16, 18, 18)
         layout.setSpacing(12)
-        heading = QLabel(title)
+        heading = localized(QLabel(), text=title)
         heading.setObjectName("sectionTitle")
         layout.addWidget(heading)
         return card, layout

@@ -16,8 +16,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from dantejp.i18n import mark, tr
 from dantejp.translation.dialogue.values import HistoryTurn
 from dantejp.ui.controls import CopyTextButton, add_model_section
+from dantejp.ui.localization import localized, on_language_change
 
 
 class HistoryReader(QTextBrowser):
@@ -34,8 +36,8 @@ class HistoryReader(QTextBrowser):
             f"copy-{turn.number}-{code}": (language, text)
             for turn in turns
             for code, language, text in (
-                ("ja", "Japanese", turn.source),
-                (turn.target.code, turn.target.name, turn.english),
+                (f"source-{turn.language.code}", tr(turn.language.name), turn.source),
+                (f"target-{turn.target.code}", tr(turn.target.name), turn.english),
             )
         }
         for key in set(self._copies) - wanted.keys():
@@ -43,8 +45,10 @@ class HistoryReader(QTextBrowser):
             button.hide()
             button.deleteLater()
         for key, (language, text) in wanted.items():
+            label = tr("Copy {language}", language=language)
             if key not in self._copies:
-                self._copies[key] = CopyTextButton(f"Copy {language}", text, self.viewport())
+                self._copies[key] = CopyTextButton(label, text, self.viewport())
+            self._copies[key].set_label(label)
             self._copies[key].set_copy_text(text)
         self._positions = {}
         block = self.document().begin()
@@ -87,7 +91,7 @@ class HistoryPanel(QDialog):
         self._read, self._clear = read, clear
         self._shown: tuple[HistoryTurn, ...] | None = None
         self._model_choices: tuple[tuple[str, str, bool], ...] | None = None
-        self.setWindowTitle("Dialogue history (Experimental) · DanteJP")
+        localized(self, windowTitle=mark("Dialogue history (Experimental) · DanteJP"))
         self.setModal(False)
         available = parent.screen().availableGeometry()
         self.resize(min(660, available.width() - 40), min(620, available.height() - 60))
@@ -95,39 +99,49 @@ class HistoryPanel(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 18, 20, 18)
         header = QHBoxLayout()
-        self.count = QLabel("Dialogue history")
+        self.count = localized(QLabel(), text=mark("Dialogue history"))
         self.count.setObjectName("sectionTitle")
         header.addWidget(self.count, 1)
-        self.clear_button = QPushButton("Clear")
+        self.clear_button = localized(QPushButton(), text=mark("Clear"))
         self.clear_button.clicked.connect(self._clear_history)
         header.addWidget(self.clear_button)
         layout.addLayout(header)
-        experimental = QLabel("Experimental · Dialogue and speaker detection may be inaccurate.")
+        experimental = localized(
+            QLabel(), text=mark("Experimental · Dialogue and speaker detection may be inaccurate.")
+        )
         experimental.setWordWrap(True)
         experimental.setObjectName("muted")
         layout.addWidget(experimental)
         self.model = QComboBox()
-        self.model.setAccessibleName("Dialogue classifier model")
-        layout.addWidget(QLabel("Classifier model"))
+        localized(self.model, accessibleName=mark("Dialogue classifier model"))
+        layout.addWidget(localized(QLabel(), text=mark("Classifier model")))
         layout.addWidget(self.model)
         self.model_notice = QLabel()
         self.model_notice.setWordWrap(True)
         self.model_notice.setObjectName("muted")
         layout.addWidget(self.model_notice)
-        self.status = QLabel("Disabled · No history collection or classification.")
+        self.status = localized(
+            QLabel(), text=mark("Disabled · No history collection or classification.")
+        )
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
         self.model.currentIndexChanged.connect(self._controls_changed)
-        note = QLabel("Latest first · Last 20 turns · Never added to model context")
+        note = localized(
+            QLabel(), text=mark("Latest first · Last 20 turns · Never added to model context")
+        )
         note.setObjectName("muted")
         note.setWordWrap(True)
-        note.setToolTip(
-            "Confident speaker labels include their translation when it is available under your "
-            "current model routing. History does not make additional translation requests."
+        localized(
+            note,
+            toolTip=mark(
+                "Confident speaker labels include their translation when it is available "
+                "under your "
+                "current model routing. History does not make additional translation requests."
+            ),
         )
         layout.addWidget(note)
         self.reader = HistoryReader()
-        self.reader.setAccessibleName("Recent dialogue and translations")
+        localized(self.reader, accessibleName=mark("Recent dialogue and translations"))
         self.reader.setOpenExternalLinks(False)
         self.reader.setOpenLinks(False)
         self.reader.setTextInteractionFlags(
@@ -137,10 +151,19 @@ class HistoryPanel(QDialog):
         layout.addWidget(self.reader, 1)
         footer = QHBoxLayout()
         footer.addStretch(1)
-        close = QPushButton("Close")
+        close = localized(QPushButton(), text=mark("Close"))
         close.clicked.connect(self.hide)
         footer.addWidget(close)
         layout.addLayout(footer)
+        on_language_change(self, self._refresh_language)
+
+    def _refresh_language(self) -> None:
+        if not self.isVisible():
+            self._shown = None
+        if self._model_choices is not None:
+            choices, self._model_choices = self._model_choices, None
+            self.set_models(choices, self.model_key)
+        self.refresh(force=True)
 
     def open_reader(self) -> None:
         self.show()
@@ -148,11 +171,11 @@ class HistoryPanel(QDialog):
         self.raise_()
         self.activateWindow()
 
-    def refresh(self) -> None:
+    def refresh(self, *, force: bool = False) -> None:
         if not self.isVisible():
             return
         turns = self._read()
-        if turns == self._shown:
+        if turns == self._shown and not force:
             return
         bar = self.reader.verticalScrollBar()
         position = bar.value()
@@ -162,25 +185,26 @@ class HistoryPanel(QDialog):
             None,
         )
         self._shown = turns
-        self.count.setText(f"Dialogue history · {len(turns)}/20")
+        self.count.setText(tr("Dialogue history · {count}/20", count=len(turns)))
         self.clear_button.setEnabled(bool(turns))
         parts = []
         mixed_targets = len({turn.target for turn in turns}) > 1
         for turn in reversed(turns):
-            speaker = turn.speaker or "Unknown speaker"
+            speaker = turn.speaker or tr("Unknown speaker")
             if turn.speaker and turn.speaker_english:
                 speaker = f"({turn.speaker_english}) {turn.speaker}"
             parts.append(
                 f'<p style="color:#5eead4; margin-top:18px"><b><a name="turn-{turn.number}">'
                 + escape(speaker)
                 + "</a></b>"
-                + (f" · {escape(turn.target.name)}" if mixed_targets else "")
+                + (f" · {escape(tr(turn.target.name))}" if mixed_targets else "")
                 + "</p>"
                 + '<p style="color:#9baabc; margin-right:36px">'
-                + f'<a name="copy-{turn.number}-ja">'
+                + f'<a name="copy-{turn.number}-source-{turn.language.code}">'
                 + escape(turn.source).replace("\n", "<br>")
                 + "</a></p>"
-                + f'<p style="margin-right:36px"><a name="copy-{turn.number}-{turn.target.code}">'
+                + '<p style="margin-right:36px">'
+                + f'<a name="copy-{turn.number}-target-{turn.target.code}">'
                 + escape(turn.english).replace("\n", "<br>")
                 + '</a></p><hr style="background-color:#304259">'
             )
@@ -188,14 +212,16 @@ class HistoryPanel(QDialog):
             "".join(parts)
             if parts
             else (
-                "<h3>Your conversation goes here.</h3>"
-                "<p>Enable history in Settings → Experimental, choose a classifier, "
-                "then start capture with translation enabled.</p>"
-                "<p>The classifier checks dialogue and possible speakers together. "
-                "A speaker is optional. Uncertain text is skipped. "
-                "Layout-only mode uses conservative subtitle heuristics.</p>"
-                "<p>You can close this window; new turns will still be collected. "
-                "Starting a new capture clears this session’s history.</p>"
+                tr(
+                    "<h3>Your conversation goes here.</h3>"
+                    "<p>Enable history in Settings → Experimental, choose a classifier, "
+                    "then start capture with translation enabled.</p>"
+                    "<p>The classifier checks dialogue and possible speakers together. "
+                    "A speaker is optional. Uncertain text is skipped. "
+                    "Layout-only mode uses conservative subtitle heuristics.</p>"
+                    "<p>You can close this window; new turns will still be collected. "
+                    "Starting a new capture clears this session’s history.</p>"
+                )
             )
         )
         self.reader.set_copies(turns)
@@ -218,18 +244,20 @@ class HistoryPanel(QDialog):
         self.model.clear()
         model = self.model.model()
         assert isinstance(model, QStandardItemModel)
-        self.model.addItem("Choose classifier…", "")
-        self.model.addItem("Layout heuristics only", "layout")
+        self.model.addItem(tr("Choose classifier…"), "")
+        self.model.addItem(tr("Layout heuristics only"), "layout")
         group = ""
         for key, label, available in choices:
-            section = "Local instruction models" if key.startswith("local:") else "Cloud models"
+            section = (
+                tr("Local instruction models") if key.startswith("local:") else tr("Cloud models")
+            )
             if section != group:
                 group = section
                 add_model_section(self.model, section)
-            self.model.addItem(label if available else label + " · Setup needed", key)
+            self.model.addItem(label if available else label + tr(" · Setup needed"), key)
             model.item(self.model.count() - 1).setEnabled(available)
         if selected and self.model.findData(selected) < 0:
-            self.model.addItem("Selected classifier unavailable", selected)
+            self.model.addItem(tr("Selected classifier unavailable"), selected)
             model.item(self.model.count() - 1).setEnabled(False)
         self.model.setCurrentIndex(max(0, self.model.findData(selected)))
         self.model.blockSignals(False)
@@ -238,14 +266,20 @@ class HistoryPanel(QDialog):
     def _controls_changed(self, *_: object, emit: bool = True) -> None:
         key = self.model_key
         self.model_notice.setText(
-            "Loads a separate local model. Uses extra RAM/VRAM and can compete "
-            "with translation for hardware."
+            tr(
+                "Loads a separate local model. Uses extra RAM/VRAM and can compete "
+                "with translation for hardware."
+            )
             if key.startswith("local:")
-            else "Sends candidate text and nearby labels to this provider. Uses your plan/API "
-            "allowance. No screenshots or transcript are sent."
+            else tr(
+                "Sends candidate text and nearby labels to this provider. Uses your plan/API "
+                "allowance. No screenshots or transcript are sent."
+            )
             if key.startswith("cloud:")
-            else "Classification runs independently of translation. Choose a configured "
-            "cloud model or a prepared instruction model."
+            else tr(
+                "Classification runs independently of translation. Choose a configured "
+                "cloud model or a prepared instruction model."
+            )
         )
         if emit:
             self.changed.emit()

@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QFontMetricsF, QTextLayout, QTextOption
 
 from dantejp.domain import Rect
+from dantejp.i18n import tr
 
 PAD_X = 10
 PAD_Y = 6
@@ -91,7 +92,7 @@ def _measure_english(
 ) -> EnglishLayout:
     view_width, view_height = viewport
     if min(viewport) <= 0:
-        raise ValueError("Translation layout needs a nonempty viewport.")
+        raise ValueError(tr("Translation layout needs a nonempty viewport."))
 
     glyph_height = source_line_height or (source.width if vertical else source.height)
     preferred = max(12, min(48, round(glyph_height * 0.72))) if automatic else manual_pixels

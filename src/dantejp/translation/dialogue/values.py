@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+from dantejp.languages.selection import DEFAULT_SOURCE
+from dantejp.languages.source import SourceLanguage
 from dantejp.languages.target import ENGLISH, TargetLanguage
 
 
@@ -13,3 +15,4 @@ class HistoryTurn:
     speaker: str | None = None
     speaker_english: str | None = None
     target: TargetLanguage = ENGLISH
+    language: SourceLanguage = DEFAULT_SOURCE

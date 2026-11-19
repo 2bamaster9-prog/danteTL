@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from dantejp.domain import Rect
+from dantejp.i18n import tr
 from dantejp.ocr.values import OcrSnapshot
 from dantejp.ocr.visual_values import VisualState
 from dantejp.translation.values import TranslationSnapshot
@@ -34,41 +35,75 @@ def debug_display(
             else (Rect(0, 0, result.frame.width, result.frame.height),)
         )
     changed = visual.changed_areas if frame and now - frame.captured_at <= 0.5 else ()
-    lines = ["DEBUG  Amber: changed pixels   Cyan: last completed OCR"]
+    lines = [tr("DEBUG  Amber: changed pixels   Cyan: last completed OCR")]
     if result and valid:
-        scope = "full" if result.scanned is None else f"{len(scanned)} regions"
+        scope = "full" if result.scanned is None else tr("{count} regions", count=len(scanned))
         area = sum(b.width * b.height for b in scanned) / (result.frame.width * result.frame.height)
         lines.append(
-            f"OCR {result.duration_ms:.0f} ms | wait {ocr.queue_ms:.0f} ms | "
-            f"{scope}, {area:.0%} | result age {max(0, now - result.completed_at):.1f}s"
+            tr(
+                "OCR {duration_ms:.0f} ms | wait {queue_ms:.0f} ms | {scope}, {area:.0%} | "
+                "result age {value:.1f}s",
+                duration_ms=result.duration_ms,
+                queue_ms=ocr.queue_ms,
+                scope=scope,
+                area=area,
+                value=max(0, now - result.completed_at),
+            )
         )
     else:
-        lines.append(f"OCR: {ocr.state}")
+        lines.append(tr("OCR: {state}", state=ocr.state))
     if ocr.processing_since is not None:
-        lines.append(f"OCR running: {max(0, now - ocr.processing_since):.1f}s")
+        lines.append(tr("OCR running: {value:.1f}s", value=max(0, now - ocr.processing_since)))
     lines.append(
-        f"Visual {visual.duration_ms:.1f} ms | settling {waiting_blocks} blocks | "
-        f"reveal holds {len(visual.blocked)} | pattern loss {len(visual.hidden)}"
+        tr(
+            "Visual {duration_ms:.1f} ms | settling {waiting_blocks} blocks | reveal holds "
+            "{count} | pattern loss {count2}",
+            duration_ms=visual.duration_ms,
+            waiting_blocks=waiting_blocks,
+            count=len(visual.blocked),
+            count2=len(visual.hidden),
+        )
     )
     if translation:
         lines.append(
-            f"Translation: {translation.state} | pending {translation.pending} | "
-            f"last {translation.last_batch_ms:.0f} ms | wait {translation.queue_ms:.0f} ms"
+            tr(
+                "Translation: {state} | pending {pending} | last {last_batch_ms:.0f} ms | "
+                "wait {queue_ms:.0f} ms",
+                state=translation.state,
+                pending=translation.pending,
+                last_batch_ms=translation.last_batch_ms,
+                queue_ms=translation.queue_ms,
+            )
         )
         lines.append(
-            f"Last batch: {translation.cache_hits} cache / "
-            f"{translation.translated_sources} model | "
-            f"model load {translation.load_ms / 1000:.1f}s"
+            tr(
+                "Last batch: {cache_hits} cache / {translated_sources} model | model load "
+                "{value:.1f}s",
+                cache_hits=translation.cache_hits,
+                translated_sources=translation.translated_sources,
+                value=translation.load_ms / 1000,
+            )
         )
         lines.append(
-            f"Last model inference: {translation.last_inference_ms:.0f} ms (excludes cache)"
+            tr(
+                "Last model inference: {last_inference_ms:.0f} ms (excludes cache)",
+                last_inference_ms=translation.last_inference_ms,
+            )
         )
         if translation.processing_since is not None:
             lines.append(
-                f"Oldest active translation: {max(0, now - translation.processing_since):.1f}s"
+                tr(
+                    "Oldest active translation: {value:.1f}s",
+                    value=max(0, now - translation.processing_since),
+                )
             )
         if translation.cancelled_obsolete:
-            lines.append(f"Obsolete cloud requests cancelled: {translation.cancelled_obsolete}")
+            lines.append(
+                tr(
+                    "Obsolete cloud requests cancelled: {cancelled_obsolete}",
+                    cancelled_obsolete=translation.cancelled_obsolete,
+                )
+            )
     else:
-        lines.append("Translation: off")
+        lines.append(tr("Translation: off"))
     return DebugDisplay(changed, scanned, "\n".join(lines))

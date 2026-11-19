@@ -321,12 +321,19 @@ class DialogueHistory:
                     speaker,
                     speaker_english,
                     result.target,
+                    block.language,
                 ),
             )[-20:]
         else:
             self._turns = tuple(
                 HistoryTurn(
-                    t.number, block.text, result.english, speaker, speaker_english, result.target
+                    t.number,
+                    block.text,
+                    result.english,
+                    speaker,
+                    speaker_english,
+                    result.target,
+                    block.language,
                 )
                 if t.number == candidate.entry and t.target == result.target
                 else t
