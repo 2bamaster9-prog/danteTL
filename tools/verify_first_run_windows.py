@@ -140,7 +140,9 @@ def main() -> int:
                 guide.next.click()
                 stage = 4
             elif stage == 4:
-                if not application.preferences.idle:
+                if not application.preferences.idle or not any(
+                    item.key == "gemma" and item.present for item in application.setup.files
+                ):
                     return
                 assert PreferenceStore(state / "preferences.json").initial.setup_seen
                 assert "Included with app" in window._settings.models.ocr.badge.text()

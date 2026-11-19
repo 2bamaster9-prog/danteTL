@@ -1350,6 +1350,40 @@ def test_preview_letterboxing_maps_physical_pixels_once() -> None:
     assert (target.x() + 960 * scale, target.y() + 540 * scale) == (320, 240)
 
 
+@pytest.mark.parametrize("from_settings", [False, True])
+def test_idle_source_picker_switches_without_confirmation(app, monkeypatch, from_settings):
+    windows = Mock()
+    windows.list_targets.return_value = []
+    window = MainWindow(windows, Mock())
+    owner = app_owner(window)
+    primary = window.source_picker
+    secondary = settings(window).source_picker
+    window.show()
+    panel = settings(window)
+    if from_settings:
+        panel.show_recognition()
+    native_ids = (int(window.winId()), int(panel.winId()))
+    selected_tab = panel.tabs.currentWidget()
+    prompt = Mock(side_effect=AssertionError("Idle source changes need no confirmation"))
+    monkeypatch.setattr(QMessageBox, "question", prompt)
+    picker = secondary if from_settings else primary
+    window.output_language.setCurrentIndex(window.output_language.findData("fr"))
+    index = picker.findData("es")
+    picker.setCurrentIndex(index)
+    picker.activated.emit(index)
+    drain(window, lambda: owner.can_change_source)
+    assert window.isVisible() and panel.isVisible() == from_settings
+    assert (int(window.winId()), int(panel.winId())) == native_ids
+    assert panel.tabs.currentWidget() is selected_tab
+    assert primary.currentData() == secondary.currentData() == "es"
+    prompt.assert_not_called()
+    assert (owner.values.source_language, owner.values.output_language) == ("es", "fr")
+    assert not owner.controls.capture_active and not owner.closing
+    window.close()
+    drain(window, lambda: not window.driver.timer.isActive())
+    window.deleteLater()
+
+
 def test_output_language_controls_warn_before_capture_and_switch_only_the_affected_model(app):
     from dantejp.translation.backends.plamo import OUTPUT_CODES
     from dantejp.translation.plan import TranslationPlan

@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -31,6 +32,7 @@ from dantejp.application.setup_status import SetupAdvice
 from dantejp.application.values import ShutdownPhase
 from dantejp.capture.windows import Windows
 from dantejp.domain import WindowTarget
+from dantejp.i18n import display, mark, tr
 from dantejp.paths import gui_executable, module_command
 from dantejp.runtime.hardware_values import HardwareReader
 from dantejp.translation.selection import ModelOption
@@ -38,6 +40,7 @@ from dantejp.ui.controls import (
     CaptureButton,
     OutputLanguageCombo,
     OverlayToggleLayout,
+    SourceLanguageCombo,
     StatusBanner,
     Switch,
 )
@@ -46,6 +49,7 @@ from dantejp.ui.diagnostics import debug_display
 from dantejp.ui.history_panel import HistoryPanel
 from dantejp.ui.icons import APP_ICON, ICON_DIR
 from dantejp.ui.inspection import OcrInspector
+from dantejp.ui.localization import install_language, localized, on_language_change
 from dantejp.ui.main_sections import MainSections
 from dantejp.ui.model_manager import ModelManager
 from dantejp.ui.overlay import OverlayWindow
@@ -158,31 +162,36 @@ class MainWindow(QMainWindow):
         self.history_panel = HistoryPanel(
             lambda: self.application.history_turns, self.application.clear_history, self
         )
-        self.history_button = QPushButton(QIcon(str(ICON_DIR / "dialogue.svg")), "Dialogue")
-        self.history_button.setAccessibleName("Dialogue history")
-        self.history_button.setToolTip(
-            "Experimental: read the last 20 dialogue turns. This does not change model context."
+        self.history_button = localized(
+            QPushButton(QIcon(str(ICON_DIR / "dialogue.svg")), ""), text=mark("Dialogue")
+        )
+        localized(self.history_button, accessibleName=mark("Dialogue history"))
+        localized(
+            self.history_button,
+            toolTip=mark(
+                "Experimental: read the last 20 dialogue turns. This does not change model context."
+            ),
         )
         self.history_button.clicked.connect(self.history_panel.open_reader)
         header.addWidget(self.history_button)
         self.settings_button = QPushButton(QIcon(str(ICON_DIR / "settings.svg")), "")
-        self.settings_button.setAccessibleName("Settings")
-        self.settings_button.setToolTip("Settings")
+        localized(self.settings_button, accessibleName=mark("Settings"))
+        localized(self.settings_button, toolTip=mark("Settings"))
         self.settings_button.clicked.connect(self._show_settings)
         header.addWidget(self.settings_button)
         layout.addLayout(header)
         self.sections = MainSections()
         layout.addWidget(self.sections)
         game_layout = self.sections.game_layout
-        game_layout.addWidget(QLabel("Game window"))
+        game_layout.addWidget(localized(QLabel(), text=mark("Game window")))
         selection = QHBoxLayout()
         self.windows_combo = QComboBox()
-        self.windows_combo.setAccessibleName("Game window")
+        localized(self.windows_combo, accessibleName=mark("Game window"))
         self.windows_combo.setMinimumContentsLength(16)
         self.windows_combo.setSizeAdjustPolicy(
             QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
         )
-        self.refresh_button = QPushButton("Refresh")
+        self.refresh_button = localized(QPushButton(), text=mark("Refresh"))
         self.refresh_button.clicked.connect(self.refresh_windows)
         selection.addWidget(self.windows_combo, 1)
         selection.addWidget(self.refresh_button)
@@ -191,28 +200,40 @@ class MainWindow(QMainWindow):
         self.start_button.clicked.connect(self._toggle_capture)
         game_layout.addWidget(self.start_button)
         game_layout.addSpacing(4)
-        self.overlay_check = Switch("Show game overlay")
+        self.overlay_check = localized(Switch(), text=mark("Show game overlay"))
         self.overlay_check.setChecked(preferences.show_overlay)
-        self.overlay_check.setToolTip(
-            "Show or hide game rendering. Capture and translation keep their state."
+        localized(
+            self.overlay_check,
+            toolTip=mark("Show or hide game rendering. Capture and translation keep their state."),
         )
-        self.translate_check = Switch("Translation overlay")
+        self.translate_check = localized(Switch(), text=mark("Translation overlay"))
         self.translate_check.setChecked(preferences.translation)
-        self.translate_check.setToolTip(
-            "Translate and cover recognized text. Turn off to leave the original game text visible."
+        localized(
+            self.translate_check,
+            toolTip=mark(
+                "Translate and cover recognized text. Turn off to leave the original game "
+                "text visible."
+            ),
         )
-        self.border_check = Switch("Show border")
+        self.border_check = localized(Switch(), text=mark("Show border"))
         self.border_check.setChecked(preferences.show_border)
-        self.border_check.setToolTip(
-            "Show Windows' yellow capture indicator. Changes apply during capture without "
-            "clearing translations. Windows or another capture app may still require the border."
+        localized(
+            self.border_check,
+            toolTip=mark(
+                "Show Windows' yellow capture indicator. Changes apply during capture without "
+                "clearing translations. Windows or another capture app may still require "
+                "the border."
+            ),
         )
-        self.capture_overlay_check = Switch("Include in screen capture")
+        self.capture_overlay_check = localized(Switch(), text=mark("Include in screen capture"))
         self.capture_overlay_check.setChecked(preferences.include_overlay_in_capture)
-        self.capture_overlay_check.setToolTip(
-            "Include translations in screenshots, display recordings and screen sharing. "
-            "Turn off to ask Windows to exclude the overlay. Game/window-only capture "
-            "may omit it either way; this does not affect DanteJP's OCR."
+        localized(
+            self.capture_overlay_check,
+            toolTip=mark(
+                "Include translations in screenshots, display recordings and screen sharing. "
+                "Turn off to ask Windows to exclude the overlay. Game/window-only capture "
+                "may omit it either way; this does not affect DanteJP's OCR."
+            ),
         )
         game_layout.addLayout(
             OverlayToggleLayout(
@@ -223,17 +244,29 @@ class MainWindow(QMainWindow):
             )
         )
         self.capture_status = StatusBanner()
-        self.capture_status.set_message("Select a window, then start capture.", tone="info")
+        self.capture_status.set_message(tr("Select a window, then start capture."), tone="info")
         self.status = self.capture_status.label
         game_layout.addWidget(self.capture_status)
         self._overlay.set_capture_included(preferences.include_overlay_in_capture)
+        self.source_picker = SourceLanguageCombo(preferences.source_language)
         self.output_language = OutputLanguageCombo(preferences.output_language)
-        language_row = QHBoxLayout()
-        language_label = QLabel("Output language")
-        language_label.setBuddy(self.output_language)
-        language_row.addWidget(language_label)
-        language_row.addWidget(self.output_language, 1)
-        self.sections.translation_layout.addLayout(language_row)
+        languages = QGridLayout()
+        languages.setHorizontalSpacing(16)
+        languages.setVerticalSpacing(10)
+        languages.setColumnStretch(1, 1)
+        for row, (combo, source) in enumerate(
+            (
+                (self.source_picker, mark("Game text language")),
+                (self.output_language, mark("Output language")),
+            )
+        ):
+            label = localized(QLabel(), text=source)
+            label.setBuddy(combo)
+            languages.addWidget(label, row, 0)
+            languages.addWidget(combo, row, 1)
+        self.sections.translation_layout.addLayout(languages)
+        for picker in (self.source_picker, self._settings.source_picker):
+            picker.activated.connect(lambda _, p=picker: self._change_source(p))
         self.language_notice = StatusBanner()
         self.sections.translation_layout.addWidget(self.language_notice)
         for combo in (self.output_language, self._settings.output_language):
@@ -262,7 +295,7 @@ class MainWindow(QMainWindow):
         self.hotkey_notice.action.clicked.connect(self._settings.show_hotkeys)
         layout.addWidget(self.hotkey_notice)
         self.advanced = QToolButton()
-        self.advanced.setText("Inspection and diagnostics")
+        localized(self.advanced, text=mark("Inspection and diagnostics"))
         self.advanced.setCheckable(True)
         self.advanced.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.advanced.setArrowType(Qt.ArrowType.RightArrow)
@@ -271,24 +304,30 @@ class MainWindow(QMainWindow):
         inspection = QVBoxLayout(self.advanced_panel)
         inspection.setContentsMargins(0, 0, 0, 0)
         diagnostics = QHBoxLayout()
-        self.raw_boxes_check = Switch("Show OCR boxes")
-        self.raw_boxes_check.setToolTip(
-            "Numbered OCR boxes on the game. Turn Translation overlay off to compare them."
+        self.raw_boxes_check = localized(Switch(), text=mark("Show OCR boxes"))
+        localized(
+            self.raw_boxes_check,
+            toolTip=mark(
+                "Numbered OCR boxes on the game. Turn Translation overlay off to compare them."
+            ),
         )
         self.raw_boxes_check.setEnabled(not self.translate_check.isChecked())
-        self.debug_check = Switch("Debug overlay")
-        self.debug_check.setToolTip(
-            "Amber: visual changes. Cyan: completed OCR coverage. "
-            "Timings and diagnostics do not change processing."
+        self.debug_check = localized(Switch(), text=mark("Debug overlay"))
+        localized(
+            self.debug_check,
+            toolTip=mark(
+                "Amber: visual changes. Cyan: completed OCR coverage. "
+                "Timings and diagnostics do not change processing."
+            ),
         )
         diagnostics.addWidget(self.raw_boxes_check)
         diagnostics.addWidget(self.debug_check)
         diagnostics.addStretch()
-        self.demo_button = QPushButton("Open demo window")
+        self.demo_button = localized(QPushButton(), text=mark("Open demo window"))
         self.demo_button.clicked.connect(self._open_demo)
         diagnostics.addWidget(self.demo_button)
         inspection.addLayout(diagnostics)
-        label = QLabel("RAW FRAME + DETECTED TEXT · PERSISTENT IDS")
+        label = localized(QLabel(), text=mark("RAW FRAME + DETECTED TEXT · PERSISTENT IDS"))
         label.setObjectName("eyebrow")
         inspection.addWidget(label)
         self.inspector = OcrInspector()
@@ -311,7 +350,25 @@ class MainWindow(QMainWindow):
         self.raw_boxes_check.toggled.connect(self._tick)
         self.debug_check.toggled.connect(self._tick)
         self._settings.changed.connect(self._settings_changed)
+        self._settings.interface_language.currentIndexChanged.connect(
+            self._change_interface_language
+        )
         self.setStyleSheet(STYLE)
+        # Both forms use the widest styled label, including the routing switches.
+        grids = (languages, self.routing.model_grid)
+
+        def align_fields() -> None:
+            label_width = max(
+                label.sizeHint().width()
+                for grid in grids
+                for row in range(grid.rowCount())
+                if (item := grid.itemAtPosition(row, 0)) and (label := item.widget())
+            )
+            for grid in grids:
+                grid.setColumnMinimumWidth(0, label_width)
+
+        align_fields()
+        on_language_change(self, align_fields)
         self._overlay.set_opacity(preferences.opacity)
         self._overlay.set_backdrop_blur(preferences.backdrop_blur)
         self._font_style_changed()
@@ -344,6 +401,15 @@ class MainWindow(QMainWindow):
         self.routing.set_window_title(title)
         self.application.set_window_title(title)
 
+    def _change_interface_language(self) -> None:
+        app = QApplication.instance()
+        assert isinstance(app, QApplication)
+        code = self._settings.interface_language.currentData()
+        self.application.configure(replace(self.application.values, interface_language=code))
+        install_language(app, code)
+        self._history_options = None
+        self.driver.refresh(inspect=True)
+
     def _change_output_language(self, code: str) -> None:
         self.application.configure(replace(self.application.values, output_language=code))
         self._tick()
@@ -361,7 +427,7 @@ class MainWindow(QMainWindow):
         if options is not getattr(self, "_history_options", None):
             self._history_options = options
             self._history_choices = tuple(
-                (c.reference, c.name.removesuffix(" · Recommended"), c.prepared)
+                (c.reference, display(c.name).removesuffix(tr(" · Recommended")), c.prepared)
                 for c in options
                 if c.classifies
             )
@@ -425,7 +491,15 @@ class MainWindow(QMainWindow):
         if self._setup_assistant:
             self._setup_assistant.deleteLater()
         self._settings.hide()
-        self._setup_assistant = SetupAssistant(self.application.setup, self._hardware, self)
+        self._setup_assistant = SetupAssistant(
+            self.application.setup,
+            self._hardware,
+            self,
+            interface_language=self.application.values.interface_language,
+        )
+        self._setup_assistant.interface_language.currentIndexChanged.connect(
+            self._settings.interface_language.setCurrentIndex
+        )
         self._setup_assistant.skipped.connect(self._setup_skipped)
         self._setup_assistant.completed.connect(self._setup_completed)
         self._setup_assistant.show()
@@ -455,7 +529,7 @@ class MainWindow(QMainWindow):
         except (OSError, RuntimeError) as error:
             with QSignalBlocker(self.capture_overlay_check):
                 self.capture_overlay_check.setChecked(not included)
-            QMessageBox.warning(self, "Screen capture setting", str(error))
+            QMessageBox.warning(self, tr("Screen capture setting"), str(error))
             return
         self._save_preferences()
 
@@ -470,6 +544,8 @@ class MainWindow(QMainWindow):
         if action == HotkeyAction.OVERLAY:
             self.overlay_check.setChecked(not self.overlay_check.isChecked())
         elif action == HotkeyAction.CAPTURE:
+            if self.application.controls.changing_source:
+                return
             if (
                 not self.application.controls.capture_active
                 and self._settings.hotkeys.capture_focused.isChecked()
@@ -478,24 +554,7 @@ class MainWindow(QMainWindow):
                 if target is None:
                     self.status.setText(self.application.view.status)
                     return
-                index = -1
-                for i in range(self.windows_combo.count()):
-                    candidate = self.windows_combo.itemData(i)
-                    if isinstance(candidate, WindowTarget) and (
-                        candidate.hwnd,
-                        candidate.process_id,
-                    ) == (target.hwnd, target.process_id):
-                        index = i
-                        break
-                label = f"{target.title} · PID {target.process_id}"
-                if index == -1:
-                    self.windows_combo.addItem(label, target)
-                    index = self.windows_combo.count() - 1
-                else:
-                    self.windows_combo.setItemText(index, label)
-                    self.windows_combo.setItemData(index, target)
-                self.windows_combo.setCurrentIndex(index)
-                self.start_button.setEnabled(True)
+                self._select_target(target)
             # Use the button's existing lifecycle guard, including asynchronous stop/drain.
             self.start_button.click()
 
@@ -571,22 +630,29 @@ class MainWindow(QMainWindow):
             self.application.controls.options, self.application.controls.assignment
         )
         self._settings.setup_assistant.setEnabled(self.application.can_setup)
-        self.hotkey_notice.set_message(self._settings.hotkeys.problem, action="Hotkeys")
+        self.hotkey_notice.set_message(self._settings.hotkeys.problem, action=tr("Hotkeys"))
         if self._hotkeys:
             capture_key = self._hotkeys.shortcut(HotkeyAction.CAPTURE) or "disabled"
             overlay_key = self._hotkeys.shortcut(HotkeyAction.OVERLAY) or "disabled"
             source = (
-                "focused window"
+                tr("focused window")
                 if self._settings.hotkeys.capture_focused.isChecked()
-                else "selected window"
+                else tr("selected window")
             )
             self.start_button.setToolTip(
-                "Button: start / stop the selected window. "
-                f"Hotkey {capture_key}: start the {source}, or stop the current capture."
+                tr(
+                    "Button: start / stop the selected window. Hotkey {capture_key}: start "
+                    "the {source_text}, or stop the current capture.",
+                    capture_key=capture_key,
+                    source_text=source,
+                )
             )
             self.overlay_check.setToolTip(
-                "Show or hide game rendering. Capture and translation keep their state. "
-                f"Hotkey: {overlay_key}"
+                tr(
+                    "Show or hide game rendering. Capture and translation keep their "
+                    "state. Hotkey: {overlay_key}",
+                    overlay_key=overlay_key,
+                )
             )
         value = self.application.notices()
         self._notice_destination = value.destination
@@ -598,9 +664,10 @@ class MainWindow(QMainWindow):
             banner.set_message(value.language.message, action=value.language.action)
         self._settings.model_notice.set_message(value.model_warning, action=value.model_action)
         self._settings.save_note.setText(value.save_note)
+        self._settings.save_note.setVisible(bool(value.save_note))
         self.onboarding.set_message(value.message, tone=value.tone, action=value.action)
         for banner in (self.acceleration_notice, self._settings.acceleration_notice):
-            banner.set_message(value.acceleration.message, action=value.acceleration.action)
+            banner.set_message(value.acceleration.message, action=tr(value.acceleration.action))
 
     def refresh_windows(self) -> None:
         if self.application.controls.capture_active:
@@ -610,7 +677,9 @@ class MainWindow(QMainWindow):
         try:
             targets = self._windows.list_targets()
             for target in targets:
-                label = f"{target.title}  ·  PID {target.process_id}"
+                label = tr(
+                    "{title}  ·  PID {process_id}", title=target.title, process_id=target.process_id
+                )
                 if (
                     sum(
                         item.title == target.title and item.process_id == target.process_id
@@ -618,22 +687,22 @@ class MainWindow(QMainWindow):
                     )
                     > 1
                 ):
-                    label += f"  ·  HWND {target.hwnd:#x}"
+                    label += tr("  ·  HWND {hwnd:#x}", hwnd=target.hwnd)
                 self.windows_combo.addItem(label, target)
                 if isinstance(current, WindowTarget) and current.hwnd == target.hwnd:
                     self.windows_combo.setCurrentIndex(self.windows_combo.count() - 1)
             self.start_button.setEnabled(bool(targets))
             if not targets:
-                self.status.setText("No windows found. Open a game or the demo, then refresh.")
+                self.status.setText(tr("No windows found. Open a game or the demo, then refresh."))
         except OSError as error:
-            self.status.setText(f"Could not list windows: {error}")
+            self.status.setText(tr("Could not list windows: {error}", error=error))
             self.start_button.setEnabled(False)
 
     def _toggle_capture(self) -> None:
         if self.application.closing or not self.start_button.isEnabled():
             return
         if self.application.controls.capture_active:
-            self._stop("Capture stopped.")
+            self._stop(tr("Capture stopped."))
             return
         target = self.windows_combo.currentData()
         if isinstance(target, WindowTarget) and self.application.start_capture(
@@ -664,11 +733,13 @@ class MainWindow(QMainWindow):
     def _ask_preparation(self, choice: ModelOption) -> bool:
         answer = QMessageBox.question(
             self,
-            "Prepare translation model for this PC?",
-            "The model files will be checked and a short test translation will run. "
-            "First GPU use may take about a minute. Capture can continue while it prepares.\n\n"
-            + (choice.performance_notice + "\n\n" if choice.performance_notice else "")
-            + "Prepare now? Choosing No keeps your previous assignments.",
+            tr("Prepare translation model for this PC?"),
+            tr(
+                "The model files will be checked and a short test translation will run. "
+                "First GPU use may take about a minute. Capture can continue while it prepares.\n\n"
+            )
+            + (display(choice.performance_notice) + "\n\n" if choice.performance_notice else "")
+            + tr("Prepare now? Choosing No keeps your previous assignments."),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -677,7 +748,7 @@ class MainWindow(QMainWindow):
     def _show_preparation(self, message: str) -> None:
         if self._progress_dialog is None:
             dialog = QProgressDialog(message, "", 0, 0, self)
-            dialog.setWindowTitle("Preparing local translation")
+            dialog.setWindowTitle(tr("Preparing local translation"))
             dialog.setCancelButton(None)
             dialog.setMinimumDuration(0)
             dialog.setWindowModality(Qt.WindowModality.NonModal)
@@ -700,7 +771,7 @@ class MainWindow(QMainWindow):
             self._progress_dialog = None
         if self._render_error != self.application.error_revision:
             self._render_error = self.application.error_revision
-            QMessageBox.warning(self, "Model preparation failed", self.application.error)
+            QMessageBox.warning(self, tr("Model preparation failed"), self.application.error)
 
     def _manage_models(self) -> None:
         if not self.application.closing:
@@ -714,12 +785,54 @@ class MainWindow(QMainWindow):
             return
         self._settings.show_runtime()
 
+    def _select_target(self, target: WindowTarget) -> None:
+        label = tr("{title} · PID {process_id}", title=target.title, process_id=target.process_id)
+        for i in range(self.windows_combo.count()):
+            candidate = self.windows_combo.itemData(i)
+            if isinstance(candidate, WindowTarget) and (candidate.hwnd, candidate.process_id) == (
+                target.hwnd,
+                target.process_id,
+            ):
+                self.windows_combo.setItemText(i, label)
+                self.windows_combo.setItemData(i, target)
+                self.windows_combo.setCurrentIndex(i)
+                break
+        else:
+            self.windows_combo.addItem(label, target)
+            self.windows_combo.setCurrentIndex(self.windows_combo.count() - 1)
+        self.start_button.setEnabled(True)
+
+    def _change_source(self, picker: SourceLanguageCombo) -> None:
+        code, name = picker.currentData(), picker.currentText()
+        active = self.application.values.source_language
+        picker.setCurrentIndex(picker.findData(active))
+        if code == active or not self.application.can_change_source:
+            return
+        if self.application.source_requires_restart(code):
+            message = tr("Switch the game text language to {name}?", name=name)
+            message += tr("\n\nCapture will restart on the same game window.")
+            message += tr(" This clears the current dialogue history.")
+            if (
+                QMessageBox.question(
+                    picker,
+                    tr("Change game text language"),
+                    message,
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                    QMessageBox.StandardButton.Cancel,
+                )
+                != QMessageBox.StandardButton.Yes
+            ):
+                return
+        if not self.application.change_source(code):
+            return
+        self.driver.refresh(inspect=False)
+
     def _request_restart(self, target: Path) -> None:
         self.application.request_close(target)
         self._settings.hide()
         if central := self.centralWidget():
             central.setEnabled(False)
-        self.status.setText("Finishing active work before restarting. Capture will be stopped.")
+        self.status.setText(tr("Finishing active work before restarting. Capture will be stopped."))
         self.close()
 
     def _refresh_models(self) -> None:
@@ -756,7 +869,7 @@ class MainWindow(QMainWindow):
             if central := self.centralWidget():
                 central.setEnabled(True)
             self.status.setText(shutdown.message)
-            QMessageBox.warning(self, "Restart failed", shutdown.message)
+            QMessageBox.warning(self, tr("Restart failed"), shutdown.message)
             return
         if shutdown.phase != ShutdownPhase.FAILED:
             self._restart_failed = False
@@ -784,23 +897,29 @@ class MainWindow(QMainWindow):
             self._settings.runtime.refresh_view()
         if self._setup_assistant:
             self._setup_assistant.refresh_view()
-        active = self.application.controls.capture_active
+        controls = self.application.controls
+        active = controls.capture_active
+        for picker in (self.source_picker, self._settings.source_picker):
+            picker.setCurrentIndex(picker.findData(self.application.values.source_language))
+            picker.setEnabled(self.application.can_change_source)
+        self._settings.set_ocr_choices(self.application.ocr_options)
         self._settings.set_capture_active(active)
-        self.windows_combo.setEnabled(not active)
-        self.refresh_button.setEnabled(not active)
+        self.windows_combo.setEnabled(not active and not controls.changing_source)
+        self.refresh_button.setEnabled(not active and not controls.changing_source)
         self.start_button.set_capturing(active)
         self.start_button.setEnabled(
-            self.application.controls.can_stop if active else bool(self.windows_combo.count())
+            not controls.changing_source
+            and (controls.can_stop if active else bool(self.windows_combo.count()))
         )
         progress = self.application.view.progress
         self.capture_status.set_message(
-            self.application.view.status,
+            tr(self.application.view.status),
             tone=progress.tone,
             detail=progress.message,
             busy=progress.busy,
         )
-        self.ocr_status.setText(self.application.view.ocr_status)
-        self.translation_status.setText(self.application.view.translation_status)
+        self.ocr_status.setText(display(self.application.view.ocr_status))
+        self.translation_status.setText(display(self.application.view.translation_status))
         self._render_history()
         if inspect:
             self.inspector.refresh()
@@ -867,10 +986,10 @@ class MainWindow(QMainWindow):
         try:
             process = subprocess.Popen(module_command(python, "dantejp.ui.demo", "--dialogue"))
             self._demo_processes.append(process)
-            self.status.setText("Demo opened. Refresh the window list and select DanteJP Demo.")
+            self.status.setText(tr("Demo opened. Refresh the window list and select DanteJP Demo."))
             QTimer.singleShot(1200, self.refresh_windows)
         except OSError as error:
-            self.status.setText(f"Could not open the demo: {error}")
+            self.status.setText(tr("Could not open the demo: {error}", error=error))
 
     def _show_capture_stopped(self) -> None:
         self.start_button.set_capturing(False)
@@ -899,7 +1018,7 @@ class MainWindow(QMainWindow):
                 central.setEnabled(True)
             self.status.setText(result.message)
             self._restart_failed = True
-            QMessageBox.warning(self, "Restart failed", result.message)
+            QMessageBox.warning(self, tr("Restart failed"), result.message)
             event.ignore()
             return
         if result.phase != ShutdownPhase.READY:

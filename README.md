@@ -1,8 +1,8 @@
 # DanteJP
 
-DanteJP reads Japanese text from a selected Windows game and displays translations in a click-through
-overlay. Choose from 18 output languages in **Translation → Output language** or **Settings →
-Appearance**, including Portuguese (Portugal), Portuguese (Brazil), Korean, and both Chinese scripts.
+DanteJP reads text in 35 source languages from a selected Windows game and displays translations in a click-through
+overlay. Choose from 19 output languages in **Translation → Output language** or **Settings →
+Appearance**, including Japanese, Portuguese (Portugal), Portuguese (Brazil), Korean, and both Chinese scripts.
 If an assigned model lacks the selected language, the warning beside the selector offers a switch
 to Gemma or opens its setup page. Text recognition (OCR) runs on your PC. Translation can
 use a local model or a supported cloud provider.
@@ -19,8 +19,18 @@ For Windows x64. Windows 11 is the current validation target; use windowed or bo
    Return to the game to see the overlay. Models load in the background; first use may ask you to
    prepare a local model before continuing.
 
-**MeikiOCR is included** in the standalone app and works on CPU immediately. Translation weights
-are separate downloads. Reopen **Settings → Setup assistant…** with capture stopped, or manage
+DanteJP starts in English. Choose **App language** in the Setup assistant or under
+**Settings → Appearance**. The interface updates immediately, including during setup or capture.
+
+Choose the source under **Translation → Game text language** or **Settings → Recognition**.
+Switching between Latin languages keeps capture running. If the OCR model or device needs to
+change during play, confirm to resume capture on the same game window. Compatible translators
+stay loaded, and each source change starts a fresh dialogue history.
+The Windows ZIP includes **MeikiOCR** for Japanese and **PaddleOCR** for all 34 Latin-script sources.
+Both work offline on CPU from first launch. Choose
+**Automatic** in an NVIDIA runtime to accelerate both detection and recognition.
+
+Local translation weights are separate downloads. Reopen **Settings → Setup assistant…** with capture stopped, or manage
 models directly in **Settings → Models**.
 
 ## Choose a translator
@@ -93,7 +103,7 @@ window; the capture shortcut uses the focused window by default.
 - **Settings → Appearance** adjusts text size and background opacity.
 - **Settings → Experimental → Blur behind translated text** tries a clear Windows backdrop behind
   each translation, including labels in dense menus.
-- **Inspection and diagnostics** shows the recognized Japanese and full translations.
+- **Inspection and diagnostics** shows the recognized source text and full translations.
   Pause it to review or copy text while the game overlay continues updating.
 - **Settings → Experimental → Dialogue history** enables the optional reader. It is **off by
   default**. Once enabled, open **Dialogue** beside the Settings gear to read recent turns.

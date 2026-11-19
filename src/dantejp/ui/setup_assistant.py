@@ -17,8 +17,15 @@ from PySide6.QtWidgets import (
 
 from dantejp.application.model_advice import RECOMMENDED_TRANSLATION
 from dantejp.application.services import SetupCommands
+from dantejp.i18n import display, mark, tr
 from dantejp.runtime.hardware_values import HardwareReader, HardwareStatus, recommended_profile
 from dantejp.runtime.setup_values import ModelProgress, SetupLane, SetupReview
+from dantejp.ui.localization import (
+    InterfaceLanguageCombo,
+    localized,
+    localized_item,
+    on_language_change,
+)
 from dantejp.ui.model_summary import ModelSummary
 from dantejp.ui.setup_progress import SetupProgressView
 
@@ -32,13 +39,16 @@ class SetupAssistant(QDialog):
         service: SetupCommands,
         hardware: HardwareReader | None,
         parent: QWidget,
+        *,
+        interface_language: str = "en",
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("DanteJP · Welcome")
+        localized(self, windowTitle=mark("DanteJP · Welcome"))
         self.setWindowModality(Qt.WindowModality.WindowModal)
         self.resize(640, 510)
         self.service = service
         self.models = {model.key: model for model in service.files}
+        ocr = self.models["ocr"]
         self._completion = 0
         self.hardware = hardware
         self.hardware_status: HardwareStatus | None = None
@@ -47,40 +57,62 @@ class SetupAssistant(QDialog):
         self._review: SetupReview | None = None
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 20, 24, 20)
-        self.heading = QLabel("Welcome to DanteJP")
+        self.heading = localized(QLabel(), text=mark("Welcome to DanteJP"))
         self.heading.setObjectName("heading")
         layout.addWidget(self.heading)
         self.pages = QStackedWidget()
         layout.addWidget(self.pages, 1)
         page = self._page()
+        self.interface_language = InterfaceLanguageCombo(interface_language)
+        language_label = localized(QLabel(), text=mark("App language"))
+        language_label.setBuddy(self.interface_language)
+        page.addWidget(language_label)
+        page.addWidget(self.interface_language)
         page.addWidget(
-            self._label(
-                (
-                    "Text recognition is included with DanteJP. This guide helps you choose "
-                    "a translation model and optional GPU acceleration.\n\n"
-                    if self.models["ocr"].included
-                    else "Translate Japanese games locally. This guide sets up text recognition, "
-                    "a translation model and optional GPU acceleration.\n\n"
-                )
-                + "You choose what to download before anything starts. "
-                "CPU support works without a GPU. "
-                "Processing stays on your PC after setup.\n\n"
-                "You can skip this and reopen Setup assistant from Settings."
+            localized(
+                self._label(""),
+                text=lambda: (
+                    (
+                        tr(
+                            "Text recognition is included with DanteJP. This guide helps you "
+                            "choose "
+                            "a translation model and optional GPU acceleration.\n\n"
+                        )
+                        if self.models["ocr"].included
+                        else tr(
+                            "Translate game text locally. This guide sets up text recognition, "
+                            "a translation model and optional GPU acceleration.\n\n"
+                        )
+                    )
+                    + tr(
+                        "You choose what to download before anything starts. "
+                        "CPU support works without a GPU. "
+                        "Processing stays on your PC after setup.\n\n"
+                        "You can skip this and reopen Setup assistant from Settings."
+                    )
+                ),
             )
         )
         page.addStretch()
         page = self._page()
         page.addWidget(
-            self._label(
-                "✓ MeikiOCR is included with the app. Choose a translation model:"
-                if self.models["ocr"].included
-                else "MeikiOCR reads the Japanese text (46 MB). Choose a translator:"
+            localized(
+                self._label(""),
+                text=lambda: (
+                    tr("Choose a translation model.")
+                    if self.models["ocr"].included
+                    else tr(
+                        "{name} ({value:.0f} MB). Choose a translator:",
+                        name=ocr.name,
+                        value=ocr.size / 1000000.0,
+                    )
+                ),
             )
         )
         self.model = QComboBox()
         for bundle in service.guide_models:
-            suffix = " · downloaded" if bundle.present else f" · {bundle.size / 1e9:.2f} GB"
-            self.model.addItem(bundle.name + suffix, bundle.key)
+            self.model.addItem("", bundle.key)
+        self._model_labels()
         recommended = self.model.findData(RECOMMENDED_TRANSLATION)
         if recommended >= 0:
             self.model.setCurrentIndex(recommended)
@@ -93,11 +125,11 @@ class SetupAssistant(QDialog):
         self._model_changed()
         page.addStretch()
         page = self._page()
-        self.hardware_label = self._label("Checking graphics hardware…")
+        self.hardware_label = self._label(tr("Checking graphics hardware…"))
         page.addWidget(self.hardware_label)
         self.runtime = QComboBox()
         for profile in sorted(service.profiles, key=lambda p: p.key != "cpu"):
-            self.runtime.addItem(profile.name, profile)
+            localized_item(self.runtime, profile.name, profile)
         page.addWidget(self.runtime)
         self.runtime_help = self._label("")
         page.addWidget(self.runtime_help)
@@ -106,9 +138,9 @@ class SetupAssistant(QDialog):
         self._runtime_changed()
         self._runtime_chosen = False
         page.addWidget(
-            self._label(
-                "GPU acceleration is optional. Detection does not guarantee driver compatibility. "
-                "We verify the libraries before offering a restart. Drivers are never changed."
+            localized(
+                self._label(""),
+                text=mark("Setup checks the runtime before restart. Your drivers stay unchanged."),
             )
         )
         page.addStretch()
@@ -123,9 +155,9 @@ class SetupAssistant(QDialog):
         page.addWidget(self.result_note)
         page.addStretch()
         buttons = QHBoxLayout()
-        self.skip = QPushButton("Skip for now")
-        self.back = QPushButton("Back")
-        self.next = QPushButton("Next")
+        self.skip = localized(QPushButton(), text=mark("Skip for now"))
+        self.back = localized(QPushButton(), text=mark("Back"))
+        self.next = localized(QPushButton(), text=mark("Next"))
         self.next.setObjectName("primary")
         buttons.addWidget(self.skip)
         buttons.addStretch()
@@ -135,6 +167,7 @@ class SetupAssistant(QDialog):
         self.skip.clicked.connect(self._skip)
         self.back.clicked.connect(lambda: self._show(self.pages.currentIndex() - 1))
         self.next.clicked.connect(self._next)
+        on_language_change(self, self._refresh_language)
         self._show(0)
         job = service.job(SetupLane.GUIDE)
         if job.token and service.reviewed is not None:
@@ -146,8 +179,39 @@ class SetupAssistant(QDialog):
                     break
             self._show(4)
             self.next.setEnabled(False)
-            self.skip.setText("Cancel setup")
+            localized(self.skip, text=mark("Cancel setup"))
         self.refresh_view()
+
+    def _model_labels(self) -> None:
+        for i in range(self.model.count()):
+            bundle = self.models[self.model.itemData(i)]
+            suffix = (
+                tr(" · downloaded")
+                if bundle.present
+                else tr(" · {value:.2f} GB", value=bundle.size / 1000000000.0)
+            )
+            self.model.setItemText(i, display(bundle.name) + suffix)
+
+    def _show_hardware(self) -> None:
+        status = self.hardware_status
+        if status is None:
+            self.hardware_label.setText(tr("Checking graphics hardware…"))
+            return
+        self.hardware_label.setText(
+            tr("Hardware detection failed. CPU is available; you can choose manually.")
+            if status.error
+            else tr("Detected: ") + "; ".join(a.name for a in status.adapters)
+            if status.adapters
+            else tr("No supported GPU detected. CPU is available.")
+        )
+
+    def _refresh_language(self) -> None:
+        self._model_labels()
+        self._show_hardware()
+        self._model_changed()
+        self.runtime_help.setText(tr(self.runtime.currentData().description))
+        if self.pages.currentIndex() == 0:
+            self._show(0)
 
     @staticmethod
     def _label(text: str) -> QLabel:
@@ -164,28 +228,30 @@ class SetupAssistant(QDialog):
 
     def _model_changed(self) -> None:
         bundle = self.models.get(self.model.currentData())
-        self.model_help.setText(bundle.description if bundle else "Choose a translation model.")
+        self.model_help.setText(
+            display(bundle.description) if bundle else tr("Choose a translation model.")
+        )
         if bundle:
             self.model_summary.set_model(bundle.key, bundle.size, bundle.language_model)
 
     def _runtime_changed(self) -> None:
         self._runtime_chosen = True
         profile = self.runtime.currentData()
-        self.runtime_help.setText(profile.description)
+        self.runtime_help.setText(tr(profile.description))
 
     def _show(self, page: int) -> None:
         self.pages.setCurrentIndex(page)
         self.heading.setText(
             (
-                "Welcome to DanteJP",
-                "Choose your translation model",
-                "Choose acceleration",
-                "Review setup",
-                "Setting up DanteJP",
+                tr("Welcome to DanteJP"),
+                tr("Choose your translation model"),
+                tr("Choose acceleration"),
+                tr("Review setup"),
+                tr("Setting up DanteJP"),
             )[page]
         )
         self.back.setVisible(0 < page < 4)
-        self.next.setText("Download and set up" if page == 3 else "Next")
+        self.next.setText(tr("Download and set up") if page == 3 else tr("Next"))
         self.next.setEnabled(page != 2 or self.hardware_status is not None)
         if page == 3:
             assert self.hardware_status is not None
@@ -196,20 +262,31 @@ class SetupAssistant(QDialog):
             )
             pending = self._review.download_bytes
             self.review.setText(
-                f"Recognition: MeikiOCR{' · included, no download' if ocr.included else ''}\n"
-                f"Translation: {self.model.currentText()}\n"
-                f"Runtime: {profile.name}\n\n"
-                f"Model downloads: up to {pending / 1e9:.2f} GB; "
-                "existing files are verified and reused.\n"
-                + (
-                    "Runtime libraries and app dependencies will also be downloaded. "
-                    "NVIDIA libraries add about 1.3 GB; CPU and Vulkan downloads are smaller. "
-                    "Restart is offered when ready.\n"
-                    if self._review.install_runtime
-                    else "Your current runtime provides this support; no runtime install needed.\n"
+                tr(
+                    "Recognition: {ocr}{included}\nTranslation: {model}\nRuntime: "
+                    "{runtime}\n\nModel downloads: up to {size:.2f} GB; existing files are "
+                    "verified and reused.\n",
+                    ocr=ocr.name.split(" · ")[0],
+                    included=tr(" · included, no download") if ocr.included else "",
+                    model=self.model.currentText(),
+                    runtime=tr(profile.name),
+                    size=pending / 1e9,
                 )
-                + "\nNothing has downloaded yet. Download and set up starts the selected work. "
-                "You can cancel; completed verified files are kept."
+                + (
+                    tr(
+                        "Runtime libraries and app dependencies will also be downloaded. "
+                        "NVIDIA libraries add about 1.3 GB; CPU and Vulkan downloads are smaller. "
+                        "Restart is offered when ready.\n"
+                    )
+                    if self._review.install_runtime
+                    else tr(
+                        "Your current runtime provides this support; no runtime install needed.\n"
+                    )
+                )
+                + tr(
+                    "\nNothing has downloaded yet. Download and set up starts the selected work. "
+                    "You can cancel; completed verified files are kept."
+                )
             )
 
     def _next(self) -> None:
@@ -226,9 +303,9 @@ class SetupAssistant(QDialog):
             return
         self._show(4)
         self.next.setEnabled(False)
-        self.skip.setText("Cancel setup")
+        self.skip.setText(tr("Cancel setup"))
         self.result_note.setText("")
-        self.progress_view.update_progress(ModelProgress("Starting selected setup…"))
+        self.progress_view.update_progress(ModelProgress(tr("Starting selected setup…")))
 
     @property
     def busy(self) -> bool:
@@ -243,23 +320,19 @@ class SetupAssistant(QDialog):
             self.service.cancel(SetupLane.GUIDE)
             self.skip.setEnabled(False)
             self.result_note.setText(
-                "Cancelling… waiting for the current read or installer to stop."
+                tr("Cancelling… waiting for the current read or installer to stop.")
             )
 
     def refresh_view(self) -> None:
         if self.hardware_status is None:
             status = (
-                self.hardware.snapshot() if self.hardware else HardwareStatus(error="Unavailable")
+                self.hardware.snapshot()
+                if self.hardware
+                else HardwareStatus(error=tr("Unavailable"))
             )
             if status is not None:
                 self.hardware_status = status
-                self.hardware_label.setText(
-                    "Hardware detection failed. CPU is available; you can choose manually."
-                    if status.error
-                    else "Detected: " + "; ".join(a.name for a in status.adapters)
-                    if status.adapters
-                    else "No supported GPU detected. CPU is available."
-                )
+                self._show_hardware()
                 if not self._runtime_chosen:
                     key = recommended_profile(status.adapters)
                     self.runtime.setCurrentIndex(
@@ -282,19 +355,21 @@ class SetupAssistant(QDialog):
         self.skip.setEnabled(True)
         self.next.setEnabled(True)
         self._finished = not (value.error or value.cancelled)
-        self.skip.setText("Finish without restart" if self._finished and self.target else "Close")
+        self.skip.setText(
+            tr("Finish without restart") if self._finished and self.target else tr("Close")
+        )
         self.next.setText(
-            "Restart now"
+            tr("Restart now")
             if self._finished and self.target
-            else "Finish"
+            else tr("Finish")
             if self._finished
-            else "Retry setup"
+            else tr("Retry setup")
         )
         self.back.setVisible(not self._finished)
         self.result_note.setText(
-            "Your chosen model will be selected next. Language models ask before preparation."
+            tr("Your chosen model will be selected next. Language models ask before preparation.")
             if self._finished
-            else "Verified files and your previous runtime were kept."
+            else tr("Verified files and your previous runtime were kept.")
         )
         if self._closing:
             self.close()

@@ -2,7 +2,7 @@ DanteJP - Windows x64
 
 1. Extract this entire ZIP to a folder. Do not run it inside the ZIP preview.
 2. Double-click DanteJP.exe. Keep the _internal folder beside the EXE.
-3. MeikiOCR is included; Japanese text recognition works immediately on CPU.
+3. MeikiOCR and PaddleOCR are included. All 35 source languages work immediately on CPU.
    Follow the first-run Setup assistant to choose a translation model
    and review optional GPU support. Gemma 4 E2B is the recommended starting choice;
    E4B is the higher-resource recommendation. Other models remain available.
@@ -27,7 +27,12 @@ NVIDIA OCR and Gemma share CUDA 13 libraries: about 1.29 GB of NVIDIA/ONNX downl
 plus other app dependencies. Model downloads are separate. If upgrading from the
 older dual-CUDA package, install the new runtime in Acceleration and restart once;
 your existing models are reused.
-Capture and recognition work without model downloads. Translation needs a chosen translator.
+Choose the game text language in Translation or Settings > Recognition. Japanese uses the included
+MeikiOCR. The 34 Latin-script sources share the included PaddleOCR model.
+Switching between these sources keeps capture running.
+Changing the OCR model or device during play asks to restart capture on the same game window.
+Compatible translation models stay loaded. Changing source clears the current dialogue history.
+Translation needs a chosen translator.
 Enable Dialogue history in Settings > Experimental, then open Dialogue beside the Settings gear.
 The reader keeps the last 20 completed conversation turns, independently
 of model context. Close the reader without stopping collection; Clear empties it. A new capture
@@ -40,8 +45,7 @@ Windows policy or another capturing app can still require the indicator.
 To record or share the translations, use display capture/entire-screen sharing, such as OBS
 Display Capture. Game-only/window-only recording can omit the separate overlay window.
 Settings > Models lists translation models first, with tested strengths and limitations.
-Text recognition (OCR) has a separate section. MeikiOCR is Included with app, reads
-Japanese text from images and does not translate it. No OCR download is needed.
+Text recognition (OCR) shows the included reader for the selected game text language.
 Expand Manage OCR files when needed. Verify / repair restores
 damaged or missing OCR files into AppData, reusing bundled files where possible.
 Language models ask before first-use preparation. Local inference works offline after setup.
@@ -98,4 +102,4 @@ This is a portable folder, not an installer or a single self-contained EXE.
 The executable is unsigned. Only run a package obtained from a source you trust.
 Use a borderless/windowed game. Compatibility with a specific game/anti-cheat is not guaranteed.
 See THIRD-PARTY.txt and _internal/third-party/meiki for library/model notices and source references.
-MeikiOCR's three pinned models are bundled; translation weights are not bundled.
+The release includes the three MeikiOCR and two PaddleOCR model files.

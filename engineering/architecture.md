@@ -87,6 +87,10 @@ Preferences and hardware work drain and hotkeys release before restart; failed r
 ## UI, identity and coordinates
 
 The public app name is DanteJP.
+The interface locale is a separate preference from game source and translation target.
+Changing the interface language replaces the app-owned Qt catalogs and updates text on existing widgets. Capture, model workers and editable values keep their state. English is the fallback. Mark app-authored copy
+with `tr` and static metadata with `mark`, then translate that metadata for display.
+Keep IDs, OCR samples, user content and inference prompts independent of the interface locale.
 Main/Settings/Advanced are views of one live session. Controls remain top-left and width-bounded;
 inspection expands without changing maximized state. Simple/advanced routing preserves assignments.
 Model selectors share styled nonselectable category headings. Unchanged lists preserve popup focus;
