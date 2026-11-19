@@ -3,6 +3,7 @@ from test_live_session import Replay, frame
 from test_translation import Backend, until
 
 from dantejp.domain import Rect
+from dantejp.languages.paddle import PaddleOCRLanguage
 from dantejp.languages.selection import DEFAULT_SOURCE, source_language
 from dantejp.languages.source import SourceLanguage
 from dantejp.languages.target import TARGET_LANGUAGES
@@ -17,8 +18,7 @@ from dantejp.translation.dialogue.layout import PanelLayout
 from dantejp.translation.grouping import DialogueGrouper, TextBlock
 from dantejp.translation.worker import TranslationSession
 
-# Exercise the generic policy without registering another supported OCR language.
-PORTUGUESE = SourceLanguage("pt", "Portuguese", warmup_text="Mapa")
+PORTUGUESE = source_language("pt")
 
 
 def grouped_rows(language, *texts):
@@ -40,8 +40,60 @@ def test_new_quoted_speech_starts_a_block_without_ocr_dash_recovery():
     ]
 
 
+@pytest.mark.parametrize("middle_height", [41, 49])
+def test_inline_quoted_name_continues_an_established_column(middle_height):
+    texts = (
+        "The energy that can be stored",
+        "while travelling through the",
+        "valley with the blessing",
+        '"Light of the Lake" increases',
+        "to two hundred points.",
+    )
+    boxes = (
+        (100, 100, 690, 49),
+        (101, 165, 735, 49),
+        (100, 232, 670, middle_height),
+        (114, 290, 758, 56),
+        (100, 357, 520, 49),
+    )
+    rows = tuple(
+        TextTrack(i, t, Rect(*b)) for i, (t, b) in enumerate(zip(texts, boxes, strict=True))
+    )
+    language = source_language("en")
+    grouper = DialogueGrouper(language=language)
+    assert not grouper.update(rows, rows[:-1], 0).ready
+    (block,) = grouper.update(rows[::-1], rows, 1).ready
+    assert block.lines == rows and block.text == " ".join(texts)
+
+
+@pytest.mark.parametrize("ending", ['"', "'", "”"])
+@pytest.mark.parametrize(
+    "first_box,tail_box",
+    [
+        ((3064, 1950, 616, 35), (3331, 1984, 74, 26)),
+        ((3060, 1949, 624, 36), (3325, 1978, 90, 38)),
+    ],
+)
+def test_short_centered_tail_completes_an_inline_quoted_name(ending, first_box, tail_box):
+    opening = "“" if ending == "”" else '"'
+    rows = (
+        TextTrack(
+            1,
+            "Requires activation of " + opening + "The Dreamed Utopian",
+            Rect(*first_box),
+        ),
+        TextTrack(2, "Dawn" + ending, Rect(*tail_box)),
+        TextTrack(3, "Return", Rect(3323, 2020, 94, 30)),
+    )
+    grouper = DialogueGrouper(language=source_language("en"))
+    groups = grouper.update(rows, rows, 0)
+    assert [b.lines for b in groups.blocks] == [rows[:2], rows[2:]]
+    assert grouper.update(rows, rows, 1).ready == groups.blocks
+    assert len(grouper.update(rows, rows, 2, enabled=False).blocks) == 3
+
+
 def test_percentage_label_needs_established_prose_and_text_after_the_value():
-    class EffectLanguage(SourceLanguage):
+    class EffectLanguage(PaddleOCRLanguage):
         percentage_label_terms = ("bônus",)
 
     language = EffectLanguage("pt", "Portuguese", "Mapa")
@@ -54,6 +106,17 @@ def test_percentage_label_needs_established_prose_and_text_after_the_value():
     ]:
         assert grouped_rows(language, first, second) == [[first], [second]]
     assert grouped_rows(PORTUGUESE, lead, tail) == [[lead], [tail]]
+
+
+def test_paddle_quote_cues_are_opt_in():
+    # Use letters accepted by all three policies so script filtering cannot mask a leak.
+    for language, expected in (
+        (PORTUGUESE, True),
+        (DEFAULT_SOURCE, False),
+        (SourceLanguage("test", "Test", "設定"), False),
+    ):
+        assert language.quoted_term_with_suffix('"光" 明るい') is expected
+        assert language.closes_wrapped_quote('必要な "光', "星'") is expected
 
 
 @pytest.mark.parametrize(

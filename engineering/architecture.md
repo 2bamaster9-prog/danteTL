@@ -237,11 +237,14 @@ own source sequence and reading. These records do not change confirmation or ret
 
 ## Translation, grouping and layout
 
-Desktop startup selects one immutable source-language policy for the session. The catalog in
-`languages.selection` currently registers Japanese. OCR evidence preparation, tracking, dialogue
+Each source selection has an immutable language policy. The catalog in
+`languages.selection` registers Japanese and the 34 sources listed for Paddle’s PP-OCRv5 Latin recognizer. OCR evidence preparation, tracking, dialogue
 grouping, translation prompts and cache keys use that selection. Blocks carry it so reconstructed
 text, dialogue history and publication use the same word boundaries and script checks. The base
-policy accepts alphabetic text and preserves word spaces. Japanese supplies script and punctuation
+policy accepts alphabetic text and preserves word spaces. The 34 Latin sources use
+`PaddleOCRLanguage` for inline quoted terms and closing quotes misread as apostrophes.
+A source with additional text rules can register a subclass in `LATIN_SOURCES` and inherit
+the same OCR model selection. Japanese supplies script and punctuation
 cues, OCR cleanup, and evidence for quoted speech, equipment text and speaker names. The grouper
 combines that evidence with paragraph position, row geometry and competing choices. The reader and
 grouper use the same list syntax, with different evidence thresholds for possible and marked choices.
@@ -261,7 +264,8 @@ existing assignment and preparation flow, preserving compatible assignments and 
 continuity. Keep speakers, choices, vertical text and unrelated columns separate. When ordinary
 grouping finds no successor, a long unfinished row can pair with one tightly centered, shorter
 sentence ending. A split word or a quoted term followed by a copula supplies the continuation
-evidence. This pair ends at its second row.
+evidence. A short centered final word can also close a quotation embedded in a space-separated label.
+This pair ends at its second row.
 A sentence can end on a full-width row within a paragraph. A shortened sentence-ending row followed
 by a full-width row can separate paragraphs within an established column. A trailing dash remains
 continuation. Prose evidence may occur after the opening row. Quoted wraps tolerate hanging
@@ -272,13 +276,16 @@ OCR source at the detector or recurring column margin for a thin, text-colored h
 The grouper uses the recovered edge only for that opening and continuation. A supported quote
 ends at its outer closing bracket, keeping a button directly below it separate. Requests and
 display retain the committed OCR text, member identities and ink bounds. Keep gap/font/ambiguity checks
-intact. Paragraphs have no separate line-count cap;
-work is bounded by the scene's track limit and the backend's 512-character source budget. Short inline
+intact. A quoted term followed by more words can continue an unfinished row on the established column pitch.
+Paragraphs have no separate line-count cap. Work is bounded by the scene's track limit and the
+backend's 512-character source budget. Short inline
 labels start independent items and allow aligned/hanging continuations; bare choices stay separate. Compact
 percentage endings can complete established unfinished prose or a line that explicitly introduces
 a value. A colon immediately before a percentage can represent a misread plus in a wrapped
 Japanese clause. In a column of wrapped prose, two successive row centers predict the
-position of the next row. This supports shorter percentage glyphs and noisy operators at
+position of the next row. When two wide lines continue unfinished prose on that pitch and margin,
+their ink heights can vary if both are consistent with the preceding body row.
+The predicted spacing also supports shorter percentage glyphs and noisy operators at
 the body margin. The same spacing can support a hanging labelled opening even when the
 final value is unreadable. Group using that evidence and keep the exact OCR text in the request.
 Before grouping paragraphs, reconstruct split horizontal rows in reading order. Close fragments

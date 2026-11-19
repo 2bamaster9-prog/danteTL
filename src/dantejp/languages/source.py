@@ -147,6 +147,14 @@ class SourceLanguage:
         """Strong linguistic evidence for joining an otherwise ambiguous centered tail."""
         return False
 
+    def quoted_term_with_suffix(self, text: str) -> bool:
+        """Does the row continue past an inline quoted term?"""
+        return False
+
+    def closes_wrapped_quote(self, first: str, tail: str) -> bool:
+        """Does the final row close a quoted term from the preceding row?"""
+        return False
+
     def section_heading(self, text: str) -> bool:
         return False
 

@@ -8,6 +8,7 @@ from itertools import groupby
 from statistics import median
 
 from dantejp.domain import Rect, union_bounds
+from dantejp.i18n import tr
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
 from dantejp.ocr.lettering import Lettering
@@ -69,7 +70,7 @@ class TextBlock:
 
     def __post_init__(self) -> None:
         if not self.lines:
-            raise ValueError("A text block needs at least one line.")
+            raise ValueError(tr("A text block needs at least one line."))
 
     @property
     def text(self) -> str:
@@ -126,7 +127,7 @@ def _can_follow(
     percentage = (
         (paragraph or introduces_value) and len(second) <= 16 and _percentage_row(language, second)
     )
-    on_pitch = bool(percentage and previous_row and _on_column_pitch(previous_row, a, b))
+    on_pitch = previous_row is not None and _on_column_pitch(previous_row, a, b)
     numeric_tail = (
         percentage
         and not first.endswith(language.endings)
@@ -150,8 +151,15 @@ def _can_follow(
     quoted = opening_quote or bool(language.quote_start.match(first))
     if language.is_choice(first) and not (labelled or opening_quote):
         return False  # Bare menu choices stay independent; labelled descriptions can wrap.
+    inline_quote = False
     if not numeric_tail and language.quote_start.match(second):
-        return False
+        inline_quote = (
+            on_pitch
+            and not first.endswith(language.endings)
+            and language.quoted_term_with_suffix(second)
+        )
+        if not inline_quote:
+            return False
     if (
         not numeric_tail
         and language.starts_item(second)
@@ -163,7 +171,6 @@ def _can_follow(
         return False
     item = not opening_quote and language.starts_item(first)
     # A few final glyphs can have shorter ink bounds than a full line.
-    # Relax height only for a narrow terminal fragment, never an ordinary smaller label.
     short_ending = numeric_tail or (
         1 < len(second) <= 4
         and second.endswith(language.endings)
@@ -177,9 +184,20 @@ def _can_follow(
         or first.endswith((*language.endings, *language.commas))
         or quoted
     )
-    height_ratio = 1.45 if short_ending else 1.3
+    height_ratio = 1.45 if short_ending or inline_quote else 1.3
     if numeric_tail and on_pitch:
         height_ratio = 1.65  # Digits may occupy much less of the same physical row.
+    elif (
+        previous_row
+        and on_pitch
+        and not first.endswith(language.endings)
+        and abs(previous_row.x - a.x) <= height * 0.5
+        and min(a.width, b.width) >= 8 * height
+        and max(a.height, b.height) / 1.3 <= previous_row.height <= height * 1.3
+    ):
+        # Two successive ink heights may differ even when each matches the preceding
+        # body row. Require the same margin and row pitch to bridge that variation.
+        height_ratio = 1.45
     return (
         max(a.height, b.height) <= height * height_ratio
         # Wrapped rows can widen. A heading/name is substantially narrower than body
@@ -210,23 +228,29 @@ def _centered_subtitle_tail(language: SourceLanguage, upper: TextTrack, lower: T
     """Recognize a short final row from its inset on both sides and a textual continuation."""
     a, b = upper.bounds, lower.bounds
     unit = min(a.height, b.height)
+    gap = b.y - a.y - a.height
     if not (
         unit > 0
         and not lower.vertical
-        and max(a.height, b.height) <= unit * 1.3
-        and -0.1 * unit <= b.y - a.y - a.height <= 0.55 * unit
+        and max(a.height, b.height) <= unit * 1.4
+        and -0.25 * unit <= gap <= 0.55 * unit
         and a.width >= 14 * unit
         and 0 < b.width <= 0.7 * a.width
         and abs((a.x + a.width / 2) - (b.x + b.width / 2)) <= 0.75 * unit
     ):
         return False
     first, second = upper.text.rstrip(), lower.text.strip()
-    if not second or second[-1] not in language.terminal or language.starts_item(second):
+    if not second or language.starts_item(second):
         return False
     body = second[:-1]
     if not body or any(mark in body for mark in language.terminal):
         return False
-    return language.subtitle_continuation(first, body)
+    return language.closes_wrapped_quote(first, second) or (
+        max(a.height, b.height) <= unit * 1.3
+        and gap >= -0.1 * unit
+        and second[-1] in language.terminal
+        and language.subtitle_continuation(first, body)
+    )
 
 
 def _centered_subtitle(
@@ -575,6 +599,7 @@ def _blocks(
         revealing = first.track_id in growing
         last_row, continuation = openings.get(first.track_id, (first, None))
         previous_row = None
+        centered_pair = False
         if enabled:
             while len(lines) < len(ordered):
                 # The exact gap uses the shorter row. The upper row alone bounds every
@@ -612,6 +637,7 @@ def _blocks(
                                 if t.track_id not in used and t.track_id not in openings
                             ),
                         )
+                        centered_pair = len(lines) == 2
                     break  # Ambiguous columns/layouts stay separate.
                 if (
                     len(lines) == 1
@@ -659,7 +685,8 @@ def _blocks(
                 ):
                     break
         if len(lines) > 1 and not (
-            first.track_id in openings
+            centered_pair
+            or first.track_id in openings
             or _dialogue_evidence(language, lines)
             or any(line.track_id in growing for line in lines)
         ):

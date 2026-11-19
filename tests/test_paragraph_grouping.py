@@ -7,6 +7,7 @@ import pytest
 from test_live_session import Replay
 
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.languages.selection import source_language
 from dantejp.ocr.tracking import TextActivity, TextTrack
 from dantejp.ocr.values import TextRegion
 from dantejp.translation.grouping import DialogueGrouper
@@ -16,6 +17,50 @@ from dantejp.translation.worker import (
     TranslationSnapshot,
     TranslationState,
 )
+
+
+@pytest.mark.parametrize("scale", [0.5, 1, 1.5])
+@pytest.mark.parametrize("change", ["full", "crop", "off-pitch", "smaller-font", "short-label"])
+def test_wrapped_column_compares_ink_heights_to_the_preceding_body_row(scale, change):
+    texts = (
+        "Each point of resonance",
+        "additionally increases the damage",
+        "multiplier for the current",
+        "instance of the skill by 7%.",
+    )
+    boxes = [
+        (2977, 1204, 746, 49),
+        (2980, 1266, 740, 57),
+        (2983, 1341, 598, 41),
+        (2978, 1403, 556, 49),
+    ]
+    if change == "crop":
+        boxes = [
+            (2983, 1210, 738, 42),
+            (2981, 1272, 738, 49),
+            (2981, 1340, 602, 48),
+            (2978, 1403, 556, 49),
+        ]
+    elif change == "off-pitch":
+        boxes[2] = (2983, 1359, 598, 41)
+    elif change == "smaller-font":
+        boxes[2] = (2983, 1341, 598, 30)
+    elif change == "short-label":
+        boxes[2] = (2983, 1341, 140, 41)
+    rows = tuple(
+        TextTrack(i, text, Rect(*(round(v * scale) for v in box)))
+        for i, (text, box) in enumerate(zip(texts, boxes, strict=True))
+    )
+    grouper = DialogueGrouper(language=source_language("en"))
+    initial = grouper.update(rows, rows[:-1], 0)
+    settled = grouper.update(rows[::-1], rows, 1)
+    if change in ("full", "crop"):
+        assert not initial.ready
+        (block,) = settled.ready
+        assert block.lines == rows and block.text == " ".join(texts)
+    else:
+        assert all(rows[1] not in b.lines or rows[2] not in b.lines for b in settled.blocks)
+
 
 # Character-bounded rows from the supplied screenshots; policy contains no game names.
 ARCHER = (
