@@ -11,6 +11,7 @@ from dataclasses import dataclass, field, replace
 from math import isfinite
 
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
+from dantejp.i18n import tr
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
 from dantejp.ocr.lettering import Lettering, sample_lettering
@@ -52,9 +53,9 @@ class TrackingPolicy:
 
     def __post_init__(self) -> None:
         if min(self.max_tracks, self.missing_frames, self.confirmation_frames) < 1:
-            raise ValueError("Tracking counts must be positive.")
+            raise ValueError(tr("Tracking counts must be positive."))
         if min(self.missing_seconds, self.static_settle_seconds) <= 0:
-            raise ValueError("Tracking confirmation times must be positive.")
+            raise ValueError(tr("Tracking confirmation times must be positive."))
 
 
 @dataclass(slots=True)
@@ -443,7 +444,7 @@ class TextTracker:
         if matching is not None and not matching.matches(
             result, sources, self._policy.max_tracks * 4, language=self._language
         ):
-            raise ValueError("Tracking evidence does not match the current source/state.")
+            raise ValueError(tr("Tracking evidence does not match the current source/state."))
         # Direct deterministic replays may score inline. LiveSession always supplies
         # source/state-checked worker evidence and never performs scoring on Qt.
         matching = matching or prepare_matching(

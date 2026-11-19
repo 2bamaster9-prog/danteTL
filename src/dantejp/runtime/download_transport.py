@@ -9,6 +9,7 @@ from collections.abc import Callable
 from pathlib import Path
 from urllib.request import urlopen
 
+from dantejp.i18n import tr
 from dantejp.paths import module_command, resource_root
 from dantejp.runtime.owned_process import restore_child_output
 from dantejp.runtime.setup_process import clean_runtime_environment, run_setup_command
@@ -54,12 +55,12 @@ def _receive(url: str, destination: Path, limit: int) -> None:
     with urlopen(url, timeout=15) as response, destination.open("wb") as output:
         total = max(0, int(response.headers.get("Content-Length", "0")))
         if total > limit:
-            raise RuntimeError("Download exceeded its size limit.")
+            raise RuntimeError(tr("Download exceeded its size limit."))
         print(json.dumps({"received": 0, "total": total}), flush=True)
         while chunk := response.read1(256 * 1024):
             received += len(chunk)
             if received > limit:
-                raise RuntimeError("Download exceeded its size limit.")
+                raise RuntimeError(tr("Download exceeded its size limit."))
             output.write(chunk)
             now = time.monotonic()
             if now - reported >= 0.1:

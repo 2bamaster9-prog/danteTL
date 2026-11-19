@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import BinaryIO
 from uuid import uuid4
 
+from dantejp.i18n import tr
 from dantejp.paths import state_root
 from dantejp.runtime.model_store import Cancelled
 from dantejp.runtime.setup_values import ModelProgress, Progress
@@ -27,10 +28,10 @@ class _Reader:
 
     def read(self, count: int) -> bytes:
         if count < 0 or self.stream.tell() + count > min(self.size, 64 * 2**20):
-            raise ValueError("GGUF metadata is truncated or exceeds the supported size.")
+            raise ValueError(tr("GGUF metadata is truncated or exceeds the supported size."))
         data = self.stream.read(count)
         if len(data) != count:
-            raise ValueError("Truncated GGUF file.")
+            raise ValueError(tr("Truncated GGUF file."))
         return data
 
     def number(self, fmt: str) -> int:
@@ -39,7 +40,7 @@ class _Reader:
     def string(self, *, keep: bool = True) -> str:
         length = self.number("Q")
         if length > 262_144:
-            raise ValueError("GGUF metadata string is too large.")
+            raise ValueError(tr("GGUF metadata string is too large."))
         data = self.read(length)
         return data.decode("utf-8") if keep else ""
 
@@ -50,7 +51,7 @@ class _Reader:
         if kind == 9:
             subtype, length = self.number("I"), self.number("Q")
             if length > 1_000_000 or subtype not in (*widths, 8):
-                raise ValueError("Unsupported GGUF metadata array.")
+                raise ValueError(tr("Unsupported GGUF metadata array."))
             if subtype == 8:
                 for _ in range(length):
                     self.string(keep=False)
@@ -58,46 +59,50 @@ class _Reader:
                 self.read(length * widths[subtype])
             return None
         if kind not in widths:
-            raise ValueError("Unsupported GGUF metadata value.")
+            raise ValueError(tr("Unsupported GGUF metadata value."))
         data = self.read(widths[kind])
         return int.from_bytes(data, "little") if keep else None
 
 
 def inspect_gguf(path: Path, profile: str = "auto") -> GgufInfo:
     if profile not in PROFILES:
-        raise ValueError("Unknown prompt profile.")
+        raise ValueError(tr("Unknown prompt profile."))
     size = path.stat().st_size
     if not path.is_file() or path.suffix.lower() != ".gguf" or not 24 <= size <= 32 * 2**30:
-        raise ValueError("Choose one complete GGUF language model (up to 32 GiB).")
+        raise ValueError(tr("Choose one complete GGUF language model (up to 32 GiB)."))
     metadata: dict[str, str | int | None] = {}
     wanted = {"general.name", "general.architecture", "tokenizer.chat_template", "split.count"}
     with path.open("rb") as stream:
         reader = _Reader(stream, size)
         if reader.read(4) != b"GGUF" or reader.number("I") not in (2, 3):
-            raise ValueError("This is not a supported GGUF v2/v3 file.")
+            raise ValueError(tr("This is not a supported GGUF v2/v3 file."))
         tensors, count = reader.number("Q"), reader.number("Q")
         if not 1 <= tensors <= 100_000 or count > 100_000:
-            raise ValueError("This is not a complete language model.")
+            raise ValueError(tr("This is not a complete language model."))
         for _ in range(count):
             key = reader.string()
             value = reader.value(reader.number("I"), keep=key in wanted)
             if key in wanted:
                 if key in metadata:
-                    raise ValueError("Duplicate GGUF metadata field.")
+                    raise ValueError(tr("Duplicate GGUF metadata field."))
                 metadata[key] = value
     if metadata.get("split.count", 1) != 1:
-        raise ValueError("Split GGUF models are not supported yet. Choose a single-file version.")
+        raise ValueError(
+            tr("Split GGUF models are not supported yet. Choose a single-file version.")
+        )
     architecture = metadata.get("general.architecture")
     if not isinstance(architecture, str) or not re.fullmatch(r"[a-z0-9_-]{1,64}", architecture):
-        raise ValueError("Missing or invalid model architecture.")
+        raise ValueError(tr("Missing or invalid model architecture."))
     if any(term in architecture for term in ("bert", "clip", "embedding")):
-        raise ValueError("Choose a text-generation model, not an embedding or vision projector.")
+        raise ValueError(
+            tr("Choose a text-generation model, not an embedding or vision projector.")
+        )
     template = metadata.get("tokenizer.chat_template", "")
     if not isinstance(template, str) or len(template) > 65_536:
-        raise ValueError("The embedded chat template is unsupported.")
+        raise ValueError(tr("The embedded chat template is unsupported."))
     if "source_lang_code" in template:
         raise ValueError(
-            "TranslateGemma needs a specialized translation profile; it is not supported yet."
+            tr("TranslateGemma needs a specialized translation profile; it is not supported yet.")
         )
     if profile == "auto":
         profile = "gemma4" if architecture == "gemma4" else "embedded"
@@ -108,11 +113,13 @@ def inspect_gguf(path: Path, profile: str = "auto") -> GgufInfo:
         ):
             profile = "plamo3"
     if profile == "plamo3" and architecture != "plamo3":
-        raise ValueError("The PLaMo 3 profile requires a PLaMo 3 model.")
+        raise ValueError(tr("The PLaMo 3 profile requires a PLaMo 3 model."))
     if profile == "gemma4" and architecture != "gemma4":
-        raise ValueError("The Gemma 4 profile requires a Gemma 4 model.")
+        raise ValueError(tr("The Gemma 4 profile requires a Gemma 4 model."))
     if profile == "embedded" and not template:
-        raise ValueError("No embedded chat template. Select the model's documented prompt profile.")
+        raise ValueError(
+            tr("No embedded chat template. Select the model's documented prompt profile.")
+        )
     name = metadata.get("general.name") or path.stem
     name = " ".join(str(name).split())[:100]
     return GgufInfo(name, architecture, template, size, profile)
@@ -131,7 +138,7 @@ def fingerprint(path: Path, progress: Progress, cancel: threading.Event) -> tupl
     after = path.stat()
     if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
         raise ValueError(
-            "The model changed while it was being checked. Retry after copying finishes."
+            tr("The model changed while it was being checked. Retry after copying finishes.")
         )
     return digest.hexdigest(), received
 
@@ -165,13 +172,13 @@ def read_registry(path: Path | None = None) -> tuple[ImportedModel, ...]:
     if not path.exists():
         return ()
     if path.stat().st_size > 262_144:
-        raise ValueError("Imported model list is too large.")
+        raise ValueError(tr("Imported model list is too large."))
     data = json.loads(path.read_text("utf-8"))
     if not isinstance(data, dict) or data.get("version") != 1:
-        raise ValueError("Unsupported imported model list.")
+        raise ValueError(tr("Unsupported imported model list."))
     entries = data.get("models")
     if not isinstance(entries, list) or len(entries) > 32:
-        raise ValueError("Imported model list must contain at most 32 models.")
+        raise ValueError(tr("Imported model list must contain at most 32 models."))
     models = []
     for entry in entries:
         try:
@@ -190,11 +197,11 @@ def read_registry(path: Path | None = None) -> tuple[ImportedModel, ...]:
                 or not 24 <= model.size <= 32 * 2**30
                 or not re.fullmatch(r"[a-z0-9_-]{1,64}", model.architecture)
             ):
-                raise ValueError("Invalid imported model registration.")
+                raise ValueError(tr("Invalid imported model registration."))
         except (TypeError, KeyError) as error:
-            raise ValueError("Invalid imported model registration.") from error
+            raise ValueError(tr("Invalid imported model registration.")) from error
         if any(m.key == model.key for m in models):
-            raise ValueError("Duplicate imported model registration.")
+            raise ValueError(tr("Duplicate imported model registration."))
         models.append(model)
     return tuple(models)
 
@@ -208,7 +215,7 @@ def save_registration(
     if not remove:
         models.append(model)
     if len(models) > 32:
-        raise ValueError("Remove an imported model before adding another (limit 32).")
+        raise ValueError(tr("Remove an imported model before adding another (limit 32)."))
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}-{uuid4().hex}.tmp")
     try:

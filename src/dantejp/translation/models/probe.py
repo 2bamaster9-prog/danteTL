@@ -10,6 +10,7 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 
+from dantejp.i18n import tr
 from dantejp.paths import module_command, state_root
 from dantejp.runtime.model_store import Cancelled
 from dantejp.runtime.setup_process import run_setup_command
@@ -26,13 +27,13 @@ class ImportTest:
 
     def run(self, progress: Progress, cancel: threading.Event) -> None:
         model = describe(self.path, self.profile, progress, cancel)
-        progress(ModelProgress("Waiting for the previous translation model to unload…"))
+        progress(ModelProgress(tr("Waiting for the previous translation model to unload…")))
         deadline = time.monotonic() + 180
         while not self.gate.wait(0.1):
             if cancel.is_set():
                 raise Cancelled()
             if time.monotonic() >= deadline:
-                raise RuntimeError("Previous model is still busy. Stop capture and retry.")
+                raise RuntimeError(tr("Previous model is still busy. Stop capture and retry."))
         if cancel.is_set():
             raise Cancelled()
         root = state_root() / "data/import-probes"
@@ -41,7 +42,12 @@ class ImportTest:
             spec, result = Path(directory) / "model.json", Path(directory) / "result.json"
             spec.write_text(json.dumps(asdict(model)), "utf-8")
             progress(
-                ModelProgress(f"Testing on {self.device.upper()}… First GPU use may take a minute.")
+                ModelProgress(
+                    tr(
+                        "Testing on {value}… First GPU use may take a minute.",
+                        value=self.device.upper(),
+                    )
+                )
             )
             offloaded = 0
 
@@ -66,11 +72,11 @@ class ImportTest:
                 timeout=180,
             )
             if result.stat().st_size > 32_768:
-                raise ValueError("Oversized compatibility result.")
+                raise ValueError(tr("Oversized compatibility result."))
             data = json.loads(result.read_text("utf-8"))
             if self.device != "cpu" and not offloaded:
                 raise RuntimeError(
-                    "No GPU layers were observed. Select the CPU runtime or check acceleration."
+                    tr("No GPU layers were observed. Select the CPU runtime or check acceleration.")
                 )
             self.result = ProbeResult(
                 model,
@@ -80,7 +86,9 @@ class ImportTest:
                 offloaded,
             )
         progress(
-            ModelProgress("Local test completed. Review the translations before adding the model.")
+            ModelProgress(
+                tr("Local test completed. Review the translations before adding the model.")
+            )
         )
 
 
@@ -94,7 +102,7 @@ def main() -> None:
     spec, output, device = sys.argv[1:]
     model = ImportedModel(**json.loads(Path(spec).read_text("utf-8")))
     with patch.object(
-        socket.socket, "connect", side_effect=RuntimeError("Probe must stay offline")
+        socket.socket, "connect", side_effect=RuntimeError(tr("Probe must stay offline"))
     ):
         start = time.monotonic()
         engine = GgufBackend(model, device=device, verbose=True)

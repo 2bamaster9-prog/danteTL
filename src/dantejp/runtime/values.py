@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+from dantejp.i18n import mark
+
 
 @dataclass(frozen=True, slots=True)
 class RuntimeProfile:
@@ -14,27 +16,23 @@ class RuntimeProfile:
 PROFILES = (
     RuntimeProfile(
         "nvidia",
-        "NVIDIA GPU — CUDA",
+        mark("NVIDIA GPU — CUDA"),
         ("gpu", "gemma"),
-        "Accelerates supported recognition and translation engines with CUDA 13. "
-        "Downloads about 1.3 GB "
-        "of NVIDIA/ONNX libraries, plus app dependencies. Model downloads are separate. "
-        "An up-to-date NVIDIA driver is required; system drivers are not changed.",
+        mark(
+            "GPU recognition and translation. Requires a CUDA 13-compatible NVIDIA driver. "
+            "About 1.3 GB plus app dependencies."
+        ),
     ),
     RuntimeProfile(
         "amd",
-        "GPU — Vulkan",
+        mark("GPU — Vulkan"),
         ("cpu", "gemma-vulkan"),
-        "Accelerates supported translation engines with Vulkan; recognition stays on CPU. "
-        "Requires a Vulkan-capable graphics driver. Radeon inference still needs testing "
-        "on your card; experimental DirectML OCR is not installed by this option.",
+        mark("GPU translation with a Vulkan-compatible driver. Recognition uses the CPU."),
     ),
     RuntimeProfile(
         "cpu",
         "CPU",
         ("cpu", "llm-cpu"),
-        "Runs local recognition and translation without GPU dependencies. "
-        "Larger language models may translate more slowly. CPU support is included in the "
-        "standalone app. Your downloaded models are kept when switching.",
+        mark("Recognition and translation on the CPU. Included in the standalone app."),
     ),
 )

@@ -7,6 +7,7 @@ from collections import deque
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
+from dantejp.i18n import tr
 from dantejp.runtime.owned_process import OwnedProcess
 from dantejp.runtime.setup_values import Cancelled
 
@@ -60,7 +61,7 @@ def run_setup_command(
                 raise Cancelled()
             if time.monotonic() > deadline:
                 raise RuntimeError(
-                    "Setup timed out. Check your connection and GPU driver, then retry."
+                    tr("Setup timed out. Check your connection and GPU driver, then retry.")
                 )
         reader.join(timeout=2)
         if cancel.is_set():
@@ -68,7 +69,13 @@ def run_setup_command(
         if process.returncode:
             with lock:
                 details = "\n".join(tail)
-            raise RuntimeError(f"Setup command failed ({process.returncode}).\n{details}")
+            raise RuntimeError(
+                tr(
+                    "Setup command failed ({returncode}).\n{details}",
+                    returncode=process.returncode,
+                    details=details,
+                )
+            )
     finally:
         process.close()
         if reader.ident is not None:

@@ -4,6 +4,7 @@ import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 
+from dantejp.i18n import tr
 from dantejp.paths import is_standalone
 
 
@@ -37,12 +38,24 @@ def asset_directory(primary: Path, assets: tuple[ModelAsset, ...], bundled: Path
 
 
 def validate_asset(path: Path, asset: ModelAsset, setup: str | None = None) -> None:
-    recovery = "Open Models and choose Download or Verify / repair."
+    recovery = tr("Open Models and choose Download or Verify / repair.")
     if setup and not is_standalone():
-        recovery += f" You can also run {setup}."
+        recovery += tr(" You can also run {setup}.", setup=setup)
     if not path.is_file() or path.stat().st_size != asset.size:
-        raise RuntimeError(f"Missing or incomplete model asset: {asset.filename}. {recovery}")
+        raise RuntimeError(
+            tr(
+                "Missing or incomplete model asset: {filename}. {recovery}",
+                filename=asset.filename,
+                recovery=recovery,
+            )
+        )
     with path.open("rb") as source:
         digest = hashlib.file_digest(source, "sha256").hexdigest()
     if digest != asset.sha256:
-        raise RuntimeError(f"Model checksum mismatch: {asset.filename}. {recovery}")
+        raise RuntimeError(
+            tr(
+                "Model checksum mismatch: {filename}. {recovery}",
+                filename=asset.filename,
+                recovery=recovery,
+            )
+        )

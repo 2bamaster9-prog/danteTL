@@ -2,9 +2,11 @@
 
 from dataclasses import dataclass
 
+from dantejp.i18n import mark
+
 RECOMMENDED_TRANSLATION = "gemma"
 MODEL_ORDER = ("gemma", "gemma-e4b", "plamo-2b", "plamo-0.8b", "qwen35-4b", "ocr")
-COMPARISON_NOTE = "Practical ratings from tests and player feedback; results vary by game."
+COMPARISON_NOTE = mark("Practical ratings from tests and player feedback; results vary by game.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,23 +25,37 @@ class ModelAdvice:
     license: str
 
 
-GOOD = Rating("✓ Good", "success", "Generally useful in testing; occasional errors remain.")
-MIXED = Rating("~ Mixed", "warning", "Can change meaning or produce awkward phrasing.")
-TERMS = Rating(
-    "✕ Unreliable",
-    "error",
-    "Player testing found stat errors such as Critical Rate becoming Heart Rate. "
-    "Our earlier small synthetic comparison did not expose this weakness.",
+GOOD = Rating(
+    mark("✓ Good"), "success", mark("Generally useful in testing; occasional errors remain.")
 )
-FAST = Rating("✓ Fast", "success", "Responsive on the tested GPU; CPU and busy scenes are slower.")
-VERY_FAST = Rating("✓ Very fast", "success", "Among the quickest options in our local tests.")
-SLOW = Rating("✕ Slow", "error", "Substantially slower than Gemma with the app's current settings.")
-LOW = Rating("✓ Low", "success", "Lower resource use relative to the other offered models.")
+MIXED = Rating(mark("~ Mixed"), "warning", mark("Can change meaning or produce awkward phrasing."))
+TERMS = Rating(
+    mark("✕ Unreliable"),
+    "error",
+    mark(
+        "Player testing found stat errors such as Critical Rate becoming Heart Rate. "
+        "Our earlier small synthetic comparison did not expose this weakness."
+    ),
+)
+FAST = Rating(
+    mark("✓ Fast"), "success", mark("Responsive on the tested GPU; CPU and busy scenes are slower.")
+)
+VERY_FAST = Rating(
+    mark("✓ Very fast"), "success", mark("Among the quickest options in our local tests.")
+)
+SLOW = Rating(
+    mark("✕ Slow"),
+    "error",
+    mark("Substantially slower than Gemma with the app's current settings."),
+)
+LOW = Rating(
+    mark("✓ Low"), "success", mark("Lower resource use relative to the other offered models.")
+)
 MODERATE = Rating(
-    "~ Moderate", "warning", "Needs working memory in addition to downloaded weights."
+    mark("~ Moderate"), "warning", mark("Needs working memory in addition to downloaded weights.")
 )
 HIGH = Rating(
-    "! High", "warning", "The largest offered model; leave RAM/VRAM available for the game."
+    "! High", "warning", mark("The largest offered model; leave RAM/VRAM available for the game.")
 )
 
 ADVICE = {

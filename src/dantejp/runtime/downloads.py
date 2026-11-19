@@ -14,6 +14,7 @@ from packaging.markers import Marker, default_environment
 from packaging.tags import compatible_tags, cpython_tags
 from packaging.utils import parse_wheel_filename
 
+from dantejp.i18n import tr
 from dantejp.runtime.download_transport import download_file
 from dantejp.runtime.model_store import Cancelled
 from dantejp.runtime.setup_values import DownloadProgress, ModelProgress, Progress
@@ -34,7 +35,7 @@ def locked_wheels(path: Path, *, cpu_wheel: Path | None = None) -> tuple[Runtime
     with path.open("rb") as stream:
         lock = tomllib.load(stream)
     if lock.get("lock-version") != "1.0" or not 0 < len(lock.get("packages", ())) <= 128:
-        raise ValueError("Unsupported runtime lock export.")
+        raise ValueError(tr("Unsupported runtime lock export."))
     environment = {key: str(value) for key, value in default_environment().items()} | {
         "sys_platform": "win32",
         "os_name": "nt",
@@ -64,16 +65,16 @@ def locked_wheels(path: Path, *, cpu_wheel: Path | None = None) -> tuple[Runtime
                 not re.fullmatch(r"[A-Za-z0-9_.+-]+\.whl", filename)
                 or urlsplit(url).scheme != "https"
             ):
-                raise ValueError("Invalid runtime wheel URL.")
+                raise ValueError(tr("Invalid runtime wheel URL."))
             _, _, _, wheel_tags = parse_wheel_filename(filename)
             compatible = [ranks[tag] for tag in wheel_tags if tag in ranks]
             if compatible:
                 digest = entry.get("hashes", {}).get("sha256", "")
                 if not re.fullmatch(r"[a-f0-9]{64}", digest):
-                    raise ValueError("A runtime wheel is missing its pinned SHA-256.")
+                    raise ValueError(tr("A runtime wheel is missing its pinned SHA-256."))
                 size = entry.get("size", 0)
                 if not isinstance(size, int) or not 0 <= size <= 4 * 2**30:
-                    raise ValueError("Invalid runtime wheel size.")
+                    raise ValueError(tr("Invalid runtime wheel size."))
                 wheel = RuntimeArtifact(package["name"], filename, url, digest, size)
                 candidates.append((min(compatible), wheel))
         if not candidates:
@@ -82,8 +83,10 @@ def locked_wheels(path: Path, *, cpu_wheel: Path | None = None) -> tuple[Runtime
                 # Install the included complete wheel; players never need a C++ compiler.
                 if cpu_wheel is None or not cpu_wheel.is_file():
                     raise ValueError(
-                        "The upstream CPU wheel is missing. Extract the complete release, or "
-                        "run tools/build.ps1 -CpuWheelOnly in a source checkout."
+                        tr(
+                            "The upstream CPU wheel is missing. Extract the complete release, or "
+                            "run tools/build.ps1 -CpuWheelOnly in a source checkout."
+                        )
                     )
                 name, version, _, wheel_tags = parse_wheel_filename(cpu_wheel.name)
                 if (
@@ -91,20 +94,22 @@ def locked_wheels(path: Path, *, cpu_wheel: Path | None = None) -> tuple[Runtime
                     or str(version) != package["version"]
                     or not any(tag in ranks for tag in wheel_tags)
                 ):
-                    raise ValueError("Bundled CPU wheel does not match the locked dependency.")
+                    raise ValueError(tr("Bundled CPU wheel does not match the locked dependency."))
                 fields = cpu_wheel.with_suffix(".whl.sha256").read_text("ascii").split()
                 if (
                     len(fields) != 2
                     or fields[1] != cpu_wheel.name
                     or not re.fullmatch(r"[a-f0-9]{64}", fields[0])
                 ):
-                    raise ValueError("Invalid bundled CPU wheel checksum.")
+                    raise ValueError(tr("Invalid bundled CPU wheel checksum."))
                 result.append(RuntimeArtifact(name, cpu_wheel.name, "", fields[0], 0, cpu_wheel))
                 continue
-            raise ValueError(f"No pinned Windows Python 3.12 wheel for {package['name']}.")
+            raise ValueError(
+                tr("No pinned Windows Python 3.12 wheel for {value}.", value=package["name"])
+            )
         result.append(min(candidates, key=lambda item: item[0])[1])
     if len({w.name for w in result}) != len(result):
-        raise ValueError("Conflicting runtime distributions in export.")
+        raise ValueError(tr("Conflicting runtime distributions in export."))
     return tuple(result)
 
 
@@ -135,19 +140,23 @@ def download_artifact(
     _check(cancel)
     if wheel.local_path is not None:
         if not _valid(wheel.local_path, wheel, cancel):
-            raise RuntimeError("Bundled CPU wheel checksum mismatch. Extract the complete release.")
-        progress(ModelProgress("Using the included CPU runtime wheel."))
+            raise RuntimeError(
+                tr("Bundled CPU wheel checksum mismatch. Extract the complete release.")
+            )
+        progress(ModelProgress(tr("Using the included CPU runtime wheel.")))
         return wheel.local_path
     directory = cache / wheel.sha256
     directory.mkdir(parents=True, exist_ok=True)
     destination = directory / wheel.filename
     if not destination.resolve().is_relative_to(cache.resolve()):
-        raise ValueError("Runtime download cache path escaped its directory.")
+        raise ValueError(tr("Runtime download cache path escaped its directory."))
     if _valid(destination, wheel, cancel):
-        progress(ModelProgress(f"Reusing verified {wheel.name}."))
+        progress(ModelProgress(tr("Reusing verified {name}.", name=wheel.name)))
         return destination
     if offline:
-        raise RuntimeError(f"Verified runtime asset is not cached: {wheel.filename}")
+        raise RuntimeError(
+            tr("Verified runtime asset is not cached: {filename}", filename=wheel.filename)
+        )
     temporary = None
     try:
         with tempfile.NamedTemporaryFile(dir=directory, suffix=".part", delete=False) as output:
@@ -156,7 +165,7 @@ def download_artifact(
         def report(received: int, total: int) -> None:
             progress(
                 ModelProgress(
-                    f"Downloading {wheel.name}…",
+                    tr("Downloading {name}…", name=wheel.name),
                     download=DownloadProgress(wheel.filename, received, wheel.size or total),
                 )
             )
@@ -164,7 +173,9 @@ def download_artifact(
         download_file(wheel.url, temporary, wheel.size or 4 * 2**30, report, cancel)
         _check(cancel)
         if not _valid(temporary, wheel, cancel):
-            raise RuntimeError(f"Checksum/size mismatch for {wheel.name}. Retry setup.")
+            raise RuntimeError(
+                tr("Checksum/size mismatch for {name}. Retry setup.", name=wheel.name)
+            )
         _check(cancel)
         os.replace(temporary, destination)
         return destination
@@ -185,7 +196,16 @@ def prepare_wheels(
     wheels = locked_wheels(export, cpu_wheel=cpu_wheel)
     requirements = []
     for number, wheel in enumerate(wheels, 1):
-        progress(ModelProgress(f"Checking dependency {number}/{len(wheels)} · {wheel.name}…"))
+        progress(
+            ModelProgress(
+                tr(
+                    "Checking dependency {number}/{count} · {name}…",
+                    number=number,
+                    count=len(wheels),
+                    name=wheel.name,
+                )
+            )
+        )
         path = download_artifact(wheel, cache, progress, cancel, offline=offline)
         requirements.append(f"{path.resolve().as_uri()} --hash=sha256:{wheel.sha256}")
     path = export.with_name("verified-wheels.txt")

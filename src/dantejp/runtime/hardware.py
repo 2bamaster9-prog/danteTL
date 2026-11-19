@@ -6,6 +6,7 @@ import threading
 from typing import Any
 from uuid import UUID
 
+from dantejp.i18n import tr
 from dantejp.runtime.hardware_values import Adapter as Adapter
 from dantejp.runtime.hardware_values import HardwareStatus as HardwareStatus
 from dantejp.runtime.hardware_values import recommended_profile as recommended_profile
@@ -75,7 +76,9 @@ def detect_adapters() -> tuple[Adapter, ...]:
     iid = (ct.c_ubyte * 16).from_buffer_copy(UUID("770aae78-f26f-4dba-a829-253c83d1b387").bytes_le)
     factory = ct.c_void_p()
     if create(iid, ct.byref(factory)) < 0:
-        raise OSError("Windows could not enumerate graphics adapters. Choose a runtime manually.")
+        raise OSError(
+            tr("Windows could not enumerate graphics adapters. Choose a runtime manually.")
+        )
     found = []
     try:
         enum = _method(factory, 12, ct.c_uint32, ct.POINTER(ct.c_void_p))
@@ -85,7 +88,7 @@ def detect_adapters() -> tuple[Adapter, ...]:
             if result & 0xFFFFFFFF == 0x887A0002:  # DXGI_ERROR_NOT_FOUND
                 break
             if result < 0:
-                raise OSError("Windows adapter enumeration failed. Choose a runtime manually.")
+                raise OSError(tr("Windows adapter enumeration failed. Choose a runtime manually."))
             try:
                 desc = _Description()
                 if _method(adapter, 10, ct.POINTER(_Description))(adapter, ct.byref(desc)) < 0:

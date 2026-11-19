@@ -7,6 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
+from dantejp.i18n import tr
 from dantejp.runtime.downloads import locked_wheels
 
 RUNTIME_PYTHON = "3.12.16"
@@ -20,7 +21,7 @@ def _wheels(export: Path, modified: int, size: int, cpu: Path | None, checksum: 
 
 def expected_wheels(project: Path, profile: str) -> tuple[tuple[str, str], ...]:
     if profile not in ("cpu", "nvidia", "amd"):
-        raise ValueError("Unknown runtime profile.")
+        raise ValueError(tr("Unknown runtime profile."))
     export = project / "runtime-locks" / f"pylock.{profile}.toml"
     stat = export.stat()
     cpu = project / "cpu-runtime/llama_cpp_python-0.3.37-py3-none-win_amd64.whl"

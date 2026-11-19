@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
+from dantejp.i18n import mark, tr
 from dantejp.paths import is_standalone, module_command, resource_root
 from dantejp.runtime.application import prepare_application
 from dantejp.runtime.owned_process import OwnedProcess
@@ -42,7 +43,7 @@ class RuntimeRestart:
         cancel: threading.Event | None = None,
     ) -> None:
         if verified_runtime(root, target.name.split("-", 1)[0], target.name) != target.resolve():
-            raise ValueError("Runtime is no longer ready. Open Runtime setup and retry.")
+            raise ValueError(tr("Runtime is no longer ready. Open Runtime setup and retry."))
         self._on_cleanup = on_cleanup or (lambda: None)
         self.root, self.target = root, target
         token = uuid4().hex
@@ -94,14 +95,14 @@ class RuntimeRestart:
             self._close()
             self.receipt.unlink(missing_ok=True)
             raise RuntimeError(
-                "The new app could not start. Your current runtime is still selected."
+                tr("The new app could not start. Your current runtime is still selected.")
             )
         if time.monotonic() > self.deadline:
             # This process is ours and has not acknowledged startup; never kill another app.
             self._close()
             self.receipt.unlink(missing_ok=True)
             raise RuntimeError(
-                "Restart timed out. Your current runtime is still selected; retry setup."
+                tr("Restart timed out. Your current runtime is still selected; retry setup.")
             )
         return False
 
@@ -121,7 +122,7 @@ class RuntimeRestart:
 @dataclass(frozen=True)
 class RestartSnapshot:
     phase: Literal["starting", "draining", "ready", "failed"] = "starting"
-    message: str = "Opening DanteJP with the installed runtime…"
+    message: str = mark("Opening DanteJP with the installed runtime…")
     started_pid: int | None = None
 
 
@@ -155,7 +156,7 @@ class RestartOperation:
             self._snapshot = value
 
     def _draining(self) -> None:
-        self._set(RestartSnapshot("draining", "Stopping the unsuccessful replacement app…"))
+        self._set(RestartSnapshot("draining", tr("Stopping the unsuccessful replacement app…")))
 
     def _run(self, root: Path, target: Path, create: Callable[..., RuntimeRestart]) -> None:
         try:
@@ -164,7 +165,9 @@ class RestartOperation:
                 if self._cancelled.is_set():
                     restart.cancel()
                     self._set(
-                        RestartSnapshot("failed", "Restart cancelled. Current runtime retained.")
+                        RestartSnapshot(
+                            "failed", tr("Restart cancelled. Current runtime retained.")
+                        )
                     )
                     return
                 if restart.poll():
@@ -172,4 +175,4 @@ class RestartOperation:
                     return
                 self._cancelled.wait(0.05)
         except Exception as error:
-            self._set(RestartSnapshot("failed", str(error) or "Runtime restart failed."))
+            self._set(RestartSnapshot("failed", str(error) or tr("Runtime restart failed.")))

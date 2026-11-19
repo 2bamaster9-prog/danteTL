@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
 
+from dantejp.i18n import tr
 from dantejp.paths import is_standalone, module_command, resource_root
 from dantejp.runtime.model_store import Cancelled
 from dantejp.runtime.package import ApplicationWheel, bundled_application
@@ -18,7 +19,7 @@ from dantejp.runtime.setup_process import clean_runtime_environment, run_setup_c
 
 def _application_path(root: Path, name: str) -> Path:
     if not re.fullmatch(r"[a-f0-9]{64}-[a-f0-9]{32}", name):
-        raise ValueError("Invalid application install name.")
+        raise ValueError(tr("Invalid application install name."))
     base = (root / ".applications").resolve()
     candidate = base / name
     target = candidate.resolve()
@@ -28,7 +29,7 @@ def _application_path(root: Path, name: str) -> Path:
         or candidate.is_symlink()
         or candidate.is_junction()
     ):
-        raise ValueError("Application installation escapes user state.")
+        raise ValueError(tr("Application installation escapes user state."))
     return target
 
 
@@ -60,7 +61,7 @@ def _install_lock(root: Path, cancel: threading.Event):
             except OSError:
                 if time.monotonic() >= deadline:
                     raise RuntimeError(
-                        "Another app update is still running. Try launching again."
+                        tr("Another app update is still running. Try launching again.")
                     ) from None
                 cancel.wait(0.1)
         try:
@@ -114,7 +115,7 @@ def prepare_application(root: Path, python: Path, cancel: threading.Event) -> di
                 timeout=120,
             )
             if not wheel.installed_at(target):
-                raise RuntimeError("The app update did not install the expected wheel.")
+                raise RuntimeError(tr("The app update did not install the expected wheel."))
             environment["PYTHONPATH"] = str(target)
             profile = python.parent.parent.name.split("-", 1)[0]
             run_setup_command(
@@ -128,7 +129,7 @@ def prepare_application(root: Path, python: Path, cancel: threading.Event) -> di
             if cancel.is_set():
                 raise Cancelled()
             if bundled_application(project) != wheel:
-                raise RuntimeError("The release changed during its app update. Launch again.")
+                raise RuntimeError(tr("The release changed during its app update. Launch again."))
             pointer = root / "data/applications" / f"{wheel.sha256}.json"
             pointer.parent.mkdir(parents=True, exist_ok=True)
             temporary = target / "published.json"

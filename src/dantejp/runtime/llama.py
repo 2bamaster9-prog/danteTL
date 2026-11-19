@@ -9,6 +9,8 @@ from typing import Any
 
 from packaging.version import InvalidVersion, Version
 
+from dantejp.i18n import tr
+
 _dll_handles: list[Any] = []
 _load_lock = threading.Lock()
 _runtime: Any = None
@@ -64,7 +66,7 @@ def load_runtime(device: str) -> Any:
         if _modern(getattr(runtime, "__version__", "0")):
             ggml = importlib.import_module("llama_cpp._ggml")
             if runtime.__file__ is None:
-                raise RuntimeError("Language-model runtime has no library location.")
+                raise RuntimeError(tr("Language-model runtime has no library location."))
             directory = Path(runtime.__file__).parent / "lib"
             ggml.ggml_backend_load_all_from_path(str(directory).encode("utf-8"))
         _runtime = runtime

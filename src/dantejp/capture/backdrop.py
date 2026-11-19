@@ -6,6 +6,7 @@ from ctypes import wintypes as wt
 
 from dantejp.capture.windows import Windows
 from dantejp.domain import MAX_OVERLAY_LABELS, Rect
+from dantejp.i18n import tr
 
 
 class _AccentPolicy(ctypes.Structure):
@@ -89,7 +90,7 @@ class LabelBackdrops:
             19, ctypes.cast(ctypes.pointer(policy), ctypes.c_void_p), ctypes.sizeof(policy)
         )
         if self._accent is None or not self._accent(hwnd, ctypes.byref(attr)):
-            raise OSError("Windows declined the native blur effect.")
+            raise OSError(tr("Windows declined the native blur effect."))
         self._windows.set_overlay_capture(hwnd, included)
         return hwnd
 

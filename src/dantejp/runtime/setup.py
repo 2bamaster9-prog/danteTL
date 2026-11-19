@@ -11,6 +11,7 @@ from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
+from dantejp.i18n import tr
 from dantejp.paths import is_standalone, module_command, runtime_project, state_root
 from dantejp.runtime.application import prepare_application
 from dantejp.runtime.downloads import prepare_wheels
@@ -53,7 +54,7 @@ def _atomic_json(path: Path, value: dict[str, str]) -> None:
 def runtime_path(root: Path, name: str) -> Path:
     """Receipts may select only generated environments inside this project."""
     if not re.fullmatch(r"(?:nvidia|amd|cpu)-[a-f0-9]{32}", name):
-        raise ValueError("Invalid runtime environment name.")
+        raise ValueError(tr("Invalid runtime environment name."))
     base = (root / ".runtimes").resolve()
     candidate = base / name
     target = candidate.resolve()
@@ -63,7 +64,7 @@ def runtime_path(root: Path, name: str) -> Path:
         or candidate.is_symlink()
         or candidate.is_junction()
     ):
-        raise ValueError("Runtime environment escapes this project.")
+        raise ValueError(tr("Runtime environment escapes this project."))
     return target
 
 
@@ -116,7 +117,7 @@ def selected_runtime(root: Path) -> Path | None:
 def select_runtime(root: Path, target: Path) -> None:
     key = target.name.split("-", 1)[0]
     if verified_runtime(root, key, target.name) != target.resolve():
-        raise ValueError("Only a verified runtime can be selected.")
+        raise ValueError(tr("Only a verified runtime can be selected."))
     _atomic_json(root / "data/runtime.json", {"profile": key, "environment": target.name})
 
 
@@ -125,7 +126,7 @@ def install_runtime(
 ) -> None:
     """Explicit action only. Reuse completed installs; never mutate a loaded environment."""
     if profile not in PROFILES:
-        raise ValueError("Unknown runtime profile.")
+        raise ValueError(tr("Unknown runtime profile."))
     root = root.resolve()
     # Exclusive across app copies sharing this project. A crash releases the OS lock.
     import msvcrt
@@ -141,7 +142,7 @@ def install_runtime(
             msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
         except OSError as error:
             raise RuntimeError(
-                "Another DanteJP instance is already installing a runtime."
+                tr("Another DanteJP instance is already installing a runtime.")
             ) from error
         try:
             _install(root, profile, progress, cancel)
@@ -189,20 +190,22 @@ def _install(
         try:
             command(
                 module_command(ready / "Scripts/python.exe", "dantejp.runtime.probe", profile.key),
-                "Checking the installed runtime…",
+                tr("Checking the installed runtime…"),
                 timeout=180,
             )
         except (OSError, RuntimeError):
             progress(
-                ModelProgress("Existing runtime needs repair. Building a separate replacement…")
+                ModelProgress(tr("Existing runtime needs repair. Building a separate replacement…"))
             )
         else:
-            progress(ModelProgress("Installed runtime checks passed. Restart to use it."))
+            progress(ModelProgress(tr("Installed runtime checks passed. Restart to use it.")))
             return
 
     uv = project.parent / "uv.exe" if is_standalone() else root / ".bootstrap/Scripts/uv.exe"
     if is_standalone() and not uv.is_file():
-        raise RuntimeError("The bundled installer is missing. Extract the complete DanteJP ZIP.")
+        raise RuntimeError(
+            tr("The bundled installer is missing. Extract the complete DanteJP ZIP.")
+        )
     if not uv.is_file():
         located = shutil.which("uv")
         if located:
@@ -210,11 +213,11 @@ def _install(
         else:
             bootstrap = root / ".runtime-bootstrap"
             command(
-                [sys.executable, "-m", "venv", str(bootstrap)], "1/3 · Preparing the installer…"
+                [sys.executable, "-m", "venv", str(bootstrap)], tr("1/3 · Preparing the installer…")
             )
             command(
                 [str(bootstrap / "Scripts/python.exe"), "-m", "pip", "install", "uv==0.13.8"],
-                "1/3 · Downloading the installer…",
+                tr("1/3 · Downloading the installer…"),
             )
             uv = bootstrap / "Scripts/uv.exe"
     export = target / "pylock.toml"
@@ -237,13 +240,13 @@ def _install(
     try:
         command(
             [str(uv), "venv", "--python", RUNTIME_PYTHON, str(target)],
-            "Preparing private Python… (installer-managed; byte progress unavailable)",
+            tr("Preparing private Python… (installer-managed; byte progress unavailable)"),
             step=1,
         )
         if is_standalone():
             shutil.copyfile(project / "runtime-locks" / f"pylock.{profile.key}.toml", export)
         else:
-            command(args, "Reading locked dependencies…", step=2)
+            command(args, tr("Reading locked dependencies…"), step=2)
         requirements = prepare_wheels(
             export,
             root / ".runtime-downloads/wheels",
@@ -271,11 +274,11 @@ def _install(
                 "--requirements",
                 str(requirements),
             ],
-            "Installing verified dependencies…",
+            tr("Installing verified dependencies…"),
             step=3,
         )
         if is_standalone():
-            progress(ModelProgress("Preparing the application wheel…", stage=3, stages=4))
+            progress(ModelProgress(tr("Preparing the application wheel…"), stage=3, stages=4))
             environment.update(prepare_application(root, target / "Scripts/python.exe", cancel))
         else:
             command(
@@ -289,12 +292,12 @@ def _install(
                     "--editable",
                     str(project),
                 ],
-                "Connecting the source application…",
+                tr("Connecting the source application…"),
                 step=3,
             )
         command(
             module_command(target / "Scripts/python.exe", "dantejp.runtime.probe", profile.key),
-            "Checking installed libraries and GPU support…",
+            tr("Checking installed libraries and GPU support…"),
             timeout=180,
             step=4,
         )
@@ -302,7 +305,7 @@ def _install(
             raise Cancelled()
         if _fingerprint(root, profile.key) != fingerprint:
             raise RuntimeError(
-                "The dependencies changed during setup. Retry with the current release."
+                tr("The dependencies changed during setup. Retry with the current release.")
             )
         receipt = {"environment": target.name, "fingerprint": fingerprint}
         _atomic_json(target / "ready.json", receipt)
@@ -314,5 +317,7 @@ def _install(
             shutil.rmtree(checked)
         raise
     progress(
-        ModelProgress("Runtime installed and checked. Restart to use it. Model files were kept.")
+        ModelProgress(
+            tr("Runtime installed and checked. Restart to use it. Model files were kept.")
+        )
     )

@@ -14,6 +14,7 @@ from dantejp.domain import (
     WindowTarget,
     client_crop,
 )
+from dantejp.i18n import tr
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +74,7 @@ class CaptureSession:
         show_border: bool = True,
     ) -> None:
         if not 1 <= fps <= 30:
-            raise ValueError("Capture rate must be between 1 and 30.")
+            raise ValueError(tr("Capture rate must be between 1 and 30."))
         self.target = target
         self.mailbox = FrameMailbox(on_change)
         self._windows = windows
@@ -93,7 +94,7 @@ class CaptureSession:
 
     def start(self) -> None:
         if self._thread is not None:
-            raise RuntimeError("A capture session can only be started once.")
+            raise RuntimeError(tr("A capture session can only be started once."))
         self._thread = threading.Thread(target=self._run, name="capture-owner", daemon=True)
         self._thread.start()
 
@@ -186,8 +187,10 @@ class CaptureSession:
                     return True
                 if self._sequence == first_sequence and self._clock() - started > 10:
                     raise RuntimeError(
-                        "No usable frame arrived. Restore the window and try windowed or "
-                        "borderless mode. Protected or unsupported windows cannot be captured."
+                        tr(
+                            "No usable frame arrived. Restore the window and try windowed or "
+                            "borderless mode. Protected or unsupported windows cannot be captured."
+                        )
                     )
         finally:
             if control.is_finished():

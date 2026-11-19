@@ -1,5 +1,7 @@
 """Unicode edit comparisons without diff alignment heuristics or native dependencies."""
 
+from dantejp.i18n import tr
+
 
 class LcsSimilarity:
     """Reusable bit-parallel LCS / normalized Indel similarity for one source.
@@ -40,7 +42,7 @@ def within_edits(first: str, second: str, limit: int) -> bool:
     with O(limit) DP storage; Unicode code points are compared, not encoded bytes.
     """
     if limit < 0:
-        raise ValueError("The edit limit must be nonnegative.")
+        raise ValueError(tr("The edit limit must be nonnegative."))
     if abs(len(first) - len(second)) > limit:
         return False
     if first == second:

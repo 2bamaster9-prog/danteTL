@@ -8,6 +8,8 @@ from urllib.parse import parse_qs, urlsplit
 
 from packaging.utils import parse_wheel_filename
 
+from dantejp.i18n import tr
+
 
 @dataclass(frozen=True, slots=True)
 class ApplicationWheel:
@@ -43,16 +45,18 @@ def bundled_application(project: Path) -> ApplicationWheel:
     """Small checksum reads are safe during readiness checks; installation owns byte hashing."""
     wheels = tuple((project / "application").glob("dantejp-*.whl"))
     if len(wheels) != 1:
-        raise ValueError("The bundled app wheel is missing or ambiguous. Extract the complete ZIP.")
+        raise ValueError(
+            tr("The bundled app wheel is missing or ambiguous. Extract the complete ZIP.")
+        )
     wheel = wheels[0]
     name, version, _, tags = parse_wheel_filename(wheel.name)
     if name != "dantejp" or {str(tag) for tag in tags} != {"py3-none-any"}:
-        raise ValueError("The bundled app wheel is invalid. Extract the complete ZIP.")
+        raise ValueError(tr("The bundled app wheel is invalid. Extract the complete ZIP."))
     checksum = wheel.with_suffix(".whl.sha256")
     if checksum.stat().st_size > 1024:
-        raise ValueError("Invalid app wheel checksum.")
+        raise ValueError(tr("Invalid app wheel checksum."))
     expected = checksum.read_text("ascii").strip()
     match = re.fullmatch(r"([a-f0-9]{64})  " + re.escape(wheel.name), expected)
     if not match:
-        raise ValueError("Invalid app wheel checksum. Extract the complete ZIP.")
+        raise ValueError(tr("Invalid app wheel checksum. Extract the complete ZIP."))
     return ApplicationWheel(wheel.resolve(), str(version), match[1])

@@ -2,9 +2,11 @@
 
 from dataclasses import dataclass
 
+from dantejp.i18n import mark
+
 PROFILES = {
-    "auto": "Automatic (recommended)",
-    "embedded": "Embedded chat template",
+    "auto": mark("Automatic (recommended)"),
+    "embedded": mark("Embedded chat template"),
     "gemma4": "Gemma 4",
     "plamo3": "PLaMo 3 Translate",
     "chatml": "ChatML",

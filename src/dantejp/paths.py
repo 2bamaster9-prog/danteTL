@@ -4,6 +4,8 @@ import os
 import sys
 from pathlib import Path
 
+from dantejp.i18n import tr
+
 
 def resource_root() -> Path:
     if frozen := getattr(sys, "_MEIPASS", None):
@@ -12,7 +14,7 @@ def resource_root() -> Path:
         # Managed Python imports its installed wheel. Only read-only assets belong to the ZIP.
         root = Path(resources)
         if not root.is_absolute() or not (root / "standalone.json").is_file():
-            raise ValueError("DANTEJP_RESOURCE_DIR must identify a complete standalone app.")
+            raise ValueError(tr("DANTEJP_RESOURCE_DIR must identify a complete standalone app."))
         return root
     return Path(__file__).resolve().parents[2]
 
@@ -28,11 +30,11 @@ def state_root() -> Path:
     if override := os.environ.get("DANTEJP_DATA_DIR"):
         path = Path(override)
         if not path.is_absolute():
-            raise ValueError("DANTEJP_DATA_DIR must be an absolute directory.")
+            raise ValueError(tr("DANTEJP_DATA_DIR must be an absolute directory."))
         return path
     local = os.environ.get("LOCALAPPDATA")
     if not local:
-        raise RuntimeError("Windows Local AppData is unavailable.")
+        raise RuntimeError(tr("Windows Local AppData is unavailable."))
     return Path(local) / "DanteJP"
 
 

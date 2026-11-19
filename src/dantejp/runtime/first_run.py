@@ -4,6 +4,7 @@ import threading
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from dantejp.i18n import tr
 from dantejp.runtime.hardware_values import HardwareStatus
 from dantejp.runtime.llama import supports_plamo
 from dantejp.runtime.model_store import Cancelled, ModelBundle, install_model
@@ -66,10 +67,10 @@ def run_setup(
         )
         target = ready_runtime(root, profile.key)
         if target is None:
-            raise RuntimeError("The installed runtime did not pass verification. Retry setup.")
+            raise RuntimeError(tr("The installed runtime did not pass verification. Retry setup."))
     progress(
         ModelProgress(
-            "Setup files are ready. Model preparation happens before first use.",
+            tr("Setup files are ready. Model preparation happens before first use."),
             stage=count,
             stages=count,
         )

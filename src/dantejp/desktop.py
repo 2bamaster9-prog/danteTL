@@ -7,6 +7,7 @@ import sys
 import time
 import traceback
 
+from dantejp.i18n import tr
 from dantejp.paths import state_root
 
 
@@ -14,7 +15,7 @@ def main() -> None:
     if sys.argv[1:2] == ["--module"]:
         module = sys.argv[2]
         if module != "dantejp" and not module.startswith("dantejp."):
-            raise ValueError("Only DanteJP modules may be launched by this entry point.")
+            raise ValueError(tr("Only DanteJP modules may be launched by this entry point."))
         sys.argv = [module, *sys.argv[3:]]
         runpy.run_module(module, run_name="__main__", alter_sys=True)
         return

@@ -5,6 +5,7 @@ import os
 from ctypes import wintypes as wt
 
 from dantejp.domain import Rect, WindowGeometry, WindowTarget
+from dantejp.i18n import tr
 
 
 class WindowUnavailable(RuntimeError):
@@ -117,14 +118,20 @@ class Windows:
         """Resolve only the currently focused eligible window, never an alternate selection."""
         target = self._capture_target(self.user.GetForegroundWindow())
         if target is None:
-            raise WindowUnavailable("Focus the game window, then press the capture hotkey again.")
+            raise WindowUnavailable(
+                tr("Focus the game window, then press the capture hotkey again.")
+            )
         if not self.is_foreground(target) or self.geometry(target).minimized:
-            raise WindowUnavailable("The focused window changed. Press the capture hotkey again.")
+            raise WindowUnavailable(
+                tr("The focused window changed. Press the capture hotkey again.")
+            )
         return target
 
     def geometry(self, target: WindowTarget) -> WindowGeometry:
         if not self.is_target(target):
-            raise WindowUnavailable("The selected window has closed. Refresh and select a window.")
+            raise WindowUnavailable(
+                tr("The selected window has closed. Refresh and select a window.")
+            )
         client = wt.RECT()
         window = wt.RECT()
         origin = wt.POINT(0, 0)
@@ -133,7 +140,7 @@ class Windows:
             and self.user.ClientToScreen(target.hwnd, ctypes.byref(origin))
             and self.user.GetWindowRect(target.hwnd, ctypes.byref(window))
         ):
-            raise WindowUnavailable("Could not read the selected window's geometry.")
+            raise WindowUnavailable(tr("Could not read the selected window's geometry."))
         visible = wt.RECT()
         result = self.dwm.DwmGetWindowAttribute(
             target.hwnd, 9, ctypes.byref(visible), ctypes.sizeof(visible)
@@ -163,7 +170,7 @@ class Windows:
         # WDA_NONE / WDA_EXCLUDEFROMCAPTURE affect desktop capture of this surface only.
         if not self.user.SetWindowDisplayAffinity(hwnd, 0 if included else 0x11):
             raise RuntimeError(
-                "Windows could not change whether screen capture includes the overlay."
+                tr("Windows could not change whether screen capture includes the overlay.")
             )
 
     def place_overlay(self, hwnd: int, bounds: Rect) -> None:

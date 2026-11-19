@@ -16,6 +16,8 @@ from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from typing import TextIO
 
+from dantejp.i18n import tr
+
 _launch_lock = threading.Lock()
 
 
@@ -29,7 +31,7 @@ def restore_child_output() -> None:
         kernel.GetStdHandle.restype = ct.c_void_p
         handle = kernel.GetStdHandle(-11 & 0xFFFFFFFF)
         if not handle or handle == ct.c_void_p(-1).value:
-            raise OSError("Download helper has no output pipe.")
+            raise OSError(tr("Download helper has no output pipe."))
         descriptor = msvcrt.open_osfhandle(handle, os.O_WRONLY)
         sys.stdout = os.fdopen(descriptor, "w", encoding="utf-8", errors="replace")
 
@@ -55,7 +57,7 @@ def _child_environment(environment: dict[str, str]) -> Iterator[dict[str, str]]:
         )
         clean["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
         if not kernel.SetDllDirectoryW(None):
-            raise OSError(ct.get_last_error(), "Could not isolate child library loading.")
+            raise OSError(ct.get_last_error(), tr("Could not isolate child library loading."))
         try:
             yield clean
         finally:
@@ -172,16 +174,16 @@ class OwnedProcess:
         if not self._job or not self._kernel.SetInformationJobObject(
             self._job, 9, ct.byref(limits), ct.sizeof(limits)
         ):
-            raise OSError(ct.get_last_error(), "Could not configure process ownership.")
+            raise OSError(ct.get_last_error(), tr("Could not configure process ownership."))
 
     def _assign(self) -> None:
         if not self._kernel.AssignProcessToJobObject(self._job, self._process):
-            raise OSError(ct.get_last_error(), "Could not isolate the subprocess.")
+            raise OSError(ct.get_last_error(), tr("Could not isolate the subprocess."))
         self._assigned = True
 
     def _resume(self, thread: int) -> None:
         if self._kernel.ResumeThread(thread) != 1:
-            raise OSError(ct.get_last_error(), "Could not start the isolated subprocess.")
+            raise OSError(ct.get_last_error(), tr("Could not start the isolated subprocess."))
 
     def poll(self) -> int | None:
         if self._process and self._api.WaitForSingleObject(self._process, 0) == 0:
@@ -192,7 +194,7 @@ class OwnedProcess:
         """Terminate and wait for all assigned descendants before releasing handles."""
         try:
             if self._job and not self._kernel.TerminateJobObject(self._job, 1):
-                raise OSError(ct.get_last_error(), "Could not terminate owned processes.")
+                raise OSError(ct.get_last_error(), tr("Could not terminate owned processes."))
             if self._process:
                 # Covers assignment failure as well as normal job termination.
                 if (not self._assigned or not self._job) and self.poll() is None:

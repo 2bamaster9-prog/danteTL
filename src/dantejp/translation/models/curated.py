@@ -3,6 +3,7 @@
 import hashlib
 from dataclasses import dataclass
 
+from dantejp.i18n import CatalogText, mark, tr
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
 from dantejp.paths import state_root
@@ -25,10 +26,10 @@ class CuratedModel:
     def bundle(self) -> ModelBundle:
         return ModelBundle(
             self.key,
-            self.name,
+            CatalogText(self.name),
             state_root() / "models" / self.key,
             self.assets,
-            self.description,
+            CatalogText(self.description),
             language_model=True,
             needs_plamo=self.profile == "plamo3",
         )
@@ -42,7 +43,7 @@ class CuratedModel:
         path = bundle.directory / weights.filename
         info = inspect_gguf(path, self.profile)
         if info.architecture != self.architecture:
-            raise ValueError("Unexpected model architecture. Open Models → Verify / repair.")
+            raise ValueError(tr("Unexpected model architecture. Open Models → Verify / repair."))
         registration = ImportedModel(
             self.key,
             str(path),
@@ -60,8 +61,8 @@ class CuratedModel:
 MODELS = (
     CuratedModel(
         "plamo-2b",
-        "PLaMo 3 Translate 2B · Dialogue alternative",
-        "Fast dialogue translation; unreliable for game stats and terminology.",
+        mark("PLaMo 3 Translate 2B · Dialogue alternative"),
+        mark("Fast dialogue translation; unreliable for game stats and terminology."),
         "plamo3",
         "plamo3",
         (
@@ -83,8 +84,8 @@ MODELS = (
     ),
     CuratedModel(
         "plamo-0.8b",
-        "PLaMo 3 Translate 0.8B · Lightweight alternative",
-        "Very small and fast; weaker wording and unreliable game terminology.",
+        mark("PLaMo 3 Translate 0.8B · Lightweight alternative"),
+        mark("Very small and fast; weaker wording and unreliable game terminology."),
         "plamo3",
         "plamo3",
         (
@@ -106,8 +107,8 @@ MODELS = (
     ),
     CuratedModel(
         "qwen35-4b",
-        "Qwen3.5 4B · Slower alternative",
-        "Useful translations, but noticeably slower than Gemma in this app.",
+        mark("Qwen3.5 4B · Slower alternative"),
+        mark("Useful translations, but noticeably slower than Gemma in this app."),
         "qwen35",
         "embedded",
         (
@@ -129,8 +130,8 @@ MODELS = (
     ),
     CuratedModel(
         "gemma-e4b",
-        "Gemma 4 E4B · Higher-resource recommendation",
-        "Recommended when more memory is available; good game terminology.",
+        mark("Gemma 4 E4B · Higher-resource recommendation"),
+        mark("Recommended when more memory is available; good game terminology."),
         "gemma4",
         "gemma4",
         (
