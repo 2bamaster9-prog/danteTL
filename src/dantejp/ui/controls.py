@@ -1,5 +1,6 @@
 """Accessible native Qt controls with a small, consistent presentation."""
 
+from collections.abc import Callable
 from html import escape
 
 from PySide6.QtCore import QPoint, QRect, QRectF, QSignalBlocker, QSize, Qt, QTimer, Signal
@@ -32,7 +33,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from dantejp.i18n import mark, tr
+from dantejp.languages.selection import SOURCE_LANGUAGES
 from dantejp.languages.target import TARGET_LANGUAGES
+from dantejp.ui.localization import localized, localized_item
 
 
 def add_model_section(combo: QComboBox, label: str) -> None:
@@ -47,7 +51,7 @@ def add_model_section(combo: QComboBox, label: str) -> None:
     heading.setForeground(QColor("#9baabc"))
     heading.setBackground(QColor("#101922"))
     heading.setSizeHint(QSize(0, max(32, combo.fontMetrics().height() + 14)))
-    heading.setAccessibleDescription("Model category; not selectable")
+    heading.setAccessibleDescription(tr("Model category; not selectable"))
     model.appendRow(heading)
 
 
@@ -58,14 +62,31 @@ def set_tone(widget: QWidget, tone: str) -> None:
         widget.style().polish(widget)
 
 
+class SourceLanguageCombo(QComboBox):
+    """Choose a source language from the installed application's catalog."""
+
+    def __init__(self, active: str) -> None:
+        super().__init__()
+        localized(self, accessibleName=mark("Game text language"))
+        localized(
+            self,
+            toolTip=mark(
+                "Japanese uses MeikiOCR. The other listed languages share PaddleOCR Latin."
+            ),
+        )
+        for language in SOURCE_LANGUAGES.values():
+            localized_item(self, language.name, language.code, capitalize=True)
+        self.setCurrentIndex(self.findData(active))
+
+
 class OutputLanguageCombo(QComboBox):
     language_changed = Signal(str)
 
     def __init__(self, selected: str) -> None:
         super().__init__()
-        self.setAccessibleName("Output language")
+        localized(self, accessibleName=mark("Output language"))
         for target in TARGET_LANGUAGES.values():
-            self.addItem(target.name, target.code)
+            localized_item(self, target.name, target.code, capitalize=True)
         self.set_language(selected)
         self.currentIndexChanged.connect(lambda: self.language_changed.emit(self.currentData()))
 
@@ -99,7 +120,7 @@ class StatusBanner(QWidget):
         self.progress = QProgressBar()
         self.progress.setRange(0, 0)
         self.progress.setTextVisible(False)
-        self.progress.setAccessibleName("Loading progress")
+        localized(self.progress, accessibleName=mark("Loading progress"))
         body.addWidget(self.progress)
         self.detail.hide()
         self.progress.hide()
@@ -192,7 +213,7 @@ class CaptureButton(QPushButton):
         self.set_capturing(False)
 
     def set_capturing(self, active: bool) -> None:
-        self.setText("Stop capture" if active else "Start capture")
+        self.setText(tr("Stop capture") if active else tr("Start capture"))
         self.setIcon(self._icons[active])
         set_tone(self, "recording" if active else "idle")
 
@@ -255,13 +276,18 @@ class OverlayToggleLayout(QLayout):
 
 
 class InfoButton(QToolButton):
-    def __init__(self, name: str, explanation: str, parent: QWidget | None = None) -> None:
+    def __init__(
+        self, name: str, explanation: str | Callable[[], str], parent: QWidget | None = None
+    ) -> None:
         super().__init__(parent)
         self.setText("ⓘ")
         self.setObjectName("info")
-        self.setAccessibleName(f"About {name}")
-        self.setAccessibleDescription(explanation)
-        self.setToolTip(f"<qt>{escape(explanation)}</qt>")
+        localized(
+            self,
+            accessibleName=lambda: tr("About {name}", name=tr(name)),
+            accessibleDescription=explanation,
+            toolTip=lambda: f"<qt>{escape(self.accessibleDescription())}</qt>",
+        )
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.clicked.connect(self._show_help)
 
@@ -316,6 +342,12 @@ class CopyTextButton(QToolButton):
         self._feedback.timeout.connect(self._reset)
         self.clicked.connect(self._copy)
 
+    def set_label(self, label: str) -> None:
+        if label != self._label:
+            self._label = label
+            self.setAccessibleName(label)
+            self._reset()
+
     def set_copy_text(self, text: str) -> None:
         if text != self._text:
             self._text = text
@@ -324,7 +356,7 @@ class CopyTextButton(QToolButton):
     def _copy(self) -> None:
         QApplication.clipboard().setText(self._text)
         self.setIcon(self._icons[True])
-        self.setToolTip(self._label.replace("Copy", "Copied", 1))
+        self.setToolTip(self._label.replace(tr("Copy"), tr("Copied"), 1))
         self._feedback.start(1200)
 
     def _reset(self) -> None:

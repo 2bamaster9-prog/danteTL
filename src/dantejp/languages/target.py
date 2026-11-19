@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+from dantejp.i18n import mark
+
 
 @dataclass(frozen=True, slots=True)
 class TargetLanguage:
@@ -9,27 +11,28 @@ class TargetLanguage:
     name: str
 
 
-ENGLISH = TargetLanguage("en", "English")
+ENGLISH = TargetLanguage("en", mark("English"))
 TARGET_LANGUAGES = {
     target.code: target
     for target in (
         ENGLISH,
-        TargetLanguage("bn", "Bengali"),
-        TargetLanguage("nl", "Dutch"),
-        TargetLanguage("fr", "French"),
-        TargetLanguage("de", "German"),
-        TargetLanguage("hi", "Hindi"),
-        TargetLanguage("id", "Indonesian"),
-        TargetLanguage("it", "Italian"),
-        TargetLanguage("ko", "Korean"),
-        TargetLanguage("ar", "Modern Standard Arabic"),
-        TargetLanguage("pt-BR", "Portuguese (Brazil)"),
-        TargetLanguage("pt-PT", "Portuguese (Portugal)"),
-        TargetLanguage("ru", "Russian"),
-        TargetLanguage("zh-hans", "Simplified Chinese"),
-        TargetLanguage("es", "Spanish"),
-        TargetLanguage("th", "Thai"),
-        TargetLanguage("zh-hant", "Traditional Chinese"),
-        TargetLanguage("vi", "Vietnamese"),
+        TargetLanguage("bn", mark("Bengali")),
+        TargetLanguage("nl", mark("Dutch")),
+        TargetLanguage("fr", mark("French")),
+        TargetLanguage("de", mark("German")),
+        TargetLanguage("hi", mark("Hindi")),
+        TargetLanguage("id", mark("Indonesian")),
+        TargetLanguage("it", mark("Italian")),
+        TargetLanguage("ja", mark("Japanese")),
+        TargetLanguage("ko", mark("Korean")),
+        TargetLanguage("ar", mark("Modern Standard Arabic")),
+        TargetLanguage("pt-BR", mark("Portuguese (Brazil)")),
+        TargetLanguage("pt-PT", mark("Portuguese (Portugal)")),
+        TargetLanguage("ru", mark("Russian")),
+        TargetLanguage("zh-hans", mark("Simplified Chinese")),
+        TargetLanguage("es", mark("Spanish")),
+        TargetLanguage("th", mark("Thai")),
+        TargetLanguage("zh-hant", mark("Traditional Chinese")),
+        TargetLanguage("vi", mark("Vietnamese")),
     )
 }

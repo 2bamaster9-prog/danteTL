@@ -1372,8 +1372,9 @@ def test_output_language_controls_warn_before_capture_and_switch_only_the_affect
         for banner in (window.language_notice, panel.language_notice):
             assert banner.isVisible() and "Portuguese (Brazil)" in banner.label.text()
             assert "PLaMo" in banner.label.text() and "Gemma" in banner.action.text()
-        window.output_language.setCurrentIndex(window.output_language.findData("fr"))
-        assert panel.output_language.currentData() == "fr" and panel.language_notice.isHidden()
+        window.output_language.setCurrentIndex(window.output_language.findData("ja"))
+        assert panel.output_language.currentData() == owner.values.output_language == "ja"
+        assert panel.language_notice.isHidden()
         window.routing.advanced.setChecked(True)
         window.routing.short_model.setCurrentIndex(find_model(window.routing.short_model, other))
         window.output_language.setCurrentIndex(window.output_language.findData("pt-PT"))
