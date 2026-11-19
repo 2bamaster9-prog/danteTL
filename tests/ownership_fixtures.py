@@ -15,6 +15,7 @@ from dantejp.application.session import ApplicationSession
 from dantejp.application.setup_coordinator import SetupCoordinator, SetupDependencies
 from dantejp.application.shutdown import ShutdownCoordinator
 from dantejp.application.translation_coordinator import TranslationCoordinator
+from dantejp.languages.selection import source_language
 from dantejp.ocr.worker import OcrChoice
 from dantejp.runtime.model_store import ModelOperation
 from dantejp.runtime.setup_values import ModelProgress
@@ -109,6 +110,12 @@ class Operation(ModelOperation):
 
 
 class Replay:
+    live: LiveSession
+    translation: TranslationCoordinator
+    ocr: Ocr
+    capture: Capture
+    visual: Visual
+
     def __init__(self, root, *, preferences=None, data=None, loaded=True, ocr_choices=None):
         preferences = preferences or Preferences()
         data = data or InventoryData()
@@ -152,19 +159,27 @@ class Replay:
             return worker
 
         self.route_workers = []
+        self.recognizer = Mock()
+        self.recognizers = []
+        choices = ocr_choices or (OcrChoice("CPU", self.recognizer, key="cpu"),)
+
+        language = source_language(preferences.source_language)
         self.translation = TranslationCoordinator(
             self.inventory, self.cloud, create, route, root / "cache", preferences
         )
-        self.ocr, self.capture = Ocr(), Capture()
-        self.visual = Visual(self.ocr)
-        self.recognizer = Mock()
-        self.recognizers = []
+        self.capture, self.ocr = Capture(), Ocr()
+        self.visual = Visual(self.ocr, language=language)
 
         def recognize(factory):
+            if self.recognizers:
+                self.ocr = Ocr()
+                self.visual = Visual(self.ocr)
             self.recognizers.append(factory)
             return self.ocr
 
-        self.live = LiveSession(ocr_factory=recognize, visual_factory=lambda: self.visual)
+        self.live = LiveSession(
+            ocr_factory=recognize, visual_factory=lambda: self.visual, language=language
+        )
         self.restart = Mock()
         self.restart.finished = False
 
@@ -190,6 +205,8 @@ class Replay:
         self.capture_calls = []
 
         def create_capture(*args):
+            if self.capture_calls:
+                self.capture = Capture()
             self.capture_calls.append(args)
             return self.capture
 
@@ -197,12 +214,13 @@ class Replay:
             windows=self.windows,
             live=self.live,
             translation=self.translation,
+            ocr_choices=choices,
+            source_models=lambda _: choices,
             inventory=self.inventory,
             cloud=self.cloud,
             setup=self.setup,
             preferences=self.preferences,
             shutdown=self.shutdown,
-            ocr_choices=ocr_choices or (OcrChoice("CPU", self.recognizer, key="cpu"),),
             capture=create_capture,
         )
 

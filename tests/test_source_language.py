@@ -298,3 +298,104 @@ def test_every_published_latin_source_shares_one_install_and_ocr_factory(monkeyp
         assert all(a.url.endswith("/inference.onnx") for a in bundle.assets)
     (jp,) = [b for b in model_catalog(SOURCE_LANGUAGES["ja"]) if b.category == "recognition"]
     assert jp.assets == models.ASSETS
+
+
+def test_source_change_drains_active_capture_and_keeps_output_language(tmp_path):
+    from dataclasses import replace
+
+    from ownership_fixtures import Replay
+
+    from dantejp.application.preferences import Preferences, PreferenceStore
+
+    replay = Replay(tmp_path, preferences=Preferences(output_language="fr"))
+    assert replay.app.start_capture(replay.capture.target, 1)
+    assert replay.app.change_source("pt")
+    assert not replay.app.closing and not replay.app.change_source("de")
+    replay.app.configure(replace(replay.app.values, source_language="ja"))
+    finish_source_change(replay)
+    replay.close()
+    saved = PreferenceStore(tmp_path / "preferences.json").initial
+    assert (saved.source_language, saved.output_language) == ("pt", "fr")
+
+
+def finish_source_change(replay):
+    replay.capture.finished = replay.visual.finished = True
+    replay.ocr.finished = replay.ocr.stop_requested
+
+    def ready():
+        replay.app.advance(2)
+        assert not replay.app.closing
+        return not replay.app.controls.changing_source
+
+    until(ready)
+
+
+@pytest.mark.parametrize(
+    "source,device,reuse", [("en", "auto", True), ("en", "cpu", False), ("ja", "auto", False)]
+)
+def test_source_switch_resumes_exact_game_and_reuses_only_compatible_ocr(
+    tmp_path, source, device, reuse
+):
+    from dataclasses import replace
+    from unittest.mock import Mock
+
+    from ownership_fixtures import Replay
+
+    from dantejp.application.preferences import Preferences
+    from dantejp.ocr.worker import OcrChoice
+
+    devices = tuple(OcrChoice(key, Mock(), key=key) for key in ("auto", "cpu"))
+    replay = Replay(tmp_path, preferences=Preferences(source_language=source), ocr_choices=devices)
+    target = replay.capture.target
+    assert replay.app.start_capture(target, 1)
+    original = replay.ocr
+    replay.app.configure(replace(replay.app.values, ocr_device=device))
+    assert replay.app.source_requires_restart("pt") is (not reuse)
+    assert replay.app.change_source("pt")
+    assert original.stop_requested != reuse
+    assert not replay.app.start_capture(target, 2)
+    replay.app.advance(2)
+    if reuse:
+        assert not replay.app.controls.changing_source
+        assert replay.app.controls.started_at == 1 and not replay.capture.stop_requested
+    else:
+        assert replay.app.controls.changing_source and len(replay.capture_calls) == 1
+        finish_source_change(replay)
+    assert [call[0] for call in replay.capture_calls] == [target] * (1 if reuse else 2)
+    assert replay.live.ocr is (original if reuse else replay.ocr)
+    assert len(replay.recognizers) == (1 if reuse else 2)
+    assert not replay.app.view.results and not replay.app.history_turns
+    replay.app.stop()
+    assert (original if reuse else replay.ocr).stop_requested
+    original.finished = True
+    replay.close()
+
+
+@pytest.mark.parametrize("action", ["already-stopping", "stop", "closed-target", "quit"])
+def test_source_restart_respects_stops_closed_target_and_quit(tmp_path, action):
+    from ownership_fixtures import Replay
+
+    from dantejp.application.preferences import Preferences
+    from dantejp.application.values import ShutdownPhase
+
+    replay = Replay(tmp_path, preferences=Preferences(source_language="en"))
+    assert replay.app.start_capture(replay.capture.target, 1)
+    original = replay.ocr
+    if action == "already-stopping":
+        replay.app.stop()
+    assert replay.app.change_source("ja")
+    if action == "quit":
+        replay.close()
+        replay.app.advance(2)
+        assert replay.app.close_status.phase == ShutdownPhase.READY
+    else:
+        if action == "stop":
+            replay.app.stop()
+        if action == "closed-target":
+            replay.windows.is_target.return_value = False
+        finish_source_change(replay)
+        if action == "closed-target":
+            assert "closed" in replay.app.view.status
+            assert replay.live.ocr is None
+        replay.close()
+    assert len(replay.capture_calls) == 1 and original.stop_requested

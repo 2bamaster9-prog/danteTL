@@ -5,6 +5,7 @@ from enum import StrEnum
 
 from dantejp.application.translation_activity import TranslationMode
 from dantejp.domain import CapturedFrame, CaptureSnapshot, Rect
+from dantejp.i18n import mark
 from dantejp.ocr.tracking import TextTrack
 from dantejp.ocr.values import OcrResult, OcrSnapshot
 from dantejp.ocr.visual_values import VisualState
@@ -51,7 +52,7 @@ class ProcessingProgress:
 
 @dataclass(frozen=True)
 class ApplicationView:
-    status: str = "Select a window, then start capture."
+    status: str = mark("Select a window, then start capture.")
     ocr_status: str = ""
     translation_status: str = ""
     translation_mode: TranslationMode = TranslationMode.INACTIVE
@@ -82,3 +83,4 @@ class ApplicationControls:
     can_stop: bool
     started_at: float
     capture_rate: int
+    changing_source: bool = False

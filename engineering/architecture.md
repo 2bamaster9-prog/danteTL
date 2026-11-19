@@ -249,6 +249,15 @@ cues, OCR cleanup, and evidence for quoted speech, equipment text and speaker na
 combines that evidence with paragraph position, row geometry and competing choices. The reader and
 grouper use the same list syntax, with different evidence thresholds for possible and marked choices.
 Pixel measurements, ambiguity checks, settling and request limits belong to the shared pipeline.
+Changing the source clears dialogue history, translation demand, tracks and visual evidence.
+If the same recognizer and device can serve the new language, capture and OCR continue on their
+existing workers with a new evidence generation. Both pickers ask for confirmation when active
+capture must restart to change OCR model or device. Capture then resumes only on its original
+window. An idle or stopping capture stays idle. Model inventory discards previous-source scans.
+The translation route reconciles each assignment against the new inventory. Compatible local
+backends switch their prompt and cache identity on the inference thread between calls, retaining
+their loaded weights. Incompatible lanes release their workers. The selected source determines
+both the setup bundle and the OCR factory.
 Japanese uses bundled MeikiOCR. The other registered sources share one bundled pair
 of PP-OCRv5 mobile ONNX graphs. The Latin reader uses the pinned model's CTC vocabulary and a 2 GiB
 CUDA arena limit. The detector keeps its 512 MiB limit. Regional scans receive the full client's

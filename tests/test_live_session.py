@@ -89,6 +89,10 @@ class Visual(Worker):
         self.language = language
         self.sources = ()
 
+    def invalidate(self, *, language=DEFAULT_SOURCE):
+        super().invalidate()
+        self.language = language
+
     def poll(self):
         if (
             self.ocr

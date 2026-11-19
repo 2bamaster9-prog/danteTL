@@ -8,6 +8,7 @@ from dantejp.application.live_session import LiveSession
 from dantejp.application.model_lifecycle import ModelLifecycle
 from dantejp.application.values import ShutdownPhase as ShutdownPhase
 from dantejp.application.values import ShutdownSnapshot as ShutdownSnapshot
+from dantejp.i18n import tr
 from dantejp.runtime.restart import RestartSnapshot
 
 
@@ -55,7 +56,7 @@ class ShutdownCoordinator:
         if self.active:
             return
         self._target, self._restart = target, None
-        self._snapshot = ShutdownSnapshot(ShutdownPhase.DRAINING, "Finishing active work…")
+        self._snapshot = ShutdownSnapshot(ShutdownPhase.DRAINING, tr("Finishing active work…"))
         self._cancel_setup()
         self._models.shutdown()
         self._live.stop()
@@ -67,15 +68,15 @@ class ShutdownCoordinator:
             models_done = self._models.finish_shutdown()
             live_done = self._live.drain()
             message = (
-                "Cancelling setup…"
+                tr("Cancelling setup…")
                 if self._setup_busy()
-                else "Waiting for translation to finish unloading…"
+                else tr("Waiting for translation to finish unloading…")
                 if not models_done
-                else "Waiting for capture, OCR and visual workers…"
+                else tr("Waiting for capture, OCR and visual workers…")
                 if not live_done
-                else "Saving preferences…"
+                else tr("Saving preferences…")
                 if not self._preferences_idle()
-                else "Finishing the graphics hardware check…"
+                else tr("Finishing the graphics hardware check…")
                 if not self._hardware_finished()
                 else ""
             )

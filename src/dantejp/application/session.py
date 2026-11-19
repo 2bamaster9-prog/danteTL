@@ -1,7 +1,7 @@
 """Headless application commands and ordered processing; desktop views only present results."""
 
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from dantejp.application.capture_lifecycle import CaptureLifecycle, CapturePhase, WindowAccess
@@ -30,10 +30,15 @@ from dantejp.application.values import ApplicationView as ApplicationView
 from dantejp.application.values import ModelConsent as ModelConsent
 from dantejp.domain import (
     CapturedFrame,
+    CaptureState,
     WindowTarget,
     overlay_ready,
 )
+from dantejp.i18n import CatalogText, tr
+from dantejp.languages.selection import source_language
+from dantejp.languages.source import SourceLanguage
 from dantejp.languages.target import TARGET_LANGUAGES
+from dantejp.ocr.models import ocr_model_for
 from dantejp.ocr.values import OcrState
 from dantejp.ocr.worker import OcrChoice
 from dantejp.runtime.hardware_values import HardwareStatus
@@ -43,6 +48,12 @@ from dantejp.translation.selection import AssignmentChange, OcrOption
 from dantejp.translation.values import TranslationState
 
 
+@dataclass(frozen=True, slots=True)
+class SourceChange:
+    target: WindowTarget | None
+    drain_capture: bool
+
+
 class ApplicationSession:
     def __init__(
         self,
@@ -50,24 +61,27 @@ class ApplicationSession:
         windows: WindowAccess,
         live: LiveSession,
         translation: TranslationCoordinator,
+        ocr_choices: tuple[OcrChoice, ...],
+        source_models: Callable[[SourceLanguage], tuple[OcrChoice, ...]],
         inventory: ModelInventory,
         cloud: CloudServices,
         setup: SetupCoordinator,
         preferences: PreferenceStore,
         shutdown: ShutdownCoordinator,
-        ocr_choices: tuple[OcrChoice, ...],
         capture: Callable[[WindowTarget, int, bool], CaptureWorker],
         notify: Callable[[], None] = lambda: None,
         hardware: Callable[[], HardwareStatus | None] = lambda: None,
     ) -> None:
-        self.windows, self.live, self.translation = windows, live, translation
+        self.windows = windows
+        self._source_models = source_models
         self.inventory, self.cloud, self.setup = inventory, cloud, setup
         self.preferences, self.shutdown = preferences, shutdown
         self._notify = notify
+        self.live, self.translation = live, translation
         self.capture = CaptureLifecycle(live, windows, ocr_choices, capture)
-        self.ocr_options = tuple(OcrOption(c.name, c.key, c.capture_fps) for c in ocr_choices)
         self._hardware = hardware
-        self.values = preferences.initial
+        self.values = preferences.current
+        self._ocr_model = ocr_model_for(source_language(self.values.source_language))
         self.cloud.test_target = TARGET_LANGUAGES[self.values.output_language]
         self.view = ApplicationView()
         self.original = False
@@ -82,17 +96,96 @@ class ApplicationSession:
         self._cloud_revision: tuple[tuple[CloudProfile, ...], frozenset[str], int] | None = None
         self._advancing = self._again = False
         self._first_run_requested = False
+        self._source_change: SourceChange | None = None
         self.refresh_routes()
+
+    @property
+    def ocr_options(self) -> tuple[OcrOption, ...]:
+        return self.capture.options
+
+    @property
+    def can_change_source(self) -> bool:
+        return not (
+            self._source_change
+            or self.closing
+            or self.setup.busy
+            or self.cloud.busy
+            or self._consent
+            or self.translation.lifecycle.snapshot().preparing
+        )
+
+    def source_requires_restart(self, code: str) -> bool:
+        capture = self.live.capture
+        ocr = self.live.ocr
+        return bool(
+            capture
+            and not self.capture.stopping
+            and not capture.finished
+            and capture.snapshot().state in (CaptureState.STARTING, CaptureState.RUNNING)
+            and (
+                ocr_model_for(source_language(code)) != self._ocr_model
+                or not self.capture.ocr_choice
+                or self.capture.ocr_choice.key != self.capture.choice_for(self.values).key
+                or (ocr and ocr.snapshot().state not in (OcrState.LOADING, OcrState.READY))
+            )
+        )
+
+    def change_source(self, code: str) -> bool:
+        language = source_language(code)
+        if not self.can_change_source or code == self.values.source_language:
+            return False
+        restart = self.source_requires_restart(code)
+        target = self.live.capture.target if restart and self.live.capture else None
+        self._source_change = SourceChange(target, restart or self.capture.stopping)
+        if restart:
+            self.capture.stop(tr("Changing game text language…"))
+        self.live.change_language(language, self.translation.lifecycle.publication)
+        self.values = replace(self.values, source_language=code)
+        self.persist()
+        self.original = False
+        self.cloud.language = language
+        self.translation.language = language
+        self.capture.set_choices(self._source_models(language))
+        self._ocr_model = ocr_model_for(language)
+        self.view = ApplicationView(
+            status=tr("Switching to {name}…", name=tr(language.name)), reset=self.view.reset + 1
+        )
+        return True
+
+    def _finish_source_change(self, change: SourceChange, now: float) -> None:
+        if change.drain_capture and not self.live.drain():
+            return
+        inventory = self.inventory.snapshot()
+        if not inventory.loaded and not inventory.problem:
+            return
+        self._source_change = None
+        self._inventory_revision = -1
+        self.refresh_routes()
+        self.view = replace(
+            self.view,
+            status=CatalogText(
+                "Game text language changed to {name}.",
+                name=CatalogText(self.translation.language.name),
+            ),
+        )
+        if change.target:
+            self._start_capture(change.target, now)
 
     def configure(self, values: Preferences) -> None:
         # Assignment/preparation and setup intent have authoritative owners. A view
         # submits appearance/device preferences, not a stale copy of those decisions.
         if values.output_language not in TARGET_LANGUAGES:
-            raise ValueError(f"Unknown output language: {values.output_language}")
+            raise ValueError(
+                tr(
+                    "Unknown output language: {output_language}",
+                    output_language=values.output_language,
+                )
+            )
         prior = self.values
         self.values = replace(
             values,
             model=prior.model,
+            source_language=prior.source_language,
             setup_seen=prior.setup_seen,
             setup_model=prior.setup_model,
             short_model=self.translation.plan.short
@@ -125,9 +218,10 @@ class ApplicationSession:
                 title=self.translation.window_title,
             )
             self.refresh_routes()
-        self.translation.configure_history(
-            self.live, enabled=values.history_enabled, reference=values.history_model
-        )
+        if not self._source_change:
+            self.translation.configure_history(
+                self.live, enabled=values.history_enabled, reference=values.history_model
+            )
         self.persist()
 
     def persist(self) -> None:
@@ -159,6 +253,8 @@ class ApplicationSession:
         self.refresh_routes()
 
     def refresh_routes(self, *, preserve_prepared: bool = False) -> None:
+        if self._source_change is not None:
+            return  # The new source inventory determines which workers remain compatible.
         if self.translation.refresh_route(preserve_prepared=preserve_prepared):
             self.clear_english()
         self.translation.configure_history(
@@ -168,6 +264,7 @@ class ApplicationSession:
     def assign(self, change: AssignmentChange) -> ModelConsent | None:
         if (
             self.shutdown.active
+            or self._source_change is not None
             or not self.translation.restored
             or self.translation.lifecycle.snapshot().preparing
             or self.setup.probing
@@ -220,8 +317,16 @@ class ApplicationSession:
         self.view = reset_scene(self.view)
 
     def start_capture(self, target: WindowTarget, now: float) -> bool:
-        if self.shutdown.active or self.live.capture:
+        if (
+            self._source_change
+            or self.shutdown.active
+            or self.live.capture
+            or (self.live.ocr and not self.live.drain())
+        ):
             return False
+        return self._start_capture(target, now)
+
+    def _start_capture(self, target: WindowTarget, now: float) -> bool:
         try:
             capture = self.capture.prepare(target, now, self.values)
         except (OSError, RuntimeError) as error:
@@ -233,18 +338,20 @@ class ApplicationSession:
             choice.create if choice and inventory.loaded and inventory.data.ocr_ready else None
         )
         self._reset_scene()
-        self.view = replace(self.view, status="Starting capture…")
+        self.view = replace(self.view, status=tr("Starting capture…"))
         self.set_window_title(target.title)
         self.live.start(capture, recognizer)
         return True
 
     def stop(self, message: str = "Capture stopped.") -> None:
+        if self._source_change:
+            self._source_change = SourceChange(None, True)
         self.original = False
         self.translation.lifecycle.stop_capture(closing=self.shutdown.active)
         self._reset_scene()
-        self.capture.stop(message)
+        self.capture.stop(tr(message))
         if self.live.capture:
-            self.view = replace(self.view, status="Stopping capture, OCR and translation…")
+            self.view = replace(self.view, status=tr("Stopping capture, OCR and translation…"))
 
     def refresh_models(self) -> None:
         if not self.shutdown.active:
@@ -296,6 +403,7 @@ class ApplicationSession:
     def request_close(self, target: Path | None = None) -> None:
         self.original = False
         self._consent = None
+        self._source_change = None
         self.cloud.close()
         self.shutdown.request(target)
 
@@ -312,6 +420,7 @@ class ApplicationSession:
             self.capture.can_stop,
             self.capture.started_at,
             self.capture.rate,
+            self._source_change is not None,
         )
 
     @property
@@ -355,7 +464,7 @@ class ApplicationSession:
         try:
             target = self.windows.foreground_target()
             if not self.windows.is_foreground(target):
-                raise RuntimeError("Focus changed. Press the capture hotkey again.")
+                raise RuntimeError(tr("Focus changed. Press the capture hotkey again."))
             return target
         except (OSError, RuntimeError) as error:
             self.view = replace(self.view, status=str(error))
@@ -368,6 +477,7 @@ class ApplicationSession:
     def can_setup(self) -> bool:
         return not (
             self.shutdown.active
+            or self._source_change is not None
             or not self.inventory.snapshot().loaded
             or self.live.capture
             or self.setup.busy
@@ -404,6 +514,8 @@ class ApplicationSession:
                 ocr.message if ocr else "",
                 self.live.capture is not None,
                 target=TARGET_LANGUAGES[self.values.output_language],
+                ocr_model=self._ocr_model,
+                interface_language=self.values.interface_language,
             )
         )
 
@@ -418,7 +530,7 @@ class ApplicationSession:
         elif outcome.error:
             self.error, self.error_revision = outcome.error, self.error_revision + 1
             self.view = replace(
-                self.view, translation_status=f"Preparation failed: {outcome.error}"
+                self.view, translation_status=tr("Preparation failed: {error}", error=outcome.error)
             )
         if not self.shutdown.active:
             self.refresh_routes(preserve_prepared=outcome.committed)
@@ -478,7 +590,10 @@ class ApplicationSession:
             self.view = replace(
                 self.view,
                 frame=frame,
-                ocr_status="Capture only. Open Settings and download MeikiOCR to recognize text.",
+                ocr_status=tr(
+                    "Capture only. Open Settings → Models to download {_ocr_model}.",
+                    _ocr_model=self._ocr_model,
+                ),
             )
             return
         snapshot = self.live.reconcile(frame, now)
@@ -488,7 +603,7 @@ class ApplicationSession:
         self.view = replace(
             self.view,
             ocr=snapshot,
-            ocr_status=ocr_status(snapshot, self.live.visual_state.message, now),
+            ocr_status=ocr_status(snapshot, self.live.visual_state.message, now, self._ocr_model),
             frame=frame,
             observation=self.live.accepted,
             assignments=self.live.assignments,
@@ -509,7 +624,9 @@ class ApplicationSession:
             self.view = replace(
                 self.view,
                 progress=processing_progress(
-                    self.view, translation_enabled=self.values.translation
+                    self.view,
+                    translation_enabled=self.values.translation,
+                    ocr_model=self._ocr_model,
                 ),
             )
             return self.view
@@ -523,6 +640,9 @@ class ApplicationSession:
         self.setup.advance()
         self.inventory.advance(now)
         self.cloud.advance()
+        if self._source_change:
+            self._finish_source_change(self._source_change, now)
+            return
         inventory = self.inventory.snapshot()
         cloud = self.cloud.snapshot()
         cloud_key = (cloud.profiles, cloud.available, cloud.revision)
@@ -565,7 +685,9 @@ class ApplicationSession:
                 self.view = replace(
                     self.view,
                     status=message,
-                    ocr_status="OCR stopped. Start capture to load the local models again."
+                    ocr_status=CatalogText(
+                        "OCR stopped. Start capture to load the local models again."
+                    )
                     if self.live.capture is None
                     else self.view.ocr_status,
                 )
@@ -584,18 +706,18 @@ class ApplicationSession:
                 )
             self._update_ocr(frame, now)
             message = (
-                "Capturing. The overlay appears on the selected window when ready."
+                tr("Capturing. The overlay appears on the selected window when ready.")
                 if foreground and self.values.show_overlay
-                else "Capturing. Switch to the selected window to see the overlay."
+                else tr("Capturing. Switch to the selected window to see the overlay.")
                 if self.values.show_overlay
-                else "Capturing. Game overlay is hidden."
+                else tr("Capturing. Game overlay is hidden.")
             )
         else:
             self._reset_scene(invalidate=True)
             message = (
-                "Window minimized. Restore it to resume."
+                tr("Window minimized. Restore it to resume.")
                 if step.phase == CapturePhase.MINIMIZED
-                else "Waiting for a frame matching the window size…"
+                else tr("Waiting for a frame matching the window size…")
             )
         scene = self.live.scene(
             frame,

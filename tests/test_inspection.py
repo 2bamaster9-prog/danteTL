@@ -128,7 +128,7 @@ def test_capture_visibility_ui_remembers_choice_and_rolls_back_native_failure(ap
     from dantejp.application.preferences import Preferences
 
     windows.list_targets.return_value = []
-    preferences.initial = Preferences(include_overlay_in_capture=False)
+    preferences.current = Preferences(include_overlay_in_capture=False)
     preferences.error = ""
     monkeypatch.setattr("dantejp.composition.PreferenceStore", lambda path: preferences)
     window = MainWindow(windows, Mock())
@@ -1668,8 +1668,8 @@ def test_settings_close_can_keep_setup_running_or_cancel_without_stopping_app(
     settle_setup(manager.service)
     setup_owner(manager).advance()
     manager.refresh_view()
-    window.driver.refresh(inspect=True)
-    assert not settings(window).busy and not window.driver.timer.isActive()
+    drain(window, lambda: not window.driver.timer.isActive())
+    assert not settings(window).busy
     window.deleteLater()
 
 

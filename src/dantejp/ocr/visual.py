@@ -11,6 +11,7 @@ from math import ceil
 from typing import TYPE_CHECKING, Any
 
 from dantejp.domain import CapturedFrame, Rect
+from dantejp.i18n import tr
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
 from dantejp.ocr.presence import PixelEvidence, prepare_evidence
@@ -870,7 +871,7 @@ class VisualAnalyzer:
         started = time.perf_counter()
         pixels = _pixels(frame)
         if pixels is None:
-            return VisualState(frame, True, message="Visual evidence unavailable; using OCR.")
+            return VisualState(frame, True, message=tr("Visual evidence unavailable; using OCR."))
         if self._size != frame.geometry.client.size:
             self.__init__(self._language)
             self._size = frame.geometry.client.size
@@ -1090,8 +1091,10 @@ class VisualSession:
             )
             self._condition.notify()
 
-    def invalidate(self) -> None:
+    def invalidate(self, *, language: SourceLanguage | None = None) -> None:
         with self._condition:
+            if language is not None:
+                self._language = language
             self._generation += 1
             self._pending, self._last_key = None, None
             self._snapshot = VisualState()
@@ -1127,6 +1130,7 @@ class VisualSession:
                     if self._stop:
                         return
                     pending, self._pending = self._pending, None
+                    language = self._language
                 assert pending is not None
                 current, job = pending
                 started = time.perf_counter()
@@ -1136,9 +1140,9 @@ class VisualSession:
                     matching = None
                 try:
                     if analyzer is None and not failed:
-                        analyzer = VisualAnalyzer(self._language)
+                        analyzer = VisualAnalyzer(language)
                     state = (
-                        VisualState(job.frame, True, message="Visual checks failed; using OCR.")
+                        VisualState(job.frame, True, message=tr("Visual checks failed; using OCR."))
                         if analyzer is None or failed
                         else analyzer.observe(
                             job.frame,
@@ -1152,7 +1156,9 @@ class VisualSession:
                 except Exception:
                     logger.exception("Visual checks failed; using ordinary OCR")
                     failed = True
-                    state = VisualState(job.frame, True, message="Visual checks failed; using OCR.")
+                    state = VisualState(
+                        job.frame, True, message=tr("Visual checks failed; using OCR.")
+                    )
                 # Independent of visual pattern-analysis success. Always hash the OCR
                 # source, never the latest capture, and discard cached evidence on reset.
                 if job.candidate:
@@ -1160,7 +1166,7 @@ class VisualSession:
                         job.candidate, job.matching_sources
                     ):
                         matching = prepare_matching(
-                            job.candidate, job.matching_sources, language=self._language
+                            job.candidate, job.matching_sources, language=language
                         )
                     if (
                         evidence is None
@@ -1168,7 +1174,7 @@ class VisualSession:
                         or evidence_bounds != job.evidence_bounds
                     ):
                         evidence = prepare_evidence(
-                            job.candidate, job.evidence_bounds, language=self._language
+                            job.candidate, job.evidence_bounds, language=language
                         )
                         evidence_bounds = job.evidence_bounds
                     state = replace(

@@ -10,6 +10,7 @@ from typing import Protocol
 
 from dantejp.application.values import Scene as Scene
 from dantejp.domain import CapturedFrame, CaptureSnapshot, CaptureState, Rect, WindowTarget
+from dantejp.i18n import tr
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
 from dantejp.languages.target import ENGLISH, TargetLanguage
@@ -52,7 +53,7 @@ class VisualWorker(Protocol):
     def finished(self) -> bool: ...
     def start(self) -> None: ...
     def request_stop(self) -> None: ...
-    def invalidate(self) -> None: ...
+    def invalidate(self, *, language: SourceLanguage) -> None: ...
     def poll(self) -> VisualState: ...
     def submit(
         self,
@@ -86,7 +87,7 @@ class LiveSession:
     ) -> None:
         self._ocr_factory = ocr_factory or (lambda factory: OcrSession(factory, require_ack=True))
         self._language = language
-        self._visual_factory = visual_factory or (lambda: VisualSession(language=language))
+        self._visual_factory = visual_factory or VisualSession
         self.capture: CaptureWorker | None = None
         self.ocr: OcrWorker | None = None
         self.visual: VisualWorker | None = None
@@ -100,6 +101,7 @@ class LiveSession:
         self._context_reset_sequence = 0
         self.history = DialogueHistory()
         self.history_enabled = False
+        self._history_language = language
         self._history_key: object = None
         self._history_factory: Callable[[], object] | None = None
         self._classifier: ClassifierSession | None = None
@@ -128,7 +130,13 @@ class LiveSession:
             self._history_key,
             self._history_layout_only,
         ):
+            if self._history_language != self._language:
+                self._history_language = self._language
+                self._history_factory = factory
+                if self._classifier and not self._classifier_retiring and factory:
+                    self._classifier.set_source(self._language, factory)
             return
+        self._history_language = self._language
         self.history_enabled, self._history_key = enabled, key
         self._history_factory, self._history_layout_only = factory, layout_only
         self.history.reset_scene()
@@ -139,20 +147,22 @@ class LiveSession:
     @property
     def history_status(self) -> str:
         if not self.history_enabled:
-            return "Disabled · No history collection or classification."
+            return tr("Disabled · No history collection or classification.")
         if self._classifier_retiring:
-            return "Finishing the previous classifier…"
+            return tr("Finishing the previous classifier…")
         if self._history_layout_only:
-            return "Layout heuristics only · No classifier calls."
+            return tr("Layout heuristics only · No classifier calls.")
         if not self._history_factory:
-            return (
+            return tr(
                 "Choose an available classifier model. For first use, select the local model "
                 "once in a main-screen translation selector to prepare it."
             )
         if self._classifier:
             state = self._classifier.snapshot()
-            return state.message + (f" · {state.pending} pending" if state.pending else "")
-        return "Ready · Start capture with translation enabled."
+            return state.message + (
+                tr(" · {pending} pending", pending=state.pending) if state.pending else ""
+            )
+        return tr("Ready · Start capture with translation enabled.")
 
     def _advance_history(self) -> None:
         if self._classifier_retiring and self._classifier and self._classifier.finished:
@@ -165,11 +175,27 @@ class LiveSession:
             and not self._classifier
             and not self._history_suspended
         ):
-            self._classifier = ClassifierSession(self._history_factory)
+            self._classifier = ClassifierSession(self._history_factory, language=self._language)
 
-    def start(self, capture: CaptureWorker, recognizer: Callable[[], Recognizer] | None) -> None:
+    def change_language(
+        self, language: SourceLanguage, translation: TranslationWorker | None
+    ) -> None:
+        self._language = language
+        self._tracker = TextTracker(language=language)
+        self._grouper = DialogueGrouper(language=language)
+        self.history.clear()
+        if self.ocr:
+            self.ocr.invalidate()
+        self.valid_size = None
+        self.reset(translation)
+
+    def start(
+        self,
+        capture: CaptureWorker,
+        recognizer: Callable[[], Recognizer] | None,
+    ) -> None:
         if self.capture is not None:
-            raise RuntimeError("The previous capture must finish before starting another.")
+            raise RuntimeError(tr("The previous capture must finish before starting another."))
         self.reset()
         self.history.start()
         self.valid_size = None
@@ -189,6 +215,7 @@ class LiveSession:
             return
         self.ocr, self.visual = self._ocr_factory(factory), self._visual_factory()
         self.ocr.start()
+        self.visual.invalidate(language=self._language)
         self.visual.start()
 
     def stop(self, translation: TranslationWorker | None = None) -> None:
@@ -232,7 +259,7 @@ class LiveSession:
         self.accepted = None
         self.assignments = ()
         if self.visual:
-            self.visual.invalidate()
+            self.visual.invalidate(language=self._language)
         self.visual_state = VisualState()
         self._tracker.reset()
         self._grouper.reset()

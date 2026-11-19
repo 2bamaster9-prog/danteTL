@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from functools import lru_cache
 
 from dantejp.application.setup_status import SetupAdvice, acceleration_advice
+from dantejp.i18n import display, mark, tr
 from dantejp.languages.target import ENGLISH, TargetLanguage
 from dantejp.runtime.hardware_values import HardwareStatus
 from dantejp.translation.plan import TranslationPlan
@@ -31,6 +32,8 @@ class NoticeInput:
     fallback: str = ""
     capturing: bool = False
     target: TargetLanguage = ENGLISH
+    ocr_model: str = "MeikiOCR"
+    interface_language: str = ENGLISH.code
 
 
 @dataclass(frozen=True)
@@ -45,8 +48,8 @@ def _language_advice(
 ) -> LanguageAdvice:
     affected: dict[str, list[str]] = {}
     for reference, enabled, label in (
-        (plan.short, plan.short_enabled, "short labels"),
-        (plan.long, plan.long_enabled, "long text and dialogue"),
+        (plan.short, plan.short_enabled, tr("short labels")),
+        (plan.long, plan.long_enabled, tr("long text and dialogue")),
     ):
         model = options.get(reference)
         if enabled and model and model.excludes_output(target.code):
@@ -57,7 +60,7 @@ def _language_advice(
         options[key].name.partition(" · ")[0] + (f" ({labels[0]})" if len(labels) == 1 else "")
         for key, labels in affected.items()
     )
-    message = f"{target.name} output is unavailable with {models}."
+    message = tr("{name} output is unavailable with {models}.", name=tr(target.name), models=models)
     # Prefer a Gemma already used by another category, then one ready for use.
     candidates = (
         option
@@ -74,25 +77,29 @@ def _language_advice(
         default=None,
     )
     if gemma is None:
-        return LanguageAdvice(message, "Set up Gemma")
+        return LanguageAdvice(message, tr("Set up Gemma"))
     updated = replace(
         plan,
         short=gemma.reference if plan.short in affected else plan.short,
         long=gemma.reference if plan.long in affected else plan.long,
     )
-    action = "Set up Gemma" if gemma.unavailable_reason else f"Use {gemma.name.partition(' · ')[0]}"
+    action = (
+        tr("Set up Gemma")
+        if gemma.unavailable_reason
+        else tr("Use {value}", value=gemma.name.partition(" · ")[0])
+    )
     return LanguageAdvice(message, action, AssignmentChange(updated, gemma.reference))
 
 
 @dataclass(frozen=True)
 class Notices:
     message: str = ""
-    action: str = "Open settings"
+    action: str = mark("Open settings")
     tone: str = "warning"
     destination: str = "models"
     model_warning: str = ""
     model_action: str = "Models"
-    save_note: str = "Most settings save automatically. Save model edits; apply hotkeys."
+    save_note: str = ""
     acceleration: SetupAdvice = SetupAdvice()
     model_destination: str = "models"
     language: LanguageAdvice = LanguageAdvice()
@@ -106,41 +113,49 @@ def project_notices(value: NoticeInput) -> Notices:
     cloud_ready = any(c.prepared for c in cloud)
     missing = []
     if not value.ocr_ready:
-        missing.append("MeikiOCR is not downloaded")
+        missing.append(tr("{ocr_model} is not downloaded", ocr_model=value.ocr_model))
     for label, key, enabled in (
-        ("short labels", value.plan.short, value.plan.short_enabled),
-        ("long text", value.plan.long, value.plan.long_enabled),
+        (tr("short labels"), value.plan.short, value.plan.short_enabled),
+        (tr("long text"), value.plan.long, value.plan.long_enabled),
     ):
         if not enabled:
             continue
         choice = options.get(key)
         if not key:
-            missing.append(f"No translation model is selected for {label}")
+            missing.append(tr("No translation model is selected for {label}", label=label))
         elif choice is None:
-            missing.append(f"The model for {label} is unavailable")
+            missing.append(tr("The model for {label} is unavailable", label=label))
         elif not choice.local and not choice.prepared:
-            missing.append(f"Connect the cloud model for {label} in Models")
+            missing.append(tr("Connect the cloud model for {label} in Models", label=label))
+        elif choice.unavailable_reason:
+            reason = display(choice.unavailable_reason).rstrip(".")
+            if reason not in missing:
+                missing.append(reason)
         elif choice.local and not choice.prepared:
-            missing.append(f"Select the model for {label} to prepare it")
+            missing.append(tr("Select the model for {label} to prepare it", label=label))
     if not options:
-        missing.append("No translation model is downloaded or configured")
+        missing.append(tr("No translation model is downloaded or configured"))
     warning = ". ".join(missing)
     if warning:
-        warning += ". Capture can continue, but translation needs setup."
-    message, action, tone, destination = "", "Open settings", "warning", "models"
+        warning += tr(". Capture can continue, but translation needs setup.")
+    message, action, tone, destination = "", tr("Open settings"), "warning", "models"
     if value.saving_error:
         message, tone, destination = value.saving_error, "error", "settings"
     elif value.setup_error:
-        message, tone = "Setup needs attention: " + value.setup_error, "error"
+        message, tone = tr("Setup needs attention: ") + value.setup_error, "error"
     elif value.setup_busy:
-        message = "Setup is running in the background. Open Settings for progress."
-        action, tone = "View setup", "info"
+        message = tr("Setup is running in the background. Open Settings for progress.")
+        action, tone = tr("View setup"), "info"
     elif cloud and not cloud_ready:
-        message, action, destination = warning, "Cloud models", "cloud"
+        message, action, destination = warning, tr("Cloud models"), "cloud"
     elif not value.ocr_ready or not options:
-        message, action = warning, "Download models"
+        message, action = warning, tr("Download models")
     elif value.preparing:
-        message, action, tone = "Preparing the translation model. Capture can continue.", "", "info"
+        message, action, tone = (
+            tr("Preparing the translation model. Capture can continue."),
+            "",
+            "info",
+        )
     elif value.ocr_state in ("failed", "loading"):
         message, action = value.ocr_message, ""
         tone = "error" if value.ocr_state == "failed" else "info"
@@ -148,15 +163,15 @@ def project_notices(value: NoticeInput) -> Notices:
         message, action = value.translation_message, ""
         tone = "error" if value.translation_state == "failed" else "info"
     elif missing:
-        message, action, destination = warning, "Choose model", "selection"
+        message, action, destination = warning, tr("Choose model"), "selection"
     elif value.rejected:
         message, action = value.translation_message, ""
         if any(p.provider == "chatgpt" for p in cloud):
-            action, destination = "Manage usage", "usage"
+            action, destination = tr("Manage usage"), "usage"
     elif notice := next(
         (c.performance_notice for c in active if c.local and c.performance_notice), ""
     ):
-        message, action, destination = notice, "Acceleration options", "runtime"
+        message, action, destination = display(notice), tr("Acceleration options"), "runtime"
     advice = acceleration_advice(
         value.hardware, value.ocr_device, actual_provider=value.provider, fallback=value.fallback
     )
@@ -166,9 +181,9 @@ def project_notices(value: NoticeInput) -> Notices:
         and value.requested_device != value.ocr_device
     ):
         advice = SetupAdvice(
-            "CPU OCR is still active. Your new OCR device applies after restarting capture.",
+            tr("CPU OCR is still active. Your new OCR device applies after restarting capture."),
             "recognition",
-            "OCR settings",
+            tr("OCR settings"),
         )
     return Notices(
         message,
@@ -176,8 +191,11 @@ def project_notices(value: NoticeInput) -> Notices:
         tone,
         destination,
         warning,
-        "Choose model" if value.ocr_ready and any(c.local for c in value.options) else "Models",
-        "Settings could not be saved. Changes still apply to this session. " + value.saving_error
+        tr("Choose model")
+        if value.ocr_ready and any(c.local for c in value.options)
+        else tr("Models"),
+        tr("Settings could not be saved. Changes still apply to this session. ")
+        + value.saving_error
         if value.saving_error
         else Notices.save_note,
         advice,

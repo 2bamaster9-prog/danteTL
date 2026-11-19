@@ -8,7 +8,9 @@ from typing import Protocol
 from dantejp.application.live_session import CaptureWorker, LiveSession
 from dantejp.application.preference_values import Preferences
 from dantejp.domain import CaptureSnapshot, CaptureState, WindowGeometry, WindowTarget
+from dantejp.i18n import CatalogText, tr
 from dantejp.ocr.worker import OcrChoice
+from dantejp.translation.selection import OcrOption
 
 
 class WindowAccess(Protocol):
@@ -51,12 +53,13 @@ class CaptureLifecycle:
         create: Callable[[WindowTarget, int, bool], CaptureWorker],
     ) -> None:
         self.live, self.windows = live, windows
-        self._choices, self._create = choices, create
+        self._create = create
+        self.set_choices(choices)
         self.ocr_choice: OcrChoice | None = None
         self.rate = 8
         self.started_at = 0.0
         self.stopping = False
-        self.stop_message = "Capture stopped."
+        self.stop_message = CatalogText("Capture stopped.")
 
     @property
     def can_stop(self) -> bool:
@@ -65,15 +68,20 @@ class CaptureLifecycle:
             capture and not self.stopping and capture.snapshot().state != CaptureState.STOPPING
         )
 
+    def set_choices(self, choices: tuple[OcrChoice, ...]) -> None:
+        self._choices = choices
+        self.options = tuple(OcrOption(c.name, c.key, c.capture_fps) for c in choices)
+
+    def choice_for(self, values: Preferences) -> OcrChoice:
+        return next((c for c in self._choices if c.key == values.ocr_device), self._choices[0])
+
     def prepare(self, target: WindowTarget, now: float, values: Preferences) -> CaptureWorker:
         if not self.windows.is_target(target):
-            raise RuntimeError("The selected window closed. Refresh the window list.")
+            raise RuntimeError(tr("The selected window closed. Refresh the window list."))
         self.rate, self.started_at = values.capture_rate, now
-        self.ocr_choice = next(
-            (c for c in self._choices if c.key == values.ocr_device), self._choices[0]
-        )
+        self.ocr_choice = self.choice_for(values)
         capture = self._create(target, self.rate, values.show_border)
-        self.stop_message = "Capture source closed."
+        self.stop_message = CatalogText("Capture source closed.")
         self.stopping = False
         return capture
 
@@ -120,7 +128,7 @@ class CaptureLifecycle:
 
     def drain(self, *, translation_drained: bool, snapshot: CaptureSnapshot) -> str:
         if not translation_drained:
-            return "Waiting for the current translation operation to finish…"
+            return tr("Waiting for the current translation operation to finish…")
         if not self.live.drain():
-            return "Waiting for OCR and visual workers to finish…"
+            return tr("Waiting for OCR and visual workers to finish…")
         return snapshot.message if snapshot.state == CaptureState.FAILED else self.stop_message

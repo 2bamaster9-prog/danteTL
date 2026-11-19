@@ -40,18 +40,22 @@ def application_session(
     setup: SetupCoordinator,
     notify: Callable[[], None],
     preferences_path: Path | None = None,
+    preferences: PreferenceStore | None = None,
     cache_path: Path | None = None,
     ocr_backends: tuple[OcrChoice, ...] = (),
+    source_models: Callable[[SourceLanguage], tuple[OcrChoice, ...]] | None = None,
     hardware: HardwareCheck | None = None,
     hotkeys: Hotkeys | None = None,
     live_session: LiveSession | None = None,
     language: SourceLanguage = DEFAULT_SOURCE,
 ) -> ApplicationSession:
-    preferences = PreferenceStore(preferences_path)
+    preferences = preferences or PreferenceStore(preferences_path)
     cache = cache_path or state_root() / "data/translations.sqlite3"
+    initial_choices = ocr_backends or (OcrChoice("CPU", recognizer_factory, key="cpu"),)
+
     live = live_session or LiveSession(
         ocr_factory=lambda factory: OcrSession(factory, require_ack=True, on_change=notify),
-        visual_factory=lambda: VisualSession(on_change=notify, language=language),
+        visual_factory=lambda: VisualSession(on_change=notify),
         language=language,
     )
     translation = TranslationCoordinator(
@@ -62,7 +66,7 @@ def application_session(
         ),
         RoutedTranslationSession,
         cache,
-        preferences.initial,
+        preferences.current,
         on_change=notify,
     )
 
@@ -85,12 +89,13 @@ def application_session(
         windows=windows,
         live=live,
         translation=translation,
+        ocr_choices=initial_choices,
+        source_models=source_models or (lambda _: initial_choices),
         inventory=inventory,
         cloud=cloud,
         setup=setup,
         preferences=preferences,
         shutdown=shutdown,
-        ocr_choices=ocr_backends or (OcrChoice("CPU", recognizer_factory, key="cpu"),),
         capture=lambda target, fps, border: CaptureSession(
             target, windows, fps=fps, show_border=border, on_change=notify
         ),
