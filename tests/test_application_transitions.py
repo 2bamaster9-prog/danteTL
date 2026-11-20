@@ -86,7 +86,9 @@ def test_capture_stop_waits_for_translation_then_ocr_cleanup(replay):
     replay.app.start_capture(replay.capture.target, 0)
     observe(replay)
     publish(replay)
+    assert replay.app.view.ocr and replay.app.view.ocr.result
     replay.app.stop()
+    assert replay.app.view.ocr is None
     assert not replay.app.view.english and not replay.app.controls.can_stop
     replay.capture.finished = True
     replay.app.advance(2)
@@ -99,6 +101,18 @@ def test_capture_stop_waits_for_translation_then_ocr_cleanup(replay):
     replay.app.advance(4)
     assert not replay.app.controls.capture_active
     assert replay.app.view.status == "Capture stopped."
+    assert replay.app.view.ocr is None
+
+
+def test_display_queries_reuse_the_published_inference_snapshots(replay, monkeypatch):
+    replay.app.start_capture(replay.capture.target, 0)
+    observe(replay)
+    publish(replay)
+    for worker in (replay.route_workers[-1], replay.ocr):
+        monkeypatch.setattr(worker, "snapshot", Mock(side_effect=AssertionError("worker polled")))
+    assert replay.app.controls.capture_active
+    assert not replay.app.can_setup
+    assert replay.app.notices() == replay.app.notices()
 
 
 def test_stop_intent_survives_delayed_capture_acknowledgement(replay):

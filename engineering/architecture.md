@@ -54,6 +54,8 @@ flags. Translation returns a typed activity (probe, preparation, standby, inacti
 active), with a publication worker only when usable. The application joins probe readiness with
 classifier cleanup, and sends current scene requests through `LiveSession` only. Capture teardown
 waits for translation before draining OCR/visual owners. Status formatting cannot advance workers.
+Controls and notices reuse the published OCR and translation state for the current refresh.
+Resetting the scene releases its OCR snapshot, including the source image, as soon as capture stops.
 `TranslationCoordinator` owns a `ModelLifecycle` through composition. Lifecycle state is private;
 commands change it and immutable snapshots expose it. Assignment/readiness revisions can be read
 without polling workers. Prepared-worker handoff pairs the worker with the model it loaded; a later

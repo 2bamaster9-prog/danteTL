@@ -22,6 +22,7 @@ def reset_scene(view: ApplicationView) -> ApplicationView:
         english=(),
         results=(),
         observation=None,
+        ocr=None,
         frame=None,
         assignments=(),
         overlay_bounds=None,

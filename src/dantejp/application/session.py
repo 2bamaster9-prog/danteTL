@@ -111,7 +111,7 @@ class ApplicationSession:
             or self.setup.busy
             or self.cloud.busy
             or self._consent
-            or self.translation.lifecycle.snapshot().preparing
+            or self.translation.lifecycle.preparation_message is not None
         )
 
     def source_requires_restart(self, code: str) -> bool:
@@ -240,7 +240,7 @@ class ApplicationSession:
         self.preferences.save(self.values)
 
     def remember_model(self) -> None:
-        choice = self.translation.lifecycle.snapshot().selected
+        choice = self.translation.lifecycle.selected
         key = choice.preference_key if choice else "none"
         if key != self.values.model:
             self.values = replace(self.values, model=key)
@@ -266,7 +266,7 @@ class ApplicationSession:
             self.shutdown.active
             or self._source_change is not None
             or not self.translation.restored
-            or self.translation.lifecycle.snapshot().preparing
+            or self.translation.lifecycle.preparation_message is not None
             or self.setup.probing
             or self._consent
         ):
@@ -410,12 +410,12 @@ class ApplicationSession:
     @property
     def controls(self) -> ApplicationControls:
         capture = self.live.capture
-        model = self.translation.lifecycle.snapshot()
+        preparation = self.translation.lifecycle.preparation_message
         return ApplicationControls(
             self.translation.options(),
             self.translation.plan,
-            model.preparing,
-            model.message if model.preparing else "",
+            preparation is not None,
+            preparation or "",
             capture is not None,
             self.capture.can_stop,
             self.capture.started_at,
@@ -482,13 +482,12 @@ class ApplicationSession:
             or self.live.capture
             or self.setup.busy
             or self.cloud.busy
-            or self.translation.lifecycle.snapshot().preparing
+            or self.translation.lifecycle.preparation_message is not None
         )
 
     def notices(self) -> Notices:
-        ocr = self.live.ocr.snapshot() if self.live.ocr else None
-        model = self.translation.lifecycle.snapshot()
-        translation = model.worker
+        ocr = self.view.ocr
+        translation = self.view.translation
         return project_notices(
             NoticeInput(
                 self.translation.options(),
@@ -499,7 +498,7 @@ class ApplicationSession:
                 or self.cloud.snapshot().problem
                 or self.inventory.snapshot().problem,
                 self.setup.busy or self.cloud.busy,
-                model.preparing,
+                self.translation.lifecycle.preparation_message is not None,
                 str(ocr.state) if ocr else "",
                 self.view.ocr_status,
                 str(translation.state) if translation else "",
@@ -520,7 +519,7 @@ class ApplicationSession:
         )
 
     def _advance_preparation(self) -> None:
-        if not self.translation.lifecycle.snapshot().preparing:
+        if self.translation.lifecycle.preparation_message is None:
             return
         outcome = self.translation.lifecycle.advance_preparation(closing=self.shutdown.active)
         if outcome is None:
@@ -590,6 +589,7 @@ class ApplicationSession:
             self.view = replace(
                 self.view,
                 frame=frame,
+                ocr=None,
                 ocr_status=tr(
                     "Capture only. Open Settings → Models to download {_ocr_model}.",
                     _ocr_model=self._ocr_model,

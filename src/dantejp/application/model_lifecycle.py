@@ -125,6 +125,15 @@ class ModelLifecycle:
         )
 
     @property
+    def preparation_message(self) -> str | None:
+        """Current preparation status, available without sampling a model worker."""
+        return self._message if self._preparing is not None else None
+
+    @property
+    def selected(self) -> BackendChoice | None:
+        return self._selected
+
+    @property
     def assignment(self) -> TranslationPlan | None:
         """Committed immutable policy; reading it never polls workers."""
         return self._assignment
