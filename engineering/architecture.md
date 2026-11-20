@@ -87,6 +87,8 @@ downloadable bundles, not imported GGUF registrations; pending selection survive
 Hiding Settings never cancels an operation implicitly; app close cancels/drains all owners.
 Shutdown waits for actual resource release and owner exit, not just a published result/failure.
 Preferences and hardware work drain and hotkeys release before restart; failed restart resumes services.
+Close and restart release the published scene immediately. Draining workers cannot republish its
+frames or observations. A persistently invalid capture clears its scene once per loss of validity.
 
 ## UI, identity and coordinates
 

@@ -11,6 +11,7 @@ from dantetl.domain import CaptureSnapshot, CaptureState, WindowGeometry, Window
 from dantetl.i18n import CatalogText, tr
 from dantetl.ocr.worker import OcrChoice
 from dantetl.translation.selection import OcrOption
+from dantetl.translation.values import TranslationWorker
 
 
 class WindowAccess(Protocol):
@@ -98,10 +99,10 @@ class CaptureLifecycle:
         ):
             self.live.add_recognition(self.ocr_choice.create)
 
-    def stop(self, message: str) -> None:
+    def stop(self, message: str, translation: TranslationWorker | None = None) -> None:
         self.stopping = self.live.capture is not None
         self.stop_message = message
-        self.live.stop()
+        self.live.stop(translation)
 
     def poll(self) -> CaptureStep:
         capture = self.live.capture

@@ -309,12 +309,10 @@ class ApplicationSession:
             self.view, blocks=(), english=(), results=(), english_reset=self.view.english_reset + 1
         )
 
-    def _reset_scene(self, *, invalidate: bool = False) -> None:
-        if invalidate:
+    def _lose_capture_scene(self) -> None:
+        if self.live.valid_size is not None:
             self.live.invalidate(self.translation.lifecycle.publication)
-        else:
-            self.live.reset(self.translation.lifecycle.publication)
-        self.view = reset_scene(self.view)
+            self.view = reset_scene(self.view)
 
     def start_capture(self, target: WindowTarget, now: float) -> bool:
         if (
@@ -337,10 +335,9 @@ class ApplicationSession:
         recognizer = (
             choice.create if choice and inventory.loaded and inventory.data.ocr_ready else None
         )
-        self._reset_scene()
-        self.view = replace(self.view, status=tr("Starting capture…"))
+        self.view = replace(reset_scene(self.view), status=tr("Starting capture…"))
         self.set_window_title(target.title)
-        self.live.start(capture, recognizer)
+        self.live.start(capture, recognizer, self.translation.lifecycle.publication)
         return True
 
     def stop(self, message: str = "Capture stopped.") -> None:
@@ -348,8 +345,8 @@ class ApplicationSession:
             self._source_change = SourceChange(None, True)
         self.original = False
         self.translation.lifecycle.stop_capture(closing=self.shutdown.active)
-        self._reset_scene()
-        self.capture.stop(tr(message))
+        self.capture.stop(tr(message), self.translation.lifecycle.publication)
+        self.view = reset_scene(self.view)
         if self.live.capture:
             self.view = replace(self.view, status=tr("Stopping capture, OCR and translation…"))
 
@@ -401,11 +398,14 @@ class ApplicationSession:
         self._first_run_requested = False
 
     def request_close(self, target: Path | None = None) -> None:
+        if self.shutdown.active:
+            return
         self.original = False
         self._consent = None
         self._source_change = None
         self.cloud.close()
         self.shutdown.request(target)
+        self.view = ApplicationView(reset=self.view.reset + 1)
 
     @property
     def controls(self) -> ApplicationControls:
@@ -596,10 +596,12 @@ class ApplicationSession:
                 ),
             )
             return
-        snapshot = self.live.reconcile(frame, now)
+        snapshot = self.live.reconcile(frame, now, self.translation.lifecycle.publication)
         assert snapshot is not None
-        if snapshot.state == OcrState.FAILED:
-            self._reset_scene()
+        if snapshot.state == OcrState.FAILED and (
+            self.view.ocr is None or self.view.ocr.state != OcrState.FAILED
+        ):
+            self.view = reset_scene(self.view)
         self.view = replace(
             self.view,
             ocr=snapshot,
@@ -617,11 +619,7 @@ class ApplicationSession:
         self._advancing = True
         try:
             self._advance(now)
-            self.view = replace(
-                self.view,
-                capture=self.live.capture.snapshot() if self.live.capture else None,
-                visual=self.live.visual_state,
-            )
+            self.view = replace(self.view, visual=self.live.visual_state)
             self.view = replace(
                 self.view,
                 progress=processing_progress(
@@ -671,11 +669,12 @@ class ApplicationSession:
     def _advance_capture(self, now: float) -> None:
         step = self.capture.poll()
         if step.phase == CapturePhase.IDLE:
-            self.view = replace(self.view, overlay_bounds=None)
+            self.view = replace(self.view, capture=None, overlay_bounds=None)
             self._translate(False, now=now)
             return
         if step.phase in (CapturePhase.STOPPING, CapturePhase.DRAINING):
-            self._reset_scene()
+            self._lose_capture_scene()
+            self.view = replace(self.view, capture=None)
             self._translate(False, now=now)
             if step.phase == CapturePhase.DRAINING:
                 assert step.snapshot is not None
@@ -714,7 +713,7 @@ class ApplicationSession:
                 else tr("Capturing. Game overlay is hidden.")
             )
         else:
-            self._reset_scene(invalidate=True)
+            self._lose_capture_scene()
             message = (
                 tr("Window minimized. Restore it to resume.")
                 if step.phase == CapturePhase.MINIMIZED
@@ -726,7 +725,14 @@ class ApplicationSession:
             grouping=self.values.group_dialogue,
             stabilize=self.values.stabilize or self.values.translation,
         )
-        self.view = replace(self.view, scene=scene, status=message)
+        # Publish the snapshot whose geometry we checked, or the initial waiting state.
+        capture = (
+            snapshot
+            if step.phase == CapturePhase.ACTIVE
+            or (step.phase == CapturePhase.WAITING_FRAME and frame is None)
+            else None
+        )
+        self.view = replace(self.view, capture=capture, scene=scene, status=message)
         if not self.values.translation:
             self.view = replace(self.view, blocks=scene.blocks)
         self._translate(True, now=now)

@@ -94,6 +94,7 @@ class LiveSession:
         self.visual_state = VisualState()
         self.accepted: OcrResult | None = None
         self._consumed_sequence = 0
+        self._ocr_failed = False
         self.assignments: tuple[int | None, ...] = ()
         self.valid_size: tuple[int, int] | None = None
         self._tracker = TextTracker(language=language)
@@ -194,10 +195,11 @@ class LiveSession:
         self,
         capture: CaptureWorker,
         recognizer: Callable[[], Recognizer] | None,
+        translation: TranslationWorker | None = None,
     ) -> None:
         if self.capture is not None:
             raise RuntimeError(tr("The previous capture must finish before starting another."))
-        self.reset()
+        self.reset(translation)
         self.history.start()
         self.valid_size = None
         self.capture = capture
@@ -220,13 +222,15 @@ class LiveSession:
         self.visual.start()
 
     def stop(self, translation: TranslationWorker | None = None) -> None:
-        self.reset(translation)
+        self.invalidate(translation)
         for worker in (self.ocr, self.visual, self.capture, self._classifier):
             if worker:
                 worker.request_stop()
 
     def drain(self) -> bool:
         """A stopped source cannot be replaced while its workers still own resources."""
+        if not any((self.capture, self.ocr, self.visual, self._classifier)):
+            return True
         if self.capture and not self.capture.finished:
             return False
         for worker in (self.visual, self.ocr, self._classifier):
@@ -258,6 +262,7 @@ class LiveSession:
 
     def reset(self, translation: TranslationWorker | None = None) -> None:
         self.accepted = None
+        self._ocr_failed = False
         self._consumed_sequence = 0
         self.assignments = ()
         if self.visual:
@@ -282,13 +287,18 @@ class LiveSession:
     def clear_english(self) -> None:
         self._presentation.reset()
 
-    def reconcile(self, frame: CapturedFrame, now: float) -> OcrSnapshot | None:
+    def reconcile(
+        self, frame: CapturedFrame, now: float, translation: TranslationWorker | None = None
+    ) -> OcrSnapshot | None:
         if not self.ocr:
             return None
         snapshot = self.ocr.snapshot()
         if snapshot.state == OcrState.FAILED:
-            self.reset()
+            if not self._ocr_failed:
+                self.reset(translation)
+                self._ocr_failed = True
             return snapshot
+        self._ocr_failed = False
         if self.visual:
             state = self.visual.poll()
             candidate = (

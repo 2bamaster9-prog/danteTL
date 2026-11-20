@@ -11,6 +11,7 @@ from dantetl.application.values import ApplicationView, ProcessingProgress, Scen
 from dantetl.domain import CaptureState
 from dantetl.i18n import tr
 from dantetl.ocr.values import OcrSnapshot, OcrState
+from dantetl.ocr.visual_values import VisualState
 from dantetl.translation.values import TranslationSnapshot, TranslationState
 
 
@@ -24,6 +25,8 @@ def reset_scene(view: ApplicationView) -> ApplicationView:
         observation=None,
         ocr=None,
         frame=None,
+        capture=None,
+        visual=VisualState(),
         assignments=(),
         overlay_bounds=None,
         reset=view.reset + 1,

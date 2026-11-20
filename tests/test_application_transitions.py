@@ -1,5 +1,6 @@
 """Lifecycle regressions through application commands and injected worker completions."""
 
+import time
 from dataclasses import replace
 from unittest.mock import Mock
 
@@ -13,6 +14,7 @@ from dantetl.domain import CaptureSnapshot, CaptureState, Rect
 from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState, TextRegion
 from dantetl.ocr.visual_values import VisualState
 from dantetl.ocr.worker import OcrChoice
+from dantetl.runtime.restart import RestartSnapshot
 from dantetl.translation.plan import TranslationPlan
 from dantetl.translation.selection import AssignmentChange
 from dantetl.translation.values import TranslatedText, TranslationRequest, TranslationState
@@ -156,6 +158,46 @@ def test_invalid_capture_revokes_scene_and_english(replay, cause):
         assert set(replay.ocr.acknowledged) == {1}
     if cause == "window_error":
         assert replay.capture.stop_requested
+    reset = replay.app.view.reset
+    generations = (replay.visual.invalidations, replay.ocr.invalidations)
+    for tick in range(3, 103):
+        assert replay.app.advance(tick).reset == reset
+    assert (replay.visual.invalidations, replay.ocr.invalidations) == generations
+    if cause in ("minimized", "resized"):
+        replay.windows.geometry.return_value = frame(104).geometry
+        result = observe(replay, 104)
+        assert replay.app.view.observation is result
+        assert replay.app.view.capture is replay.capture.current
+
+
+def test_failed_restart_releases_published_source_while_workers_drain(replay, tmp_path):
+    replay.app.start_capture(replay.capture.target, 0)
+    observe(replay)
+    publish(replay)
+    assert replay.app.view.observation and replay.app.view.visual.frame
+    replay.app.request_close(tmp_path / "runtime")
+    reset = replay.app.view.reset
+
+    def assert_cleared(view):
+        assert view.reset == reset and view.frame is None and view.observation is None
+        assert view.ocr is None and view.visual.frame is None
+        assert view.capture is None or view.capture.frame is None
+        assert not view.scene.tracks and not view.english and view.overlay_bounds is None
+
+    assert_cleared(replay.app.view)
+    assert_cleared(replay.app.advance(2))
+    replay.capture.finished = replay.ocr.finished = replay.visual.finished = True
+    replay.route_workers[-1].finish()
+    replay.restart.finished = True
+    replay.restart.snapshot.return_value = RestartSnapshot("failed", "fixture")
+    deadline = time.monotonic() + 3
+    while replay.app.closing:
+        assert_cleared(replay.app.advance(3))
+        assert time.monotonic() < deadline, replay.app.close_status
+        time.sleep(0.001)
+    assert not replay.app.closing and not replay.app.controls.capture_active
+    assert replay.app.close_status.message == "fixture"
+    assert_cleared(replay.app.advance(4))
 
 
 def test_hidden_overlay_and_focus_loss_preserve_the_processing_scene(replay):
