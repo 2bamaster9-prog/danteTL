@@ -512,6 +512,24 @@ def main() -> int:
                 window.inspector.pause.setChecked(True)
                 # Events drained for the grab may have advanced OCR.
                 frozen = window.inspector.result
+                picker = window._settings.interface_language
+                owners = (
+                    application.live.capture,
+                    application.live.ocr,
+                    application.translation.lifecycle.publication,
+                )
+                game = window.windows_combo.currentData()
+                for code in ("pt-PT", "ja", "en"):
+                    picker.setCurrentIndex(picker.findData(code))
+                    assert (
+                        application.live.capture,
+                        application.live.ocr,
+                        application.translation.lifecycle.publication,
+                    ) == owners
+                    assert window.inspector.pause.isChecked() and window.inspector.result is frozen
+                    assert window.windows_combo.currentData() == game
+                    assert (window.start_button.text() == "Stop capture") == (code == "en")
+                evidence["live_interface_language_switch"] = True
                 if args.output:
                     args.output.parent.mkdir(parents=True, exist_ok=True)
                     window.grab().save(str(args.output))

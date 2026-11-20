@@ -8,7 +8,9 @@ Run checks for the changed boundary. Keep outcomes, environment and limitations 
 Run `uv run python tools/check.py` after code changes. It runs Ruff format/lint, Pyright and
 model-free pytest, plus direct/transitive ownership contracts using Import Linter. Public view ports
 have strict Pyright checks. Dependencies must already be installed; no models or provider accounts are
-required. Tests use temporary SQLite and disposable fake credentials/local HTTP transports.
+required. It also checks the bundled UI catalogs against the English source and verifies
+format placeholders and native dialog labels. Tests use temporary SQLite and disposable
+fake credentials/local HTTP transports.
 Windows CI runs this entry point; interactive capture/GPU acceptance is separate.
 Release builds use [the standard build entry point](building.md). The distribution workflow also
 runs `verify_standalone_windows.py --headless` against the relocated EXE with offline Japanese OCR.
@@ -61,7 +63,8 @@ checks once after changes settle; repeat only for new changes, failures or unres
 | Grouping/readiness/English publication | `tools/verify_translation.py`; `tools/verify_ocr_windows.py --translation --dialogue --typewriter --transitions --ocr-delay-ms 900` |
 | Translation scheduling/cache/swapping | Offline translation; live `--translation --dialogue --gemma --debug`; retention/slow-OCR checks above |
 | Model consent/preparation/probe/shutdown | `tools/verify_setup_windows.py` and `--missing-runtime`; live translation/model swaps; import lifecycle check when probe changes |
-| Main/Settings/Advanced/pause/preferences | `tools/verify_ui_windows.py`; native setup and live translation/pause checks |
+| Main/Settings/Advanced/pause/preferences | `tools/verify_ui_windows.py`; native setup and live translation/pause checks. For source changes, check silent idle and same-reader switches, then cancel and confirm a cross-reader switch from the two pickers on an owned window. Check that both native windows and the active Settings tab persist. Verify same-model OCR reuse, cross-model replacement and exact-target capture resumption. |
+| Interface language and catalog packaging | Run the fast checks and `tools/verify_ocr_windows.py --translation --dialogue` to exercise a live language switch during capture. Run `tools/verify_standalone_windows.py` on the rebuilt distribution to check the English, European Portuguese and Japanese welcome screens with disposable preferences. |
 | Dialogue reader/classification | Explicit-time history replays; live `--translation --dialogue --gemma --typewriter --ocr-delay-ms 900`; confirm whole-turn deduplication, separate speaker and unchanged model work |
 | Cloud/routing/editor/credentials | Fast fake-transport/credential tests; `tools/verify_cloud_windows.py`; revise a dialogue while a menu call is active, and verify shared and retained calls through the translation owner |
 | Two assigned local models | `tools/verify_category_models.py --device cpu` in a CPU runtime, `--device cuda` in NVIDIA and `--device vulkan` in Vulkan; verifies inference/switching without upstream disk caches; live swaps and retention checks |

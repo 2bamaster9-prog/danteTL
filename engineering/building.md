@@ -53,6 +53,11 @@ Source-development runtime installs remain editable so checkout edits apply imme
 
 ## Verification
 
+Run `uv run python tools/localize.py extract` to collect new or changed interface strings.
+Complete unfinished entries in `translations/*.ts` with Qt Linguist, then run
+`uv run python tools/localize.py compile` to update the bundled QM files. The fast checks
+verify coverage, placeholders and compiled translations offline.
+
 ```powershell
 uv run python tools/check.py
 uv run python tools/verify_standalone_windows.py --headless --output artifacts/release-headless

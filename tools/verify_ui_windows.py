@@ -70,6 +70,21 @@ def main() -> int:
         try:
             assert time.monotonic() - started < 20, "UI verification timed out"
             settings = window._settings
+            if stage in (0, 8, 80, 81):  # Both routing modes in compact and maximized layouts.
+                advanced = stage in (80, 81)
+                routing = window.routing
+                models = (
+                    (routing.short_model, routing.long_model) if advanced else (routing.simple,)
+                )
+                pickers = (window.source_picker, window.output_language, *models)
+                assert all(picker.isVisible() for picker in pickers)
+                assert len({(p.mapTo(window, QPoint()).x(), p.width()) for p in pickers}) == 1
+                if not advanced:
+                    routing.advanced.setChecked(True)
+                    stage = 80 if stage == 0 else 81
+                    return
+                routing.advanced.setChecked(False)
+                stage = 0 if stage == 80 else 8
             if stage == 0:
                 if not hardware.finished:
                     return

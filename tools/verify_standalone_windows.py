@@ -89,7 +89,9 @@ def download_helper(exe: Path, output: Path, environment: dict[str, str]) -> Non
         assert not thread.is_alive()
 
 
-def desktop(exe: Path, output: Path, environment: dict[str, str], state: Path) -> None:
+def desktop(
+    exe: Path, output: Path, environment: dict[str, str], state: Path, welcome: str
+) -> None:
     token = uuid4().hex
     process = OwnedProcess(
         [str(exe)], output, environment | {"DANTEJP_RESTART_TOKEN": token}, show_window=True
@@ -118,13 +120,13 @@ def desktop(exe: Path, output: Path, environment: dict[str, str], state: Path) -
         assert pid == process.pid, "Bundled CPU must run inside the actual PyInstaller EXE"
         while True:
             owned = owned_windows()
-            if any(t.title == "DanteJP · Welcome" for t in owned):
+            if any(t.title == welcome for t in owned):
                 break
             assert time.monotonic() < deadline, "Fresh app did not show its welcome"
             time.sleep(0.1)
         post = ctypes.WinDLL("user32").PostMessageW
         post.argtypes = (ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t)
-        for title in ("DanteJP · Welcome", "DanteJP"):
+        for title in (welcome, "DanteJP"):
             owned = owned_windows()
             while not any(t.title == title for t in owned):
                 assert time.monotonic() < deadline, (title, owned)
@@ -225,8 +227,21 @@ def main() -> None:
     assert Path(result["latin_ocr"]["models"]) == bundle / "_internal/app/models/paddle-latin-v5"
     download_helper(exe, output, environment)
     if not args.headless:
-        desktop(exe, output, environment, state)
+        desktop(exe, output, environment, state, "DanteJP · Welcome")
         assert (state / "logs/app.log").is_file()
+        # A saved interface locale must load from the relocated release before setup appears.
+        from PySide6.QtCore import QTranslator
+
+        prefs = state / "data/preferences.json"
+        for code in ("pt-PT", "ja"):
+            catalog = QTranslator()
+            assert catalog.load(str(ROOT / f"src/dantejp/ui/locales/{code}.qm"))
+            welcome = catalog.translate("DanteJP", "DanteJP · Welcome")
+            assert welcome and welcome != "DanteJP · Welcome"
+            prefs.write_text(
+                json.dumps({"version": 1, "setup_seen": False, "interface_language": code}), "utf-8"
+            )
+            desktop(exe, output, environment, state, welcome)
     assert not (state / "models").exists(), "No implicit model download/copy"
     assert not (state / ".runtimes").exists(), "No implicit runtime installation"
     if args.invalid_selection:
@@ -237,6 +252,7 @@ def main() -> None:
         state=str(state),
         no_python_on_path=True,
         relocated_exe_started=not args.headless,
+        localized_welcome=not args.headless,
         unicode_path=any(ord(c) > 127 for c in str(bundle)),
         no_implicit_downloads=True,
         no_files_written_in_app_folder=True,

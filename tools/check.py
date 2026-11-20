@@ -9,6 +9,7 @@ def main() -> int:
         ["-m", "ruff", "format", "--check", "."],
         ["-m", "ruff", "check", "."],
         ["-m", "pyright"],
+        ["tools/localize.py", "check"],
         ["-c", "from importlinter.cli import lint_imports_command; lint_imports_command()"],
         ["-m", "pytest", "-q", "-m", "not windows"],
     ]

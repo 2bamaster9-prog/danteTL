@@ -55,6 +55,41 @@ def app():
     shiboken6.delete(application)
 
 
+@pytest.mark.parametrize("code", ["pt-PT", "ar", "ja"])
+def test_bundled_language_translates_controls_and_preserves_language_ids(app, code):
+    from PySide6.QtCore import QLocale, Qt
+    from PySide6.QtWidgets import QDialogButtonBox
+
+    from dantejp.i18n import tr
+    from dantejp.ui.controls import OutputLanguageCombo, SourceLanguageCombo
+    from dantejp.ui.localization import CATALOGS, InterfaceLanguageCombo, install_language
+
+    locale, direction = QLocale(), app.layoutDirection()
+    try:
+        install_language(app, code)
+        interface = InterfaceLanguageCombo(code)
+        assert {interface.itemData(i) for i in range(interface.count())} == {
+            "en",
+            *(path.stem for path in CATALOGS.glob("*.qm")),
+        }
+        assert interface.currentData() == code
+        assert interface.itemText(interface.findData("en")) == "English"
+        for index in range(interface.count()):
+            name = interface.itemText(index)
+            assert name and name[0] == name[0].upper()
+        source, output = SourceLanguageCombo("ja"), OutputLanguageCombo("pt-BR")
+        assert source.currentData() == "ja" and output.currentData() == "pt-BR"
+        assert source.accessibleName() == tr("Game text language") != "Game text language"
+        assert output.currentText() == tr("Portuguese (Brazil)") != "Portuguese (Brazil)"
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
+        assert buttons.button(QDialogButtonBox.StandardButton.Cancel).text() != "Cancel"
+        assert (source.layoutDirection() == Qt.LayoutDirection.RightToLeft) == (code == "ar")
+    finally:
+        install_language(app, "en")
+        QLocale.setDefault(locale)
+        app.setLayoutDirection(direction)
+
+
 def test_capture_visibility_applies_before_show_and_live_failure_preserves_state(app):
     windows = Mock()
     overlay = OverlayWindow(windows)
@@ -260,15 +295,36 @@ def test_first_run_skip_persists_and_settings_can_reopen_it(app, tmp_path):
     window.offer_first_run()
     guide = window.findChild(SetupAssistant)
     assert guide is not None
+    guide.interface_language.setCurrentIndex(guide.interface_language.findData("pt-PT"))
+    from dantejp.i18n import tr
+
+    assert settings(window).interface_language.currentData() == "pt-PT"
+    assert guide.isVisible() and guide.pages.currentIndex() == 0
+    assert guide.heading.text() == tr("Welcome to DanteJP") != "Welcome to DanteJP"
+    assert guide.next.text() == tr("Next") != "Next"
+    assert window.refresh_button.text() == tr("Refresh") != "Refresh"
+    assert settings(window).tabs.tabText(0) == tr("Appearance") != "Appearance"
     guide.skip.click()
     drain(window, lambda: application.preferences.idle)
     assert PreferenceStore(path).initial.setup_seen
+    saved = PreferenceStore(path).initial
+    assert (saved.interface_language, saved.source_language, saved.output_language) == (
+        "pt-PT",
+        "ja",
+        "en",
+    )
     window.offer_first_run()
     assert not guide.isVisible()
     settings(window).setup_assistant.click()
     assert window.findChild(SetupAssistant)
     guide = next(g for g in window.findChildren(SetupAssistant) if g.isVisible())
     guide.close()
+    picker = settings(window).interface_language
+    picker.setCurrentIndex(picker.findData("ar"))
+    assert window.refresh_button.text() == tr("Refresh") != "Refresh"
+    picker.setCurrentIndex(picker.findData("en"))
+    assert window.refresh_button.text() == "Refresh"
+    assert settings(window).tabs.tabText(0) == "Appearance"
     window.close()
     window.deleteLater()
 
