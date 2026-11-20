@@ -335,6 +335,26 @@ def test_cloud_edits_preserve_unaffected_work_and_scope_credential_changes(tmp_p
         assert owner.refresh_route()  # Active safety limits must reach the backend.
         until(ready)
         assert counts[a.key] == 3 and counts[c.key] == 1
+        # Revocation takes effect before the credential operation is adopted.
+        service.forget_key(a.credential_key)
+        assert not service.available(a.key) and service.available(c.key)
+        assert owner.refresh_route()
+        assert owner.advance_activity(running=True, enabled=True).worker is worker
+        new_short, new_long = block(3, "戻る"), block(4, "続き" * 24)
+        worker.update((new_short, new_long))
+        until(
+            lambda: any(
+                r.english == c.key + ": " + new_long.text for r in worker.snapshot().results
+            )
+        )
+        assert all(not r.english.startswith(a.key) for r in worker.snapshot().results)
+        assert all(
+            new_short.text not in batch
+            for engine in engines
+            if engine.cache_identity == a.key
+            for batch in engine.calls
+        )
+        finish(service)
     finally:
         release.set()
         owner.lifecycle.shutdown()

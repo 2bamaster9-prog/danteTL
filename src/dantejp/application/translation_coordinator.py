@@ -184,13 +184,11 @@ class TranslationCoordinator:
         route = RouteSelection(
             language=self.language,
             game=self.game if remote else "",
-            available=any(
-                self._lifecycle.is_prepared(c)
-                if isinstance(c, BackendChoice)
-                else self.cloud.available(c.key)
-                if isinstance(c, CloudProfile)
-                else False
+            available_models=frozenset(
+                model_reference(c)
                 for c in choices
+                if (isinstance(c, BackendChoice) and self._lifecycle.is_prepared(c))
+                or (isinstance(c, CloudProfile) and self.cloud.available(c.key))
             ),
             plan=self.plan,
             identities=choices,
@@ -215,21 +213,18 @@ class TranslationCoordinator:
         factories = {}
         identities: dict[str, ModelIdentity] = {}
         names = {}
-        for choice in route.identities:
-            if isinstance(choice, BackendChoice) and self._lifecycle.is_prepared(choice):
-                factories[model_reference(choice)] = choice.create
-                identities[model_reference(choice)] = LocalIdentity(
-                    choice.key, choice.preparation_id
-                )
-                names[model_reference(choice)] = choice.name
-            elif isinstance(choice, CloudProfile) and self.cloud.available(choice.key):
-                factories[model_reference(choice)] = partial(
-                    self.cloud.create_backend, choice, route.game, route.language
-                )
-                identities[model_reference(choice)] = CloudIdentity.from_profile(
-                    choice, route.game, self.cloud.credential_revision(choice)
-                )
-                names[model_reference(choice)] = choice.name
+        for choice, identity in zip(route.identities, route.model_keys, strict=True):
+            reference = model_reference(choice)
+            if reference not in route.available_models:
+                continue
+            assert choice is not None and identity is not None
+            factories[reference] = (
+                choice.create
+                if isinstance(choice, BackendChoice)
+                else partial(self.cloud.create_backend, choice, route.game, route.language)
+            )
+            identities[reference] = identity
+            names[reference] = choice.name
         if isinstance(local, RoutedTranslationSession):
             local.reconfigure(
                 route.plan, factories, language=route.language, identities=identities, names=names

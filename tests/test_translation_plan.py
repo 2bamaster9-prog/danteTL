@@ -125,7 +125,9 @@ def test_reassign_drains_changed_owner_and_rejects_previous_inflight_reply(tmp_p
                 return existing
             return start(plan)
 
-        lifecycle.configure_route(RouteSelection(available=True, plan=plan), reconfigure)
+        lifecycle.configure_route(
+            RouteSelection(available_models=frozenset(plan.active_models), plan=plan), reconfigure
+        )
 
     def start(plan):
         result = RoutedTranslationSession(plan, factories, tmp_path / "cache")

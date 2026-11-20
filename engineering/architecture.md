@@ -58,7 +58,9 @@ waits for translation before draining OCR/visual owners. Status formatting canno
 commands change it and immutable snapshots expose it. Assignment/readiness revisions can be read
 without polling workers. Prepared-worker handoff pairs the worker with the model it loaded; a later
 selection cannot relabel that resource. `ModelLifecycle` gates route activation, consent, probing and
-shutdown. The coordinator resolves per-model identities and recipes; the routed owner retains unchanged workers during committed
+shutdown. The coordinator tracks availability for each assigned model. Revoking one connection
+withdraws its recipe on the next reconciliation even when another assignment is ready.
+The routed owner retains unchanged workers during committed
 assignment changes. It drains replaced workers before starting replacements and coalesces rapid edits
 to the latest plan. Unchanged lanes keep processing; retired replies cannot publish. Active plus retiring
 owners remain bounded to two. One assignment-plan constructor owns runtime routing; older saved

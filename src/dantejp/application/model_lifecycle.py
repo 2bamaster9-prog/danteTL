@@ -38,7 +38,7 @@ class ModelPhase(StrEnum):
 @dataclass(frozen=True)
 class RouteSelection:
     game: str = ""
-    available: bool = False
+    available_models: frozenset[str] = frozenset()
     plan: TranslationPlan = TranslationPlan()
     identities: tuple[BackendChoice | CloudProfile | None, ...] = field(default=(), compare=False)
     model_keys: tuple[LocalIdentity | CloudIdentity | None, ...] = ()
@@ -167,7 +167,7 @@ class ModelLifecycle:
         return (
             running
             and enabled
-            and self._route.available
+            and bool(self._route.available_models)
             and not self._preparing
             and not self._probing
             and self._phase != ModelPhase.CLOSING
@@ -392,7 +392,7 @@ class ModelLifecycle:
             return None
         if isinstance(session, TranslationSession):
             key = "local:" + self._worker_choice.preference_key if self._worker_choice else ""
-            if key not in self._route.plan.active_models:
+            if key not in self._route.available_models:
                 self.drain()
                 if self._session:
                     return None
