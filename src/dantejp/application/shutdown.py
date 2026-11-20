@@ -6,8 +6,7 @@ from typing import Protocol
 
 from dantejp.application.live_session import LiveSession
 from dantejp.application.model_lifecycle import ModelLifecycle
-from dantejp.application.values import ShutdownPhase as ShutdownPhase
-from dantejp.application.values import ShutdownSnapshot as ShutdownSnapshot
+from dantejp.application.values import ShutdownPhase, ShutdownSnapshot
 from dantejp.i18n import tr
 from dantejp.runtime.restart import RestartSnapshot
 

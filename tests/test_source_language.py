@@ -333,7 +333,8 @@ def test_source_change_drains_active_capture_and_keeps_output_language(tmp_path)
 
     from ownership_fixtures import Replay
 
-    from dantejp.application.preferences import Preferences, PreferenceStore
+    from dantejp.application.preference_values import Preferences
+    from dantejp.application.preferences import PreferenceStore
 
     replay = Replay(tmp_path, preferences=Preferences(output_language="fr"))
     assert replay.app.start_capture(replay.capture.target, 1)
@@ -369,7 +370,7 @@ def test_source_switch_resumes_exact_game_and_reuses_only_compatible_ocr(
 
     from ownership_fixtures import Replay
 
-    from dantejp.application.preferences import Preferences
+    from dantejp.application.preference_values import Preferences
     from dantejp.ocr.worker import OcrChoice
 
     devices = tuple(OcrChoice(key, Mock(), key=key) for key in ("auto", "cpu"))
@@ -403,7 +404,7 @@ def test_source_switch_resumes_exact_game_and_reuses_only_compatible_ocr(
 def test_source_restart_respects_stops_closed_target_and_quit(tmp_path, action):
     from ownership_fixtures import Replay
 
-    from dantejp.application.preferences import Preferences
+    from dantejp.application.preference_values import Preferences
     from dantejp.application.values import ShutdownPhase
 
     replay = Replay(tmp_path, preferences=Preferences(source_language="en"))

@@ -8,7 +8,8 @@ import httpx2
 import pytest
 
 from dantejp.application.live_session import LiveSession
-from dantejp.application.preferences import Preferences, decode_preferences
+from dantejp.application.preference_values import Preferences
+from dantejp.application.preferences import decode_preferences
 from dantejp.domain import Rect
 from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.backend import RequestRejected

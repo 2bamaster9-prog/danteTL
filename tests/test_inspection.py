@@ -159,7 +159,7 @@ def test_capture_status_and_loading_stay_inside_game_panel_without_inspection(ap
 
 def test_capture_visibility_ui_remembers_choice_and_rolls_back_native_failure(app, monkeypatch):
     windows, preferences = Mock(), Mock()
-    from dantejp.application.preferences import Preferences
+    from dantejp.application.preference_values import Preferences
 
     windows.list_targets.return_value = []
     preferences.current = Preferences(include_overlay_in_capture=False)
@@ -530,7 +530,8 @@ def test_included_ocr_has_ready_badge_and_is_not_in_first_run_download_plan(app,
 def test_first_run_resumes_model_intent_after_restart_but_still_requires_consent(
     app, tmp_path, monkeypatch, key
 ):
-    from dantejp.application.preferences import Preferences, PreferenceStore
+    from dantejp.application.preference_values import Preferences
+    from dantejp.application.preferences import PreferenceStore
 
     path = tmp_path / "preferences.json"
     PreferenceStore(path)._write(
@@ -1605,7 +1606,8 @@ def test_hidden_inspector_does_no_frame_copy_or_table_build_and_resume_uses_late
 def test_saved_model_choice_survives_runtime_change_without_implicit_preparation(
     app, tmp_path, monkeypatch, prepared, key
 ):
-    from dantejp.application.preferences import Preferences, PreferenceStore
+    from dantejp.application.preference_values import Preferences
+    from dantejp.application.preferences import PreferenceStore
 
     path = tmp_path / "preferences.json"
     store = PreferenceStore(path)

@@ -20,7 +20,8 @@ from ui_fixtures import (
 )
 from ui_fixtures import create_window as MainWindow
 
-from dantejp.application.preferences import Preferences, PreferenceStore  # noqa: E402
+from dantejp.application.preference_values import Preferences  # noqa: E402
+from dantejp.application.preferences import PreferenceStore  # noqa: E402
 from dantejp.application.translation_coordinator import model_reference
 from dantejp.domain import Rect  # noqa: E402
 from dantejp.languages.target import TARGET_LANGUAGES  # noqa: E402

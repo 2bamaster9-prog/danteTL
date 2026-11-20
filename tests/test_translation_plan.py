@@ -8,7 +8,8 @@ from unittest.mock import Mock
 import pytest
 
 from dantejp.application.model_lifecycle import ModelLifecycle, RouteSelection
-from dantejp.application.preferences import Preferences, decode_preferences
+from dantejp.application.preference_values import Preferences
+from dantejp.application.preferences import decode_preferences
 from dantejp.domain import Rect
 from dantejp.languages.target import ENGLISH
 from dantejp.ocr.tracking import TextTrack

@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
-from dantejp.application.values import Scene as Scene
+from dantejp.application.values import Scene
 from dantejp.domain import CapturedFrame, CaptureSnapshot, CaptureState, Rect, WindowTarget
 from dantejp.i18n import tr
 from dantejp.languages.selection import DEFAULT_SOURCE

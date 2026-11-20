@@ -3,7 +3,8 @@ import threading
 import time
 from dataclasses import replace
 
-from dantejp.application.preferences import Preferences, PreferenceStore, decode_preferences
+from dantejp.application.preference_values import Preferences
+from dantejp.application.preferences import PreferenceStore, decode_preferences
 
 
 def wait_idle(store):

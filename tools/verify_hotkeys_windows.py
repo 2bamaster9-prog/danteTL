@@ -23,7 +23,7 @@ from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
 from dantejp.application.hotkeys import HotkeyAction, Hotkeys
-from dantejp.application.preferences import Preferences
+from dantejp.application.preference_values import Preferences
 from dantejp.capture.windows import Windows
 from dantejp.domain import WindowTarget
 from dantejp.ui.demo import DemoWindow

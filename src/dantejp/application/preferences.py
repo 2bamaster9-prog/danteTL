@@ -9,7 +9,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from dantejp.application.hotkeys import parse_shortcut
-from dantejp.application.preference_values import Preferences as Preferences
+from dantejp.application.preference_values import Preferences
 from dantejp.i18n import INTERFACE_LANGUAGES, tr
 from dantejp.languages.selection import SOURCE_LANGUAGES
 from dantejp.languages.target import TARGET_LANGUAGES

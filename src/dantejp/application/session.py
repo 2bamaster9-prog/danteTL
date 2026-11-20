@@ -23,11 +23,11 @@ from dantejp.application.translation_activity import TranslationMode
 from dantejp.application.translation_coordinator import TranslationCoordinator
 from dantejp.application.values import (
     ApplicationControls,
+    ApplicationView,
+    ModelConsent,
     ShutdownPhase,
     ShutdownSnapshot,
 )
-from dantejp.application.values import ApplicationView as ApplicationView
-from dantejp.application.values import ModelConsent as ModelConsent
 from dantejp.domain import (
     CapturedFrame,
     CaptureState,

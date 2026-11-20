@@ -11,7 +11,7 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from dantejp.application.model_values import ModelFile as ModelFile
+from dantejp.application.model_values import ModelFile
 from dantejp.i18n import tr
 from dantejp.runtime.model_store import ModelBundle
 from dantejp.translation.models.gguf import available
