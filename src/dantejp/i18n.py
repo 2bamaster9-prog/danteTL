@@ -21,6 +21,7 @@ INTERFACE_LANGUAGES = (
     "zh-hans",
     "es",
     "th",
+    "zh-hant",
     "vi",
 )
 
