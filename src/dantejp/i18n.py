@@ -12,6 +12,7 @@ INTERFACE_LANGUAGES = (
     "id",
     "it",
     "ja",
+    "ko",
     "ar",
     "pt-PT",
     "es",
