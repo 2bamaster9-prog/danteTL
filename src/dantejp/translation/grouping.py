@@ -4,6 +4,7 @@ import re
 from bisect import bisect_left, bisect_right
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
+from functools import lru_cache
 from itertools import groupby
 from statistics import median
 
@@ -589,12 +590,39 @@ def _blocks(
     ordered = sorted(tracks[:128], key=lambda t: (t.bounds.y, t.bounds.x, t.track_id))
     row_tops = [t.bounds.y for t in ordered] if enabled else []
     openings = _quote_openings(language, ordered, dash_edges) if enabled else {}
+
+    @lru_cache(maxsize=256)
+    def successors(
+        upper: TextTrack, previous: Rect | None, revealing: bool, continuation: int | None
+    ) -> tuple[TextTrack, ...]:
+        # A rejected paragraph can be retraced from its second row. Keep its
+        # scored edges for this layout, including pitch, growth and quote context.
+        bounds = upper.bounds
+        bottom = bounds.y + bounds.height
+        height = max(1, bounds.height)
+        start = bisect_left(row_tops, bottom - height * _MAX_ROW_OVERLAP)
+        stop = bisect_right(row_tops, bottom + height * _MAX_ROW_GAP)
+        return tuple(
+            line
+            for line in ordered[start:stop]
+            if line.track_id not in openings
+            and _can_follow(
+                language,
+                upper,
+                line,
+                revealing=revealing or line.track_id in growing,
+                previous_row=previous,
+                opening_quote=line.track_id == continuation,
+            )
+        )
+
     used: set[int] = set()
     blocks: list[TextBlock] = []
     for first in ordered:
         if first.track_id in used:
             continue
         lines = (first,)
+        source = first.text.strip()
         members = {first.track_id}
         revealing = first.track_id in growing
         last_row, continuation = openings.get(first.track_id, (first, None))
@@ -602,27 +630,10 @@ def _blocks(
         centered_pair = False
         if enabled:
             while len(lines) < len(ordered):
-                # The exact gap uses the shorter row. The upper row alone bounds every
-                # possible successor, including after same-row fragments are combined.
-                bounds = last_row.bounds
-                bottom = bounds.y + bounds.height
-                height = max(1, bounds.height)
-                start = bisect_left(row_tops, bottom - height * _MAX_ROW_OVERLAP)
-                stop = bisect_right(row_tops, bottom + height * _MAX_ROW_GAP)
                 candidates = [
                     line
-                    for line in ordered[start:stop]
-                    if line.track_id not in used
-                    and line.track_id not in members
-                    and line.track_id not in openings
-                    and _can_follow(
-                        language,
-                        last_row,
-                        line,
-                        revealing=revealing or line.track_id in growing,
-                        previous_row=previous_row,
-                        opening_quote=line.track_id == continuation,
-                    )
+                    for line in successors(last_row, previous_row, revealing, continuation)
+                    if line.track_id not in used and line.track_id not in members
                 ]
                 if len(candidates) != 1:
                     # Recover only an isolated opening pair. A new terminal join cannot
@@ -660,19 +671,22 @@ def _blocks(
                         union_bounds(tuple(t.bounds for t in lines)),
                         len(ordered) - len(lines),
                     )
-                proposed = (*lines, *row)
-                source = join_lines(proposed, language)
-                if len(source) > 512:
+                row_text = join_lines(row, language)
+                separator = " " if language.needs_space(source[-1:], row_text[:1]) else ""
+                if len(source) + len(separator) + len(row_text) > 512:
                     break
-                lines = proposed
+                source += separator + row_text
+                lines += row
                 members.update(t.track_id for t in row)
                 revealing = revealing or any(t.track_id in growing for t in row)
                 # Aggregate geometry is private to adjacency; requests retain every raw member.
                 previous_row = last_row.bounds
-                last_row = replace(
-                    row[0],
-                    text=join_lines(row, language),
-                    bounds=union_bounds(tuple(t.bounds for t in row)),
+                last_row = (
+                    row[0]
+                    if len(row) == 1 and row[0].text == row_text
+                    else replace(
+                        row[0], text=row_text, bounds=union_bounds(tuple(t.bounds for t in row))
+                    )
                 )
                 # An unmarked button can share the column width and pitch immediately
                 # below the closing quote. Its proximity adds no continuation evidence.
