@@ -19,7 +19,7 @@ from dantejp.application.preferences import PreferenceStore
 from dantejp.capture.windows import Windows
 from dantejp.runtime import model_store
 from dantejp.runtime.assets import ModelAsset
-from dantejp.runtime.hardware import Adapter, HardwareStatus
+from dantejp.runtime.hardware_values import Adapter, HardwareStatus
 from dantejp.runtime.model_store import ModelBundle
 
 

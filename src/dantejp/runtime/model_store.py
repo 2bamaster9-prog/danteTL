@@ -14,17 +14,13 @@ from typing import Literal
 
 from dantejp import paths
 from dantejp.application.model_advice import MODEL_ORDER
-from dantejp.application.model_advice import RECOMMENDED_TRANSLATION as RECOMMENDED_TRANSLATION
 from dantejp.i18n import CatalogText, mark, tr
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.languages.source import SourceLanguage
 from dantejp.paths import is_standalone, state_root
 from dantejp.runtime.assets import ModelAsset, asset_directory, assets_present
 from dantejp.runtime.download_transport import download_file
-from dantejp.runtime.setup_values import Cancelled as Cancelled
-from dantejp.runtime.setup_values import DownloadProgress as DownloadProgress
-from dantejp.runtime.setup_values import ModelProgress as ModelProgress
-from dantejp.runtime.setup_values import Progress as Progress
+from dantejp.runtime.setup_values import Cancelled, DownloadProgress, ModelProgress, Progress
 
 LANGUAGE_RUNTIME_SETUP = mark(
     "The model is downloaded, but its language-model engine is not installed in this environment. "

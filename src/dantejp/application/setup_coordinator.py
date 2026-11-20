@@ -16,11 +16,14 @@ from dantejp.i18n import tr
 from dantejp.runtime.first_run import SetupPlan, needs_runtime
 from dantejp.runtime.hardware_values import HardwareStatus
 from dantejp.runtime.model_store import ModelBundle, ModelOperation
-from dantejp.runtime.setup_values import ModelProgress, Progress
-from dantejp.runtime.setup_values import RuntimeStatus as RuntimeStatus
-from dantejp.runtime.setup_values import SetupJob as SetupJob
-from dantejp.runtime.setup_values import SetupLane as SetupLane
-from dantejp.runtime.setup_values import SetupReview as SetupReview
+from dantejp.runtime.setup_values import (
+    ModelProgress,
+    Progress,
+    RuntimeStatus,
+    SetupJob,
+    SetupLane,
+    SetupReview,
+)
 from dantejp.runtime.values import RuntimeProfile
 from dantejp.translation.models.probe import ImportTest
 from dantejp.translation.models.values import ImportedModel, ProbeResult

@@ -3,6 +3,7 @@ import hashlib
 import pytest
 
 from dantejp.application import model_factories as app
+from dantejp.application.model_advice import RECOMMENDED_TRANSLATION
 from dantejp.runtime import llama as llama_runtime
 from dantejp.runtime import model_store
 from dantejp.runtime import ocr as ocr_runtime
@@ -16,7 +17,7 @@ def test_recommended_catalog_and_backend_order_do_not_mix_recognition(tmp_path, 
         replace(b, directory=tmp_path / b.key, assets=(), bundled_directory=None)
         for b in model_store.model_catalog()
     )
-    assert bundles[0].key == model_store.RECOMMENDED_TRANSLATION == "gemma"
+    assert bundles[0].key == RECOMMENDED_TRANSLATION == "gemma"
     assert [b.key for b in bundles if b.category == "recognition"] == ["ocr"]
     monkeypatch.setattr(model_store, "model_catalog", lambda: bundles)
     monkeypatch.setattr(llama_runtime, "installed_device", lambda: "cpu")

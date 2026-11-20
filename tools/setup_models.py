@@ -4,7 +4,8 @@ import argparse
 import threading
 
 from dantejp.languages.selection import DEFAULT_SOURCE, SOURCE_LANGUAGES
-from dantejp.runtime.model_store import ModelProgress, install_model, model_catalog
+from dantejp.runtime.model_store import install_model, model_catalog
+from dantejp.runtime.setup_values import ModelProgress
 
 
 def main() -> None:

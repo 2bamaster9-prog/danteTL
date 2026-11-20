@@ -12,9 +12,9 @@ from uuid import uuid4
 
 from dantejp.i18n import tr
 from dantejp.paths import is_standalone, module_command, resource_root
-from dantejp.runtime.model_store import Cancelled
 from dantejp.runtime.package import ApplicationWheel, bundled_application
 from dantejp.runtime.setup_process import clean_runtime_environment, run_setup_command
+from dantejp.runtime.setup_values import Cancelled
 
 
 def _application_path(root: Path, name: str) -> Path:

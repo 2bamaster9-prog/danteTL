@@ -7,9 +7,7 @@ from typing import Any
 from uuid import UUID
 
 from dantejp.i18n import tr
-from dantejp.runtime.hardware_values import Adapter as Adapter
-from dantejp.runtime.hardware_values import HardwareStatus as HardwareStatus
-from dantejp.runtime.hardware_values import recommended_profile as recommended_profile
+from dantejp.runtime.hardware_values import Adapter, HardwareStatus
 
 
 class HardwareCheck:

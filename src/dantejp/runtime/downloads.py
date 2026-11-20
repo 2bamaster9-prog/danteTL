@@ -16,8 +16,7 @@ from packaging.utils import parse_wheel_filename
 
 from dantejp.i18n import tr
 from dantejp.runtime.download_transport import download_file
-from dantejp.runtime.model_store import Cancelled
-from dantejp.runtime.setup_values import DownloadProgress, ModelProgress, Progress
+from dantejp.runtime.setup_values import Cancelled, DownloadProgress, ModelProgress, Progress
 
 
 @dataclass(frozen=True, slots=True)

@@ -22,8 +22,9 @@ from typing import Any
 from unittest.mock import patch
 
 from dantejp.runtime.assets import ModelAsset, validate_asset
-from dantejp.runtime.model_store import ModelBundle, ModelProgress, install_model
+from dantejp.runtime.model_store import ModelBundle, install_model
 from dantejp.runtime.setup_process import run_setup_command
+from dantejp.runtime.setup_values import ModelProgress
 from dantejp.translation.backend import ContextualBackend, RequestRejected, TranslationBackend
 from dantejp.translation.dialogue.context import DialogueTurn
 from tools.benchmark_profiles import SpecialistBackend

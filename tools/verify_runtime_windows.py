@@ -22,14 +22,15 @@ from dantejp.application.model_factories import (
     ocr_backends,
     translation_backends,
 )
-from dantejp.application.preferences import Preferences, PreferenceStore
-from dantejp.application.setup_coordinator import SetupLane
+from dantejp.application.preference_values import Preferences
+from dantejp.application.preferences import PreferenceStore
 from dantejp.capture.windows import Windows
 from dantejp.paths import is_standalone
 from dantejp.runtime import downloads as runtime_downloads
 from dantejp.runtime import setup as runtime_setup
 from dantejp.runtime.model_store import model_catalog
 from dantejp.runtime.restart import RuntimeRestart
+from dantejp.runtime.setup_values import SetupLane
 from dantejp.ui.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
 
 

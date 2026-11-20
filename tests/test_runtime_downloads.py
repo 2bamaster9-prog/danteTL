@@ -7,7 +7,7 @@ import pytest
 from download_fixtures import download_bytes
 
 from dantejp.runtime import downloads as downloads
-from dantejp.runtime.model_store import Cancelled
+from dantejp.runtime.setup_values import Cancelled
 
 
 def export(tmp_path, wheels, *, marker="", digest=None):

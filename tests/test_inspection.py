@@ -15,8 +15,8 @@ from ui_fixtures import (
     show_scene,
 )
 
-from dantejp.application.setup_coordinator import SetupLane
 from dantejp.languages.target import ENGLISH
+from dantejp.runtime.setup_values import SetupLane
 from dantejp.ui.setup_assistant import SetupAssistant
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -223,13 +223,9 @@ def test_first_run_is_explicit_skippable_and_does_not_change_manual_cpu_choice(a
 def test_first_run_close_drains_worker_and_progress_reports_actual_download(
     app, tmp_path, monkeypatch
 ):
-    from dantejp.runtime.hardware import HardwareStatus
-    from dantejp.runtime.model_store import (
-        Cancelled,
-        DownloadProgress,
-        ModelProgress,
-        model_catalog,
-    )
+    from dantejp.runtime.hardware_values import HardwareStatus
+    from dantejp.runtime.model_store import model_catalog
+    from dantejp.runtime.setup_values import Cancelled, DownloadProgress, ModelProgress
 
     entered = threading.Event()
 
@@ -278,7 +274,7 @@ def test_first_run_close_drains_worker_and_progress_reports_actual_download(
 
 def test_first_run_skip_persists_and_settings_can_reopen_it(app, tmp_path):
     from dantejp.application.preferences import PreferenceStore
-    from dantejp.runtime.hardware import HardwareStatus
+    from dantejp.runtime.hardware_values import HardwareStatus
     from dantejp.runtime.model_store import model_catalog
 
     windows, hardware = Mock(), Mock()
@@ -401,7 +397,8 @@ def test_model_categories_share_one_worker_and_ocr_never_enters_translation_pick
 ):
     from ui_fixtures import model_manager as ModelManager
 
-    from dantejp.runtime.model_store import Cancelled, ModelBundle
+    from dantejp.runtime.model_store import ModelBundle
+    from dantejp.runtime.setup_values import Cancelled
 
     ocr = ModelBundle("ocr", "MeikiOCR", tmp_path / "ocr", (), "Reads text", category="recognition")
     gemma = ModelBundle(
@@ -494,7 +491,7 @@ def test_included_ocr_has_ready_badge_and_is_not_in_first_run_download_plan(app,
     import hashlib
 
     from dantejp.runtime.assets import ModelAsset
-    from dantejp.runtime.hardware import HardwareStatus
+    from dantejp.runtime.hardware_values import HardwareStatus
     from dantejp.runtime.model_store import ModelBundle, model_catalog
 
     bundled = tmp_path / "app"
@@ -941,8 +938,8 @@ def test_download_completion_reports_missing_runtime_instead_of_false_readiness(
 def test_runtime_setup_detects_without_installing_and_close_waits_for_cancel(
     app, tmp_path, monkeypatch
 ):
-    from dantejp.runtime.hardware import Adapter
-    from dantejp.runtime.model_store import Cancelled
+    from dantejp.runtime.hardware_values import Adapter
+    from dantejp.runtime.setup_values import Cancelled
 
     calls = []
     entered = threading.Event()
@@ -987,7 +984,7 @@ def test_model_download_badges_and_missing_selection_warnings_are_distinct(
     app, tmp_path, monkeypatch
 ):
     from dantejp.runtime.assets import ModelAsset
-    from dantejp.runtime.hardware import Adapter, HardwareStatus
+    from dantejp.runtime.hardware_values import Adapter, HardwareStatus
     from dantejp.runtime.model_store import ModelBundle
 
     asset = ModelAsset("test", "revision", "weights", "", 4)
@@ -1361,7 +1358,8 @@ def test_nested_consent_event_loop_does_not_unload_previous_model(app, tmp_path,
 def test_closing_during_download_waits_for_cancellation_before_destroying_gui(
     app, tmp_path, monkeypatch
 ):
-    from dantejp.runtime.model_store import Cancelled, ModelBundle, ModelProgress
+    from dantejp.runtime.model_store import ModelBundle
+    from dantejp.runtime.setup_values import Cancelled, ModelProgress
 
     windows = Mock()
     windows.list_targets.return_value = []
@@ -1720,7 +1718,8 @@ def test_translation_off_leaves_game_unobscured_until_ocr_boxes_are_requested(ap
 def test_settings_close_can_keep_setup_running_or_cancel_without_stopping_app(
     app, tmp_path, monkeypatch, cancel_operation
 ):
-    from dantejp.runtime.model_store import Cancelled, ModelBundle
+    from dantejp.runtime.model_store import ModelBundle
+    from dantejp.runtime.setup_values import Cancelled
 
     windows = Mock()
     windows.list_targets.return_value = []

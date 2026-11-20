@@ -267,7 +267,7 @@ def test_app_update_and_relocation_reuse_legacy_dependencies(
 def test_failed_app_update_never_reinstalls_dependencies_or_overwrites_previous_code(
     package, installer, monkeypatch, failure
 ):
-    from dantejp.runtime.model_store import Cancelled
+    from dantejp.runtime.setup_values import Cancelled
 
     calls, command = installer
     state = paths.state_root()
@@ -340,7 +340,7 @@ def test_concurrent_launches_install_once_and_cancel_waiter_without_touching_own
 ):
     from concurrent.futures import ThreadPoolExecutor
 
-    from dantejp.runtime.model_store import Cancelled
+    from dantejp.runtime.setup_values import Cancelled
 
     calls, command = installer
     root = paths.state_root()

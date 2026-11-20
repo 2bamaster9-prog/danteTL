@@ -4,7 +4,8 @@ from unittest.mock import Mock
 import pytest
 
 from dantejp.application.setup_status import acceleration_advice
-from dantejp.runtime.hardware import Adapter, HardwareCheck, HardwareStatus
+from dantejp.runtime.hardware import HardwareCheck
+from dantejp.runtime.hardware_values import Adapter, HardwareStatus
 
 NVIDIA = Adapter("NVIDIA fixture", 0x10DE, 16 * 2**30)
 AMD = Adapter("AMD fixture", 0x1002, 8 * 2**30)

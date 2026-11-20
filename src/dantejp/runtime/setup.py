@@ -15,16 +15,14 @@ from dantejp.i18n import tr
 from dantejp.paths import is_standalone, module_command, runtime_project, state_root
 from dantejp.runtime.application import prepare_application
 from dantejp.runtime.downloads import prepare_wheels
-from dantejp.runtime.model_store import Cancelled
 from dantejp.runtime.requirements import (
     RUNTIME_PYTHON,
     dependencies_match,
     dependency_fingerprint,
 )
 from dantejp.runtime.setup_process import clean_runtime_environment, run_setup_command
-from dantejp.runtime.setup_values import ModelProgress, Progress
-from dantejp.runtime.values import PROFILES as PROFILES
-from dantejp.runtime.values import RuntimeProfile as RuntimeProfile
+from dantejp.runtime.setup_values import Cancelled, ModelProgress, Progress
+from dantejp.runtime.values import PROFILES, RuntimeProfile
 
 
 def project_root() -> Path:

@@ -12,12 +12,10 @@ from pathlib import Path
 
 from dantejp.i18n import tr
 from dantejp.paths import module_command, state_root
-from dantejp.runtime.model_store import Cancelled
 from dantejp.runtime.setup_process import run_setup_command
-from dantejp.runtime.setup_values import ModelProgress, Progress
+from dantejp.runtime.setup_values import Cancelled, ModelProgress, Progress
 from dantejp.translation.models.gguf import describe
-from dantejp.translation.models.values import ImportedModel
-from dantejp.translation.models.values import ProbeResult as ProbeResult
+from dantejp.translation.models.values import ImportedModel, ProbeResult
 
 
 class ImportTest:

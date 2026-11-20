@@ -12,7 +12,7 @@ import pytest
 from dantejp import bootstrap as app
 from dantejp.application.preferences import decode_preferences
 from dantejp.runtime import llama as llama_runtime
-from dantejp.runtime.model_store import Cancelled
+from dantejp.runtime.setup_values import Cancelled
 from dantejp.translation.backend import RequestRejected
 from dantejp.translation.backends import gguf as gguf_backend
 from dantejp.translation.dialogue.context import DialogueTurn

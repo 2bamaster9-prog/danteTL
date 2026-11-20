@@ -59,11 +59,11 @@ def ocr_backends(language: SourceLanguage = DEFAULT_SOURCE) -> tuple[OcrChoice, 
 
 
 def translation_backends(*, language: SourceLanguage = DEFAULT_SOURCE) -> tuple[BackendChoice, ...]:
+    from dantejp.application.model_advice import RECOMMENDED_TRANSLATION
     from dantejp.runtime.llama import installed_device, supports_plamo
     from dantejp.runtime.model_store import (
         LANGUAGE_RUNTIME_SETUP,
         PLAMO_RUNTIME_SETUP,
-        RECOMMENDED_TRANSLATION,
         model_catalog,
         preparation_id,
     )

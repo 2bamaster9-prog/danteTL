@@ -105,15 +105,14 @@ def application_session(
 
 
 def setup_coordinator(inventory: ModelInventory, models: tuple[ModelBundle, ...], root: Path):
-    from dantejp.application.setup_coordinator import (
-        RuntimeStatus,
-        SetupCoordinator,
-        SetupDependencies,
-    )
+    from dantejp.application.setup_coordinator import SetupCoordinator, SetupDependencies
     from dantejp.runtime.first_run import run_setup
-    from dantejp.runtime.hardware import detect_adapters, recommended_profile
+    from dantejp.runtime.hardware import detect_adapters
+    from dantejp.runtime.hardware_values import recommended_profile
     from dantejp.runtime.model_store import ModelOperation, install_model
-    from dantejp.runtime.setup import PROFILES, install_runtime, ready_runtime, select_runtime
+    from dantejp.runtime.setup import install_runtime, ready_runtime, select_runtime
+    from dantejp.runtime.setup_values import RuntimeStatus
+    from dantejp.runtime.values import PROFILES
     from dantejp.translation.models.gguf import save_registration
     from dantejp.translation.models.probe import ImportTest
 

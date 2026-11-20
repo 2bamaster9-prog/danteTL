@@ -10,9 +10,9 @@ import pytest
 
 from dantejp.runtime import restart as runtime_restart
 from dantejp.runtime import setup as setup
-from dantejp.runtime.hardware import Adapter, recommended_profile
-from dantejp.runtime.model_store import Cancelled
+from dantejp.runtime.hardware_values import Adapter, recommended_profile
 from dantejp.runtime.setup_process import run_setup_command
+from dantejp.runtime.setup_values import Cancelled
 
 
 @pytest.fixture
