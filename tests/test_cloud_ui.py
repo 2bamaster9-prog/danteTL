@@ -26,10 +26,13 @@ from dantejp.domain import Rect  # noqa: E402
 from dantejp.languages.target import TARGET_LANGUAGES  # noqa: E402
 from dantejp.ocr.tracking import TextTrack  # noqa: E402
 from dantejp.translation.cloud.backend import CloudBackend  # noqa: E402
-from dantejp.translation.cloud.catalog import CatalogModel  # noqa: E402
 from dantejp.translation.cloud.chatgpt_auth import PLAN_SCOPE, ChatGPTConnections  # noqa: E402
-from dantejp.translation.cloud.profiles import CloudProfile, CloudProfiles  # noqa: E402
+from dantejp.translation.cloud.profiles import CloudProfiles  # noqa: E402
 from dantejp.translation.cloud.protected_store import ProtectedStore  # noqa: E402
+from dantejp.translation.cloud.values import (
+    CatalogModel,  # noqa: E402
+    CloudProfile,  # noqa: E402
+)
 from dantejp.translation.grouping import TextBlock  # noqa: E402
 from dantejp.translation.plan import TranslationPlan  # noqa: E402
 from dantejp.translation.routing import RoutedTranslationSession  # noqa: E402

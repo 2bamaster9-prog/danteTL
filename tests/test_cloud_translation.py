@@ -12,18 +12,16 @@ from dantejp.languages.target import ENGLISH, TARGET_LANGUAGES
 from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.backend import RequestRejected
 from dantejp.translation.cache import TranslationCache, translation_key
-from dantejp.translation.cloud.backend import (
-    CloudAllowance,
-    CloudBackend,
-    parse_answer,
-    request_body,
-)
-from dantejp.translation.cloud.profiles import CloudProfile, CloudProfiles
+from dantejp.translation.cloud.backend import CloudAllowance, CloudBackend
+from dantejp.translation.cloud.profiles import CloudProfiles
+from dantejp.translation.cloud.protocol import parse_answer, request_body
 from dantejp.translation.cloud.responses import PlanUnavailable, ResponseStream
+from dantejp.translation.cloud.values import CloudProfile
 from dantejp.translation.dialogue.context import DialogueTurn
 from dantejp.translation.grouping import TextBlock
 from dantejp.translation.routing import RoutedTranslationSession
-from dantejp.translation.worker import TranslationSession, TranslationState
+from dantejp.translation.values import TranslationState
+from dantejp.translation.worker import TranslationSession
 
 
 def track(text="設定", key=1, revision=1):

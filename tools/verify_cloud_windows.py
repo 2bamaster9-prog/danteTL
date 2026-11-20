@@ -15,10 +15,10 @@ from dantejp.application.cloud_services import CloudServices
 from dantejp.capture.windows import Windows
 from dantejp.composition import application_session, setup_coordinator
 from dantejp.paths import state_root
-from dantejp.translation.cloud.catalog import CatalogModel
 from dantejp.translation.cloud.chatgpt_auth import PLAN_SCOPE, ChatGPTConnections
-from dantejp.translation.cloud.profiles import CloudProfile, CloudProfiles
+from dantejp.translation.cloud.profiles import CloudProfiles
 from dantejp.translation.cloud.protected_store import ProtectedStore
+from dantejp.translation.cloud.values import CatalogModel, CloudProfile
 from dantejp.ui.desktop_driver import DesktopDriver
 from dantejp.ui.main_window import MainWindow
 

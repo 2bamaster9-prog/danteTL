@@ -13,7 +13,7 @@ from dantejp.domain import Rect
 from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.backend import RequestRejected
 from dantejp.translation.cloud.backend import CloudAllowance, CloudBackend
-from dantejp.translation.cloud.profiles import CloudProfile
+from dantejp.translation.cloud.values import CloudProfile
 from dantejp.translation.dialogue.classifier import (
     Classification,
     ClassificationInput,

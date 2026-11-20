@@ -8,7 +8,6 @@ import pytest
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.translation.backend import RequestRejected
 from dantejp.translation.cloud.backend import CloudBackend
-from dantejp.translation.cloud.profiles import ENDPOINTS, MODELS, CloudProfile
 from dantejp.translation.cloud.protocol import (
     CLAUDE_VERSION,
     PROMPT_VERSION,
@@ -17,6 +16,7 @@ from dantejp.translation.cloud.protocol import (
     response_usage,
     translation_instruction,
 )
+from dantejp.translation.cloud.values import ENDPOINTS, MODELS, CloudProfile
 from dantejp.translation.dialogue.context import DialogueTurn
 
 

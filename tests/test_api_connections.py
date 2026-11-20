@@ -6,12 +6,8 @@ import pytest
 
 from dantejp.translation.cloud.api_connections import ApiConnections
 from dantejp.translation.cloud.credentials import WindowsSecrets
-from dantejp.translation.cloud.profiles import (
-    MAX_CLOUD_PROFILES,
-    MODELS,
-    CloudProfile,
-    CloudProfiles,
-)
+from dantejp.translation.cloud.profiles import CloudProfiles
+from dantejp.translation.cloud.values import MAX_CLOUD_PROFILES, MODELS, CloudProfile
 
 
 class SecretsFixture:

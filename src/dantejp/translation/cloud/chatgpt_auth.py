@@ -19,8 +19,7 @@ from dantejp.paths import state_root
 from dantejp.translation.cloud.auth_work import AuthInterrupted, AuthWork
 from dantejp.translation.cloud.credentials import valid_credential
 from dantejp.translation.cloud.protected_store import ProtectedStore
-from dantejp.translation.cloud.values import USAGE_URL as USAGE_URL
-from dantejp.translation.cloud.values import ChatGPTAccount as ChatGPTAccount
+from dantejp.translation.cloud.values import ChatGPTAccount
 
 ISSUER = "https://auth.openai.com"
 AUTHORIZE = ISSUER + "/api/accounts/authorize"

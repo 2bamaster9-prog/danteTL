@@ -14,9 +14,7 @@ import httpx2
 from dantejp.i18n import tr
 from dantejp.translation.cloud.credentials import valid_credential
 from dantejp.translation.cloud.protocol import request_headers
-from dantejp.translation.cloud.values import CatalogModel as CatalogModel
-from dantejp.translation.cloud.values import CloudProfile
-from dantejp.translation.cloud.values import recommended as recommended
+from dantejp.translation.cloud.values import CatalogModel, CloudProfile, recommended
 
 URLS = {
     "openai": "https://api.openai.com/v1/models",

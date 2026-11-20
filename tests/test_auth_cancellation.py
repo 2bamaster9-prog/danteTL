@@ -10,9 +10,10 @@ from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.cloud.auth_work import AuthInterrupted, AuthWork
 from dantejp.translation.cloud.backend import CloudBackend
 from dantejp.translation.cloud.chatgpt_auth import PLAN_SCOPE, ChatGPTConnections
-from dantejp.translation.cloud.profiles import CloudProfile
 from dantejp.translation.cloud.protected_store import ProtectedStore
-from dantejp.translation.worker import TranslationSession, TranslationState
+from dantejp.translation.cloud.values import CloudProfile
+from dantejp.translation.values import TranslationState
+from dantejp.translation.worker import TranslationSession
 
 
 def until(predicate):

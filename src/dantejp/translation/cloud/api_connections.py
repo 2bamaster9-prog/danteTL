@@ -8,8 +8,7 @@ from uuid import uuid4
 from dantejp.i18n import tr
 from dantejp.translation.cloud.credentials import Secrets
 from dantejp.translation.cloud.profiles import CloudProfiles
-from dantejp.translation.cloud.values import MAX_CLOUD_PROFILES, CloudProfile
-from dantejp.translation.cloud.values import ApiConnection as ApiConnection
+from dantejp.translation.cloud.values import MAX_CLOUD_PROFILES, ApiConnection, CloudProfile
 
 
 class ApiConnections:

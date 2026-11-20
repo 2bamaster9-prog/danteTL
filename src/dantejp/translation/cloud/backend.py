@@ -22,21 +22,16 @@ from dantejp.translation.cloud.protocol import (
     PROMPT_VERSION,
     account_error,
     decoding_identity,
+    parse_answer,
     prompt_body,
+    request_body,
     request_headers,
     request_url,
     response_usage,
     translation_instruction,
 )
-from dantejp.translation.cloud.protocol import (
-    parse_answer as parse_answer,
-)
-from dantejp.translation.cloud.protocol import (
-    request_body as request_body,
-)
 from dantejp.translation.cloud.responses import PlanUnavailable, ResponseStream
-from dantejp.translation.cloud.values import CloudProfile
-from dantejp.translation.cloud.values import CloudUsage as CloudUsage
+from dantejp.translation.cloud.values import CloudProfile, CloudUsage
 from dantejp.translation.dialogue.classifier import (
     Classification,
     ClassificationInput,

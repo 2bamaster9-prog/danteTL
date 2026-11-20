@@ -9,9 +9,10 @@ from dataclasses import replace
 
 from dantejp.application.cloud_services import CloudServices
 from dantejp.translation.cloud.chatgpt_auth import ChatGPTConnections
-from dantejp.translation.cloud.profiles import CloudProfile, CloudProfiles
+from dantejp.translation.cloud.profiles import CloudProfiles
 from dantejp.translation.cloud.protected_store import ProtectedStore
 from dantejp.translation.cloud.state import CloudDraft
+from dantejp.translation.cloud.values import CloudProfile
 
 
 class Secrets:

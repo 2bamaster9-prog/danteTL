@@ -8,11 +8,10 @@ from uuid import uuid4
 
 from dantejp.i18n import tr
 from dantejp.paths import state_root
-from dantejp.translation.cloud.values import ENDPOINTS as ENDPOINTS
-from dantejp.translation.cloud.values import MAX_CLOUD_PROFILES as MAX_CLOUD_PROFILES
-from dantejp.translation.cloud.values import MODELS as MODELS
-from dantejp.translation.cloud.values import PROVIDERS as PROVIDERS
-from dantejp.translation.cloud.values import CloudProfile as CloudProfile
+from dantejp.translation.cloud.values import (
+    MAX_CLOUD_PROFILES,
+    CloudProfile,
+)
 
 
 class CloudProfiles:
