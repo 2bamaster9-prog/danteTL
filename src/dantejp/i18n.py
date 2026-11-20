@@ -9,6 +9,7 @@ INTERFACE_LANGUAGES = (
     "fr",
     "de",
     "hi",
+    "id",
     "ja",
     "ar",
     "pt-PT",
