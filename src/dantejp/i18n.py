@@ -6,6 +6,7 @@ from collections.abc import Callable
 INTERFACE_LANGUAGES = (
     "en",
     "bn",
+    "nl",
     "fr",
     "de",
     "hi",
