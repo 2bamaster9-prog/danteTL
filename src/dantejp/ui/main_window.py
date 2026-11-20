@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
 from dantejp.application.api import ApplicationCommands
 from dantejp.application.hotkeys import HotkeyAction, Hotkeys
 from dantejp.application.setup_status import SetupAdvice
-from dantejp.application.values import ShutdownPhase
+from dantejp.application.values import ApplicationControls, ShutdownPhase
 from dantejp.capture.windows import Windows
 from dantejp.domain import WindowTarget
 from dantejp.i18n import display, mark, tr
@@ -95,7 +95,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("DanteJP")
         self.resize(self._compact_size)
         self._build_ui()
-        self._refresh_history_models(self.application.values.history_model)
+        self._refresh_history_models(
+            self.application.controls.options, self.application.values.history_model
+        )
         self.history_panel.changed.connect(self._history_changed)
         self._history_changed()
         self._routing_changed()
@@ -275,9 +277,8 @@ class MainWindow(QMainWindow):
             banner.action.clicked.connect(self._resolve_language_notice)
         self.routing = RoutingControls(preferences)
         self.sections.translation_layout.addWidget(self.routing)
-        self.routing.set_models(
-            self.application.controls.options, self.application.controls.assignment
-        )
+        controls = self.application.controls
+        self.routing.set_models(controls.options, controls.assignment)
         self.backend_combo = self.routing.simple
         self.routing.changed.connect(self._routing_changed)
         self.routing.model_requested.connect(self._request_assignment)
@@ -422,8 +423,9 @@ class MainWindow(QMainWindow):
             self._settings.show_models()
             self._settings.models.select_translation_file("gemma")
 
-    def _refresh_history_models(self, selected: str | None = None) -> None:
-        options = self.application.controls.options
+    def _refresh_history_models(
+        self, options: tuple[ModelOption, ...], selected: str | None = None
+    ) -> None:
         if options is not getattr(self, "_history_options", None):
             self._history_options = options
             self._history_choices = tuple(
@@ -454,13 +456,7 @@ class MainWindow(QMainWindow):
         if prompt:
             self.application.consent(prompt.token, self._ask_preparation(prompt.option))
         self.routing.set_selection(self.application.controls.assignment)
-        self.routing.set_models(
-            self.application.controls.options, self.application.controls.assignment
-        )
-        self._render_preparation()
-        self._handle_destination()
-        self._render_application(False)
-        self._update_notice()
+        self._render_application(True)
 
     def _clear_english_display(self) -> None:
         self.application.clear_english()
@@ -469,9 +465,8 @@ class MainWindow(QMainWindow):
     def _routing_changed(self) -> None:
         self._save_preferences()
         self._render_scene()
-        self.routing.set_models(
-            self.application.controls.options, self.application.controls.assignment
-        )
+        controls = self.application.controls
+        self.routing.set_models(controls.options, controls.assignment)
         self._update_notice()
 
     def offer_first_run(self) -> None:
@@ -626,9 +621,6 @@ class MainWindow(QMainWindow):
         self._show_setup_status()
 
     def _update_notice(self) -> None:
-        self.routing.set_models(
-            self.application.controls.options, self.application.controls.assignment
-        )
         self._settings.setup_assistant.setEnabled(self.application.can_setup)
         self.hotkey_notice.set_message(self._settings.hotkeys.problem, action=tr("Hotkeys"))
         if self._hotkeys:
@@ -757,14 +749,14 @@ class MainWindow(QMainWindow):
         self._progress_dialog.setLabelText(message)
         self._progress_dialog.show()
 
-    def _render_preparation(self) -> None:
-        preparing = self.application.controls.preparing
+    def _render_preparation(self, controls: ApplicationControls) -> None:
+        preparing = controls.preparing
         for banner in (self.language_notice, self._settings.language_notice):
             banner.action.setEnabled(not preparing)
         self.routing.setEnabled(not preparing)
         self.backend_combo.setEnabled(not preparing)
         if preparing:
-            self._show_preparation(self.application.controls.preparation_message)
+            self._show_preparation(controls.preparation_message)
         elif self._progress_dialog:
             self._progress_dialog.close()
             self._progress_dialog.deleteLater()
@@ -844,7 +836,7 @@ class MainWindow(QMainWindow):
         )
         self.driver.refresh(inspect=True)
 
-    def _refresh_metrics(self) -> None:
+    def _refresh_metrics(self, controls: ApplicationControls) -> None:
         if self.advanced.isChecked():
             self.processing.refresh(
                 self.application.view.capture,
@@ -852,8 +844,8 @@ class MainWindow(QMainWindow):
                 self.application.view.translation,
                 self.application.view.visual,
                 now=time.monotonic(),
-                started_at=self.application.controls.started_at,
-                capture_rate=self.application.controls.capture_rate,
+                started_at=controls.started_at,
+                capture_rate=controls.capture_rate,
                 model=self.routing.summary,
             )
 
@@ -884,24 +876,21 @@ class MainWindow(QMainWindow):
             self._cancel_original()
         with self.inspector.defer_rendering():
             self._render_scene()
-        self._render_preparation()
-        self.routing.set_models(
-            self.application.controls.options, self.application.controls.assignment
-        )
-        self._handle_destination()
-        self._refresh_history_models()
-        self._settings.models.refresh()
+        controls = self.application.controls
+        self._render_preparation(controls)
+        self.routing.set_models(controls.options, controls.assignment)
+        self._refresh_history_models(controls.options)
         self._settings.models.refresh_view()
         self._settings.models.cloud.refresh_view()
         if self._settings.runtime:
             self._settings.runtime.refresh_view()
         if self._setup_assistant:
             self._setup_assistant.refresh_view()
-        controls = self.application.controls
         active = controls.capture_active
+        can_change_source = self.application.can_change_source
         for picker in (self.source_picker, self._settings.source_picker):
             picker.setCurrentIndex(picker.findData(self.application.values.source_language))
-            picker.setEnabled(self.application.can_change_source)
+            picker.setEnabled(can_change_source)
         self._settings.set_ocr_choices(self.application.ocr_options)
         self._settings.set_capture_active(active)
         self.windows_combo.setEnabled(not active and not controls.changing_source)
@@ -924,7 +913,8 @@ class MainWindow(QMainWindow):
         if inspect:
             self.inspector.refresh()
             self._update_notice()
-            self._refresh_metrics()
+            self._refresh_metrics(controls)
+        self._handle_destination()
 
     def _render_scene(self) -> None:
         value = self.application.view

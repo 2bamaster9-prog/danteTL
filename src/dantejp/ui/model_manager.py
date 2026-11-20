@@ -380,6 +380,7 @@ class ModelManager(QDialog):
             self.operation_status.setText(tr("Cancelling… finishing the current network read."))
 
     def refresh_view(self) -> None:
+        self.refresh()
         if self.import_dialog:
             self.import_dialog.refresh_view()
         job = self.service.job(SetupLane.MODELS)
@@ -391,7 +392,6 @@ class ModelManager(QDialog):
         self.download.setEnabled(not busy and isinstance(value, ModelFile) and not value.imported)
         self.choice.setEnabled(not busy)
         self.ocr.set_busy(busy)
-        self.refresh()
         if job.action in ("download", "remove") and job.token:
             progress = job.progress
             self.operation_status.setText(
