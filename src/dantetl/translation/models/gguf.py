@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import BinaryIO
 from uuid import uuid4
 
+from dantetl.file_lock import file_lock
 from dantetl.i18n import tr
 from dantetl.paths import state_root
 from dantetl.runtime.setup_values import Cancelled, ModelProgress, Progress
@@ -208,20 +209,20 @@ def save_registration(
 ) -> None:
     """Called on the setup worker. Files remain owned by the user, including on removal."""
     path = path or registry_path()
-    models = [m for m in read_registry(path) if m.key != model.key]
-    if not remove:
-        models.append(model)
-    if len(models) > 32:
-        raise ValueError(tr("Remove an imported model before adding another (limit 32)."))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}-{uuid4().hex}.tmp")
-    try:
-        temporary.write_text(
-            json.dumps({"version": 1, "models": [asdict(m) for m in models]}), "utf-8"
-        )
-        os.replace(temporary, path)
-    finally:
-        temporary.unlink(missing_ok=True)
+    with file_lock(path.with_suffix(".lock")):
+        models = [m for m in read_registry(path) if m.key != model.key]
+        if not remove:
+            models.append(model)
+        if len(models) > 32:
+            raise ValueError(tr("Remove an imported model before adding another (limit 32)."))
+        temporary = path.with_name(f".{path.name}-{uuid4().hex}.tmp")
+        try:
+            temporary.write_text(
+                json.dumps({"version": 1, "models": [asdict(m) for m in models]}), "utf-8"
+            )
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
 
 
 def available(model: ImportedModel) -> bool:

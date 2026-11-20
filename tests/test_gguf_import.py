@@ -1,5 +1,6 @@
 import hashlib
 import json
+import multiprocessing
 import struct
 import sys
 import threading
@@ -105,6 +106,49 @@ def test_corrupt_registry_is_not_overwritten_and_preference_has_no_path(tmp_path
         gguf_models.save_registration(model, path=path)
     assert json.loads(path.read_text()) == {"version": 999}
     assert decode_preferences({"version": 1, "model": model.key}).model == model.key
+
+
+def _save_from_instance(path, model, entered, release=None):
+    if release is None:
+        entered.set()
+    else:
+        read = gguf_models.read_registry
+
+        def paused_read(path):
+            rows = read(path)
+            entered.set()
+            assert release.wait(10)
+            return rows
+
+        gguf_models.read_registry = paused_read
+    gguf_models.save_registration(model, path=path)
+
+
+def test_overlapping_registrations_from_two_processes_both_survive(tmp_path):
+    path = tmp_path / "registry.json"
+    first = registration(tmp_path)
+    second = replace(first, key="imported-" + "b" * 64)
+    ctx = multiprocessing.get_context("spawn")
+    read, started, release = (ctx.Event() for _ in range(3))
+    writer = ctx.Process(target=_save_from_instance, args=(path, first, read, release))
+    contender = ctx.Process(target=_save_from_instance, args=(path, second, started))
+    writer.start()
+    try:
+        assert read.wait(10)
+        contender.start()
+        assert started.wait(10)
+        contender.join(0.25)
+        assert contender.is_alive()
+    finally:
+        release.set()
+        for child in (writer, contender):
+            if child.pid is not None:
+                child.join(10)
+                if child.is_alive():
+                    child.terminate()
+                    child.join(5)
+    assert writer.exitcode == contender.exitcode == 0
+    assert gguf_models.read_registry(path) == (first, second)
     assert decode_preferences({"version": 1, "model": "imported-../../file"}).model == "auto"
 
 

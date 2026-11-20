@@ -79,6 +79,7 @@ completed scan adoption. Invalidation during a scan discards stale results and r
 Unchanged revisions do not rebuild routes/options. Cached badges never authorize native model loading.
 Imported-registry discovery has its own failure boundary. A malformed/unreadable registry is preserved
 and reported while healthy built-in choices and OCR assets remain available; a later refresh can recover.
+Registration, relocation and removal hold the registry lock from the initial read through replacement.
 
 Consent/review replies carry monotonic tokens. Decline/failure preserves committed assignments;
 stale replies cannot adopt new proposals. Setup has three bounded lanes: models/imports, runtime,
