@@ -532,6 +532,10 @@ class TextTracker:
                 ) or (track.value in visually_absent and visual_sequence >= frame.sequence):
                     del self._tracks[key]
         for index, region in regions:
+            # Matches and retirements are final for this observation. No later row
+            # can free a slot, and all unassigned raw indices already contain None.
+            if len(self._tracks) >= self._policy.max_tracks:
+                break
             if assignments[index] is not None:
                 continue
             # A detector can split one unchanged line into several observations. Its
@@ -550,8 +554,6 @@ class TextTracker:
                 key not in used and _overlap(track.observed, region.bounds) >= 0.55
                 for key, track in self._tracks.items()
             ):
-                continue
-            if len(self._tracks) >= self._policy.max_tracks:
                 continue
             key = self._next_id
             self._next_id += 1
