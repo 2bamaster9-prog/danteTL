@@ -20,6 +20,7 @@ INTERFACE_LANGUAGES = (
     "ru",
     "es",
     "th",
+    "vi",
 )
 
 
