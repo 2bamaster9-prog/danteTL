@@ -22,7 +22,7 @@ from dantejp.ocr.values import OcrResult, OcrSnapshot, OcrState, TextCharacter, 
 from dantejp.ocr.visual import VisualSession
 from dantejp.ocr.visual_values import VisualState
 from dantejp.translation.dialogue.classifier import Classification
-from dantejp.translation.worker import (
+from dantejp.translation.values import (
     TranslatedText,
     TranslationRequest,
     TranslationSnapshot,

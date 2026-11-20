@@ -13,7 +13,7 @@ from dantejp.ocr.values import OcrResult, TextCharacter, TextRegion
 from dantejp.ocr.visual import VisualAnalyzer
 from dantejp.translation.grouping import DialogueGrouper, TextBlock
 from dantejp.translation.presentation import EnglishPresentation
-from dantejp.translation.worker import TranslatedText, TranslationRequest
+from dantejp.translation.values import TranslatedText, TranslationRequest
 
 BOX = Rect(20, 30, 220, 28)
 

@@ -10,11 +10,12 @@ from dantejp.languages.source import SourceLanguage
 from dantejp.ocr.models import OcrModel, model_directory, ocr_model_for, paddle_directory
 from dantejp.ocr.worker import OcrChoice, Recognizer
 from dantejp.runtime.ocr import gpu_runtime_installed
+from dantejp.translation.backend import TranslationBackend
 from dantejp.translation.backends.plamo import OUTPUT_CODES as PLAMO_OUTPUT_CODES
 from dantejp.translation.backends.plamo import source_problem
 from dantejp.translation.models.gguf import available
 from dantejp.translation.models.values import ImportedModel
-from dantejp.translation.worker import BackendChoice, TranslationBackend
+from dantejp.translation.worker import BackendChoice
 
 
 def create_recognizer(

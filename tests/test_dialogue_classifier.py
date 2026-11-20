@@ -23,7 +23,7 @@ from dantejp.translation.dialogue.classifier import (
 from dantejp.translation.dialogue.history import DialogueHistory
 from dantejp.translation.dialogue.layout import PanelContext
 from dantejp.translation.grouping import TextBlock
-from dantejp.translation.worker import TranslatedText, TranslationRequest
+from dantejp.translation.values import TranslatedText, TranslationRequest
 
 
 def until(predicate):

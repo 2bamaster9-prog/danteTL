@@ -8,7 +8,7 @@ from dantejp.translation.backend import BatchResult
 from dantejp.translation.cache import TranslationCache, translation_key
 from dantejp.translation.dialogue.context import DialogueTurn
 from dantejp.translation.schedule import Demand, TranslationSchedule
-from dantejp.translation.worker import TranslationRequest
+from dantejp.translation.values import TranslationRequest
 
 
 class Backend:

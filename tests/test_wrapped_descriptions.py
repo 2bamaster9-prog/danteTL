@@ -8,7 +8,7 @@ from dantejp.domain import CapturedFrame, Rect, WindowGeometry
 from dantejp.ocr.tracking import TextActivity, TextTrack, TextTracker
 from dantejp.ocr.values import OcrResult, TextRegion
 from dantejp.translation.grouping import DialogueGrouper
-from dantejp.translation.worker import TranslationRequest
+from dantejp.translation.values import TranslationRequest
 
 
 def description():

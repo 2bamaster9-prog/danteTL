@@ -5,7 +5,7 @@ import pytest
 from dantejp.domain import Rect
 from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.grouping import DialogueGrouper, TextBlock, join_lines
-from dantejp.translation.worker import TranslationRequest
+from dantejp.translation.values import TranslationRequest
 
 
 def line(

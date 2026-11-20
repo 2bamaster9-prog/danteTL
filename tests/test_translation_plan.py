@@ -15,7 +15,8 @@ from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.grouping import TextBlock
 from dantejp.translation.plan import TranslationPlan
 from dantejp.translation.routing import RoutedTranslationSession
-from dantejp.translation.worker import BackendChoice, TranslationSession, TranslationState
+from dantejp.translation.values import TranslationState
+from dantejp.translation.worker import BackendChoice, TranslationSession
 
 
 def until(predicate):

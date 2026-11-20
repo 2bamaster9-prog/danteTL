@@ -14,7 +14,8 @@ from dantejp.translation.backend import RequestRejected
 from dantejp.translation.cache import TranslationCache, translation_key
 from dantejp.translation.dialogue.context import DialogueTurn
 from dantejp.translation.grouping import DialogueGrouper, TextBlock
-from dantejp.translation.worker import TranslationRequest, TranslationSession, TranslationState
+from dantejp.translation.values import TranslationRequest, TranslationState
+from dantejp.translation.worker import TranslationSession
 
 
 def track(text="日本語", revision=1, key=1) -> TextTrack:

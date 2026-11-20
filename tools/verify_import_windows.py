@@ -22,7 +22,8 @@ from dantejp.domain import WindowTarget
 from dantejp.runtime.model_store import model_catalog
 from dantejp.translation.models import gguf as gguf_models
 from dantejp.translation.routing import RoutedTranslationSession
-from dantejp.translation.worker import TranslationSession, TranslationState
+from dantejp.translation.values import TranslationState
+from dantejp.translation.worker import TranslationSession
 from dantejp.ui.demo import DemoWindow
 
 

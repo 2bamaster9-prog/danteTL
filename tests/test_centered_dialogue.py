@@ -9,7 +9,7 @@ from dantejp.ocr.tracking import TextActivity, TextTrack, TextTracker
 from dantejp.ocr.values import OcrResult, TextRegion
 from dantejp.translation.dialogue.history import DialogueHistory
 from dantejp.translation.grouping import DialogueGrouper, TextBlock
-from dantejp.translation.worker import TranslatedText, TranslationRequest
+from dantejp.translation.values import TranslatedText, TranslationRequest
 
 
 def subtitles(scale=1.0):

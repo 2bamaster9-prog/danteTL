@@ -25,7 +25,7 @@ from dantejp.capture.windows import Windows
 from dantejp.domain import WindowTarget
 from dantejp.runtime.model_store import model_catalog
 from dantejp.translation.selection import ModelOption
-from dantejp.translation.worker import TranslationState
+from dantejp.translation.values import TranslationState
 from dantejp.ui.demo import DemoWindow
 
 

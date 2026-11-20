@@ -26,11 +26,13 @@ from dantejp.translation.cache import TranslationCache
 from dantejp.translation.dialogue.context import DialogueMemory, DialogueTurn
 from dantejp.translation.grouping import TextBlock
 from dantejp.translation.schedule import Batch, Demand, TranslationSchedule
-from dantejp.translation.values import TranslatedText as TranslatedText
-from dantejp.translation.values import TranslationRejection as TranslationRejection
-from dantejp.translation.values import TranslationRequest as TranslationRequest
-from dantejp.translation.values import TranslationSnapshot as TranslationSnapshot
-from dantejp.translation.values import TranslationState as TranslationState
+from dantejp.translation.values import (
+    TranslatedText,
+    TranslationRejection,
+    TranslationRequest,
+    TranslationSnapshot,
+    TranslationState,
+)
 
 logger = logging.getLogger(__name__)
 

@@ -27,7 +27,7 @@ from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.ocr.values import OcrState, TextCharacter, TextRegion
 from dantejp.ocr.worker import OcrChoice
 from dantejp.translation.grouping import TextBlock
-from dantejp.translation.worker import TranslatedText
+from dantejp.translation.values import TranslatedText
 
 
 class CharacterScreen(QWidget):

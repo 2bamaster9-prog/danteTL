@@ -1,12 +1,8 @@
 from unittest.mock import Mock
 
 from dantejp.application.model_lifecycle import ModelPhase
-from dantejp.translation.worker import (
-    BackendChoice,
-    TranslationSession,
-    TranslationSnapshot,
-    TranslationState,
-)
+from dantejp.translation.values import TranslationSnapshot, TranslationState
+from dantejp.translation.worker import BackendChoice, TranslationSession
 
 
 class Worker(TranslationSession):

@@ -9,7 +9,7 @@ from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.dialogue.classifier import Classification
 from dantejp.translation.dialogue.history import DialogueHistory
 from dantejp.translation.grouping import TextBlock
-from dantejp.translation.worker import TranslatedText, TranslationRequest
+from dantejp.translation.values import TranslatedText, TranslationRequest
 
 
 def label(key, text, x, y, width, height):

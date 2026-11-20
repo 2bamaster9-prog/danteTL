@@ -9,7 +9,7 @@ from dantejp.domain import Rect
 from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.dialogue.classifier import Classification, ClassificationInput
 from dantejp.translation.dialogue.layout import PanelLayout
-from dantejp.translation.dialogue.values import HistoryTurn as HistoryTurn
+from dantejp.translation.dialogue.values import HistoryTurn
 from dantejp.translation.grouping import TextBlock
 from dantejp.translation.values import TranslatedText, TranslationRequest
 

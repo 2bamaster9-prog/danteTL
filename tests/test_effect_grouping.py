@@ -11,7 +11,7 @@ from dantejp.ocr.tracking import TextActivity, TextTrack
 from dantejp.ocr.values import OcrResult, OcrSnapshot, OcrState, TextRegion
 from dantejp.ocr.visual_values import VisualState
 from dantejp.translation.grouping import DialogueGrouper
-from dantejp.translation.worker import (
+from dantejp.translation.values import (
     TranslatedText,
     TranslationRequest,
     TranslationSnapshot,

@@ -9,7 +9,7 @@ from dantejp.languages.target import TARGET_LANGUAGES
 from dantejp.ocr.tracking import TextTrack
 from dantejp.translation.dialogue.history import DialogueHistory
 from dantejp.translation.grouping import TextBlock
-from dantejp.translation.worker import TranslatedText, TranslationRequest
+from dantejp.translation.values import TranslatedText, TranslationRequest
 
 SIZE = (1920, 1080)
 

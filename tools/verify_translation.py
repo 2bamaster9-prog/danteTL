@@ -10,8 +10,7 @@ from ctypes import wintypes
 from pathlib import Path
 from unittest.mock import patch
 
-from dantejp.translation.backend import ContextualBackend
-from dantejp.translation.worker import TranslationBackend
+from dantejp.translation.backend import ContextualBackend, TranslationBackend
 
 
 def process_memory(pid: int | None = None) -> dict[str, float]:

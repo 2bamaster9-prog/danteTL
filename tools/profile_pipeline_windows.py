@@ -30,7 +30,7 @@ from dantejp.ocr.worker import OcrChoice
 from dantejp.paths import state_root
 from dantejp.translation.backend import ContextualBackend
 from dantejp.translation.dialogue.context import DialogueTurn
-from dantejp.translation.worker import TranslationState
+from dantejp.translation.values import TranslationState
 from dantejp.ui.demo import DIALOGUE_LINES
 from dantejp.ui.desktop_driver import DesktopDriver
 from dantejp.ui.inspection import frame_image

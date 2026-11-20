@@ -11,7 +11,7 @@ from dantejp.languages.selection import source_language
 from dantejp.ocr.tracking import TextActivity, TextTrack
 from dantejp.ocr.values import TextRegion
 from dantejp.translation.grouping import DialogueGrouper
-from dantejp.translation.worker import (
+from dantejp.translation.values import (
     TranslatedText,
     TranslationRequest,
     TranslationSnapshot,

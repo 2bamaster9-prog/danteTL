@@ -16,7 +16,7 @@ from dantejp.runtime.llama import installed_device, load_runtime
 from dantejp.translation.grouping import TextBlock
 from dantejp.translation.plan import TranslationPlan
 from dantejp.translation.routing import RoutedTranslationSession
-from dantejp.translation.worker import TranslationState
+from dantejp.translation.values import TranslationState
 
 
 class CloudFixture:

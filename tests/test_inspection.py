@@ -32,14 +32,13 @@ from dantejp.domain import CapturedFrame, Rect, WindowGeometry  # noqa: E402
 from dantejp.ocr.tracking import TextTrack  # noqa: E402
 from dantejp.ocr.values import OcrResult, TextCharacter, TextRegion  # noqa: E402
 from dantejp.translation.grouping import TextBlock  # noqa: E402
-from dantejp.translation.worker import (  # noqa: E402
-    BackendChoice,
+from dantejp.translation.values import (  # noqa: E402
     TranslatedText,
     TranslationRequest,
-    TranslationSession,
     TranslationSnapshot,
     TranslationState,
 )
+from dantejp.translation.worker import BackendChoice, TranslationSession  # noqa: E402
 from dantejp.ui.diagnostics import DebugDisplay  # noqa: E402
 from dantejp.ui.inspection import OcrInspector, image_target  # noqa: E402
 from dantejp.ui.overlay import OverlayWindow  # noqa: E402

@@ -22,7 +22,7 @@ from dantejp.translation.cache import TranslationCache, translation_key
 from dantejp.translation.dialogue.context import DialogueTurn
 
 if TYPE_CHECKING:
-    from dantejp.translation.worker import TranslationRequest
+    from dantejp.translation.values import TranslationRequest
 
 
 @dataclass(frozen=True, slots=True)

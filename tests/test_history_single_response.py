@@ -11,7 +11,7 @@ from dantejp.translation.dialogue.classifier import Classification, ClassifierSe
 from dantejp.translation.dialogue.history import DialogueHistory
 from dantejp.translation.dialogue.layout import PanelLayout
 from dantejp.translation.grouping import TextBlock
-from dantejp.translation.worker import TranslatedText, TranslationRequest
+from dantejp.translation.values import TranslatedText, TranslationRequest
 
 
 def block(key, text, x, y, width, height):
