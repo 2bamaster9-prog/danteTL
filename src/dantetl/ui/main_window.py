@@ -103,6 +103,8 @@ class MainWindow(QMainWindow):
         self._routing_changed()
         driver.bind(application, self._render_application, self)
         self.refresh_windows()
+        if self.windows_combo.count():
+            self.windows_combo.setCurrentIndex(0)
         if self._hotkeys:
             self._hotkeys.activated = self._hotkey_activated
             self._hotkeys.hold_changed = self._original_changed
@@ -398,6 +400,10 @@ class MainWindow(QMainWindow):
 
     def _game_window_changed(self) -> None:
         target = self.windows_combo.currentData()
+        if not self.application.controls.capture_active:
+            self.start_button.setEnabled(
+                isinstance(target, WindowTarget) and not self.application.controls.changing_source
+            )
         title = target.title if isinstance(target, WindowTarget) else ""
         self.routing.set_window_title(title)
         self.application.set_window_title(title)
@@ -665,9 +671,17 @@ class MainWindow(QMainWindow):
         if self.application.controls.capture_active:
             return
         current = self.windows_combo.currentData()
-        self.windows_combo.clear()
         try:
             targets = self._windows.list_targets()
+        except OSError as error:
+            targets = []
+            self.status.setText(tr("Could not list windows: {error}", error=error))
+        else:
+            if not targets:
+                self.status.setText(tr("No windows found. Open a game or the demo, then refresh."))
+        with QSignalBlocker(self.windows_combo):
+            self.windows_combo.clear()
+            selected = -1
             for target in targets:
                 label = tr(
                     "{title}  ·  PID {process_id}", title=target.title, process_id=target.process_id
@@ -681,14 +695,14 @@ class MainWindow(QMainWindow):
                 ):
                     label += tr("  ·  HWND {hwnd:#x}", hwnd=target.hwnd)
                 self.windows_combo.addItem(label, target)
-                if isinstance(current, WindowTarget) and current.hwnd == target.hwnd:
-                    self.windows_combo.setCurrentIndex(self.windows_combo.count() - 1)
-            self.start_button.setEnabled(bool(targets))
-            if not targets:
-                self.status.setText(tr("No windows found. Open a game or the demo, then refresh."))
-        except OSError as error:
-            self.status.setText(tr("Could not list windows: {error}", error=error))
-            self.start_button.setEnabled(False)
+                if (
+                    isinstance(current, WindowTarget)
+                    and current.hwnd == target.hwnd
+                    and current.process_id == target.process_id
+                ):
+                    selected = self.windows_combo.count() - 1
+            self.windows_combo.setCurrentIndex(selected)
+        self._game_window_changed()
 
     def _toggle_capture(self) -> None:
         if self.application.closing or not self.start_button.isEnabled():
@@ -898,7 +912,11 @@ class MainWindow(QMainWindow):
         self.start_button.set_capturing(active)
         self.start_button.setEnabled(
             not controls.changing_source
-            and (controls.can_stop if active else bool(self.windows_combo.count()))
+            and (
+                controls.can_stop
+                if active
+                else isinstance(self.windows_combo.currentData(), WindowTarget)
+            )
         )
         progress = self.application.view.progress
         self.capture_status.set_message(
@@ -983,7 +1001,7 @@ class MainWindow(QMainWindow):
 
     def _show_capture_stopped(self) -> None:
         self.start_button.set_capturing(False)
-        self.start_button.setEnabled(True)
+        self.start_button.setEnabled(isinstance(self.windows_combo.currentData(), WindowTarget))
         self.windows_combo.setEnabled(True)
         self.refresh_button.setEnabled(True)
         self._settings.set_capture_active(False)

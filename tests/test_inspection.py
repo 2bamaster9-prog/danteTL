@@ -705,6 +705,34 @@ def test_native_hotkey_filter_accepts_both_qt_routes_and_rejects_stale_messages(
     events.close()
 
 
+@pytest.mark.parametrize("reused_handle", [False, True])
+def test_window_refresh_preserves_only_the_selected_process_and_handle(app, reused_handle):
+    from dantetl.domain import WindowTarget
+
+    selected = WindowTarget(101, 202, "Original")
+    other = WindowTarget(102, 202, "Other")
+    windows = Mock()
+    windows.list_targets.return_value = [selected, other]
+    window = MainWindow(windows, Mock())
+    renamed = replace(selected, title="Renamed")
+    windows.list_targets.return_value = [other, renamed]
+    window.refresh_button.click()
+    assert window.windows_combo.currentData() == renamed
+    windows.list_targets.return_value = [other]
+    if reused_handle:
+        windows.list_targets.return_value.append(replace(selected, process_id=303))
+    for _ in range(2):
+        window.refresh_button.click()
+        window.driver.refresh(inspect=True)
+        assert window.windows_combo.currentIndex() == -1
+        assert not window.start_button.isEnabled()
+        window.start_button.click()
+        assert not window.application.controls.capture_active
+    window.windows_combo.setCurrentIndex(0)
+    assert window.start_button.isEnabled()
+    window.close()
+
+
 def test_capture_hotkey_picks_focused_window_but_never_retargets_running_capture(
     app, tmp_path, monkeypatch
 ):
