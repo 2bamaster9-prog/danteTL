@@ -19,6 +19,7 @@ INTERFACE_LANGUAGES = (
     "pt-PT",
     "ru",
     "es",
+    "th",
 )
 
 
