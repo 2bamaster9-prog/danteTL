@@ -8,7 +8,7 @@ import time
 from dataclasses import replace
 
 from dantetl.application.cloud_services import CloudServices
-from dantetl.translation.cloud.chatgpt_auth import ChatGPTConnections
+from dantetl.translation.cloud.chatgpt_auth import PLAN_SCOPE, ChatGPTConnections
 from dantetl.translation.cloud.profiles import CloudProfiles
 from dantetl.translation.cloud.protected_store import ProtectedStore
 from dantetl.translation.cloud.state import CloudDraft
@@ -172,7 +172,7 @@ def test_account_refresh_scopes_recovery_even_if_later_discovery_fails(tmp_path,
         for c, a in zip(("a", "b"), accounts, strict=True)
     )
     service.catalog.write(profiles)
-    monkeypatch.setattr(service.connections, "accounts", lambda: accounts)
+    monkeypatch.setattr(service.connections, "accounts", lambda *_: accounts)
     monkeypatch.setattr(service.connections, "refresh_models", lambda *_: ())
     service.start()
     finish(service)
@@ -183,7 +183,7 @@ def test_account_refresh_scopes_recovery_even_if_later_discovery_fails(tmp_path,
     revision = service.credential_revision(profiles[1])
     assert revision > 0
 
-    def failed_discovery():
+    def failed_discovery(*_):
         raise ValueError("Catalog read failed after credential recovery")
 
     monkeypatch.setattr(service.connections, "accounts", failed_discovery)
@@ -192,3 +192,44 @@ def test_account_refresh_scopes_recovery_even_if_later_discovery_fails(tmp_path,
     assert service.credential_revision(profiles[1]) > revision
     assert service.credential_revision(profiles[0]) == 0
     service.close()
+
+
+def test_discovery_isolates_corrupt_accounts_and_unreadable_api_keys(tmp_path, monkeypatch):
+    service, secrets = create(tmp_path)
+    # Exercise the on-disk record reader using only disposable plaintext fixture records.
+    monkeypatch.setattr(
+        "dantetl.translation.cloud.protected_store._protect", lambda data, **_: data
+    )
+    store = service.connections.store
+    good, bad = ("account-" + c * 32 for c in "ab")
+    store.write(good, {"access_token": "fixture", "scopes": [PLAN_SCOPE], "models": [["m", "M"]]})
+    (store.directory / (bad + ".dat")).write_bytes(b"invalid")
+    plan = CloudProfile("cloud-" + "e" * 32, "Plan", "chatgpt", "m", account=good)
+    broken_plan = replace(plan, key="cloud-" + "f" * 32, account=bad)
+    service.catalog.write((plan, broken_plan))
+    profiles = [CloudProfile.new("deepseek") for _ in range(2)]
+    for p in profiles:
+        service.save(CloudDraft(p, "", "fixture"))
+        assert finish(service).saved
+    saved = service.catalog.read()
+    bad_key = saved[-1].credential_key
+    legacy = CloudProfile.new("openai")
+    service.catalog.write((*saved, legacy))
+
+    def read(key):
+        if key in (bad_key, legacy.key):
+            raise ValueError("sensitive fixture diagnostic")
+        return secrets.values.get(key)
+
+    monkeypatch.setattr(secrets, "read", read)
+    fresh = CloudServices(
+        CloudProfiles(service.catalog.path), lambda: secrets, ChatGPTConnections(store)
+    )
+    fresh.start()
+    snapshot = finish(fresh)
+    assert snapshot.profiles == (*saved, legacy)
+    assert snapshot.available == {profiles[0].key, plan.key}
+    assert [a.key for a in snapshot.accounts] == [good]
+    assert "ChatGPT" in snapshot.problem and "API key" in snapshot.problem
+    assert "sensitive" not in snapshot.message and "sensitive" not in snapshot.problem
+    assert (store.directory / (bad + ".dat")).read_bytes() == b"invalid"

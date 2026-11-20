@@ -69,7 +69,7 @@ def test_connection_is_reused_after_restart_model_removal_and_new_model(tmp_path
     # New service instances, no model entries: the connection still exists.
     catalog.write(())
     reloaded = ApiConnections(CloudProfiles(catalog.path))
-    assert len(reloaded.read((), secrets)) == 1
+    assert len(reloaded.discover(lambda: secrets, pytest.fail).connections) == 1
     third = reloaded.save_model(CloudProfile.new(provider), first.credential, "", secrets)
     assert reloaded.secret(third, secrets) == "fixture-key"
     assert "fixture-key" not in connections.path.read_text()
@@ -89,7 +89,6 @@ def test_connection_never_crosses_provider_and_key_replacement_rolls_back(
         connections.save_model(CloudProfile.new(other), first.credential, "", secrets)
     forged = replace(CloudProfile.new(other), credential=first.credential)
     assert connections.secret(forged, secrets) == ""
-    before = catalog.read()
 
     def disk_error(*args):
         raise OSError("fixture disk full")
@@ -101,7 +100,7 @@ def test_connection_never_crosses_provider_and_key_replacement_rolls_back(
     with pytest.raises(OSError):
         connections.save_model(CloudProfile.new("openai"), "", "abandoned-secret", secrets)
     assert list(secrets.values.values()) == ["original-secret"]
-    assert len(connections.read(before, secrets)) == 1
+    assert len(connections.discover(lambda: secrets, pytest.fail).connections) == 1
 
 
 def test_legacy_keys_are_adopted_without_moving_or_merging_accounts(tmp_path):
@@ -112,11 +111,11 @@ def test_legacy_keys_are_adopted_without_moving_or_merging_accounts(tmp_path):
     secrets.write(first.key, "first-account")
     secrets.write(second.key, "second-account")
     connections = ApiConnections(catalog)
-    assert len(connections.read(catalog.read(), secrets)) == 2
+    assert len(connections.discover(lambda: secrets, pytest.fail).connections) == 2
     assert connections.secret(first, secrets) == "first-account"
     assert connections.secret(second, secrets) == "second-account"
     connections.forget(first.key, secrets)
-    assert len(connections.read(catalog.read(), secrets)) == 1
+    assert len(connections.discover(lambda: secrets, pytest.fail).connections) == 1
     assert connections.secret(first, secrets) == ""
     assert connections.secret(second, secrets) == "second-account"
     assert json.loads(catalog.path.read_text())["version"] == 1

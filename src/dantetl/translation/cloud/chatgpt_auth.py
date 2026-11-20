@@ -191,19 +191,36 @@ class ChatGPTConnections:
     def __init__(self, store: ProtectedStore | None = None) -> None:
         self.store = store or ProtectedStore(state_root() / "data/chatgpt")
 
-    def accounts(self) -> tuple[ChatGPTAccount, ...]:
+    def accounts(
+        self, on_problem: Callable[[str], None] = lambda _: None
+    ) -> tuple[ChatGPTAccount, ...]:
         values = []
         for key in self.store.account_keys():
-            record = self.store.read(key)
-            label = record.get("email") or "ChatGPT account"
-            values.append(
-                ChatGPTAccount(
-                    key,
-                    f"{label} · {key[-6:]}",
-                    bool(record.get("access_token") and PLAN_SCOPE in record.get("scopes", [])),
-                    tuple(tuple(row) for row in record.get("models", [])),
+            try:
+                record = self.store.read(key)
+                rows, scopes = record.get("models", []), record.get("scopes", [])
+                if (
+                    not isinstance(scopes, (list, tuple))
+                    or not isinstance(rows, (list, tuple))
+                    or not all(
+                        isinstance(row, (list, tuple))
+                        and len(row) == 2
+                        and all(isinstance(value, str) for value in row)
+                        for row in rows
+                    )
+                ):
+                    raise ValueError
+                label = record.get("email") or "ChatGPT account"
+                values.append(
+                    ChatGPTAccount(
+                        key,
+                        f"{label} · {key[-6:]}",
+                        bool(record.get("access_token") and PLAN_SCOPE in scopes),
+                        tuple((model, name) for model, name in rows),
+                    )
                 )
-            )
+            except (OSError, ValueError):
+                on_problem(tr("Invalid ChatGPT connection record."))
         return tuple(values)
 
     def _host(self, work: AuthWork) -> str:

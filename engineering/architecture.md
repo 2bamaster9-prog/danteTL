@@ -405,6 +405,9 @@ turns; growth/corrections update a turn, new capture clears history. Reader hist
 
 ## Cloud and credential boundary
 
+Cloud discovery reports unreadable account records and API credentials and disables their dependent
+profiles. Healthy connections remain usable.
+
 Cloud use needs explicit configuration/route selection. Send bounded recognized text/context and optional
 game hint, never frames. Editing/testing does not commit routing. Validate complete answers and bounded
 streams; preserve per-backend concurrency/attempt/request budgets/deadlines without billing fallback.

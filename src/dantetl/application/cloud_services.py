@@ -42,6 +42,7 @@ class SetupResult:
     catalogs: dict[str, tuple[CatalogModel, ...]] = field(default_factory=dict)
     discovered: tuple[CatalogModel, ...] | None = None
     changed_credentials: frozenset[tuple[str, str]] = frozenset()
+    discovery_problem: str = ""
 
 
 class CloudServices:
@@ -226,54 +227,16 @@ class CloudServices:
                 result = str(error) or tr("Operation cancelled.")
                 failed = True
             try:
-                secrets = self._secrets()
-                profiles = self.catalog.read()
-                accounts = self.connections.accounts()
-                api = self.api_connections.read(profiles, secrets)
-                api_ready = {c.key for c in api if secrets.read(c.key)}
-                available = {
-                    p.key
-                    for p in profiles
-                    if (
-                        any(
-                            a.key == p.account and a.enabled and p.model in dict(a.models)
-                            for a in accounts
-                        )
-                        if p.provider == "chatgpt"
-                        else any(
-                            c.key == p.credential_key
-                            and c.provider == p.provider
-                            and c.key in api_ready
-                            for c in api
-                        )
-                    )
-                }
-                completed = SetupResult(
-                    profiles,
-                    available,
-                    accounts,
-                    api,
-                    api_ready,
-                    result,
-                    failed,
-                    {
-                        c.key: models
-                        for c in api
-                        if (models := self.catalog_cache.read(c.provider, c.key)) is not None
-                    },
-                    self._discovered,
-                    frozenset(self._credential_changes),
-                )
+                completed = self._discover(result, failed)
             except Exception as error:
                 completed = SetupResult(
                     self.profiles,
-                    self._available,
-                    self.accounts,
-                    self.api_accounts,
-                    self._api_ready,
-                    str(error) or tr("Operation cancelled."),
+                    set(),
+                    (),
+                    (),
+                    set(),
+                    str(error),
                     True,
-                    self._catalogs,
                     changed_credentials=frozenset(self._credential_changes),
                 )
             with self._lock:
@@ -282,6 +245,44 @@ class CloudServices:
 
         self._worker = threading.Thread(target=work, name="cloud-setup", daemon=True)
         self._worker.start()
+
+    def _discover(self, message: str, failed: bool) -> SetupResult:
+        problems: list[str] = []
+        try:
+            accounts = self.connections.accounts(problems.append)
+        except (OSError, ValueError):
+            problems.append(tr("Invalid ChatGPT connection record."))
+            accounts = ()
+        inventory = self.api_connections.discover(self._secrets, problems.append)
+        profiles, api, api_ready = inventory.profiles, inventory.connections, set(inventory.ready)
+        account_models = {(a.key, model) for a in accounts if a.enabled for model, _ in a.models}
+        ready = {(c.provider, c.key) for c in api if c.key in api_ready}
+        available = {
+            p.key
+            for p in profiles
+            if (
+                (p.account, p.model) in account_models
+                if p.provider == "chatgpt"
+                else (p.provider, p.credential_key) in ready
+            )
+        }
+        return SetupResult(
+            profiles,
+            available,
+            accounts,
+            api,
+            api_ready,
+            message,
+            failed,
+            {
+                c.key: models
+                for c in api
+                if (models := self.catalog_cache.read(c.provider, c.key)) is not None
+            },
+            self._discovered,
+            frozenset(self._credential_changes),
+            " ".join(dict.fromkeys(problems)),
+        )
 
     def advance(self) -> bool:
         """Adopt a completed operation, even when every view is hidden or destroyed."""
@@ -320,8 +321,10 @@ class CloudServices:
         self._credential_revisions = {
             k: v for k, v in self._credential_revisions.items() if k in referenced
         }
-        self.problem = result.message if result.failed else ""
-        self._message = result.message
+        self.problem = " ".join(
+            filter(None, (result.message if result.failed else "", result.discovery_problem))
+        )
+        self._message = " ".join(filter(None, (result.message, result.discovery_problem)))
         self._saved = self._saving and not result.failed
         self._selected, self._select_after = self._select_after, ""
         self._completion += 1

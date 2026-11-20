@@ -2,7 +2,8 @@
 
 import json
 import os
-from dataclasses import asdict, replace
+from collections.abc import Callable
+from dataclasses import asdict, dataclass, replace
 from uuid import uuid4
 
 from dantetl.i18n import tr
@@ -11,13 +12,42 @@ from dantetl.translation.cloud.profiles import CloudProfiles
 from dantetl.translation.cloud.values import MAX_CLOUD_PROFILES, ApiConnection, CloudProfile
 
 
+@dataclass(frozen=True)
+class ApiInventory:
+    profiles: tuple[CloudProfile, ...]
+    connections: tuple[ApiConnection, ...]
+    ready: frozenset[str]
+
+
 class ApiConnections:
     def __init__(self, catalog: CloudProfiles) -> None:
         self.catalog = catalog
         self.path = catalog.path.with_name(catalog.path.stem + "-connections.json")
 
-    def read(
-        self, profiles: tuple[CloudProfile, ...], secrets: Secrets
+    def discover(
+        self, vault: Callable[[], Secrets], on_problem: Callable[[str], None]
+    ) -> ApiInventory:
+        profiles = self.catalog.read()
+        try:
+            secrets = vault()
+            connections = self._read(profiles, secrets, on_problem)
+        except (OSError, ValueError):
+            on_problem(tr("Invalid API connection settings."))
+            return ApiInventory(profiles, (), frozenset())
+        ready = set()
+        for connection in connections:
+            try:
+                if secrets.read(connection.key):
+                    ready.add(connection.key)
+            except (OSError, ValueError):
+                on_problem(tr("Windows could not read the saved API key."))
+        return ApiInventory(profiles, connections, frozenset(ready))
+
+    def _read(
+        self,
+        profiles: tuple[CloudProfile, ...],
+        secrets: Secrets,
+        on_problem: Callable[[str], None] = lambda _: None,
     ) -> tuple[ApiConnection, ...]:
         connections: tuple[ApiConnection, ...] = ()
         if self.path.exists():
@@ -36,16 +66,17 @@ class ApiConnections:
             if len({c.key for c in connections}) != len(connections):
                 raise ValueError(tr("Duplicate API connection IDs."))
         # Adopt previous model-owned credentials in place, without copying secret material.
-        legacy = tuple(
-            ApiConnection(p.key, p.provider, p.name + " key")
-            for p in profiles
-            if p.provider != "chatgpt"
-            and not p.credential
-            and not any(c.key == p.key for c in connections)
-            and secrets.read(p.key)
-        )
+        legacy = []
+        for p in profiles:
+            if p.provider == "chatgpt" or p.credential or any(c.key == p.key for c in connections):
+                continue
+            try:
+                if secrets.read(p.key):
+                    legacy.append(ApiConnection(p.key, p.provider, p.name + " key"))
+            except (OSError, ValueError):
+                on_problem(tr("Windows could not read the saved API key."))
         if legacy:
-            connections += legacy
+            connections += tuple(legacy)
             self._write(connections)
         return connections
 
@@ -66,7 +97,7 @@ class ApiConnections:
             temporary.unlink(missing_ok=True)
 
     def secret(self, profile: CloudProfile, secrets: Secrets) -> str:
-        connections = self.read(self.catalog.read(), secrets)
+        connections = self._read(self.catalog.read(), secrets)
         if not any(
             c.key == profile.credential_key and c.provider == profile.provider for c in connections
         ):
@@ -77,7 +108,7 @@ class ApiConnections:
         self, profile: CloudProfile, connection: str, secret: str, secrets: Secrets
     ) -> CloudProfile:
         profiles = self.catalog.read()
-        connections = self.read(profiles, secrets)
+        connections = self._read(profiles, secrets)
         existing = next(
             (c for c in connections if c.key == connection and c.provider == profile.provider), None
         )
@@ -113,7 +144,7 @@ class ApiConnections:
         return saved
 
     def forget(self, key: str, secrets: Secrets) -> None:
-        connections = self.read(self.catalog.read(), secrets)
+        connections = self._read(self.catalog.read(), secrets)
         if not any(c.key == key for c in connections):
             raise ValueError(tr("This connection is no longer available."))
         secrets.delete(key)
