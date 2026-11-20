@@ -6,10 +6,9 @@ from pathlib import Path
 
 from dantejp.i18n import tr
 from dantejp.runtime.hardware_values import HardwareStatus
-from dantejp.runtime.llama import supports_plamo
-from dantejp.runtime.model_store import Cancelled, ModelBundle, install_model
+from dantejp.runtime.model_store import ModelBundle, install_model
 from dantejp.runtime.setup import install_runtime, ready_runtime
-from dantejp.runtime.setup_values import ModelProgress, Progress
+from dantejp.runtime.setup_values import Cancelled, ModelProgress, Progress
 from dantejp.runtime.values import RuntimeProfile
 
 
@@ -19,10 +18,8 @@ class SetupPlan:
     runtime: RuntimeProfile | None
 
 
-def needs_runtime(
-    profile: RuntimeProfile, hardware: HardwareStatus, model: ModelBundle | None = None
-) -> bool:
-    if model is not None and model.needs_plamo and not supports_plamo():
+def needs_runtime(profile: RuntimeProfile, hardware: HardwareStatus, *, upgrade: bool) -> bool:
+    if upgrade:
         return True
     if profile.key == "nvidia":
         return not (hardware.cuda_ocr and hardware.llama_device == "cuda")

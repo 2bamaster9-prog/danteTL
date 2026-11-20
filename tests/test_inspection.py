@@ -186,15 +186,12 @@ def test_capture_visibility_ui_remembers_choice_and_rolls_back_native_failure(ap
         window.deleteLater()
 
 
-def test_first_run_is_explicit_skippable_and_does_not_change_manual_cpu_choice(
-    app, tmp_path, monkeypatch
-):
-    from dantejp.runtime.hardware import Adapter, HardwareStatus
+def test_first_run_is_explicit_skippable_and_does_not_change_manual_cpu_choice(app, tmp_path):
+    from dantejp.runtime.hardware_values import Adapter, HardwareStatus
     from dantejp.runtime.model_store import model_catalog
     from dantejp.ui.setup_assistant import SetupAssistant
 
     hardware = Mock()
-    monkeypatch.setattr("dantejp.runtime.first_run.supports_plamo", lambda: True)
     hardware.snapshot.return_value = None
     models = tuple(replace(b, directory=tmp_path / b.key) for b in model_catalog())
     windows = Mock()

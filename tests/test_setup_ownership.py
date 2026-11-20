@@ -100,6 +100,34 @@ def test_stale_review_repeated_success_and_failed_retry(tmp_path):
         replay.close()
 
 
+@pytest.mark.parametrize(
+    ("profile", "cuda_ocr", "llama_device", "upgrade", "install"),
+    [
+        ("cpu", False, "cpu", False, False),
+        ("cpu", True, "cpu", False, True),
+        ("amd", False, "vulkan", False, False),
+        ("amd", False, "cpu", False, True),
+        ("nvidia", False, "cuda", False, True),
+        ("nvidia", True, "cpu", False, True),
+        ("nvidia", True, "cuda", False, False),
+        ("nvidia", True, "cuda", True, True),
+    ],
+)
+def test_review_requests_the_selected_runtime_only_when_needed(
+    tmp_path, profile, cuda_ocr, llama_device, upgrade, install
+):
+    replay = configured(tmp_path)
+    try:
+        data = replay.source.data
+        files = tuple(replace(f, upgrade=upgrade) if f.key == "model" else f for f in data.files)
+        replay.discover(replace(data, files=files))
+        hardware = HardwareStatus(cuda_ocr=cuda_ocr, llama_device=llama_device)
+        assert replay.setup.review("model", profile, hardware).install_runtime is install
+        assert not replay.operations
+    finally:
+        replay.close()
+
+
 def test_import_capability_does_not_depend_on_downloaded_model_rows(tmp_path):
     replay = Replay(tmp_path, data=InventoryData(device="vulkan"))
     try:

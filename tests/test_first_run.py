@@ -4,31 +4,9 @@ from unittest.mock import Mock
 import pytest
 
 from dantejp.runtime import first_run
-from dantejp.runtime.hardware import HardwareStatus
-from dantejp.runtime.model_store import Cancelled, DownloadProgress, ModelOperation, ModelProgress
-from dantejp.runtime.setup import PROFILES
-
-
-def test_cpu_is_available_without_gpu_and_amd_does_not_require_gpu_ocr():
-    assert not first_run.needs_runtime(PROFILES[2], HardwareStatus(llama_device="cpu"))
-    assert not first_run.needs_runtime(PROFILES[1], HardwareStatus(llama_device="vulkan"))
-    assert first_run.needs_runtime(PROFILES[0], HardwareStatus(llama_device="cuda"))
-    assert not first_run.needs_runtime(
-        PROFILES[0], HardwareStatus(cuda_ocr=True, llama_device="cuda")
-    )
-    assert first_run.needs_runtime(PROFILES[2], HardwareStatus(llama_device=None))
-
-
-def test_plamo_wizard_includes_upgrade_when_existing_hardware_engine_is_too_old(monkeypatch):
-    from dantejp.translation.models.curated import MODELS
-
-    model = next(m.bundle() for m in MODELS if m.key == "plamo-0.8b")
-    hardware = HardwareStatus(cuda_ocr=True, llama_device="cuda")
-    monkeypatch.setattr(first_run, "supports_plamo", lambda: False)
-    assert first_run.needs_runtime(PROFILES[0], hardware, model)
-    assert not first_run.needs_runtime(PROFILES[0], hardware)
-    monkeypatch.setattr(first_run, "supports_plamo", lambda: True)
-    assert not first_run.needs_runtime(PROFILES[0], hardware, model)
+from dantejp.runtime.model_store import ModelOperation
+from dantejp.runtime.setup_values import Cancelled, DownloadProgress, ModelProgress
+from dantejp.runtime.values import PROFILES
 
 
 def test_setup_plan_has_no_side_effect_until_run_and_preserves_byte_progress(monkeypatch, tmp_path):

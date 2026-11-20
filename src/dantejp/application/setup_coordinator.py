@@ -13,7 +13,7 @@ from pathlib import Path
 from dantejp.application.model_inventory import ModelInventory
 from dantejp.application.model_values import ModelFile
 from dantejp.i18n import tr
-from dantejp.runtime.first_run import SetupPlan
+from dantejp.runtime.first_run import SetupPlan, needs_runtime
 from dantejp.runtime.hardware_values import HardwareStatus
 from dantejp.runtime.model_store import ModelBundle, ModelOperation
 from dantejp.runtime.setup_values import ModelProgress, Progress
@@ -247,12 +247,7 @@ class SetupCoordinator:
         model, ocr = self._models[model_key], self._models["ocr"]
         files = {f.key: f for f in self.files}
         profile = next(p for p in self.profiles if p.key == runtime_key)
-        needs = selected_file.upgrade or (
-            not (hardware.cuda_ocr and hardware.llama_device == "cuda")
-            if runtime_key == "nvidia"
-            else hardware.cuda_ocr
-            or hardware.llama_device != ("vulkan" if runtime_key == "amd" else "cpu")
-        )
+        needs = needs_runtime(profile, hardware, upgrade=selected_file.upgrade)
         plan = SetupPlan(
             (() if files["ocr"].included else (ocr,)) + (model,), profile if needs else None
         )
