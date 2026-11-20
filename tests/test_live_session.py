@@ -18,8 +18,9 @@ from dantejp.domain import (
 )
 from dantejp.languages.selection import DEFAULT_SOURCE
 from dantejp.ocr.tracking import prepare_matching
-from dantejp.ocr.visual import VisualState
-from dantejp.ocr.worker import OcrResult, OcrSnapshot, OcrState, TextCharacter, TextRegion
+from dantejp.ocr.values import OcrResult, OcrSnapshot, OcrState, TextCharacter, TextRegion
+from dantejp.ocr.visual import VisualSession
+from dantejp.ocr.visual_values import VisualState
 from dantejp.translation.dialogue.classifier import Classification
 from dantejp.translation.worker import (
     TranslatedText,
@@ -184,6 +185,49 @@ def test_completion_bursts_do_not_count_as_new_observations_or_change_english():
         assert replay.live.publish(backend, scene.requests, scene.blocks) == english
     assert replay.live.accepted is not None and replay.live.accepted.frame is source
     assert replay.live._tracker._sequence == 1
+
+
+@pytest.mark.parametrize("failure", ["prepare_matching", "prepare_evidence"])
+def test_review_failure_releases_ocr_and_recovers_on_the_next_result(monkeypatch, failure):
+    from dantejp.ocr import visual
+
+    original = getattr(visual, failure)
+
+    def fault(result, *args, **kwargs):
+        if result.frame.sequence == 2:
+            raise ValueError("fixture review failure")
+        return original(result, *args, **kwargs)
+
+    monkeypatch.setattr(visual, failure, fault)
+    ocr, capture, analysis = Ocr(), Capture(), VisualSession()
+    live = LiveSession(ocr_factory=lambda _: ocr, visual_factory=lambda: analysis)
+    live.start(capture, Mock())
+    label = TextRegion("設定", Rect(50, 40, 100, 30))
+    try:
+        for seq in (1, 2, 3):
+            source = frame(seq, float(seq))
+            ocr.current = OcrSnapshot(OcrState.READY, OcrResult(source, (label,), 25, seq))
+            deadline = time.monotonic() + 5
+            while seq not in ocr.acknowledged:
+                assert not analysis.finished and time.monotonic() < deadline
+                live.reconcile(source, source.captured_at)
+                time.sleep(0.002)
+            assert live.accepted is not None
+            rejected = seq == 2 and failure == "prepare_matching"
+            assert live.accepted.frame.sequence == (1 if rejected else seq)
+            assert bool(live.visual_state.review_message) == (seq == 2)
+            if rejected:
+                assert (source, None) in ocr.submitted
+            assert live.scene(source, source.captured_at, grouping=True).tracks
+            live.reconcile(source, source.captured_at)
+        assert ocr.acknowledged == [1, 2, 3]
+    finally:
+        live.stop()
+        capture.finished = ocr.finished = True
+        deadline = time.monotonic() + 5
+        while not live.drain():
+            assert time.monotonic() < deadline
+            time.sleep(0.002)
 
 
 def test_visual_loss_between_ocr_passes_keeps_locked_dialogue_and_backend_scope():

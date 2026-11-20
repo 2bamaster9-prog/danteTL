@@ -1087,6 +1087,10 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>창 목록을 가져올 수 없습니다: {error}</translation>
     </message>
     <message>
+      <source>Could not match this OCR result. Waiting for the next scan.</source>
+      <translation>이 OCR 결과를 대조할 수 없습니다. 다음 스캔을 기다리는 중입니다.</translation>
+    </message>
+    <message>
       <source>Could not open the demo: {error}</source>
       <translation>데모를 열 수 없습니다: {error}</translation>
     </message>

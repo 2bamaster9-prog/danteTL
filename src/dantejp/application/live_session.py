@@ -93,6 +93,7 @@ class LiveSession:
         self.visual: VisualWorker | None = None
         self.visual_state = VisualState()
         self.accepted: OcrResult | None = None
+        self._consumed_sequence = 0
         self.assignments: tuple[int | None, ...] = ()
         self.valid_size: tuple[int, int] | None = None
         self._tracker = TextTracker(language=language)
@@ -257,6 +258,7 @@ class LiveSession:
 
     def reset(self, translation: TranslationWorker | None = None) -> None:
         self.accepted = None
+        self._consumed_sequence = 0
         self.assignments = ()
         if self.visual:
             self.visual.invalidate(language=self._language)
@@ -291,14 +293,15 @@ class LiveSession:
             state = self.visual.poll()
             candidate = (
                 snapshot.result
-                if snapshot.result
-                and (
-                    self.accepted is None
-                    or snapshot.result.frame.sequence > self.accepted.frame.sequence
-                )
+                if snapshot.result and snapshot.result.frame.sequence > self._consumed_sequence
                 else None
             )
-            if candidate and (
+            if candidate and state.rejected_sequence == candidate.frame.sequence:
+                # A failed review releases backpressure without voting against live tracks.
+                self._consumed_sequence = candidate.frame.sequence
+                self.ocr.acknowledge(self._consumed_sequence)
+                candidate = None
+            elif candidate and (
                 state.checked_sequence == candidate.frame.sequence
                 and state.matching is not None
                 and state.matching.matches(
@@ -320,7 +323,8 @@ class LiveSession:
                     matching=state.matching,
                 )
                 self.accepted = candidate
-                self.ocr.acknowledge(self.accepted.frame.sequence)
+                self._consumed_sequence = candidate.frame.sequence
+                self.ocr.acknowledge(self._consumed_sequence)
                 candidate = None
             if state.frame is not None:
                 self.visual_state = state

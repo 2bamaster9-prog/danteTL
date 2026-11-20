@@ -173,6 +173,8 @@ additions and substantial strokes in another color still unlock OCR. Continuatio
 nearby line end rather than extending into a distant column.
 Visual failure visibly falls back to ordinary OCR. New translations wait for visual examination of their
 OCR source; existing valid English is independent of readiness.
+If optional crop evidence fails, matching can still accept the OCR result. A matching failure
+acknowledges that observation once and requests a new full scan, preserving accepted text.
 
 Partial OCR has explicit coverage; unscanned tracks are not misses. Pending areas union while pixels
 are replaced. Retain per-line probe source sequences, whole-line closure and single coordinate offsets.

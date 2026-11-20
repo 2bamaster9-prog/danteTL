@@ -1,3 +1,5 @@
+import threading
+
 import pytest
 from test_live_session import Replay, frame
 from test_translation import Backend, until
@@ -9,6 +11,7 @@ from dantejp.languages.source import SourceLanguage
 from dantejp.languages.target import TARGET_LANGUAGES
 from dantejp.ocr.tracking import TextTrack, TextTracker, prepare_matching
 from dantejp.ocr.values import OcrResult, TextRegion
+from dantejp.ocr.visual import VisualSession
 from dantejp.translation.backend import RequestRejected
 from dantejp.translation.backends import gemma, gguf, plamo
 from dantejp.translation.cache import TranslationCache, translation_key
@@ -220,6 +223,31 @@ def test_matching_evidence_is_scoped_to_its_source_language():
     assert tracker.observe(result, matching=prepare_matching(result, (), language=PORTUGUESE)) == (
         1,
     )
+
+
+def test_matching_worker_reuses_pending_source_until_language_invalidation():
+    result = OcrResult(frame(1), (TextRegion("Mapa", Rect(10, 10, 100, 25)),), 25, 1.0)
+    published = threading.Event()
+    worker = VisualSession(language=PORTUGUESE, on_change=published.set)
+
+    def review(sequence):
+        published.clear()
+        worker.submit(frame(sequence), None, (), (), (), candidate=result)
+        assert published.wait(3)
+        evidence = worker.poll().matching
+        assert evidence is not None
+        return evidence
+
+    worker.start()
+    try:
+        first = review(1)
+        assert first.language == PORTUGUESE
+        assert review(2) is first
+        worker.invalidate(language=DEFAULT_SOURCE)
+        assert review(2).language == DEFAULT_SOURCE
+    finally:
+        worker.request_stop()
+        until(lambda: worker.finished)
 
 
 def test_backends_use_the_selected_language_in_their_native_prompt():

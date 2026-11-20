@@ -1087,6 +1087,10 @@ Detail ada di %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Tidak dapat mendaftar jendela: {error}</translation>
     </message>
     <message>
+      <source>Could not match this OCR result. Waiting for the next scan.</source>
+      <translation>Hasil OCR ini tidak dapat dicocokkan. Menunggu pemindaian berikutnya.</translation>
+    </message>
+    <message>
       <source>Could not open the demo: {error}</source>
       <translation>Tidak dapat membuka demo: {error}</translation>
     </message>

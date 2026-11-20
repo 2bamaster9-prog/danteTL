@@ -1087,6 +1087,10 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>विंडो सूचीबद्ध नहीं कर सका: {error}</translation>
     </message>
     <message>
+      <source>Could not match this OCR result. Waiting for the next scan.</source>
+      <translation>इस OCR परिणाम का मिलान नहीं हो सका। अगले स्कैन की प्रतीक्षा है।</translation>
+    </message>
+    <message>
       <source>Could not open the demo: {error}</source>
       <translation>डेमो खोल नहीं सका: {error}</translation>
     </message>

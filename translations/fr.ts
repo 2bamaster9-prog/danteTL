@@ -1087,6 +1087,10 @@ Les détails se trouvent dans %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Impossible de lister les fenêtres : {error}</translation>
     </message>
     <message>
+      <source>Could not match this OCR result. Waiting for the next scan.</source>
+      <translation>Impossible d’associer ce résultat de reconnaissance de texte. En attente de la prochaine analyse.</translation>
+    </message>
+    <message>
       <source>Could not open the demo: {error}</source>
       <translation>Impossible d'ouvrir la démo : {error}</translation>
     </message>

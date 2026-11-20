@@ -603,7 +603,8 @@ class ApplicationSession:
         self.view = replace(
             self.view,
             ocr=snapshot,
-            ocr_status=ocr_status(snapshot, self.live.visual_state.message, now, self._ocr_model),
+            ocr_status=self.live.visual_state.review_message
+            or ocr_status(snapshot, self.live.visual_state.message, now, self._ocr_model),
             frame=frame,
             observation=self.live.accepted,
             assignments=self.live.assignments,

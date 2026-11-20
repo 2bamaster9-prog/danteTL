@@ -1087,6 +1087,10 @@ Chi tiết có trong %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Không thể liệt kê cửa sổ: {error}</translation>
     </message>
     <message>
+      <source>Could not match this OCR result. Waiting for the next scan.</source>
+      <translation>Không thể đối chiếu kết quả OCR này. Đang chờ lần quét tiếp theo.</translation>
+    </message>
+    <message>
       <source>Could not open the demo: {error}</source>
       <translation>Không thể mở bản demo: {error}</translation>
     </message>

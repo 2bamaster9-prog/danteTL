@@ -1087,6 +1087,10 @@ Details staan in %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Vensters konden niet worden opgesomd: {error}</translation>
     </message>
     <message>
+      <source>Could not match this OCR result. Waiting for the next scan.</source>
+      <translation>Dit OCR-resultaat kon niet worden gekoppeld. Wachten op de volgende scan.</translation>
+    </message>
+    <message>
       <source>Could not open the demo: {error}</source>
       <translation>De demo kon niet worden geopend: {error}</translation>
     </message>

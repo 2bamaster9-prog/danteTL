@@ -1087,6 +1087,10 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>Не удалось получить список окон: {error}</translation>
     </message>
     <message>
+      <source>Could not match this OCR result. Waiting for the next scan.</source>
+      <translation>Не удалось сопоставить результат распознавания текста. Ожидание следующего сканирования.</translation>
+    </message>
+    <message>
       <source>Could not open the demo: {error}</source>
       <translation>Не удалось открыть демонстрацию: {error}</translation>
     </message>

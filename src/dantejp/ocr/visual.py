@@ -1020,6 +1020,65 @@ class VisualAnalyzer:
         )
 
 
+class _ObservationReview:
+    """One generation's matching and optional pixel evidence for the pending OCR result."""
+
+    def __init__(self, language: SourceLanguage) -> None:
+        self.language = language
+        self.matching: MatchingEvidence | None = None
+        self.pixels: PixelEvidence | None = None
+        self.pixel_key: tuple[int, tuple[Rect, ...]] | None = None
+        self.rejected_sequence = 0
+        self.message = ""
+
+    def apply(self, state: VisualState, job: _Job) -> VisualState:
+        candidate = job.candidate
+        if candidate is None:
+            return replace(state, review_message=self.message) if self.message else state
+        sequence = candidate.frame.sequence
+        if sequence != self.rejected_sequence and (
+            self.matching is None
+            or not self.matching.matches(candidate, job.matching_sources, language=self.language)
+        ):
+            try:
+                self.matching = prepare_matching(
+                    candidate, job.matching_sources, language=self.language
+                )
+                self.rejected_sequence = 0
+            except Exception:
+                logger.exception("Cannot match OCR observation %s", sequence)
+                self.matching = None
+                self.rejected_sequence = sequence
+                self.message = tr("Could not match this OCR result. Waiting for the next scan.")
+        if self.matching is None:
+            return replace(
+                state,
+                rejected_sequence=sequence,
+                review_message=self.message,
+                request_ocr=True,
+                scan_areas=None,
+            )
+        key = sequence, job.evidence_bounds
+        if self.pixel_key != key:
+            self.pixel_key = key
+            try:
+                self.pixels = prepare_evidence(
+                    candidate, job.evidence_bounds, language=self.language
+                )
+                self.message = ""
+            except Exception:
+                logger.exception("Pixel evidence unavailable for OCR %s", sequence)
+                self.pixels = None
+                self.message = tr("Visual evidence unavailable; using OCR.")
+        return replace(
+            state,
+            matching=self.matching,
+            pixel_evidence=self.pixels,
+            checked_sequence=sequence,
+            review_message=self.message,
+        )
+
+
 class VisualSession:
     """One replaceable analysis job. No inference, Qt, full-frame history, or IO."""
 
@@ -1120,9 +1179,7 @@ class VisualSession:
     def _run(self) -> None:
         analyzer, generation = None, -1
         failed = False
-        evidence: PixelEvidence | None = None
-        evidence_bounds: tuple[Rect, ...] = ()
-        matching: MatchingEvidence | None = None
+        review = _ObservationReview(self._language)
         try:
             while True:
                 with self._condition:
@@ -1136,8 +1193,7 @@ class VisualSession:
                 started = time.perf_counter()
                 if current != generation:
                     analyzer, generation, failed = None, current, False
-                    evidence = None
-                    matching = None
+                    review = _ObservationReview(language)
                 try:
                     if analyzer is None and not failed:
                         analyzer = VisualAnalyzer(language)
@@ -1161,28 +1217,7 @@ class VisualSession:
                     )
                 # Independent of visual pattern-analysis success. Always hash the OCR
                 # source, never the latest capture, and discard cached evidence on reset.
-                if job.candidate:
-                    if matching is None or not matching.matches(
-                        job.candidate, job.matching_sources
-                    ):
-                        matching = prepare_matching(
-                            job.candidate, job.matching_sources, language=language
-                        )
-                    if (
-                        evidence is None
-                        or not evidence.matches(job.candidate.frame)
-                        or evidence_bounds != job.evidence_bounds
-                    ):
-                        evidence = prepare_evidence(
-                            job.candidate, job.evidence_bounds, language=language
-                        )
-                        evidence_bounds = job.evidence_bounds
-                    state = replace(
-                        state,
-                        pixel_evidence=evidence,
-                        checked_sequence=job.candidate.frame.sequence,
-                        matching=matching,
-                    )
+                state = review.apply(state, job)
                 with self._condition:
                     published = not self._stop and current == self._generation
                     if published:

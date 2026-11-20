@@ -1087,6 +1087,10 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>ไม่สามารถแสดงรายการหน้าต่าง: {error}</translation>
     </message>
     <message>
+      <source>Could not match this OCR result. Waiting for the next scan.</source>
+      <translation>ไม่สามารถจับคู่ผล OCR นี้ได้ กำลังรอการสแกนครั้งถัดไป</translation>
+    </message>
+    <message>
       <source>Could not open the demo: {error}</source>
       <translation>ไม่สามารถเปิดเดโม: {error}</translation>
     </message>

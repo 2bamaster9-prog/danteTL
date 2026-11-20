@@ -30,3 +30,5 @@ class VisualState:
     pattern_loss: frozenset[TextTrack] = frozenset()
     present: frozenset[TextTrack] = frozenset()
     cleared: frozenset[TextTrack] = frozenset()
+    rejected_sequence: int = 0
+    review_message: str = ""

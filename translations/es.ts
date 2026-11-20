@@ -1087,6 +1087,10 @@ Los detalles están en %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>No se pudieron enumerar las ventanas: {error}</translation>
     </message>
     <message>
+      <source>Could not match this OCR result. Waiting for the next scan.</source>
+      <translation>No se pudo asociar este resultado de OCR. Esperando el siguiente escaneo.</translation>
+    </message>
+    <message>
       <source>Could not open the demo: {error}</source>
       <translation>No se pudo abrir la demo: {error}</translation>
     </message>

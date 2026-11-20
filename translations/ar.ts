@@ -1087,6 +1087,10 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>تعذّر سرد النوافذ: {error}</translation>
     </message>
     <message>
+      <source>Could not match this OCR result. Waiting for the next scan.</source>
+      <translation>تعذرت مطابقة نتيجة التعرف على النص. جارٍ انتظار الفحص التالي.</translation>
+    </message>
+    <message>
       <source>Could not open the demo: {error}</source>
       <translation>تعذّر فتح العرض التجريبي: {error}</translation>
     </message>

@@ -1087,6 +1087,10 @@ Details finden Sie in %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Fenster konnten nicht aufgelistet werden: {error}</translation>
     </message>
     <message>
+      <source>Could not match this OCR result. Waiting for the next scan.</source>
+      <translation>Dieses OCR-Ergebnis konnte nicht zugeordnet werden. Der nächste Scan wird abgewartet.</translation>
+    </message>
+    <message>
       <source>Could not open the demo: {error}</source>
       <translation>Die Demo konnte nicht geöffnet werden: {error}</translation>
     </message>

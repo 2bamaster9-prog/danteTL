@@ -1087,6 +1087,10 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>উইন্ডোগুলো তালিকাভুক্ত করা যায়নি: {error}</translation>
     </message>
     <message>
+      <source>Could not match this OCR result. Waiting for the next scan.</source>
+      <translation>এই OCR ফলাফলটি মেলানো যায়নি। পরবর্তী স্ক্যানের জন্য অপেক্ষা করা হচ্ছে।</translation>
+    </message>
+    <message>
       <source>Could not open the demo: {error}</source>
       <translation>ডেমো খোলা যায়নি: {error}</translation>
     </message>
