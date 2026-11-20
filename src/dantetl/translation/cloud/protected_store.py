@@ -2,16 +2,15 @@
 
 import ctypes
 import json
-import msvcrt
 import os
 import re
-import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from ctypes import wintypes
 from pathlib import Path
 from uuid import uuid4
 
+from dantetl.file_lock import file_lock
 from dantetl.i18n import tr
 
 
@@ -100,27 +99,9 @@ class ProtectedStore:
     @contextmanager
     def lock(self, key: str, *, check: Callable[[], None] | None = None) -> Iterator[None]:
         path = self._path(key).with_suffix(".lock")
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a+b") as stream:
-            if not path.stat().st_size:
-                stream.write(b"0")
-                stream.flush()
-            deadline = time.monotonic() + 20
-            while True:
-                if check:
-                    check()
-                stream.seek(0)
-                try:
-                    msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
-                    break
-                except OSError:
-                    if time.monotonic() >= deadline:
-                        raise OSError(
-                            tr("Another DanteTL instance is updating this ChatGPT account.")
-                        ) from None
-                    time.sleep(0.05)
-            try:
-                yield
-            finally:
-                stream.seek(0)
-                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+        with file_lock(
+            path,
+            check=check,
+            busy_message=tr("Another DanteTL instance is updating this ChatGPT account."),
+        ):
+            yield
