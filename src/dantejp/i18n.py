@@ -10,6 +10,7 @@ INTERFACE_LANGUAGES = (
     "ja",
     "ar",
     "pt-PT",
+    "es",
 )
 
 
