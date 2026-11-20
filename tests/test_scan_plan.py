@@ -143,7 +143,7 @@ def test_oversized_detection_retries_original_crops_without_publishing_lost_line
     assert calls == [(9, 2.5, 180), (9, 2.5, 80), (9, 2.5, 80)]
 
 
-@pytest.mark.parametrize("failure", ["missing", "confidence", "edge"])
+@pytest.mark.parametrize("failure", ["missing", "confidence", "edge", "both_edges"])
 def test_failed_candidate_discards_every_provisional_row_and_retries_same_source(failure):
     bounds = Rect(0, 0, *SIZE)
     source = CapturedFrame(
@@ -157,12 +157,15 @@ def test_failed_candidate_discards_every_provisional_row_and_retries_same_source
     class Engine:
         def recognize(self, frame, *, full_size=None):
             calls.append((frame.sequence, frame.captured_at, frame.width, full_size))
-            if frame.width in (600, 1920):
+            if frame is source:
+                box = Rect(10, 50, 300, 30)
+                return (TextRegion("全画面", box),)
+            if frame.width == 600:
                 if failure == "missing":
                     return ()
-                box = Rect(0 if failure == "edge" else 20, 20, 100, 30)
+                box = Rect(0 if failure in ("edge", "both_edges") else 20, 20, 100, 30)
                 return (TextRegion("仮の結果", box, (TextCharacter("仮", box, 0.5),)),)
-            box = Rect(20, 20, 100, 30)
+            box = Rect(0 if failure == "both_edges" else 20, 20, 100, 30)
             return (TextRegion("本当の変更", box, (TextCharacter("本", box, 0.96),)),)
 
         def close(self):
@@ -170,13 +173,16 @@ def test_failed_candidate_discards_every_provisional_row_and_retries_same_source
 
     rows, coverage, rejected = recognize_planned(Engine(), source, plan)
     assert rejected
+    assert all(seq == 7 and time == 2.5 for seq, time, _, _ in calls)
+    widths = [width for _, _, width, _ in calls]
+    if failure == "both_edges":
+        assert coverage is None and rows == (TextRegion("全画面", Rect(10, 50, 300, 30)),)
+        assert widths == [600, 200, 1920]
+        return
     assert coverage == areas
     assert [r.text for r in rows] == ["本当の変更", "本当の変更"]
     assert [r.bounds.x for r in rows] == [120, 520]
-    assert all(seq == 7 and time == 2.5 for seq, time, _, _ in calls)
-    assert [width for _, _, width, _ in calls] == (
-        [600, 1920, 200, 200] if failure == "edge" else [600, 200, 200]
-    )
+    assert widths == [600, 200, 200]
 
 
 def test_unmodified_plan_does_not_retry_negative_ocr():

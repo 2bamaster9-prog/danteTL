@@ -176,7 +176,9 @@ OCR source; existing valid English is independent of readiness.
 
 Partial OCR has explicit coverage; unscanned tracks are not misses. Pending areas union while pixels
 are replaced. Retain per-line probe source sequences, whole-line closure and single coordinate offsets.
-Artificial-edge detections trigger full fallback. Independent full-discovery deadlines cannot be delayed
+An artificial-edge detection discards the provisional crops. An optimized plan retries the original
+demand directly. An edge in the original crops triggers one full-frame fallback.
+Independent full-discovery deadlines cannot be delayed
 by typewriter activity elsewhere. `ScanPlanner` evaluates partitions of at most four areas using provider
 costs and bounded geometry/confidence hints. Unknown/weak/small/vertical cases retain the baseline.
 Changed plans need savings and glyph/coverage safeguards. Preservation requires a one-to-one matching

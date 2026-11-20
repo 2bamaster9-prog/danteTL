@@ -247,17 +247,22 @@ def recognize_planned(
     result and executes the original plan against the same source frame. No old OCR is
     mixed into this observation. Planning remains separate from retention decisions.
     """
-    regions, scanned = recognize_regions(engine, frame, plan.areas)
-    if plan.changed and (
-        (scanned is None and plan.areas is not None)
-        or not preserves_lines(
+    if plan.changed:
+        areas = scan_regions(plan.areas, frame.geometry.client.size)
+        candidate = None
+        if plan.areas is None:
+            candidate = engine.recognize(frame)
+        elif areas is not None:
+            candidate = _recognize_crops(engine, frame, areas)
+        if candidate is not None and preserves_lines(
             plan.expected,
-            tuple(ScanLine(r.bounds, r.confidence, r.vertical) for r in regions if r.text.strip()),
-        )
-    ):
-        regions, scanned = recognize_regions(engine, frame, plan.baseline)
-        return regions, scanned, True
-    return regions, scanned, False
+            tuple(
+                ScanLine(r.bounds, r.confidence, r.vertical) for r in candidate if r.text.strip()
+            ),
+        ):
+            return candidate, areas, False
+    regions, scanned = recognize_regions(engine, frame, plan.baseline)
+    return regions, scanned, plan.changed
 
 
 def recognize_regions(
@@ -269,8 +274,17 @@ def recognize_regions(
     that provisional crop output and perform one full scan instead of publishing it.
     """
     areas = scan_regions(areas, frame.geometry.client.size)
-    if areas is None:
-        return engine.recognize(frame), None
+    if areas is not None:
+        regions = _recognize_crops(engine, frame, areas)
+        if regions is not None:
+            return regions, areas
+    return engine.recognize(frame), None
+
+
+def _recognize_crops(
+    engine: Recognizer, frame: CapturedFrame, areas: tuple[Rect, ...]
+) -> tuple[TextRegion, ...] | None:
+    """None signals a clipped line. An empty tuple is a completed negative scan."""
     if len(frame.bgra) != frame.width * frame.height * 4:
         raise ValueError(tr("Invalid source pixels for regional OCR"))
     pixels = memoryview(frame.bgra)
@@ -295,7 +309,7 @@ def recognize_regions(
                 or (area.x + area.width < frame.width and b.x + b.width >= area.width - 3)
                 or (area.y + area.height < frame.height and b.y + b.height >= area.height - 3)
             ):
-                return engine.recognize(frame), None
+                return None
 
             def shifted(b: Rect, origin: Rect = area) -> Rect:
                 return replace(b, x=b.x + origin.x, y=b.y + origin.y)
@@ -309,7 +323,7 @@ def recognize_regions(
                     ),
                 )
             )
-    return tuple(regions), areas
+    return tuple(regions)
 
 
 def overlay_result_ready(result: OcrResult, latest: CapturedFrame, now: float) -> bool:
