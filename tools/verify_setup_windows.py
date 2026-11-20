@@ -19,14 +19,14 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
-from dantejp.application.model_factories import create_recognizer, translation_backends
-from dantejp.application.model_inventory import inspect_models
-from dantejp.capture.windows import Windows
-from dantejp.domain import WindowTarget
-from dantejp.runtime.model_store import model_catalog
-from dantejp.translation.selection import ModelOption
-from dantejp.translation.values import TranslationState
-from dantejp.ui.demo import DemoWindow
+from dantetl.application.model_factories import create_recognizer, translation_backends
+from dantetl.application.model_inventory import inspect_models
+from dantetl.capture.windows import Windows
+from dantetl.domain import WindowTarget
+from dantetl.runtime.model_store import model_catalog
+from dantetl.translation.selection import ModelOption
+from dantetl.translation.values import TranslationState
+from dantetl.ui.demo import DemoWindow
 
 
 def main() -> int:
@@ -275,11 +275,11 @@ def main() -> int:
     from contextlib import nullcontext
 
     runtime_check = (
-        patch("dantejp.runtime.llama.installed_device", return_value=None)
+        patch("dantetl.runtime.llama.installed_device", return_value=None)
         if args.missing_runtime
         else nullcontext()
     )
-    with patch("dantejp.runtime.model_store.mark_prepared", receipts.append), runtime_check:
+    with patch("dantetl.runtime.model_store.mark_prepared", receipts.append), runtime_check:
         app.exec()
     timer.stop()
     (output / "result.json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")

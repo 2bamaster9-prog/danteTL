@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from dantejp.application.hotkeys import (
+from dantetl.application.hotkeys import (
     DEFAULT_CAPTURE,
     DEFAULT_OVERLAY,
     HotkeyAction,

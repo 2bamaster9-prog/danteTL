@@ -8,11 +8,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from dantejp.runtime import restart as runtime_restart
-from dantejp.runtime import setup as setup
-from dantejp.runtime.hardware_values import Adapter, recommended_profile
-from dantejp.runtime.setup_process import run_setup_command
-from dantejp.runtime.setup_values import Cancelled
+from dantetl.runtime import restart as runtime_restart
+from dantetl.runtime import setup as setup
+from dantetl.runtime.hardware_values import Adapter, recommended_profile
+from dantetl.runtime.setup_process import run_setup_command
+from dantetl.runtime.setup_values import Cancelled
 
 
 @pytest.fixture
@@ -63,7 +63,7 @@ def test_install_validates_before_publishing_and_selection_is_explicit(project, 
     assert ready and "venv" in calls[0]
     assert "--locked" in calls[1] and "--no-default-groups" in calls[1]
     assert all(flag in calls[2] for flag in ("--offline", "--no-index", "--require-hashes"))
-    assert calls[-1][1:] == ["-m", "dantejp.runtime.probe", profile.key]
+    assert calls[-1][1:] == ["-m", "dantetl.runtime.probe", profile.key]
     assert not setup.selected_runtime(root)
     setup.select_runtime(root, ready)
     assert setup.selected_runtime(root) == ready
@@ -92,7 +92,7 @@ def test_failure_or_cancel_keeps_active_runtime_and_models(project, monkeypatch,
     (root / "models/weights").write_bytes(b"user data")
 
     def fail(args, *a, **kw):
-        if "dantejp.runtime.probe" in args:
+        if "dantetl.runtime.probe" in args:
             raise error
         run(args, *a, **kw)
 

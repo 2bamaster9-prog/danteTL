@@ -6,11 +6,11 @@ import cv2
 import numpy as np
 import pytest
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr.tracking import TextTrack, TextTracker, TrackingPolicy
-from dantejp.ocr.values import OcrResult, TextRegion
-from dantejp.ocr.visual import VisualAnalyzer, VisualSession
-from dantejp.ocr.visual_values import VisualState
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.tracking import TextTrack, TextTracker, TrackingPolicy
+from dantetl.ocr.values import OcrResult, TextRegion
+from dantetl.ocr.visual import VisualAnalyzer, VisualSession
+from dantetl.ocr.visual_values import VisualState
 
 BOX = Rect(20, 50, 180, 24)
 TEXT = "新しい冒険がここから始まります"
@@ -353,7 +353,7 @@ def test_visual_initialization_failure_falls_back_and_still_finishes_shutdown(mo
         calls.append(1)
         raise RuntimeError("Visual initialization unavailable")
 
-    monkeypatch.setattr("dantejp.ocr.visual.VisualAnalyzer", fail)
+    monkeypatch.setattr("dantetl.ocr.visual.VisualAnalyzer", fail)
     session = VisualSession()
     session.start()
     try:
@@ -397,7 +397,7 @@ def test_worker_coalesces_frames_and_rejects_evidence_after_invalidation(monkeyp
                 assert release.wait(3)
             return VisualState(frame, True)
 
-    monkeypatch.setattr("dantejp.ocr.visual.VisualAnalyzer", lambda language: Analyzer())
+    monkeypatch.setattr("dantetl.ocr.visual.VisualAnalyzer", lambda language: Analyzer())
     notified = []
 
     def notification():

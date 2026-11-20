@@ -21,12 +21,12 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
-from dantejp.runtime.assets import ModelAsset, validate_asset
-from dantejp.runtime.model_store import ModelBundle, install_model
-from dantejp.runtime.setup_process import run_setup_command
-from dantejp.runtime.setup_values import ModelProgress
-from dantejp.translation.backend import ContextualBackend, RequestRejected, TranslationBackend
-from dantejp.translation.dialogue.context import DialogueTurn
+from dantetl.runtime.assets import ModelAsset, validate_asset
+from dantetl.runtime.model_store import ModelBundle, install_model
+from dantetl.runtime.setup_process import run_setup_command
+from dantetl.runtime.setup_values import ModelProgress
+from dantetl.translation.backend import ContextualBackend, RequestRejected, TranslationBackend
+from dantetl.translation.dialogue.context import DialogueTurn
 from tools.benchmark_profiles import SpecialistBackend
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -120,12 +120,12 @@ def load_backend(key: str, device: str) -> TranslationBackend:
         validate_asset(path, asset, None)
         return SpecialistBackend(path, candidates()[key]["profile"], device)
     if key == "gemma":
-        from dantejp.translation.backends.gemma import GemmaBackend, model_directory
+        from dantetl.translation.backends.gemma import GemmaBackend, model_directory
 
         return GemmaBackend(model_directory(), device=device)
-    from dantejp.translation.backends.gguf import GgufBackend
-    from dantejp.translation.models.curated import MODELS
-    from dantejp.translation.models.gguf import describe
+    from dantetl.translation.backends.gguf import GgufBackend
+    from dantetl.translation.models.curated import MODELS
+    from dantetl.translation.models.gguf import describe
 
     model = next(m for m in MODELS if m.key == key)
     for asset in model.assets:
@@ -140,7 +140,7 @@ def load_backend(key: str, device: str) -> TranslationBackend:
 
 
 def child(args: argparse.Namespace) -> None:
-    from dantejp.runtime.llama import installed_device
+    from dantetl.runtime.llama import installed_device
     from tools.verify_translation import process_memory
 
     if installed_device() != args.device:

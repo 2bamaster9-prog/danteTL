@@ -1,4 +1,4 @@
-# DanteJP agent guidance
+# DanteTL agent guidance
 
 Read [engineering/README.md](engineering/README.md), then the contracts relevant to the task.
 
@@ -18,7 +18,7 @@ Read [engineering/README.md](engineering/README.md), then the contracts relevant
 - Preserve working native environments; test dependency changes in an isolated candidate.
   CPU/GPU ONNX and CPU/CUDA/Vulkan llama runtimes must not be mixed. Use `.venv-gpu/Scripts/python.exe`
   for strict CUDA checks; preserve the default CPU environment.
-- Use DanteJP for user-facing branding, `dantejp` for Python/CLI IDs and `DANTEJP_*` for app
+- Use DanteTL for user-facing branding, `dantetl` for Python/CLI IDs and `DANTETL_*` for app
   environment variables. Keep modules in their owning subpackage; no compatibility aliases.
   Packaged resources
   are read-only; writable release state belongs in per-user AppData.

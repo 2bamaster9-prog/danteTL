@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <TS version="2.1" language="th" sourcelanguage="en">
   <context>
-    <name>DanteJP</name>
+    <name>DanteTL</name>
     <message>
       <source>
 
@@ -276,19 +276,19 @@ Repairs folder: {directory}</source>
       <source>An unexpected error occurred:
 {error}
 
-Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
+Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>เกิดข้อผิดพลาดที่ไม่คาดคิด:
 {error}
 
-รายละเอียดอยู่ใน %LOCALAPPDATA%/DanteJP/logs/app.log</translation>
+รายละเอียดอยู่ใน %LOCALAPPDATA%/DanteTL/logs/app.log</translation>
     </message>
     <message>
-      <source>Another DanteJP instance is already installing a runtime.</source>
-      <translation>มีอีกอินสแตนซ์ของ DanteJP กำลังติดตั้งรันไทม์อยู่แล้ว</translation>
+      <source>Another DanteTL instance is already installing a runtime.</source>
+      <translation>มีอีกอินสแตนซ์ของ DanteTL กำลังติดตั้งรันไทม์อยู่แล้ว</translation>
     </message>
     <message>
-      <source>Another DanteJP instance is updating this ChatGPT account.</source>
-      <translation>มีอีกอินสแตนซ์ของ DanteJP กำลังอัปเดตบัญชี ChatGPT นี้อยู่</translation>
+      <source>Another DanteTL instance is updating this ChatGPT account.</source>
+      <translation>มีอีกอินสแตนซ์ของ DanteTL กำลังอัปเดตบัญชี ChatGPT นี้อยู่</translation>
     </message>
     <message>
       <source>Another app or Windows already uses this shortcut.</source>
@@ -815,8 +815,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>เลือกการเชื่อมต่อที่บันทึกไว้สำหรับผู้ให้บริการนี้ หรือเพิ่มคีย์ API ใหม่</translation>
     </message>
     <message>
-      <source>Choose a single-file GGUF chat model. The file stays in its current folder; DanteJP saves only a reference. The import test uses Japanese and English.</source>
-      <translation>เลือกโมเดลแชท GGUF ไฟล์เดียว ไฟล์จะอยู่ในโฟลเดอร์ปัจจุบัน DanteJP บันทึกเฉพาะการอ้างอิง การทดสอบนำเข้าใช้ภาษาญี่ปุ่นและอังกฤษ</translation>
+      <source>Choose a single-file GGUF chat model. The file stays in its current folder; DanteTL saves only a reference. The import test uses Japanese and English.</source>
+      <translation>เลือกโมเดลแชท GGUF ไฟล์เดียว ไฟล์จะอยู่ในโฟลเดอร์ปัจจุบัน DanteTL บันทึกเฉพาะการอ้างอิง การทดสอบนำเข้าใช้ภาษาญี่ปุ่นและอังกฤษ</translation>
     </message>
     <message>
       <source>Choose a supported provider and model.</source>
@@ -1119,8 +1119,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>ไม่สามารถยุติกระบวนการที่เป็นเจ้าของ</translation>
     </message>
     <message>
-      <source>Counts belong to the selected saved model, including translation and classifier requests. Cache hits make no requests. Token totals include only usage reported by the provider; these are not billing totals. Counts reset when DanteJP exits.</source>
-      <translation>จำนวนนับเป็นของโมเดลที่บันทึกไว้ที่เลือก รวมถึงคำขอแปลและตัวจำแนก การแคชฮิตไม่ส่งคำขอ ยอดโทเค็นรวมเฉพาะการใช้งานที่ผู้ให้บริการรายงาน สิ่งเหล่านี้ไม่ใช่ยอดเรียกเก็บเงิน จำนวนนับจะรีเซ็ตเมื่อ DanteJP ออก</translation>
+      <source>Counts belong to the selected saved model, including translation and classifier requests. Cache hits make no requests. Token totals include only usage reported by the provider; these are not billing totals. Counts reset when DanteTL exits.</source>
+      <translation>จำนวนนับเป็นของโมเดลที่บันทึกไว้ที่เลือก รวมถึงคำขอแปลและตัวจำแนก การแคชฮิตไม่ส่งคำขอ ยอดโทเค็นรวมเฉพาะการใช้งานที่ผู้ให้บริการรายงาน สิ่งเหล่านี้ไม่ใช่ยอดเรียกเก็บเงิน จำนวนนับจะรีเซ็ตเมื่อ DanteTL ออก</translation>
     </message>
     <message>
       <source>Croatian</source>
@@ -1139,12 +1139,12 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>เช็ก</translation>
     </message>
     <message>
-      <source>DANTEJP_DATA_DIR must be an absolute directory.</source>
-      <translation>DANTEJP_DATA_DIR ต้องเป็นไดเรกทอรีแบบสัมบูรณ์</translation>
+      <source>DANTETL_DATA_DIR must be an absolute directory.</source>
+      <translation>DANTETL_DATA_DIR ต้องเป็นไดเรกทอรีแบบสัมบูรณ์</translation>
     </message>
     <message>
-      <source>DANTEJP_RESOURCE_DIR must identify a complete standalone app.</source>
-      <translation>DANTEJP_RESOURCE_DIR ต้องระบุแอปแบบสแตนด์อโลนที่สมบูรณ์</translation>
+      <source>DANTETL_RESOURCE_DIR must identify a complete standalone app.</source>
+      <translation>DANTETL_RESOURCE_DIR ต้องระบุแอปแบบสแตนด์อโลนที่สมบูรณ์</translation>
     </message>
     <message>
       <source>DEBUG  Amber: changed pixels   Cyan: last completed OCR</source>
@@ -1155,16 +1155,16 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>เดนมาร์ก</translation>
     </message>
     <message>
-      <source>DanteJP currently requires Windows.</source>
-      <translation>DanteJP ต้องใช้ Windows ในขณะนี้</translation>
+      <source>DanteTL currently requires Windows.</source>
+      <translation>DanteTL ต้องใช้ Windows ในขณะนี้</translation>
     </message>
     <message>
-      <source>DanteJP · Settings</source>
-      <translation>DanteJP · การตั้งค่า</translation>
+      <source>DanteTL · Settings</source>
+      <translation>DanteTL · การตั้งค่า</translation>
     </message>
     <message>
-      <source>DanteJP · Welcome</source>
-      <translation>DanteJP · ยินดีต้อนรับ</translation>
+      <source>DanteTL · Welcome</source>
+      <translation>DanteTL · ยินดีต้อนรับ</translation>
     </message>
     <message>
       <source>Debug overlay</source>
@@ -1179,8 +1179,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>ลบ</translation>
     </message>
     <message>
-      <source>Demo opened. Refresh the window list and select DanteJP Demo.</source>
-      <translation>เปิดเดโมแล้ว รีเฟรชรายการหน้าต่างและเลือก DanteJP Demo</translation>
+      <source>Demo opened. Refresh the window list and select DanteTL Demo.</source>
+      <translation>เปิดเดโมแล้ว รีเฟรชรายการหน้าต่างและเลือก DanteTL Demo</translation>
     </message>
     <message>
       <source>Detect graphics cards and install acceleration inside the app.</source>
@@ -1223,8 +1223,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>ประวัติบทสนทนา</translation>
     </message>
     <message>
-      <source>Dialogue history (Experimental) · DanteJP</source>
-      <translation>ประวัติบทสนทนา (ทดลอง) · DanteJP</translation>
+      <source>Dialogue history (Experimental) · DanteTL</source>
+      <translation>ประวัติบทสนทนา (ทดลอง) · DanteTL</translation>
     </message>
     <message>
       <source>Dialogue history · {count}/20</source>
@@ -1351,8 +1351,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>มีบัญชี ChatGPT ลงทะเบียนไว้แล้วแปดบัญชี</translation>
     </message>
     <message>
-      <source>Eligible translations use your ChatGPT plan. Manage allowance and credit permissions in ChatGPT Settings → Usage. DanteJP never falls back to an API key.</source>
-      <translation>การแปลที่เข้าเกณฑ์จะใช้แผน ChatGPT ของคุณ จัดการโควตาและสิทธิ์เครดิตได้ที่ การตั้งค่า ChatGPT → การใช้งาน DanteJP จะไม่สลับไปใช้คีย์ API เด็ดขาด</translation>
+      <source>Eligible translations use your ChatGPT plan. Manage allowance and credit permissions in ChatGPT Settings → Usage. DanteTL never falls back to an API key.</source>
+      <translation>การแปลที่เข้าเกณฑ์จะใช้แผน ChatGPT ของคุณ จัดการโควตาและสิทธิ์เครดิตได้ที่ การตั้งค่า ChatGPT → การใช้งาน DanteTL จะไม่สลับไปใช้คีย์ API เด็ดขาด</translation>
     </message>
     <message>
       <source>Embedded chat template</source>
@@ -1723,8 +1723,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>รวมในการจับภาพหน้าจอ</translation>
     </message>
     <message>
-      <source>Include translations in screenshots, display recordings and screen sharing. Turn off to ask Windows to exclude the overlay. Game/window-only capture may omit it either way; this does not affect DanteJP's OCR.</source>
-      <translation>รวมการแปลในภาพหน้าจอ การบันทึกการแสดงผล และการแชร์หน้าจอ ปิดเพื่อให้ Windows ยกเว้นโอเวอร์เลย์ การจับภาพเฉพาะเกม/หน้าต่างอาจไม่รวมไว้ไม่ว่ากรณีใด ซึ่งไม่ส่งผลต่อ OCR ของ DanteJP</translation>
+      <source>Include translations in screenshots, display recordings and screen sharing. Turn off to ask Windows to exclude the overlay. Game/window-only capture may omit it either way; this does not affect DanteTL's OCR.</source>
+      <translation>รวมการแปลในภาพหน้าจอ การบันทึกการแสดงผล และการแชร์หน้าจอ ปิดเพื่อให้ Windows ยกเว้นโอเวอร์เลย์ การจับภาพเฉพาะเกม/หน้าต่างอาจไม่รวมไว้ไม่ว่ากรณีใด ซึ่งไม่ส่งผลต่อ OCR ของ DanteTL</translation>
     </message>
     <message>
       <source>Included OCR files verified.</source>
@@ -2051,8 +2051,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>จำนวนครั้งเริ่มต้นคำขอสูงสุด รวมการลองใหม่ แคชที่ตรงกันจะไม่ใช้คำขอ</translation>
     </message>
     <message>
-      <source>Maximum reserved attempts for this model until DanteJP exits. Not a spending cap.</source>
-      <translation>จำนวนครั้งที่จองไว้สูงสุดสำหรับโมเดลนี้จนกว่า DanteJP จะปิด ไม่ใช่เพดานการใช้จ่าย</translation>
+      <source>Maximum reserved attempts for this model until DanteTL exits. Not a spending cap.</source>
+      <translation>จำนวนครั้งที่จองไว้สูงสุดสำหรับโมเดลนี้จนกว่า DanteTL จะปิด ไม่ใช่เพดานการใช้จ่าย</translation>
     </message>
     <message>
       <source>MeikiOCR · Japanese text recognition</source>
@@ -2383,8 +2383,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>การแปลที่ใช้งานอยู่นานที่สุด: {value:.1f} วินาที</translation>
     </message>
     <message>
-      <source>Only DanteJP modules may be launched by this entry point.</source>
-      <translation>จุดเริ่มต้นนี้เปิดได้เฉพาะโมดูล DanteJP เท่านั้น</translation>
+      <source>Only DanteTL modules may be launched by this entry point.</source>
+      <translation>จุดเริ่มต้นนี้เปิดได้เฉพาะโมดูล DanteTL เท่านั้น</translation>
     </message>
     <message>
       <source>Only a verified runtime can be selected.</source>
@@ -2407,8 +2407,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>OpenAI · คีย์ API</translation>
     </message>
     <message>
-      <source>Opening DanteJP with the installed runtime…</source>
-      <translation>กำลังเปิด DanteJP ด้วยรันไทม์ที่ติดตั้งไว้…</translation>
+      <source>Opening DanteTL with the installed runtime…</source>
+      <translation>กำลังเปิด DanteTL ด้วยรันไทม์ที่ติดตั้งไว้…</translation>
     </message>
     <message>
       <source>Operation cancelled.</source>
@@ -2805,8 +2805,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>ตอบสนองได้ดีบน GPU ที่ทดสอบ CPU และฉากที่ยุ่งจะช้ากว่า</translation>
     </message>
     <message>
-      <source>Restart DanteJP before changing more shortcuts.</source>
-      <translation>รีสตาร์ท DanteJP ก่อนเปลี่ยนทางลัดเพิ่มเติม</translation>
+      <source>Restart DanteTL before changing more shortcuts.</source>
+      <translation>รีสตาร์ท DanteTL ก่อนเปลี่ยนทางลัดเพิ่มเติม</translation>
     </message>
     <message>
       <source>Restart cancelled. Current runtime retained.</source>
@@ -2999,8 +2999,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>กำลังตั้งค่าการเร่งความเร็ว…</translation>
     </message>
     <message>
-      <source>Setting up DanteJP</source>
-      <translation>กำลังตั้งค่า DanteJP</translation>
+      <source>Setting up DanteTL</source>
+      <translation>กำลังตั้งค่า DanteTL</translation>
     </message>
     <message>
       <source>Settings</source>
@@ -3065,8 +3065,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>ป้ายกำกับแบบสั้น</translation>
     </message>
     <message>
-      <source>Shortcuts work while the game has focus or DanteJP is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
-      <translation>ปุ่มลัดทำงานขณะเกมมีโฟกัสหรือ DanteJP ย่ออยู่ เลือกชุดปุ่ม แล้วกดนำไปใช้ เลือกปิดใช้งานเพื่อปิดการทำงาน</translation>
+      <source>Shortcuts work while the game has focus or DanteTL is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
+      <translation>ปุ่มลัดทำงานขณะเกมมีโฟกัสหรือ DanteTL ย่ออยู่ เลือกชุดปุ่ม แล้วกดนำไปใช้ เลือกปิดใช้งานเพื่อปิดการทำงาน</translation>
     </message>
     <message>
       <source>Show / hide overlay</source>
@@ -3117,8 +3117,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>ลงชื่อเข้าใช้แล้ว แต่ยังไม่ได้เปิดใช้งานแผน ลงชื่อเข้าใช้อีกครั้งเพื่ออนุมัติ</translation>
     </message>
     <message>
-      <source>Signed out locally. Remote revocation was not confirmed; disconnect DanteJP in ChatGPT usage settings.</source>
-      <translation>ออกจากระบบในเครื่องแล้ว ไม่สามารถยืนยันการเพิกถอนระยะไกลได้ โปรดยกเลิกการเชื่อมต่อ DanteJP ในการตั้งค่าการใช้งาน ChatGPT</translation>
+      <source>Signed out locally. Remote revocation was not confirmed; disconnect DanteTL in ChatGPT usage settings.</source>
+      <translation>ออกจากระบบในเครื่องแล้ว ไม่สามารถยืนยันการเพิกถอนระยะไกลได้ โปรดยกเลิกการเชื่อมต่อ DanteTL ในการตั้งค่าการใช้งาน ChatGPT</translation>
     </message>
     <message>
       <source>Signed out of ChatGPT.</source>
@@ -3317,10 +3317,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>การจดจำข้อความ (OCR)</translation>
     </message>
     <message>
-      <source>Text recognition is included with DanteJP. This guide helps you choose a translation model and optional GPU acceleration.
+      <source>Text recognition is included with DanteTL. This guide helps you choose a translation model and optional GPU acceleration.
 
 </source>
-      <translation>การจดจำข้อความรวมอยู่ใน DanteJP คู่มือนี้ช่วยคุณเลือกโมเดลการแปลและการเร่งด้วย GPU แบบเลือกได้
+      <translation>การจดจำข้อความรวมอยู่ใน DanteTL คู่มือนี้ช่วยคุณเลือกโมเดลการแปลและการเร่งด้วย GPU แบบเลือกได้
 
 </translation>
     </message>
@@ -3369,8 +3369,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>wheel ของแอปที่บันเดิลมาหายไปหรือคลุมเครือ โปรดแตกไฟล์ ZIP ให้ครบถ้วน</translation>
     </message>
     <message>
-      <source>The bundled installer is missing. Extract the complete DanteJP ZIP.</source>
-      <translation>ไม่พบตัวติดตั้งที่บันเดิลมา โปรดแตกไฟล์ ZIP ของ DanteJP ให้ครบถ้วน</translation>
+      <source>The bundled installer is missing. Extract the complete DanteTL ZIP.</source>
+      <translation>ไม่พบตัวติดตั้งที่บันเดิลมา โปรดแตกไฟล์ ZIP ของ DanteTL ให้ครบถ้วน</translation>
     </message>
     <message>
       <source>The currently committed translation model.</source>
@@ -3765,8 +3765,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>ใช้ชื่อหน้าต่าง</translation>
     </message>
     <message>
-      <source>Use your ChatGPT plan. To use only its included allowance, disable credit use for DanteJP in ChatGPT's usage settings. No automatic API-key fallback.</source>
-      <translation>ใช้แผน ChatGPT ของคุณ หากต้องการใช้เฉพาะโควตาที่รวมอยู่ ให้ปิดการใช้เครดิตสำหรับ DanteJP ในการตั้งค่าการใช้งานของ ChatGPT ไม่มีการสำรองด้วยคีย์ API อัตโนมัติ</translation>
+      <source>Use your ChatGPT plan. To use only its included allowance, disable credit use for DanteTL in ChatGPT's usage settings. No automatic API-key fallback.</source>
+      <translation>ใช้แผน ChatGPT ของคุณ หากต้องการใช้เฉพาะโควตาที่รวมอยู่ ให้ปิดการใช้เครดิตสำหรับ DanteTL ในการตั้งค่าการใช้งานของ ChatGPT ไม่มีการสำรองด้วยคีย์ API อัตโนมัติ</translation>
     </message>
     <message>
       <source>Use {value}</source>
@@ -3905,8 +3905,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>กำลังรอการจำแนก…</translation>
     </message>
     <message>
-      <source>Welcome to DanteJP</source>
-      <translation>ยินดีต้อนรับสู่ DanteJP</translation>
+      <source>Welcome to DanteTL</source>
+      <translation>ยินดีต้อนรับสู่ DanteTL</translation>
     </message>
     <message>
       <source>Welsh</source>

@@ -1,12 +1,12 @@
 import time
 from concurrent.futures import Future
 
-from dantejp.domain import Rect
-from dantejp.languages.target import ENGLISH
-from dantejp.ocr.tracking import TextTrack
-from dantejp.translation.cache import TranslationCache, translation_key
-from dantejp.translation.grouping import TextBlock
-from dantejp.translation.worker import TranslationSession
+from dantetl.domain import Rect
+from dantetl.languages.target import ENGLISH
+from dantetl.ocr.tracking import TextTrack
+from dantetl.translation.cache import TranslationCache, translation_key
+from dantetl.translation.grouping import TextBlock
+from dantetl.translation.worker import TranslationSession
 
 
 class Deferred:

@@ -4,11 +4,11 @@ from dataclasses import replace
 
 import pytest
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr.tracking import TextActivity, TextTrack, TextTracker
-from dantejp.ocr.values import OcrResult, TextRegion
-from dantejp.translation.grouping import DialogueGrouper
-from dantejp.translation.values import TranslationRequest
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.tracking import TextActivity, TextTrack, TextTracker
+from dantetl.ocr.values import OcrResult, TextRegion
+from dantetl.translation.grouping import DialogueGrouper
+from dantetl.translation.values import TranslationRequest
 
 
 def description():

@@ -5,10 +5,10 @@ from dataclasses import replace
 import httpx2
 import pytest
 
-from dantejp.languages.selection import DEFAULT_SOURCE
-from dantejp.translation.backend import RequestRejected
-from dantejp.translation.cloud.backend import CloudBackend
-from dantejp.translation.cloud.protocol import (
+from dantetl.languages.selection import DEFAULT_SOURCE
+from dantetl.translation.backend import RequestRejected
+from dantetl.translation.cloud.backend import CloudBackend
+from dantetl.translation.cloud.protocol import (
     CLAUDE_VERSION,
     PROMPT_VERSION,
     parse_answer,
@@ -16,8 +16,8 @@ from dantejp.translation.cloud.protocol import (
     response_usage,
     translation_instruction,
 )
-from dantejp.translation.cloud.values import ENDPOINTS, MODELS, CloudProfile
-from dantejp.translation.dialogue.context import DialogueTurn
+from dantetl.translation.cloud.values import ENDPOINTS, MODELS, CloudProfile
+from dantetl.translation.dialogue.context import DialogueTurn
 
 
 def answer(provider, text="Critical Rate", *, reason=None, parts=None):

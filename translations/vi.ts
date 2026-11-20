@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <TS version="2.1" language="vi" sourcelanguage="en">
   <context>
-    <name>DanteJP</name>
+    <name>DanteTL</name>
     <message>
       <source>
 
@@ -276,19 +276,19 @@ Thư mục sửa chữa: {directory}</translation>
       <source>An unexpected error occurred:
 {error}
 
-Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
+Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>Đã xảy ra lỗi không mong muốn:
 {error}
 
-Chi tiết có trong %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
+Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     </message>
     <message>
-      <source>Another DanteJP instance is already installing a runtime.</source>
-      <translation>Một phiên bản DanteJP khác đang cài đặt runtime.</translation>
+      <source>Another DanteTL instance is already installing a runtime.</source>
+      <translation>Một phiên bản DanteTL khác đang cài đặt runtime.</translation>
     </message>
     <message>
-      <source>Another DanteJP instance is updating this ChatGPT account.</source>
-      <translation>Một phiên bản DanteJP khác đang cập nhật tài khoản ChatGPT này.</translation>
+      <source>Another DanteTL instance is updating this ChatGPT account.</source>
+      <translation>Một phiên bản DanteTL khác đang cập nhật tài khoản ChatGPT này.</translation>
     </message>
     <message>
       <source>Another app or Windows already uses this shortcut.</source>
@@ -815,8 +815,8 @@ Chi tiết có trong %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Chọn kết nối đã lưu cho nhà cung cấp này, hoặc thêm khóa API mới.</translation>
     </message>
     <message>
-      <source>Choose a single-file GGUF chat model. The file stays in its current folder; DanteJP saves only a reference. The import test uses Japanese and English.</source>
-      <translation>Chọn mô hình trò chuyện GGUF một tệp. Tệp giữ nguyên trong thư mục hiện tại; DanteJP chỉ lưu tham chiếu. Bài kiểm tra nhập dùng tiếng Nhật và tiếng Anh.</translation>
+      <source>Choose a single-file GGUF chat model. The file stays in its current folder; DanteTL saves only a reference. The import test uses Japanese and English.</source>
+      <translation>Chọn mô hình trò chuyện GGUF một tệp. Tệp giữ nguyên trong thư mục hiện tại; DanteTL chỉ lưu tham chiếu. Bài kiểm tra nhập dùng tiếng Nhật và tiếng Anh.</translation>
     </message>
     <message>
       <source>Choose a supported provider and model.</source>
@@ -1119,8 +1119,8 @@ Chi tiết có trong %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Không thể kết thúc các tiến trình thuộc sở hữu.</translation>
     </message>
     <message>
-      <source>Counts belong to the selected saved model, including translation and classifier requests. Cache hits make no requests. Token totals include only usage reported by the provider; these are not billing totals. Counts reset when DanteJP exits.</source>
-      <translation>Số liệu thuộc về mô hình đã lưu được chọn, bao gồm các yêu cầu dịch và phân loại. Lần truy cập bộ nhớ đệm không tạo yêu cầu. Tổng số token chỉ bao gồm mức sử dụng do nhà cung cấp báo cáo; đây không phải tổng số tiền thanh toán. Số liệu được đặt lại khi DanteJP thoát.</translation>
+      <source>Counts belong to the selected saved model, including translation and classifier requests. Cache hits make no requests. Token totals include only usage reported by the provider; these are not billing totals. Counts reset when DanteTL exits.</source>
+      <translation>Số liệu thuộc về mô hình đã lưu được chọn, bao gồm các yêu cầu dịch và phân loại. Lần truy cập bộ nhớ đệm không tạo yêu cầu. Tổng số token chỉ bao gồm mức sử dụng do nhà cung cấp báo cáo; đây không phải tổng số tiền thanh toán. Số liệu được đặt lại khi DanteTL thoát.</translation>
     </message>
     <message>
       <source>Croatian</source>
@@ -1139,12 +1139,12 @@ Chi tiết có trong %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Tiếng Séc</translation>
     </message>
     <message>
-      <source>DANTEJP_DATA_DIR must be an absolute directory.</source>
-      <translation>DANTEJP_DATA_DIR phải là một thư mục tuyệt đối.</translation>
+      <source>DANTETL_DATA_DIR must be an absolute directory.</source>
+      <translation>DANTETL_DATA_DIR phải là một thư mục tuyệt đối.</translation>
     </message>
     <message>
-      <source>DANTEJP_RESOURCE_DIR must identify a complete standalone app.</source>
-      <translation>DANTEJP_RESOURCE_DIR phải xác định một ứng dụng độc lập hoàn chỉnh.</translation>
+      <source>DANTETL_RESOURCE_DIR must identify a complete standalone app.</source>
+      <translation>DANTETL_RESOURCE_DIR phải xác định một ứng dụng độc lập hoàn chỉnh.</translation>
     </message>
     <message>
       <source>DEBUG  Amber: changed pixels   Cyan: last completed OCR</source>
@@ -1155,16 +1155,16 @@ Chi tiết có trong %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Tiếng Đan Mạch</translation>
     </message>
     <message>
-      <source>DanteJP currently requires Windows.</source>
-      <translation>DanteJP hiện yêu cầu Windows.</translation>
+      <source>DanteTL currently requires Windows.</source>
+      <translation>DanteTL hiện yêu cầu Windows.</translation>
     </message>
     <message>
-      <source>DanteJP · Settings</source>
-      <translation>DanteJP · Cài đặt</translation>
+      <source>DanteTL · Settings</source>
+      <translation>DanteTL · Cài đặt</translation>
     </message>
     <message>
-      <source>DanteJP · Welcome</source>
-      <translation>DanteJP · Chào mừng</translation>
+      <source>DanteTL · Welcome</source>
+      <translation>DanteTL · Chào mừng</translation>
     </message>
     <message>
       <source>Debug overlay</source>
@@ -1179,8 +1179,8 @@ Chi tiết có trong %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Xóa</translation>
     </message>
     <message>
-      <source>Demo opened. Refresh the window list and select DanteJP Demo.</source>
-      <translation>Đã mở bản demo. Làm mới danh sách cửa sổ và chọn DanteJP Demo.</translation>
+      <source>Demo opened. Refresh the window list and select DanteTL Demo.</source>
+      <translation>Đã mở bản demo. Làm mới danh sách cửa sổ và chọn DanteTL Demo.</translation>
     </message>
     <message>
       <source>Detect graphics cards and install acceleration inside the app.</source>
@@ -1223,8 +1223,8 @@ Chi tiết có trong %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Lịch sử hội thoại</translation>
     </message>
     <message>
-      <source>Dialogue history (Experimental) · DanteJP</source>
-      <translation>Lịch sử hội thoại (Thử nghiệm) · DanteJP</translation>
+      <source>Dialogue history (Experimental) · DanteTL</source>
+      <translation>Lịch sử hội thoại (Thử nghiệm) · DanteTL</translation>
     </message>
     <message>
       <source>Dialogue history · {count}/20</source>
@@ -1351,8 +1351,8 @@ Chi tiết có trong %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Đã đăng ký tám tài khoản ChatGPT.</translation>
     </message>
     <message>
-      <source>Eligible translations use your ChatGPT plan. Manage allowance and credit permissions in ChatGPT Settings → Usage. DanteJP never falls back to an API key.</source>
-      <translation>Các bản dịch đủ điều kiện sử dụng gói ChatGPT của bạn. Quản lý hạn mức và quyền tín dụng trong Cài đặt ChatGPT → Mức sử dụng. DanteJP không bao giờ chuyển sang khóa API.</translation>
+      <source>Eligible translations use your ChatGPT plan. Manage allowance and credit permissions in ChatGPT Settings → Usage. DanteTL never falls back to an API key.</source>
+      <translation>Các bản dịch đủ điều kiện sử dụng gói ChatGPT của bạn. Quản lý hạn mức và quyền tín dụng trong Cài đặt ChatGPT → Mức sử dụng. DanteTL không bao giờ chuyển sang khóa API.</translation>
     </message>
     <message>
       <source>Embedded chat template</source>
@@ -1723,8 +1723,8 @@ Chi tiết có trong %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Bao gồm trong chụp màn hình</translation>
     </message>
     <message>
-      <source>Include translations in screenshots, display recordings and screen sharing. Turn off to ask Windows to exclude the overlay. Game/window-only capture may omit it either way; this does not affect DanteJP's OCR.</source>
-      <translation>Bao gồm bản dịch trong ảnh chụp màn hình, ghi màn hình và chia sẻ màn hình. Tắt để yêu cầu Windows loại trừ lớp phủ. Chụp chỉ trò chơi/cửa sổ có thể bỏ qua nó dù theo cách nào; điều này không ảnh hưởng đến OCR của DanteJP.</translation>
+      <source>Include translations in screenshots, display recordings and screen sharing. Turn off to ask Windows to exclude the overlay. Game/window-only capture may omit it either way; this does not affect DanteTL's OCR.</source>
+      <translation>Bao gồm bản dịch trong ảnh chụp màn hình, ghi màn hình và chia sẻ màn hình. Tắt để yêu cầu Windows loại trừ lớp phủ. Chụp chỉ trò chơi/cửa sổ có thể bỏ qua nó dù theo cách nào; điều này không ảnh hưởng đến OCR của DanteTL.</translation>
     </message>
     <message>
       <source>Included OCR files verified.</source>
@@ -2051,8 +2051,8 @@ Chi tiết có trong %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Số lần bắt đầu yêu cầu tối đa, bao gồm cả thử lại. Cache trúng không dùng yêu cầu nào.</translation>
     </message>
     <message>
-      <source>Maximum reserved attempts for this model until DanteJP exits. Not a spending cap.</source>
-      <translation>Số lần thử dự phòng tối đa cho mô hình này cho đến khi DanteJP thoát. Không phải giới hạn chi tiêu.</translation>
+      <source>Maximum reserved attempts for this model until DanteTL exits. Not a spending cap.</source>
+      <translation>Số lần thử dự phòng tối đa cho mô hình này cho đến khi DanteTL thoát. Không phải giới hạn chi tiêu.</translation>
     </message>
     <message>
       <source>MeikiOCR · Japanese text recognition</source>
@@ -2383,8 +2383,8 @@ Chi tiết có trong %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Bản dịch đang hoạt động lâu nhất: {value:.1f}s</translation>
     </message>
     <message>
-      <source>Only DanteJP modules may be launched by this entry point.</source>
-      <translation>Điểm vào này chỉ có thể khởi chạy các mô-đun DanteJP.</translation>
+      <source>Only DanteTL modules may be launched by this entry point.</source>
+      <translation>Điểm vào này chỉ có thể khởi chạy các mô-đun DanteTL.</translation>
     </message>
     <message>
       <source>Only a verified runtime can be selected.</source>
@@ -2407,8 +2407,8 @@ Chi tiết có trong %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>OpenAI · Khóa API</translation>
     </message>
     <message>
-      <source>Opening DanteJP with the installed runtime…</source>
-      <translation>Đang mở DanteJP với runtime đã cài đặt…</translation>
+      <source>Opening DanteTL with the installed runtime…</source>
+      <translation>Đang mở DanteTL với runtime đã cài đặt…</translation>
     </message>
     <message>
       <source>Operation cancelled.</source>
@@ -2805,8 +2805,8 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Phản hồi tốt trên GPU đã kiểm tra; CPU và cảnh bận chậm hơn.</translation>
     </message>
     <message>
-      <source>Restart DanteJP before changing more shortcuts.</source>
-      <translation>Khởi động lại DanteJP trước khi thay đổi thêm phím tắt.</translation>
+      <source>Restart DanteTL before changing more shortcuts.</source>
+      <translation>Khởi động lại DanteTL trước khi thay đổi thêm phím tắt.</translation>
     </message>
     <message>
       <source>Restart cancelled. Current runtime retained.</source>
@@ -2999,8 +2999,8 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Đang thiết lập tăng tốc…</translation>
     </message>
     <message>
-      <source>Setting up DanteJP</source>
-      <translation>Đang thiết lập DanteJP</translation>
+      <source>Setting up DanteTL</source>
+      <translation>Đang thiết lập DanteTL</translation>
     </message>
     <message>
       <source>Settings</source>
@@ -3065,8 +3065,8 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Nhãn ngắn</translation>
     </message>
     <message>
-      <source>Shortcuts work while the game has focus or DanteJP is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
-      <translation>Phím tắt hoạt động khi trò chơi đang được chọn hoặc DanteJP thu nhỏ. Chọn tổ hợp, rồi nhấn Áp dụng. Chọn Tắt để vô hiệu hóa một hành động.</translation>
+      <source>Shortcuts work while the game has focus or DanteTL is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
+      <translation>Phím tắt hoạt động khi trò chơi đang được chọn hoặc DanteTL thu nhỏ. Chọn tổ hợp, rồi nhấn Áp dụng. Chọn Tắt để vô hiệu hóa một hành động.</translation>
     </message>
     <message>
       <source>Show / hide overlay</source>
@@ -3117,8 +3117,8 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Đã đăng nhập, nhưng chưa bật sử dụng gói. Đăng nhập lại để phê duyệt.</translation>
     </message>
     <message>
-      <source>Signed out locally. Remote revocation was not confirmed; disconnect DanteJP in ChatGPT usage settings.</source>
-      <translation>Đã đăng xuất cục bộ. Chưa xác nhận thu hồi từ xa; hãy ngắt kết nối DanteJP trong cài đặt sử dụng ChatGPT.</translation>
+      <source>Signed out locally. Remote revocation was not confirmed; disconnect DanteTL in ChatGPT usage settings.</source>
+      <translation>Đã đăng xuất cục bộ. Chưa xác nhận thu hồi từ xa; hãy ngắt kết nối DanteTL trong cài đặt sử dụng ChatGPT.</translation>
     </message>
     <message>
       <source>Signed out of ChatGPT.</source>
@@ -3317,10 +3317,10 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Nhận dạng văn bản (OCR)</translation>
     </message>
     <message>
-      <source>Text recognition is included with DanteJP. This guide helps you choose a translation model and optional GPU acceleration.
+      <source>Text recognition is included with DanteTL. This guide helps you choose a translation model and optional GPU acceleration.
 
 </source>
-      <translation>Nhận dạng văn bản được tích hợp sẵn trong DanteJP. Hướng dẫn này giúp bạn chọn mô hình dịch và tăng tốc GPU tùy chọn.
+      <translation>Nhận dạng văn bản được tích hợp sẵn trong DanteTL. Hướng dẫn này giúp bạn chọn mô hình dịch và tăng tốc GPU tùy chọn.
 
 </translation>
     </message>
@@ -3369,8 +3369,8 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Wheel ứng dụng đi kèm bị thiếu hoặc không rõ ràng. Hãy giải nén toàn bộ tệp ZIP.</translation>
     </message>
     <message>
-      <source>The bundled installer is missing. Extract the complete DanteJP ZIP.</source>
-      <translation>Bộ cài đặt đi kèm bị thiếu. Hãy giải nén toàn bộ tệp ZIP DanteJP.</translation>
+      <source>The bundled installer is missing. Extract the complete DanteTL ZIP.</source>
+      <translation>Bộ cài đặt đi kèm bị thiếu. Hãy giải nén toàn bộ tệp ZIP DanteTL.</translation>
     </message>
     <message>
       <source>The currently committed translation model.</source>
@@ -3765,8 +3765,8 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Dùng tiêu đề cửa sổ</translation>
     </message>
     <message>
-      <source>Use your ChatGPT plan. To use only its included allowance, disable credit use for DanteJP in ChatGPT's usage settings. No automatic API-key fallback.</source>
-      <translation>Dùng gói ChatGPT của bạn. Để chỉ dùng hạn mức đi kèm, hãy tắt sử dụng tín dụng cho DanteJP trong cài đặt mức sử dụng của ChatGPT. Không tự động dự phòng bằng khóa API.</translation>
+      <source>Use your ChatGPT plan. To use only its included allowance, disable credit use for DanteTL in ChatGPT's usage settings. No automatic API-key fallback.</source>
+      <translation>Dùng gói ChatGPT của bạn. Để chỉ dùng hạn mức đi kèm, hãy tắt sử dụng tín dụng cho DanteTL trong cài đặt mức sử dụng của ChatGPT. Không tự động dự phòng bằng khóa API.</translation>
     </message>
     <message>
       <source>Use {value}</source>
@@ -3905,8 +3905,8 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Đang chờ phân loại…</translation>
     </message>
     <message>
-      <source>Welcome to DanteJP</source>
-      <translation>Chào mừng đến với DanteJP</translation>
+      <source>Welcome to DanteTL</source>
+      <translation>Chào mừng đến với DanteTL</translation>
     </message>
     <message>
       <source>Welsh</source>

@@ -6,12 +6,12 @@ from unittest.mock import Mock
 import pytest
 from test_live_session import Replay
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.languages.selection import source_language
-from dantejp.ocr.tracking import TextActivity, TextTrack
-from dantejp.ocr.values import TextRegion
-from dantejp.translation.grouping import DialogueGrouper
-from dantejp.translation.values import (
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.languages.selection import source_language
+from dantetl.ocr.tracking import TextActivity, TextTrack
+from dantetl.ocr.values import TextRegion
+from dantetl.translation.grouping import DialogueGrouper
+from dantetl.translation.values import (
     TranslatedText,
     TranslationRequest,
     TranslationSnapshot,

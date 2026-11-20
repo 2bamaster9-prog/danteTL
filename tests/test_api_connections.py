@@ -4,10 +4,10 @@ from uuid import uuid4
 
 import pytest
 
-from dantejp.translation.cloud.api_connections import ApiConnections
-from dantejp.translation.cloud.credentials import WindowsSecrets
-from dantejp.translation.cloud.profiles import CloudProfiles
-from dantejp.translation.cloud.values import MAX_CLOUD_PROFILES, MODELS, CloudProfile
+from dantetl.translation.cloud.api_connections import ApiConnections
+from dantetl.translation.cloud.credentials import WindowsSecrets
+from dantetl.translation.cloud.profiles import CloudProfiles
+from dantetl.translation.cloud.values import MAX_CLOUD_PROFILES, MODELS, CloudProfile
 
 
 class SecretsFixture:
@@ -124,7 +124,7 @@ def test_legacy_keys_are_adopted_without_moving_or_merging_accounts(tmp_path):
 
 @pytest.mark.windows
 def test_native_vault_round_trip_does_not_modify_stored_key_when_wiping_read_buffer():
-    secrets = WindowsSecrets("DanteJP/verification/" + uuid4().hex)
+    secrets = WindowsSecrets("DanteTL/verification/" + uuid4().hex)
     try:
         assert secrets.read("fixture") is None
         secrets.write("fixture", "fake-owned-test-key")

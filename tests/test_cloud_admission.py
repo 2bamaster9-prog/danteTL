@@ -7,9 +7,9 @@ from dataclasses import replace
 import httpx2
 import pytest
 
-from dantejp.translation.backend import RequestRejected
-from dantejp.translation.cloud.backend import CloudAllowance, CloudBackend
-from dantejp.translation.cloud.values import CloudProfile
+from dantetl.translation.backend import RequestRejected
+from dantetl.translation.cloud.backend import CloudAllowance, CloudBackend
+from dantetl.translation.cloud.values import CloudProfile
 
 
 @pytest.mark.parametrize("cancel", [True, False])

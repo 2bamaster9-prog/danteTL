@@ -6,17 +6,17 @@ from dataclasses import replace
 
 import pytest
 
-from dantejp.domain import Rect
-from dantejp.ocr.tracking import TextTrack
-from dantejp.translation.dialogue.classifier import (
+from dantetl.domain import Rect
+from dantetl.ocr.tracking import TextTrack
+from dantetl.translation.dialogue.classifier import (
     Classification,
     ClassifierSession,
     parse_classification,
 )
-from dantejp.translation.dialogue.history import DialogueHistory
-from dantejp.translation.dialogue.layout import PanelLayout
-from dantejp.translation.grouping import TextBlock
-from dantejp.translation.values import TranslatedText, TranslationRequest
+from dantetl.translation.dialogue.history import DialogueHistory
+from dantetl.translation.dialogue.layout import PanelLayout
+from dantetl.translation.grouping import TextBlock
+from dantetl.translation.values import TranslatedText, TranslationRequest
 
 
 def block(key, text, x=300, y=300, width=600, height=40):

@@ -6,9 +6,9 @@ from math import ceil, floor
 
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QFontMetricsF, QImage, QPainter
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr.regions import intersects
-from dantejp.ocr.values import TextRegion
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.regions import intersects
+from dantetl.ocr.values import TextRegion
 
 
 @dataclass(frozen=True, slots=True)

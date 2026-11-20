@@ -6,25 +6,25 @@ from unittest.mock import Mock
 from test_live_session import Capture, Ocr, Visual, frame
 from test_model_lifecycle import Worker
 
-from dantejp.application.cloud_services import CloudServices
-from dantejp.application.live_session import LiveSession
-from dantejp.application.model_inventory import InventoryData, ModelInventory
-from dantejp.application.preference_values import Preferences
-from dantejp.application.preferences import PreferenceStore
-from dantejp.application.session import ApplicationSession
-from dantejp.application.setup_coordinator import SetupCoordinator, SetupDependencies
-from dantejp.application.shutdown import ShutdownCoordinator
-from dantejp.application.translation_coordinator import TranslationCoordinator
-from dantejp.languages.selection import source_language
-from dantejp.ocr.worker import OcrChoice
-from dantejp.runtime.model_store import ModelOperation
-from dantejp.runtime.setup_values import ModelProgress
-from dantejp.runtime.values import PROFILES
-from dantejp.translation.cloud.chatgpt_auth import ChatGPTConnections
-from dantejp.translation.cloud.profiles import CloudProfiles
-from dantejp.translation.cloud.protected_store import ProtectedStore
-from dantejp.translation.routing import RoutedTranslationSession
-from dantejp.translation.values import TranslationSnapshot, TranslationState
+from dantetl.application.cloud_services import CloudServices
+from dantetl.application.live_session import LiveSession
+from dantetl.application.model_inventory import InventoryData, ModelInventory
+from dantetl.application.preference_values import Preferences
+from dantetl.application.preferences import PreferenceStore
+from dantetl.application.session import ApplicationSession
+from dantetl.application.setup_coordinator import SetupCoordinator, SetupDependencies
+from dantetl.application.shutdown import ShutdownCoordinator
+from dantetl.application.translation_coordinator import TranslationCoordinator
+from dantetl.languages.selection import source_language
+from dantetl.ocr.worker import OcrChoice
+from dantetl.runtime.model_store import ModelOperation
+from dantetl.runtime.setup_values import ModelProgress
+from dantetl.runtime.values import PROFILES
+from dantetl.translation.cloud.chatgpt_auth import ChatGPTConnections
+from dantetl.translation.cloud.profiles import CloudProfiles
+from dantetl.translation.cloud.protected_store import ProtectedStore
+from dantetl.translation.routing import RoutedTranslationSession
+from dantetl.translation.values import TranslationSnapshot, TranslationState
 
 
 class InventorySource:

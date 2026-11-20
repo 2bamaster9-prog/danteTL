@@ -5,12 +5,12 @@ from dataclasses import replace
 import pytest
 from test_live_session import frame
 
-from dantejp.application.presentation import processing_progress
-from dantejp.application.translation_activity import TranslationMode
-from dantejp.application.values import ApplicationView, Scene
-from dantejp.domain import CaptureSnapshot, CaptureState
-from dantejp.ocr.values import OcrResult, OcrSnapshot, OcrState
-from dantejp.translation.values import (
+from dantetl.application.presentation import processing_progress
+from dantetl.application.translation_activity import TranslationMode
+from dantetl.application.values import ApplicationView, Scene
+from dantetl.domain import CaptureSnapshot, CaptureState
+from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState
+from dantetl.translation.values import (
     TranslatedText,
     TranslationLaneSnapshot,
     TranslationRequest,

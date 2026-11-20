@@ -3,7 +3,7 @@ requires = ["hatchling==1.33.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "dantejp"
+name = "dantetl"
 version = "0.1.0"
 description = "Local game translation overlay for Windows"
 readme = "README.md"
@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.gui-scripts]
-dantejp = "dantejp.bootstrap:main"
+dantetl = "dantetl.bootstrap:main"
 
 [dependency-groups]
 dev = [
@@ -85,10 +85,10 @@ version = "0.3.5"
 requires-dist = ["numpy", "opencv-python-headless", "huggingface-hub"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/dantejp"]
+packages = ["src/dantetl"]
 
 [tool.hatch.build.targets.sdist]
-include = ["/src", "/translations", "/tools", "/tests", "/engineering", "/packaging", "/.github", "/README.md", "/AGENTS.md", "/pyproject.toml", "/uv.lock", "/.python-version", "/Run DanteJP.cmd"]
+include = ["/src", "/translations", "/tools", "/tests", "/engineering", "/packaging", "/.github", "/README.md", "/AGENTS.md", "/pyproject.toml", "/uv.lock", "/.python-version", "/Run DanteTL.cmd"]
 
 [tool.ruff]
 target-version = "py312"
@@ -101,7 +101,7 @@ select = ["E", "F", "I", "B", "UP", "SIM"]
 include = ["src", "tests", "tools"]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
-strict = ["src/dantejp/application/api.py", "src/dantejp/application/values.py", "src/dantejp/translation/selection.py", "src/dantejp/application/services.py", "src/dantejp/application/translation_activity.py", "src/dantejp/application/capture_lifecycle.py", "src/dantejp/application/presentation.py"]
+strict = ["src/dantetl/application/api.py", "src/dantetl/application/values.py", "src/dantetl/translation/selection.py", "src/dantetl/application/services.py", "src/dantetl/application/translation_activity.py", "src/dantetl/application/capture_lifecycle.py", "src/dantetl/application/presentation.py"]
 venvPath = "."
 venv = ".venv"
 
@@ -111,29 +111,29 @@ addopts = "-ra"
 markers = ["windows: requires an interactive Windows desktop and real capture"]
 
 [tool.importlinter]
-root_package = "dantejp"
+root_package = "dantetl"
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
 name = "Application and processing owners are independent of Qt and composition"
 type = "forbidden"
-source_modules = ["dantejp.application", "dantejp.ocr", "dantejp.translation", "dantejp.capture"]
-forbidden_modules = ["PySide6", "shiboken6", "dantejp.ui", "dantejp.composition", "dantejp.bootstrap", "dantejp.desktop"]
+source_modules = ["dantetl.application", "dantetl.ocr", "dantetl.translation", "dantetl.capture"]
+forbidden_modules = ["PySide6", "shiboken6", "dantetl.ui", "dantetl.composition", "dantetl.bootstrap", "dantetl.desktop"]
 
 [[tool.importlinter.contracts]]
 name = "Runtime services cannot depend on views or application assembly"
 type = "forbidden"
-source_modules = ["dantejp.runtime"]
-forbidden_modules = ["dantejp.ui", "dantejp.composition", "dantejp.bootstrap", "dantejp.desktop"]
+source_modules = ["dantetl.runtime"]
+forbidden_modules = ["dantetl.ui", "dantetl.composition", "dantetl.bootstrap", "dantetl.desktop"]
 
 [[tool.importlinter.contracts]]
 name = "Status projection depends on values and ports, not resource owners"
 type = "forbidden"
-source_modules = ["dantejp.application.presentation", "dantejp.application.translation_activity"]
-forbidden_modules = ["dantejp.application.session", "dantejp.application.model_lifecycle", "dantejp.application.translation_coordinator", "dantejp.translation.worker", "dantejp.translation.routing", "dantejp.application.live_session", "dantejp.ocr.worker", "dantejp.application.cloud_services", "dantejp.application.setup_coordinator"]
+source_modules = ["dantetl.application.presentation", "dantetl.application.translation_activity"]
+forbidden_modules = ["dantetl.application.session", "dantetl.application.model_lifecycle", "dantetl.application.translation_coordinator", "dantetl.translation.worker", "dantetl.translation.routing", "dantetl.application.live_session", "dantetl.ocr.worker", "dantetl.application.cloud_services", "dantetl.application.setup_coordinator"]
 
 [[tool.importlinter.contracts]]
 name = "Views cannot reach backend implementations, credential stores or installers"
 type = "forbidden"
-source_modules = ["dantejp.ui"]
-forbidden_modules = ["dantejp.composition", "dantejp.application.model_factories", "dantejp.runtime.model_store", "dantejp.translation.models.probe", "dantejp.translation.models.gguf", "dantejp.runtime.setup", "dantejp.runtime.first_run", "dantejp.ocr.meiki", "dantejp.translation.backends.gemma", "dantejp.translation.backends.plamo", "dantejp.translation.backends.gguf", "dantejp.translation.cloud.backend", "dantejp.translation.cloud.credentials", "dantejp.translation.cloud.protected_store", "dantejp.application.preferences", "dantejp.translation.worker", "dantejp.ocr.worker", "dantejp.capture.worker", "dantejp.ocr.visual", "dantejp.application.model_inventory", "dantejp.application.model_lifecycle", "dantejp.application.session", "dantejp.application.setup_coordinator", "dantejp.application.cloud_services", "dantejp.runtime.hardware", "dantejp.application.translation_coordinator", "dantejp.application.shutdown", "dantejp.translation.cloud.profiles", "dantejp.translation.cloud.catalog", "dantejp.translation.cloud.chatgpt_auth", "dantejp.translation.cloud.api_connections", "dantejp.translation.routing", "dantejp.translation.dialogue.classifier", "dantejp.runtime.owned_process", "dantejp.runtime.restart", "dantejp.runtime.application", "dantejp.runtime.downloads", "dantejp.runtime.probe", "dantejp.runtime.setup_process"]
+source_modules = ["dantetl.ui"]
+forbidden_modules = ["dantetl.composition", "dantetl.application.model_factories", "dantetl.runtime.model_store", "dantetl.translation.models.probe", "dantetl.translation.models.gguf", "dantetl.runtime.setup", "dantetl.runtime.first_run", "dantetl.ocr.meiki", "dantetl.translation.backends.gemma", "dantetl.translation.backends.plamo", "dantetl.translation.backends.gguf", "dantetl.translation.cloud.backend", "dantetl.translation.cloud.credentials", "dantetl.translation.cloud.protected_store", "dantetl.application.preferences", "dantetl.translation.worker", "dantetl.ocr.worker", "dantetl.capture.worker", "dantetl.ocr.visual", "dantetl.application.model_inventory", "dantetl.application.model_lifecycle", "dantetl.application.session", "dantetl.application.setup_coordinator", "dantetl.application.cloud_services", "dantetl.runtime.hardware", "dantetl.application.translation_coordinator", "dantetl.application.shutdown", "dantetl.translation.cloud.profiles", "dantetl.translation.cloud.catalog", "dantetl.translation.cloud.chatgpt_auth", "dantetl.translation.cloud.api_connections", "dantetl.translation.routing", "dantetl.translation.dialogue.classifier", "dantetl.runtime.owned_process", "dantetl.runtime.restart", "dantetl.runtime.application", "dantetl.runtime.downloads", "dantetl.runtime.probe", "dantetl.runtime.setup_process"]

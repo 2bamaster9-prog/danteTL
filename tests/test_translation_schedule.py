@@ -3,12 +3,12 @@
 from concurrent.futures import Future
 from dataclasses import replace
 
-from dantejp.languages.target import ENGLISH
-from dantejp.translation.backend import BatchResult
-from dantejp.translation.cache import TranslationCache, translation_key
-from dantejp.translation.dialogue.context import DialogueTurn
-from dantejp.translation.schedule import Demand, TranslationSchedule
-from dantejp.translation.values import TranslationRequest
+from dantetl.languages.target import ENGLISH
+from dantetl.translation.backend import BatchResult
+from dantetl.translation.cache import TranslationCache, translation_key
+from dantetl.translation.dialogue.context import DialogueTurn
+from dantetl.translation.schedule import Demand, TranslationSchedule
+from dantetl.translation.values import TranslationRequest
 
 
 class Backend:

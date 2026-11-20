@@ -10,16 +10,16 @@ from PySide6.QtCore import QPoint, Qt  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QWidget  # noqa: E402
 
-from dantejp.languages.target import TARGET_LANGUAGES  # noqa: E402
-from dantejp.translation.dialogue.values import HistoryTurn  # noqa: E402
-from dantejp.ui.controls import (  # noqa: E402
+from dantetl.languages.target import TARGET_LANGUAGES  # noqa: E402
+from dantetl.translation.dialogue.values import HistoryTurn  # noqa: E402
+from dantetl.ui.controls import (  # noqa: E402
     CaptureButton,
     CopyTextButton,
     OverlayToggleLayout,
     Switch,
 )
-from dantejp.ui.history_panel import HistoryPanel  # noqa: E402
-from dantejp.ui.theme import STYLE  # noqa: E402
+from dantetl.ui.history_panel import HistoryPanel  # noqa: E402
+from dantetl.ui.theme import STYLE  # noqa: E402
 
 
 @pytest.fixture(scope="module")

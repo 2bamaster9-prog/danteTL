@@ -13,7 +13,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
 
-from dantejp.translation.cloud.chatgpt_auth import (
+from dantetl.translation.cloud.chatgpt_auth import (
     ISSUER,
     PLAN_SCOPE,
     ChatGPTConnections,
@@ -22,7 +22,7 @@ from dantejp.translation.cloud.chatgpt_auth import (
     token_record,
     validate_identity,
 )
-from dantejp.translation.cloud.protected_store import ProtectedStore
+from dantetl.translation.cloud.protected_store import ProtectedStore
 
 
 @pytest.fixture(scope="module")
@@ -167,7 +167,7 @@ def test_scope_denial_never_sends_inference_or_refresh(monkeypatch):
     def unexpected(*args, **kwargs):
         raise AssertionError("Identity-only grant cannot make requests")
 
-    monkeypatch.setattr("dantejp.translation.cloud.chatgpt_auth._json_request", unexpected)
+    monkeypatch.setattr("dantetl.translation.cloud.chatgpt_auth._json_request", unexpected)
     with pytest.raises(ValueError, match="Enable ChatGPT plan"):
         service.access_token("account")
 
@@ -197,7 +197,7 @@ def test_refresh_serializes_rotation_and_keeps_client_mapping_on_expiration(monk
             "token_type": "Bearer",
         }
 
-    monkeypatch.setattr("dantejp.translation.cloud.chatgpt_auth._json_request", refresh)
+    monkeypatch.setattr("dantetl.translation.cloud.chatgpt_auth._json_request", refresh)
     assert service.access_token("account") == service.access_token("account") == "new-access"
     assert len(calls) == 1 and calls[0]["client_id"] == "oaiapp_fixture"
     assert store.read("account")["refresh_token"] == "new-refresh"
@@ -206,7 +206,7 @@ def test_refresh_serializes_rotation_and_keeps_client_mapping_on_expiration(monk
     def expired(*args, **kwargs):
         raise SessionExpired("expired")
 
-    monkeypatch.setattr("dantejp.translation.cloud.chatgpt_auth._json_request", expired)
+    monkeypatch.setattr("dantetl.translation.cloud.chatgpt_auth._json_request", expired)
     with pytest.raises(SessionExpired):
         service.access_token("account")
     assert "access_token" not in store.read("account")
@@ -226,7 +226,7 @@ def test_temporary_refresh_failure_keeps_credentials(monkeypatch):
     def failed(*args, **kwargs):
         raise OSError("network down")
 
-    monkeypatch.setattr("dantejp.translation.cloud.chatgpt_auth._json_request", failed)
+    monkeypatch.setattr("dantetl.translation.cloud.chatgpt_auth._json_request", failed)
     with pytest.raises(OSError):
         service.access_token("account")
     assert store.read("account") == initial
@@ -253,7 +253,7 @@ def test_account_model_catalog_preserves_provider_order_and_filters_visibility(m
             ]
         }
 
-    monkeypatch.setattr("dantejp.translation.cloud.chatgpt_auth._json_request", models)
+    monkeypatch.setattr("dantetl.translation.cloud.chatgpt_auth._json_request", models)
     assert service.refresh_models("account") == (("gpt-6.1-sol", "Sol"), ("gpt-6-luna", "Luna"))
 
 
@@ -332,7 +332,7 @@ def test_native_loopback_sign_in_reuses_registration_and_validates_pkce(
         assert url.endswith("/models")
         return {"models": [{"slug": "gpt-6-luna", "display_name": "Luna", "visibility": "list"}]}
 
-    monkeypatch.setattr("dantejp.translation.cloud.chatgpt_auth._json_request", request)
+    monkeypatch.setattr("dantetl.translation.cloud.chatgpt_auth._json_request", request)
     key = service.sign_in("", open_browser, cancelled)
     assert service.accounts()[0].enabled
     assert service.access_token(key) == "fixture-access"
@@ -362,7 +362,7 @@ def test_native_cancelled_sign_in_preserves_existing_connection(tmp_path):
 def test_missing_auth_dependency_does_not_activate_account(monkeypatch):
     import builtins
 
-    from dantejp.translation.cloud.chatgpt_auth import require_sign_in_dependencies
+    from dantetl.translation.cloud.chatgpt_auth import require_sign_in_dependencies
 
     original = builtins.__import__
 
@@ -424,14 +424,14 @@ def test_sign_out_always_removes_tokens_even_when_revocation_breaks(monkeypatch)
     def broken(*args, **kwargs):
         raise TypeError("secret must never reach UI")
 
-    monkeypatch.setattr("dantejp.translation.cloud.chatgpt_auth._json_request", broken)
+    monkeypatch.setattr("dantetl.translation.cloud.chatgpt_auth._json_request", broken)
     message = service.sign_out("account")
     assert "locally" in message and "secret" not in message
     assert store.read("account") == {"client_id": "oaiapp_fixture"}
 
 
 def test_protected_records_cannot_be_swapped_between_accounts_and_legacy_still_reads(tmp_path):
-    from dantejp.translation.cloud.protected_store import _protect
+    from dantetl.translation.cloud.protected_store import _protect
 
     store = ProtectedStore(tmp_path)
     a, b = "account-" + "a" * 32, "account-" + "b" * 32

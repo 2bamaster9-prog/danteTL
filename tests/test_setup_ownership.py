@@ -7,13 +7,13 @@ from unittest.mock import Mock
 import pytest
 from ownership_fixtures import Replay
 
-from dantejp.application.model_inventory import InventoryData
-from dantejp.application.model_values import ModelFile
-from dantejp.application.setup_coordinator import SetupCoordinator
-from dantejp.runtime.hardware_values import HardwareStatus
-from dantejp.runtime.model_store import ModelBundle
-from dantejp.runtime.setup_values import SetupLane
-from dantejp.runtime.values import PROFILES
+from dantetl.application.model_inventory import InventoryData
+from dantetl.application.model_values import ModelFile
+from dantetl.application.setup_coordinator import SetupCoordinator
+from dantetl.runtime.hardware_values import HardwareStatus
+from dantetl.runtime.model_store import ModelBundle
+from dantetl.runtime.setup_values import SetupLane
+from dantetl.runtime.values import PROFILES
 
 
 def configured(tmp_path):
@@ -149,7 +149,7 @@ def test_import_capability_does_not_depend_on_downloaded_model_rows(tmp_path):
 
 
 def test_probe_permit_requires_both_translation_and_classifier_cleanup(tmp_path):
-    from dantejp.translation.worker import BackendChoice
+    from dantetl.translation.worker import BackendChoice
 
     replay = Replay(
         tmp_path, data=InventoryData((BackendChoice("Fixture", Mock(), "fixture"),), device="cpu")

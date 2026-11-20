@@ -8,15 +8,15 @@ import time
 from pathlib import Path
 from unittest.mock import patch
 
-from dantejp.application.model_factories import translation_backends
-from dantejp.domain import Rect
-from dantejp.languages.target import ENGLISH
-from dantejp.ocr.tracking import TextTrack
-from dantejp.runtime.llama import installed_device, load_runtime
-from dantejp.translation.grouping import TextBlock
-from dantejp.translation.plan import TranslationPlan
-from dantejp.translation.routing import RoutedTranslationSession
-from dantejp.translation.values import TranslationState
+from dantetl.application.model_factories import translation_backends
+from dantetl.domain import Rect
+from dantetl.languages.target import ENGLISH
+from dantetl.ocr.tracking import TextTrack
+from dantetl.runtime.llama import installed_device, load_runtime
+from dantetl.translation.grouping import TextBlock
+from dantetl.translation.plan import TranslationPlan
+from dantetl.translation.routing import RoutedTranslationSession
+from dantetl.translation.values import TranslationState
 
 
 class CloudFixture:

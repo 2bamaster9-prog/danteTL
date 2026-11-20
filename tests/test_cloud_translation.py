@@ -7,21 +7,21 @@ from dataclasses import replace
 import httpx2
 import pytest
 
-from dantejp.domain import Rect
-from dantejp.languages.target import ENGLISH, TARGET_LANGUAGES
-from dantejp.ocr.tracking import TextTrack
-from dantejp.translation.backend import RequestRejected
-from dantejp.translation.cache import TranslationCache, translation_key
-from dantejp.translation.cloud.backend import CloudAllowance, CloudBackend
-from dantejp.translation.cloud.profiles import CloudProfiles
-from dantejp.translation.cloud.protocol import parse_answer, request_body
-from dantejp.translation.cloud.responses import PlanUnavailable, ResponseStream
-from dantejp.translation.cloud.values import CloudProfile
-from dantejp.translation.dialogue.context import DialogueTurn
-from dantejp.translation.grouping import TextBlock
-from dantejp.translation.routing import RoutedTranslationSession
-from dantejp.translation.values import TranslationState
-from dantejp.translation.worker import TranslationSession
+from dantetl.domain import Rect
+from dantetl.languages.target import ENGLISH, TARGET_LANGUAGES
+from dantetl.ocr.tracking import TextTrack
+from dantetl.translation.backend import RequestRejected
+from dantetl.translation.cache import TranslationCache, translation_key
+from dantetl.translation.cloud.backend import CloudAllowance, CloudBackend
+from dantetl.translation.cloud.profiles import CloudProfiles
+from dantetl.translation.cloud.protocol import parse_answer, request_body
+from dantetl.translation.cloud.responses import PlanUnavailable, ResponseStream
+from dantetl.translation.cloud.values import CloudProfile
+from dantetl.translation.dialogue.context import DialogueTurn
+from dantetl.translation.grouping import TextBlock
+from dantetl.translation.routing import RoutedTranslationSession
+from dantetl.translation.values import TranslationState
+from dantetl.translation.worker import TranslationSession
 
 
 def track(text="設定", key=1, revision=1):
@@ -407,7 +407,7 @@ def test_hybrid_groups_dialogue_and_local_work_is_not_blocked(tmp_path, provider
     engine = CloudBackend(
         CloudProfile.new(provider), "fixture", transport=httpx2.MockTransport(handle)
     )
-    from dantejp.translation.plan import TranslationPlan
+    from dantetl.translation.plan import TranslationPlan
 
     session = RoutedTranslationSession(
         TranslationPlan("local", "cloud"),

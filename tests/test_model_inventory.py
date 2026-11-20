@@ -4,8 +4,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from dantejp.application.model_inventory import InventoryData, ModelInventory
-from dantejp.translation.worker import BackendChoice
+from dantetl.application.model_inventory import InventoryData, ModelInventory
+from dantetl.translation.worker import BackendChoice
 
 
 def settle(owner, predicate, now=1.0):

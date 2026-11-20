@@ -20,15 +20,15 @@ from PySide6.QtCore import QCoreApplication, QEvent, Qt
 from PySide6.QtGui import QColor, QFont, QImage, QPainter
 from PySide6.QtWidgets import QApplication
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr.meiki import MeikiRecognizer
-from dantejp.ocr.models import model_directory
-from dantejp.ocr.presence import prepare_evidence
-from dantejp.ocr.tracking import TextTracker, prepare_matching
-from dantejp.ocr.values import OcrResult
-from dantejp.ocr.visual import VisualAnalyzer
-from dantejp.ocr.worker import recognize_regions
-from dantejp.ui.inspection import OcrInspector
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.meiki import MeikiRecognizer
+from dantetl.ocr.models import model_directory
+from dantetl.ocr.presence import prepare_evidence
+from dantetl.ocr.tracking import TextTracker, prepare_matching
+from dantetl.ocr.values import OcrResult
+from dantetl.ocr.visual import VisualAnalyzer
+from dantetl.ocr.worker import recognize_regions
+from dantetl.ui.inspection import OcrInspector
 
 EXPECTED = ("新しい冒険が、ここから始まる。", "旅の準備はできましたか？", "設定")
 

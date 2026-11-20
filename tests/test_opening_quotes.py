@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 from test_live_session import Replay
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr.values import TextCharacter, TextRegion
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.values import TextCharacter, TextRegion
 
 
 def quote_panel(prefix: str, *, dash: bool = True, detector: bool = True):

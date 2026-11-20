@@ -3,9 +3,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from dantejp.application.setup_status import acceleration_advice
-from dantejp.runtime.hardware import HardwareCheck
-from dantejp.runtime.hardware_values import Adapter, HardwareStatus
+from dantetl.application.setup_status import acceleration_advice
+from dantetl.runtime.hardware import HardwareCheck
+from dantetl.runtime.hardware_values import Adapter, HardwareStatus
 
 NVIDIA = Adapter("NVIDIA fixture", 0x10DE, 16 * 2**30)
 AMD = Adapter("AMD fixture", 0x1002, 8 * 2**30)
@@ -53,9 +53,9 @@ def test_hardware_check_is_once_off_thread_and_failure_is_reported(monkeypatch):
         assert release.wait(2)
         return (NVIDIA,)
 
-    monkeypatch.setattr("dantejp.runtime.hardware.detect_adapters", detect)
-    monkeypatch.setattr("dantejp.runtime.llama.installed_device", lambda: "cuda")
-    monkeypatch.setattr("dantejp.runtime.ocr.gpu_runtime_installed", lambda: True)
+    monkeypatch.setattr("dantetl.runtime.hardware.detect_adapters", detect)
+    monkeypatch.setattr("dantetl.runtime.llama.installed_device", lambda: "cuda")
+    monkeypatch.setattr("dantetl.runtime.ocr.gpu_runtime_installed", lambda: True)
     check = HardwareCheck()
     check.start()
     assert entered.wait(1) and check.snapshot() is None
@@ -64,7 +64,7 @@ def test_hardware_check_is_once_off_thread_and_failure_is_reported(monkeypatch):
     assert check.snapshot() == HardwareStatus((NVIDIA,), True, "cuda")
     assert threads == [check._thread.ident] and threads[0] != threading.get_ident()
     monkeypatch.setattr(
-        "dantejp.runtime.hardware.detect_adapters", Mock(side_effect=OSError("DXGI"))
+        "dantetl.runtime.hardware.detect_adapters", Mock(side_effect=OSError("DXGI"))
     )
     failed = HardwareCheck()
     failed.start()

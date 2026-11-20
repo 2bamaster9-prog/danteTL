@@ -15,9 +15,9 @@ from ui_fixtures import (
     show_scene,
 )
 
-from dantejp.languages.target import ENGLISH
-from dantejp.runtime.setup_values import SetupLane
-from dantejp.ui.setup_assistant import SetupAssistant
+from dantetl.languages.target import ENGLISH
+from dantetl.runtime.setup_values import SetupLane
+from dantetl.ui.setup_assistant import SetupAssistant
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -27,22 +27,22 @@ from PySide6.QtWidgets import QApplication, QMessageBox, QProgressDialog  # noqa
 from ui_fixtures import create_window as MainWindow  # noqa: E402
 from ui_fixtures import find_model
 
-from dantejp.application.translation_coordinator import model_reference
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry  # noqa: E402
-from dantejp.ocr.tracking import TextTrack  # noqa: E402
-from dantejp.ocr.values import OcrResult, TextCharacter, TextRegion  # noqa: E402
-from dantejp.translation.grouping import TextBlock  # noqa: E402
-from dantejp.translation.values import (  # noqa: E402
+from dantetl.application.translation_coordinator import model_reference
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry  # noqa: E402
+from dantetl.ocr.tracking import TextTrack  # noqa: E402
+from dantetl.ocr.values import OcrResult, TextCharacter, TextRegion  # noqa: E402
+from dantetl.translation.grouping import TextBlock  # noqa: E402
+from dantetl.translation.values import (  # noqa: E402
     TranslatedText,
     TranslationRequest,
     TranslationSnapshot,
     TranslationState,
 )
-from dantejp.translation.worker import BackendChoice, TranslationSession  # noqa: E402
-from dantejp.ui.diagnostics import DebugDisplay  # noqa: E402
-from dantejp.ui.inspection import OcrInspector, image_target  # noqa: E402
-from dantejp.ui.overlay import OverlayWindow  # noqa: E402
-from dantejp.ui.text_layout import layout_english  # noqa: E402
+from dantetl.translation.worker import BackendChoice, TranslationSession  # noqa: E402
+from dantetl.ui.diagnostics import DebugDisplay  # noqa: E402
+from dantetl.ui.inspection import OcrInspector, image_target  # noqa: E402
+from dantetl.ui.overlay import OverlayWindow  # noqa: E402
+from dantetl.ui.text_layout import layout_english  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -59,9 +59,9 @@ def test_bundled_language_translates_controls_and_preserves_language_ids(app, co
     from PySide6.QtCore import QLocale, Qt
     from PySide6.QtWidgets import QDialogButtonBox
 
-    from dantejp.i18n import tr
-    from dantejp.ui.controls import OutputLanguageCombo, SourceLanguageCombo
-    from dantejp.ui.localization import CATALOGS, InterfaceLanguageCombo, install_language
+    from dantetl.i18n import tr
+    from dantetl.ui.controls import OutputLanguageCombo, SourceLanguageCombo
+    from dantetl.ui.localization import CATALOGS, InterfaceLanguageCombo, install_language
 
     locale, direction = QLocale(), app.layoutDirection()
     try:
@@ -123,10 +123,10 @@ def test_capture_status_and_loading_stay_inside_game_panel_without_inspection(ap
     from PySide6.QtWidgets import QLabel
     from test_application_transitions import observe
 
-    from dantejp.application.model_inventory import InventoryData
-    from dantejp.ocr.values import OcrSnapshot, OcrState
-    from dantejp.ui.desktop_driver import DesktopDriver
-    from dantejp.ui.main_window import MainWindow as View
+    from dantetl.application.model_inventory import InventoryData
+    from dantetl.ocr.values import OcrSnapshot, OcrState
+    from dantetl.ui.desktop_driver import DesktopDriver
+    from dantetl.ui.main_window import MainWindow as View
 
     replay = Replay(tmp_path, data=InventoryData((BackendChoice("Local", Mock(), "base"),)))
     replay.windows.list_targets.return_value = []
@@ -159,12 +159,12 @@ def test_capture_status_and_loading_stay_inside_game_panel_without_inspection(ap
 
 def test_capture_visibility_ui_remembers_choice_and_rolls_back_native_failure(app, monkeypatch):
     windows, preferences = Mock(), Mock()
-    from dantejp.application.preference_values import Preferences
+    from dantetl.application.preference_values import Preferences
 
     windows.list_targets.return_value = []
     preferences.current = Preferences(include_overlay_in_capture=False)
     preferences.error = ""
-    monkeypatch.setattr("dantejp.composition.PreferenceStore", lambda path: preferences)
+    monkeypatch.setattr("dantetl.composition.PreferenceStore", lambda path: preferences)
     window = MainWindow(windows, Mock())
     try:
         assert not window.capture_overlay_check.isChecked()
@@ -186,9 +186,9 @@ def test_capture_visibility_ui_remembers_choice_and_rolls_back_native_failure(ap
 
 
 def test_first_run_is_explicit_skippable_and_does_not_change_manual_cpu_choice(app, tmp_path):
-    from dantejp.runtime.hardware_values import Adapter, HardwareStatus
-    from dantejp.runtime.model_store import model_catalog
-    from dantejp.ui.setup_assistant import SetupAssistant
+    from dantetl.runtime.hardware_values import Adapter, HardwareStatus
+    from dantetl.runtime.model_store import model_catalog
+    from dantetl.ui.setup_assistant import SetupAssistant
 
     hardware = Mock()
     hardware.snapshot.return_value = None
@@ -223,9 +223,9 @@ def test_first_run_is_explicit_skippable_and_does_not_change_manual_cpu_choice(a
 def test_first_run_close_drains_worker_and_progress_reports_actual_download(
     app, tmp_path, monkeypatch
 ):
-    from dantejp.runtime.hardware_values import HardwareStatus
-    from dantejp.runtime.model_store import model_catalog
-    from dantejp.runtime.setup_values import Cancelled, DownloadProgress, ModelProgress
+    from dantetl.runtime.hardware_values import HardwareStatus
+    from dantetl.runtime.model_store import model_catalog
+    from dantetl.runtime.setup_values import Cancelled, DownloadProgress, ModelProgress
 
     entered = threading.Event()
 
@@ -239,7 +239,7 @@ def test_first_run_close_drains_worker_and_progress_reports_actual_download(
         cancel.wait(2)
         raise Cancelled()
 
-    monkeypatch.setattr("dantejp.runtime.first_run.run_setup", setup)
+    monkeypatch.setattr("dantetl.runtime.first_run.run_setup", setup)
     hardware = Mock()
     hardware.snapshot.return_value = HardwareStatus(llama_device="cpu")
     windows = Mock()
@@ -273,9 +273,9 @@ def test_first_run_close_drains_worker_and_progress_reports_actual_download(
 
 
 def test_first_run_skip_persists_and_settings_can_reopen_it(app, tmp_path):
-    from dantejp.application.preferences import PreferenceStore
-    from dantejp.runtime.hardware_values import HardwareStatus
-    from dantejp.runtime.model_store import model_catalog
+    from dantetl.application.preferences import PreferenceStore
+    from dantetl.runtime.hardware_values import HardwareStatus
+    from dantetl.runtime.model_store import model_catalog
 
     windows, hardware = Mock(), Mock()
     windows.list_targets.return_value = []
@@ -288,11 +288,11 @@ def test_first_run_skip_persists_and_settings_can_reopen_it(app, tmp_path):
     guide = window.findChild(SetupAssistant)
     assert guide is not None
     guide.interface_language.setCurrentIndex(guide.interface_language.findData("pt-PT"))
-    from dantejp.i18n import tr
+    from dantetl.i18n import tr
 
     assert settings(window).interface_language.currentData() == "pt-PT"
     assert guide.isVisible() and guide.pages.currentIndex() == 0
-    assert guide.heading.text() == tr("Welcome to DanteJP") != "Welcome to DanteJP"
+    assert guide.heading.text() == tr("Welcome to DanteTL") != "Welcome to DanteTL"
     assert guide.next.text() == tr("Next") != "Next"
     assert window.refresh_button.text() == tr("Refresh") != "Refresh"
     assert settings(window).tabs.tabText(0) == tr("Appearance") != "Appearance"
@@ -322,7 +322,7 @@ def test_first_run_skip_persists_and_settings_can_reopen_it(app, tmp_path):
 
 
 def test_model_summary_separates_ratings_capabilities_and_unrated_imports(app):
-    from dantejp.ui.model_summary import ModelSummary
+    from dantetl.ui.model_summary import ModelSummary
 
     summary = ModelSummary()
     summary.set_model("plamo-2b", 1_800_000_000, True)
@@ -340,10 +340,10 @@ def test_model_summary_separates_ratings_capabilities_and_unrated_imports(app):
 
 
 def test_processing_panel_distinguishes_cached_work_and_resets_stale_capture_metrics(app):
-    from dantejp.domain import CaptureSnapshot, CaptureState
-    from dantejp.ocr.values import OcrSnapshot, OcrState
-    from dantejp.ocr.visual_values import VisualState
-    from dantejp.ui.processing_panel import ProcessingPanel
+    from dantetl.domain import CaptureSnapshot, CaptureState
+    from dantetl.ocr.values import OcrSnapshot, OcrState
+    from dantetl.ocr.visual_values import VisualState
+    from dantetl.ui.processing_panel import ProcessingPanel
 
     panel = ProcessingPanel()
     panel.show()
@@ -397,8 +397,8 @@ def test_model_categories_share_one_worker_and_ocr_never_enters_translation_pick
 ):
     from ui_fixtures import model_manager as ModelManager
 
-    from dantejp.runtime.model_store import ModelBundle
-    from dantejp.runtime.setup_values import Cancelled
+    from dantetl.runtime.model_store import ModelBundle
+    from dantetl.runtime.setup_values import Cancelled
 
     ocr = ModelBundle("ocr", "MeikiOCR", tmp_path / "ocr", (), "Reads text", category="recognition")
     gemma = ModelBundle(
@@ -413,7 +413,7 @@ def test_model_categories_share_one_worker_and_ocr_never_enters_translation_pick
         assert cancel.wait(2)
         raise Cancelled()
 
-    monkeypatch.setattr("dantejp.runtime.model_store.install_model", install)
+    monkeypatch.setattr("dantetl.runtime.model_store.install_model", install)
     manager = ModelManager((ocr, other, gemma))
     assert manager.choice.currentData().key == gemma.key
     assert [manager.choice.itemData(i).key for i in range(manager.choice.count())] == [
@@ -463,7 +463,7 @@ def test_recommended_model_preserves_saved_choice_and_preparation_consent(
 ):
     import json
 
-    monkeypatch.setattr("dantejp.runtime.model_store.is_prepared", lambda key: not key or prepared)
+    monkeypatch.setattr("dantetl.runtime.model_store.is_prepared", lambda key: not key or prepared)
     path = tmp_path / "preferences.json"
     path.write_text(json.dumps({"version": 1, "model": saved}), encoding="utf-8")
     windows, factory = Mock(), Mock()
@@ -490,9 +490,9 @@ def test_recommended_model_preserves_saved_choice_and_preparation_consent(
 def test_included_ocr_has_ready_badge_and_is_not_in_first_run_download_plan(app, tmp_path, model):
     import hashlib
 
-    from dantejp.runtime.assets import ModelAsset
-    from dantejp.runtime.hardware_values import HardwareStatus
-    from dantejp.runtime.model_store import ModelBundle, model_catalog
+    from dantetl.runtime.assets import ModelAsset
+    from dantetl.runtime.hardware_values import HardwareStatus
+    from dantetl.runtime.model_store import ModelBundle, model_catalog
 
     bundled = tmp_path / "app"
     bundled.mkdir()
@@ -530,8 +530,8 @@ def test_included_ocr_has_ready_badge_and_is_not_in_first_run_download_plan(app,
 def test_first_run_resumes_model_intent_after_restart_but_still_requires_consent(
     app, tmp_path, monkeypatch, key
 ):
-    from dantejp.application.preference_values import Preferences
-    from dantejp.application.preferences import PreferenceStore
+    from dantetl.application.preference_values import Preferences
+    from dantetl.application.preferences import PreferenceStore
 
     path = tmp_path / "preferences.json"
     PreferenceStore(path)._write(
@@ -541,7 +541,7 @@ def test_first_run_resumes_model_intent_after_restart_but_still_requires_consent
     windows.list_targets.return_value = []
     base = BackendChoice("Imported fixture", factory, "imported-" + "f" * 64)
     gemma = BackendChoice("Language model", factory, f"{key}-cuda", "new-device", selection_id=key)
-    monkeypatch.setattr("dantejp.runtime.model_store.is_prepared", lambda key: not key)
+    monkeypatch.setattr("dantetl.runtime.model_store.is_prepared", lambda key: not key)
     consent = Mock(return_value=QMessageBox.StandardButton.No)
     monkeypatch.setattr(QMessageBox, "question", consent)
     window = MainWindow(windows, Mock(), (base, gemma), preferences_path=path)
@@ -560,8 +560,8 @@ def test_first_run_resumes_model_intent_after_restart_but_still_requires_consent
 
 
 def test_hotkey_settings_apply_conflict_disable_and_persistence(app, tmp_path):
-    from dantejp.application.hotkeys import HotkeyAction, Hotkeys
-    from dantejp.application.preferences import PreferenceStore
+    from dantetl.application.hotkeys import HotkeyAction, Hotkeys
+    from dantetl.application.preferences import PreferenceStore
 
     windows = Mock()
     windows.list_targets.return_value = []
@@ -602,7 +602,7 @@ def test_hotkey_settings_apply_conflict_disable_and_persistence(app, tmp_path):
 
 
 def test_startup_shortcut_conflict_is_visible_and_retryable(app, tmp_path):
-    from dantejp.application.hotkeys import HotkeyAction, Hotkeys
+    from dantetl.application.hotkeys import HotkeyAction, Hotkeys
 
     native = Mock()
     native.register.side_effect = OSError("Another app uses this shortcut")
@@ -628,8 +628,8 @@ def test_hotkeys_keep_selected_window_and_respect_stop_close_and_modal_guards(
     from PySide6.QtWidgets import QDialog
     from test_live_session import frame
 
-    from dantejp.application.hotkeys import HotkeyAction, Hotkeys
-    from dantejp.domain import CaptureSnapshot, CaptureState, WindowTarget
+    from dantetl.application.hotkeys import HotkeyAction, Hotkeys
+    from dantetl.domain import CaptureSnapshot, CaptureState, WindowTarget
 
     target = WindowTarget(101, 202, "Our fixture")
     windows = Mock()
@@ -639,7 +639,7 @@ def test_hotkeys_keep_selected_window_and_respect_stop_close_and_modal_guards(
     capture.return_value.snapshot.return_value = CaptureSnapshot(CaptureState.RUNNING, frame(1))
     windows.geometry.return_value = frame(1).geometry
     windows.is_foreground.return_value = True
-    monkeypatch.setattr("dantejp.composition.CaptureSession", capture)
+    monkeypatch.setattr("dantetl.composition.CaptureSession", capture)
     hotkeys = Hotkeys(Mock())
     window = MainWindow(windows, Mock(), hotkeys=hotkeys, cache_path=tmp_path / "cache")
     application = app_owner(window)
@@ -685,8 +685,8 @@ def test_native_hotkey_filter_accepts_both_qt_routes_and_rejects_stale_messages(
     import ctypes
     from ctypes import wintypes
 
-    from dantejp.application.hotkeys import HotkeyAction, Hotkeys
-    from dantejp.ui.hotkeys_windows import WindowsHotkeyEvents
+    from dantetl.application.hotkeys import HotkeyAction, Hotkeys
+    from dantetl.ui.hotkeys_windows import WindowsHotkeyEvents
 
     registrar = Mock()
     hotkeys = Hotkeys(registrar)
@@ -708,16 +708,16 @@ def test_native_hotkey_filter_accepts_both_qt_routes_and_rejects_stale_messages(
 def test_capture_hotkey_picks_focused_window_but_never_retargets_running_capture(
     app, tmp_path, monkeypatch
 ):
-    from dantejp.application.hotkeys import HotkeyAction, Hotkeys
-    from dantejp.capture.windows import WindowUnavailable
-    from dantejp.domain import WindowTarget
+    from dantetl.application.hotkeys import HotkeyAction, Hotkeys
+    from dantetl.capture.windows import WindowUnavailable
+    from dantetl.domain import WindowTarget
 
     target = WindowTarget(101, 202, "New focused game")
     windows = Mock()
     windows.list_targets.return_value = []  # The initial list can be empty or stale.
     windows.foreground_target.return_value = target
     capture = Mock()
-    monkeypatch.setattr("dantejp.composition.CaptureSession", capture)
+    monkeypatch.setattr("dantetl.composition.CaptureSession", capture)
     hotkeys = Hotkeys(Mock())
     window = MainWindow(windows, Mock(), hotkeys=hotkeys, cache_path=tmp_path / "cache")
     application = app_owner(window)
@@ -754,7 +754,7 @@ def test_capture_hotkey_picks_focused_window_but_never_retargets_running_capture
 
 
 def test_original_hold_is_transient_and_focus_loss_cancels_it(app, tmp_path):
-    from dantejp.application.hotkeys import Hotkeys
+    from dantetl.application.hotkeys import Hotkeys
 
     windows = Mock()
     windows.list_targets.return_value = []
@@ -808,8 +808,8 @@ def test_native_hold_checks_release_only_while_active_and_stops_after_release(ap
     import ctypes
     from ctypes import wintypes
 
-    from dantejp.application.hotkeys import HotkeyAction, Hotkeys
-    from dantejp.ui.hotkeys_windows import WindowsHotkeyEvents
+    from dantetl.application.hotkeys import HotkeyAction, Hotkeys
+    from dantetl.ui.hotkeys_windows import WindowsHotkeyEvents
 
     registrar = Mock()
     hotkeys = Hotkeys(registrar)
@@ -853,7 +853,7 @@ def test_no_models_do_not_start_inference_and_refresh_never_prepares_implicitly(
     windows.list_targets.return_value = []
     factory = Mock()
     choice = BackendChoice("Gemma", factory, "gemma", "unprepared")
-    monkeypatch.setattr("dantejp.runtime.model_store.is_prepared", lambda key: not key)
+    monkeypatch.setattr("dantetl.runtime.model_store.is_prepared", lambda key: not key)
     window = MainWindow(
         windows, factory, cache_path=tmp_path / "cache", backend_provider=lambda: (choice,)
     )
@@ -885,7 +885,7 @@ def test_downloaded_model_without_runtime_stays_visible_and_explains_setup(
         unavailable_reason="Open Runtime setup.",
     )
     setup = Mock()
-    monkeypatch.setattr("dantejp.ui.main_window.MainWindow._manage_runtime", setup)
+    monkeypatch.setattr("dantetl.ui.main_window.MainWindow._manage_runtime", setup)
     window = MainWindow(windows, factory, (choice,), scene_feed=True, cache_path=tmp_path / "cache")
     application = app_owner(window)
     assert window.backend_combo.isEnabled() and window.translate_check.isEnabled()
@@ -912,13 +912,13 @@ def test_download_completion_reports_missing_runtime_instead_of_false_readiness(
     from download_fixtures import download_bytes
     from ui_fixtures import model_manager as ModelManager
 
-    from dantejp.runtime.assets import ModelAsset
-    from dantejp.runtime.model_store import ModelBundle
+    from dantetl.runtime.assets import ModelAsset
+    from dantetl.runtime.model_store import ModelBundle
 
     asset = ModelAsset("fixture", "revision", "weights", hashlib.sha256(b"good").hexdigest(), 4)
     bundle = ModelBundle(key, key, tmp_path, (asset,), "", language_model=True)
-    monkeypatch.setattr("dantejp.runtime.model_store.download_file", download_bytes(b"good"))
-    monkeypatch.setattr("dantejp.runtime.llama.installed_device", lambda: None)
+    monkeypatch.setattr("dantetl.runtime.model_store.download_file", download_bytes(b"good"))
+    monkeypatch.setattr("dantetl.runtime.llama.installed_device", lambda: None)
     manager = ModelManager((bundle,))
     manager.download.click()
     assert manager.busy
@@ -939,13 +939,13 @@ def test_download_completion_reports_missing_runtime_instead_of_false_readiness(
 def test_runtime_setup_detects_without_installing_and_close_waits_for_cancel(
     app, tmp_path, monkeypatch
 ):
-    from dantejp.runtime.hardware_values import Adapter
-    from dantejp.runtime.setup_values import Cancelled
+    from dantetl.runtime.hardware_values import Adapter
+    from dantetl.runtime.setup_values import Cancelled
 
     calls = []
     entered = threading.Event()
     monkeypatch.setattr(
-        "dantejp.runtime.hardware.detect_adapters", lambda: (Adapter("RTX", 0x10DE, 16 * 2**30),)
+        "dantetl.runtime.hardware.detect_adapters", lambda: (Adapter("RTX", 0x10DE, 16 * 2**30),)
     )
 
     def install(root, profile, progress, cancel):
@@ -954,7 +954,7 @@ def test_runtime_setup_detects_without_installing_and_close_waits_for_cancel(
         assert cancel.wait(2)
         raise Cancelled()
 
-    monkeypatch.setattr("dantejp.runtime.setup.install_runtime", install)
+    monkeypatch.setattr("dantetl.runtime.setup.install_runtime", install)
     windows = Mock()
     windows.list_targets.return_value = []
     window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
@@ -984,9 +984,9 @@ def test_runtime_setup_detects_without_installing_and_close_waits_for_cancel(
 def test_model_download_badges_and_missing_selection_warnings_are_distinct(
     app, tmp_path, monkeypatch
 ):
-    from dantejp.runtime.assets import ModelAsset
-    from dantejp.runtime.hardware_values import Adapter, HardwareStatus
-    from dantejp.runtime.model_store import ModelBundle
+    from dantetl.runtime.assets import ModelAsset
+    from dantetl.runtime.hardware_values import Adapter, HardwareStatus
+    from dantetl.runtime.model_store import ModelBundle
 
     asset = ModelAsset("test", "revision", "weights", "", 4)
     bundle = ModelBundle("gemma", "Gemma", tmp_path, (asset,), "Fixture", language_model=True)
@@ -994,7 +994,7 @@ def test_model_download_badges_and_missing_selection_warnings_are_distinct(
     windows.list_targets.return_value = []
     hardware = Mock(finished=True)
     hardware.snapshot.return_value = HardwareStatus((Adapter("RTX fixture", 0x10DE),))
-    monkeypatch.setattr("dantejp.runtime.llama.installed_device", lambda: None)
+    monkeypatch.setattr("dantetl.runtime.llama.installed_device", lambda: None)
     window = MainWindow(windows, Mock(), models=(bundle,), hardware=hardware)
     manager = settings(window).models
     assert "Download required" in manager.download_badge.text()
@@ -1163,14 +1163,14 @@ def test_runtime_restart_waits_for_translation_and_recovers_if_launch_fails(
 ):
     from ownership_fixtures import Route
 
-    from dantejp.application.hotkeys import HotkeyAction, Hotkeys
+    from dantetl.application.hotkeys import HotkeyAction, Hotkeys
 
     windows = Mock()
     windows.list_targets.return_value = []
     native = Mock()
     hotkeys = Hotkeys(native)
     worker = Route()
-    monkeypatch.setattr("dantejp.composition.RoutedTranslationSession", lambda *a, **k: worker)
+    monkeypatch.setattr("dantetl.composition.RoutedTranslationSession", lambda *a, **k: worker)
     window = MainWindow(
         windows,
         Mock(),
@@ -1189,7 +1189,7 @@ def test_runtime_restart_waits_for_translation_and_recovers_if_launch_fails(
         raise OSError("Could not launch")
 
     restart = Mock(side_effect=fail_restart)
-    monkeypatch.setattr("dantejp.composition.RuntimeRestart", restart)
+    monkeypatch.setattr("dantetl.composition.RuntimeRestart", restart)
     warnings = []
     monkeypatch.setattr(QMessageBox, "warning", lambda *a: warnings.append(a[-1]))
     settings(window).restart_requested.emit(tmp_path)
@@ -1231,7 +1231,7 @@ def test_restart_cleanup_cannot_block_gui_or_report_finished_before_draining(
     windows.list_targets.return_value = []
     window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
     application = app_owner(window)
-    monkeypatch.setattr("dantejp.composition.RuntimeRestart", Restart)
+    monkeypatch.setattr("dantetl.composition.RuntimeRestart", Restart)
     monkeypatch.setattr(QMessageBox, "warning", lambda *a: warnings.append(a[-1]))
     try:
         settings(window).restart_requested.emit(tmp_path)
@@ -1271,8 +1271,8 @@ def test_preparation_decline_preserves_selection_and_accept_loads_once_off_ui(
 
     base = BackendChoice("E4B fixture", Mock(), "gemma-e4b")
     gemma = BackendChoice("Gemma", load, "gemma", "new")
-    monkeypatch.setattr("dantejp.runtime.model_store.is_prepared", lambda key: not key)
-    monkeypatch.setattr("dantejp.runtime.model_store.mark_prepared", receipts.append)
+    monkeypatch.setattr("dantetl.runtime.model_store.is_prepared", lambda key: not key)
+    monkeypatch.setattr("dantetl.runtime.model_store.mark_prepared", receipts.append)
     monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.No)
     window = MainWindow(windows, Mock(), (base, gemma), cache_path=tmp_path / "cache")
     application = app_owner(window)
@@ -1309,8 +1309,8 @@ def test_failed_preparation_restores_previous_selection_without_a_receipt(
     base = BackendChoice("E4B fixture", Mock(), "gemma-e4b")
     bad = BackendChoice("Gemma", Mock(side_effect=RuntimeError("GPU unavailable")), "gemma", "new")
     receipts, errors = [], []
-    monkeypatch.setattr("dantejp.runtime.model_store.is_prepared", lambda key: not key)
-    monkeypatch.setattr("dantejp.runtime.model_store.mark_prepared", receipts.append)
+    monkeypatch.setattr("dantetl.runtime.model_store.is_prepared", lambda key: not key)
+    monkeypatch.setattr("dantetl.runtime.model_store.mark_prepared", receipts.append)
     monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.Yes)
     monkeypatch.setattr(QMessageBox, "warning", lambda *a: errors.append(a[-1]))
     window = MainWindow(windows, Mock(), (base, bad), cache_path=tmp_path / "cache")
@@ -1330,9 +1330,9 @@ def test_nested_consent_event_loop_does_not_unload_previous_model(app, tmp_path,
     windows.list_targets.return_value = []
     base = BackendChoice("E4B fixture", Mock(), "gemma-e4b")
     gemma = BackendChoice("Gemma", Mock(), "gemma", "new")
-    monkeypatch.setattr("dantejp.runtime.model_store.is_prepared", lambda key: not key)
+    monkeypatch.setattr("dantetl.runtime.model_store.is_prepared", lambda key: not key)
     session = Route()
-    monkeypatch.setattr("dantejp.composition.RoutedTranslationSession", lambda *a, **k: session)
+    monkeypatch.setattr("dantetl.composition.RoutedTranslationSession", lambda *a, **k: session)
     window = MainWindow(
         windows, Mock(), (base, gemma), scene_feed=True, cache_path=tmp_path / "cache"
     )
@@ -1359,8 +1359,8 @@ def test_nested_consent_event_loop_does_not_unload_previous_model(app, tmp_path,
 def test_closing_during_download_waits_for_cancellation_before_destroying_gui(
     app, tmp_path, monkeypatch
 ):
-    from dantejp.runtime.model_store import ModelBundle
-    from dantejp.runtime.setup_values import Cancelled, ModelProgress
+    from dantetl.runtime.model_store import ModelBundle
+    from dantetl.runtime.setup_values import Cancelled, ModelProgress
 
     windows = Mock()
     windows.list_targets.return_value = []
@@ -1372,7 +1372,7 @@ def test_closing_during_download_waits_for_cancellation_before_destroying_gui(
         assert cancel.wait(2)
         raise Cancelled()
 
-    monkeypatch.setattr("dantejp.runtime.model_store.install_model", install)
+    monkeypatch.setattr("dantetl.runtime.model_store.install_model", install)
     bundle = ModelBundle("fake", "Fixture", tmp_path, (), "")
     window = MainWindow(windows, Mock(), models=(bundle,), cache_path=tmp_path / "cache")
     settings(window).show_models()
@@ -1436,8 +1436,8 @@ def test_idle_source_picker_switches_without_confirmation(app, monkeypatch, from
 
 
 def test_output_language_controls_warn_before_capture_and_switch_only_the_affected_model(app):
-    from dantejp.translation.backends.plamo import OUTPUT_CODES
-    from dantejp.translation.plan import TranslationPlan
+    from dantetl.translation.backends.plamo import OUTPUT_CODES
+    from dantetl.translation.plan import TranslationPlan
 
     factory = Mock()
     plamo = BackendChoice("PLaMo 2B", factory, "plamo-2b", output_codes=OUTPUT_CODES)
@@ -1480,7 +1480,7 @@ def test_output_language_controls_warn_before_capture_and_switch_only_the_affect
 
 
 def test_language_warning_opens_missing_gemma_files_without_downloading(app, tmp_path):
-    from dantejp.runtime.model_store import ModelBundle
+    from dantetl.runtime.model_store import ModelBundle
 
     factory = Mock()
     plamo = BackendChoice("PLaMo", factory, "plamo-2b", output_codes=frozenset({"en"}))
@@ -1511,7 +1511,7 @@ def test_language_warning_opens_missing_gemma_files_without_downloading(app, tmp
 
 
 def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_path, monkeypatch):
-    from dantejp.ocr.worker import OcrChoice
+    from dantetl.ocr.worker import OcrChoice
 
     windows = Mock()
     windows.list_targets.return_value = []
@@ -1564,7 +1564,7 @@ def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_pat
 def test_hidden_inspector_does_no_frame_copy_or_table_build_and_resume_uses_latest_pair(
     app, monkeypatch
 ):
-    from dantejp.ui import inspection
+    from dantetl.ui import inspection
 
     panel = OcrInspector()
     panel.set_active(False)
@@ -1606,8 +1606,8 @@ def test_hidden_inspector_does_no_frame_copy_or_table_build_and_resume_uses_late
 def test_saved_model_choice_survives_runtime_change_without_implicit_preparation(
     app, tmp_path, monkeypatch, prepared, key
 ):
-    from dantejp.application.preference_values import Preferences
-    from dantejp.application.preferences import PreferenceStore
+    from dantetl.application.preference_values import Preferences
+    from dantetl.application.preferences import PreferenceStore
 
     path = tmp_path / "preferences.json"
     store = PreferenceStore(path)
@@ -1619,7 +1619,7 @@ def test_saved_model_choice_survives_runtime_change_without_implicit_preparation
     gemma = BackendChoice(
         "Language model", factory, f"{key}-vulkan", "vulkan-receipt", selection_id=key
     )
-    monkeypatch.setattr("dantejp.runtime.model_store.is_prepared", lambda key: prepared or not key)
+    monkeypatch.setattr("dantetl.runtime.model_store.is_prepared", lambda key: prepared or not key)
     consent = Mock(return_value=QMessageBox.StandardButton.No)
     monkeypatch.setattr(QMessageBox, "question", consent)
     window = MainWindow(windows, factory, (base, gemma), preferences_path=path)
@@ -1647,9 +1647,9 @@ def test_saved_model_choice_survives_runtime_change_without_implicit_preparation
 
 
 def test_inspector_disclosure_and_pause_do_not_change_the_injected_live_session(app, tmp_path):
-    from dantejp.application.live_session import LiveSession
-    from dantejp.ocr.values import OcrSnapshot, OcrState
-    from dantejp.ocr.visual_values import VisualState
+    from dantetl.application.live_session import LiveSession
+    from dantetl.ocr.values import OcrSnapshot, OcrState
+    from dantetl.ocr.visual_values import VisualState
 
     windows = Mock()
     windows.list_targets.return_value = []
@@ -1664,7 +1664,7 @@ def test_inspector_disclosure_and_pause_do_not_change_the_injected_live_session(
         frame = CapturedFrame(sequence, sequence, geometry, b"\xff" * 64)
         result = OcrResult(frame, (TextRegion("猫", bounds),), 10, sequence)
         ocr.snapshot.return_value = OcrSnapshot(OcrState.READY, result)
-        from dantejp.ocr.tracking import prepare_matching
+        from dantetl.ocr.tracking import prepare_matching
 
         sources = visual.submit.call_args.args[-1] if visual.submit.called else ()
         visual.poll.return_value = VisualState(
@@ -1673,7 +1673,7 @@ def test_inspector_disclosure_and_pause_do_not_change_the_injected_live_session(
             checked_sequence=sequence,
             matching=prepare_matching(result, sources),
         )
-        from dantejp.domain import CaptureSnapshot, CaptureState
+        from dantetl.domain import CaptureSnapshot, CaptureState
 
         windows.geometry.return_value = geometry
         windows.is_foreground.return_value = True
@@ -1720,8 +1720,8 @@ def test_translation_off_leaves_game_unobscured_until_ocr_boxes_are_requested(ap
 def test_settings_close_can_keep_setup_running_or_cancel_without_stopping_app(
     app, tmp_path, monkeypatch, cancel_operation
 ):
-    from dantejp.runtime.model_store import ModelBundle
-    from dantejp.runtime.setup_values import Cancelled
+    from dantetl.runtime.model_store import ModelBundle
+    from dantetl.runtime.setup_values import Cancelled
 
     windows = Mock()
     windows.list_targets.return_value = []
@@ -1732,7 +1732,7 @@ def test_settings_close_can_keep_setup_running_or_cancel_without_stopping_app(
         assert cancel.wait(2)
         raise Cancelled()
 
-    monkeypatch.setattr("dantejp.runtime.model_store.install_model", install)
+    monkeypatch.setattr("dantetl.runtime.model_store.install_model", install)
     monkeypatch.setattr(QMessageBox, "exec", lambda self: 0)
     selected = "Cancel operation" if cancel_operation else "Continue in background"
     monkeypatch.setattr(
@@ -1978,7 +1978,7 @@ def test_group_inspection_and_copy_map_to_raw_rows_without_duplicating_english(
     assert cell(panel, 1, 3).text() == "↳ Group #1"
     assert lines[1].text in cell(panel, 1, 3).toolTip()
     clipboard = Mock()
-    monkeypatch.setattr("dantejp.ui.inspection.QGuiApplication.clipboard", lambda: clipboard)
+    monkeypatch.setattr("dantetl.ui.inspection.QGuiApplication.clipboard", lambda: clipboard)
     panel._copy_english()
     clipboard.setText.assert_called_with(translated.english)
     panel.table.selectRow(1)

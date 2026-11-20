@@ -22,12 +22,12 @@ from PySide6.QtWidgets import QApplication
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
-from dantejp.application.hotkeys import HotkeyAction, Hotkeys
-from dantejp.application.preference_values import Preferences
-from dantejp.capture.windows import Windows
-from dantejp.domain import WindowTarget
-from dantejp.ui.demo import DemoWindow
-from dantejp.ui.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
+from dantetl.application.hotkeys import HotkeyAction, Hotkeys
+from dantetl.application.preference_values import Preferences
+from dantetl.capture.windows import Windows
+from dantetl.domain import WindowTarget
+from dantetl.ui.demo import DemoWindow
+from dantetl.ui.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
 
 
 class _Keyboard(ctypes.Structure):
@@ -134,8 +134,8 @@ def main() -> int:
     application = app_owner(window)
     from dataclasses import replace
 
-    from dantejp.application.model_inventory import inspect_models
-    from dantejp.runtime.model_store import model_catalog
+    from dantetl.application.model_inventory import inspect_models
+    from dantetl.runtime.model_store import model_catalog
 
     missing = tuple(
         replace(b, directory=args.output / "absent-ocr", bundled_directory=None)
@@ -215,7 +215,7 @@ def main() -> int:
                 if not identity.exists():
                     return
                 data = json.loads(identity.read_text())
-                target = WindowTarget(data["hwnd"], data["pid"], "DanteJP Demo")
+                target = WindowTarget(data["hwnd"], data["pid"], "DanteTL Demo")
                 assert windows.is_target(target)
                 window.windows_combo.clear()
                 window.start_button.setEnabled(False)

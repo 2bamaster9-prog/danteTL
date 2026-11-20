@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <TS version="2.1" language="ko" sourcelanguage="en">
   <context>
-    <name>DanteJP</name>
+    <name>DanteTL</name>
     <message>
       <source>
 
@@ -276,19 +276,19 @@ Repairs folder: {directory}</source>
       <source>An unexpected error occurred:
 {error}
 
-Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
+Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>예기치 않은 오류가 발생했습니다:
 {error}
 
-세부 정보는 %LOCALAPPDATA%/DanteJP/logs/app.log에 있습니다.</translation>
+세부 정보는 %LOCALAPPDATA%/DanteTL/logs/app.log에 있습니다.</translation>
     </message>
     <message>
-      <source>Another DanteJP instance is already installing a runtime.</source>
-      <translation>다른 DanteJP 인스턴스가 이미 런타임을 설치하고 있습니다.</translation>
+      <source>Another DanteTL instance is already installing a runtime.</source>
+      <translation>다른 DanteTL 인스턴스가 이미 런타임을 설치하고 있습니다.</translation>
     </message>
     <message>
-      <source>Another DanteJP instance is updating this ChatGPT account.</source>
-      <translation>다른 DanteJP 인스턴스가 이 ChatGPT 계정을 업데이트하고 있습니다.</translation>
+      <source>Another DanteTL instance is updating this ChatGPT account.</source>
+      <translation>다른 DanteTL 인스턴스가 이 ChatGPT 계정을 업데이트하고 있습니다.</translation>
     </message>
     <message>
       <source>Another app or Windows already uses this shortcut.</source>
@@ -815,8 +815,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>이 공급자의 저장된 연결을 선택하거나 새 API 키를 추가하세요.</translation>
     </message>
     <message>
-      <source>Choose a single-file GGUF chat model. The file stays in its current folder; DanteJP saves only a reference. The import test uses Japanese and English.</source>
-      <translation>단일 파일 GGUF 채팅 모델을 선택하세요. 파일은 현재 폴더에 유지되며 DanteJP는 참조만 저장합니다. 가져오기 테스트는 일본어와 영어를 사용합니다.</translation>
+      <source>Choose a single-file GGUF chat model. The file stays in its current folder; DanteTL saves only a reference. The import test uses Japanese and English.</source>
+      <translation>단일 파일 GGUF 채팅 모델을 선택하세요. 파일은 현재 폴더에 유지되며 DanteTL는 참조만 저장합니다. 가져오기 테스트는 일본어와 영어를 사용합니다.</translation>
     </message>
     <message>
       <source>Choose a supported provider and model.</source>
@@ -1119,8 +1119,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>소유 프로세스를 종료할 수 없습니다.</translation>
     </message>
     <message>
-      <source>Counts belong to the selected saved model, including translation and classifier requests. Cache hits make no requests. Token totals include only usage reported by the provider; these are not billing totals. Counts reset when DanteJP exits.</source>
-      <translation>카운트는 번역 및 분류기 요청을 포함하여 선택한 저장된 모델에 속합니다. 캐시 적중은 요청을 하지 않습니다. 토큰 합계에는 제공자가 보고한 사용량만 포함되며, 청구 합계가 아닙니다. DanteJP가 종료되면 카운트가 재설정됩니다.</translation>
+      <source>Counts belong to the selected saved model, including translation and classifier requests. Cache hits make no requests. Token totals include only usage reported by the provider; these are not billing totals. Counts reset when DanteTL exits.</source>
+      <translation>카운트는 번역 및 분류기 요청을 포함하여 선택한 저장된 모델에 속합니다. 캐시 적중은 요청을 하지 않습니다. 토큰 합계에는 제공자가 보고한 사용량만 포함되며, 청구 합계가 아닙니다. DanteTL가 종료되면 카운트가 재설정됩니다.</translation>
     </message>
     <message>
       <source>Croatian</source>
@@ -1139,12 +1139,12 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>체코어</translation>
     </message>
     <message>
-      <source>DANTEJP_DATA_DIR must be an absolute directory.</source>
-      <translation>DANTEJP_DATA_DIR은 절대 디렉터리여야 합니다.</translation>
+      <source>DANTETL_DATA_DIR must be an absolute directory.</source>
+      <translation>DANTETL_DATA_DIR은 절대 디렉터리여야 합니다.</translation>
     </message>
     <message>
-      <source>DANTEJP_RESOURCE_DIR must identify a complete standalone app.</source>
-      <translation>DANTEJP_RESOURCE_DIR은 완전한 독립 실행형 앱을 가리켜야 합니다.</translation>
+      <source>DANTETL_RESOURCE_DIR must identify a complete standalone app.</source>
+      <translation>DANTETL_RESOURCE_DIR은 완전한 독립 실행형 앱을 가리켜야 합니다.</translation>
     </message>
     <message>
       <source>DEBUG  Amber: changed pixels   Cyan: last completed OCR</source>
@@ -1155,16 +1155,16 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>덴마크어</translation>
     </message>
     <message>
-      <source>DanteJP currently requires Windows.</source>
-      <translation>DanteJP는 현재 Windows가 필요합니다.</translation>
+      <source>DanteTL currently requires Windows.</source>
+      <translation>DanteTL는 현재 Windows가 필요합니다.</translation>
     </message>
     <message>
-      <source>DanteJP · Settings</source>
-      <translation>DanteJP · 설정</translation>
+      <source>DanteTL · Settings</source>
+      <translation>DanteTL · 설정</translation>
     </message>
     <message>
-      <source>DanteJP · Welcome</source>
-      <translation>DanteJP · 환영합니다</translation>
+      <source>DanteTL · Welcome</source>
+      <translation>DanteTL · 환영합니다</translation>
     </message>
     <message>
       <source>Debug overlay</source>
@@ -1179,8 +1179,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>삭제</translation>
     </message>
     <message>
-      <source>Demo opened. Refresh the window list and select DanteJP Demo.</source>
-      <translation>데모가 열렸습니다. 창 목록을 새로 고치고 DanteJP Demo를 선택하세요.</translation>
+      <source>Demo opened. Refresh the window list and select DanteTL Demo.</source>
+      <translation>데모가 열렸습니다. 창 목록을 새로 고치고 DanteTL Demo를 선택하세요.</translation>
     </message>
     <message>
       <source>Detect graphics cards and install acceleration inside the app.</source>
@@ -1223,8 +1223,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>대화 기록</translation>
     </message>
     <message>
-      <source>Dialogue history (Experimental) · DanteJP</source>
-      <translation>대화 기록 (실험적) · DanteJP</translation>
+      <source>Dialogue history (Experimental) · DanteTL</source>
+      <translation>대화 기록 (실험적) · DanteTL</translation>
     </message>
     <message>
       <source>Dialogue history · {count}/20</source>
@@ -1351,8 +1351,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>이미 8개의 ChatGPT 계정이 등록되어 있습니다.</translation>
     </message>
     <message>
-      <source>Eligible translations use your ChatGPT plan. Manage allowance and credit permissions in ChatGPT Settings → Usage. DanteJP never falls back to an API key.</source>
-      <translation>사용 가능한 번역은 ChatGPT 플랜을 사용합니다. 허용량과 크레딧 권한은 ChatGPT 설정 → 사용량에서 관리하세요. DanteJP는 절대 API 키로 대체하지 않습니다.</translation>
+      <source>Eligible translations use your ChatGPT plan. Manage allowance and credit permissions in ChatGPT Settings → Usage. DanteTL never falls back to an API key.</source>
+      <translation>사용 가능한 번역은 ChatGPT 플랜을 사용합니다. 허용량과 크레딧 권한은 ChatGPT 설정 → 사용량에서 관리하세요. DanteTL는 절대 API 키로 대체하지 않습니다.</translation>
     </message>
     <message>
       <source>Embedded chat template</source>
@@ -1723,8 +1723,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>화면 캡처에 포함</translation>
     </message>
     <message>
-      <source>Include translations in screenshots, display recordings and screen sharing. Turn off to ask Windows to exclude the overlay. Game/window-only capture may omit it either way; this does not affect DanteJP's OCR.</source>
-      <translation>스크린샷, 디스플레이 녹화 및 화면 공유에 번역을 포함합니다. 끄면 Windows에 오버레이 제외를 요청합니다. 게임/창 전용 캡처는 어느 경우든 이를 생략할 수 있으며, 이는 DanteJP의 OCR에 영향을 주지 않습니다.</translation>
+      <source>Include translations in screenshots, display recordings and screen sharing. Turn off to ask Windows to exclude the overlay. Game/window-only capture may omit it either way; this does not affect DanteTL's OCR.</source>
+      <translation>스크린샷, 디스플레이 녹화 및 화면 공유에 번역을 포함합니다. 끄면 Windows에 오버레이 제외를 요청합니다. 게임/창 전용 캡처는 어느 경우든 이를 생략할 수 있으며, 이는 DanteTL의 OCR에 영향을 주지 않습니다.</translation>
     </message>
     <message>
       <source>Included OCR files verified.</source>
@@ -2051,8 +2051,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>재시도를 포함한 최대 요청 시작 수입니다. 캐시 적중은 요청을 사용하지 않습니다.</translation>
     </message>
     <message>
-      <source>Maximum reserved attempts for this model until DanteJP exits. Not a spending cap.</source>
-      <translation>DanteJP가 종료될 때까지 이 모델에 예약되는 최대 시도 수입니다. 지출 한도가 아닙니다.</translation>
+      <source>Maximum reserved attempts for this model until DanteTL exits. Not a spending cap.</source>
+      <translation>DanteTL가 종료될 때까지 이 모델에 예약되는 최대 시도 수입니다. 지출 한도가 아닙니다.</translation>
     </message>
     <message>
       <source>MeikiOCR · Japanese text recognition</source>
@@ -2383,8 +2383,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>가장 오래된 활성 번역: {value:.1f}s</translation>
     </message>
     <message>
-      <source>Only DanteJP modules may be launched by this entry point.</source>
-      <translation>이 진입점에서는 DanteJP 모듈만 실행할 수 있습니다.</translation>
+      <source>Only DanteTL modules may be launched by this entry point.</source>
+      <translation>이 진입점에서는 DanteTL 모듈만 실행할 수 있습니다.</translation>
     </message>
     <message>
       <source>Only a verified runtime can be selected.</source>
@@ -2407,8 +2407,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>OpenAI · API 키</translation>
     </message>
     <message>
-      <source>Opening DanteJP with the installed runtime…</source>
-      <translation>설치된 런타임으로 DanteJP를 여는 중…</translation>
+      <source>Opening DanteTL with the installed runtime…</source>
+      <translation>설치된 런타임으로 DanteTL를 여는 중…</translation>
     </message>
     <message>
       <source>Operation cancelled.</source>
@@ -2805,8 +2805,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>테스트한 GPU에서 원활하게 작동합니다. CPU와 혼잡한 장면은 더 느립니다.</translation>
     </message>
     <message>
-      <source>Restart DanteJP before changing more shortcuts.</source>
-      <translation>더 많은 단축키를 변경하기 전에 DanteJP를 재시작하세요.</translation>
+      <source>Restart DanteTL before changing more shortcuts.</source>
+      <translation>더 많은 단축키를 변경하기 전에 DanteTL를 재시작하세요.</translation>
     </message>
     <message>
       <source>Restart cancelled. Current runtime retained.</source>
@@ -2999,8 +2999,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>가속 설정 중…</translation>
     </message>
     <message>
-      <source>Setting up DanteJP</source>
-      <translation>DanteJP 설정 중</translation>
+      <source>Setting up DanteTL</source>
+      <translation>DanteTL 설정 중</translation>
     </message>
     <message>
       <source>Settings</source>
@@ -3065,8 +3065,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>짧은 레이블</translation>
     </message>
     <message>
-      <source>Shortcuts work while the game has focus or DanteJP is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
-      <translation>게임에 포커스가 있거나 DanteJP가 최소화된 상태에서 단축키가 작동합니다. 조합을 선택한 후 적용을 누르세요. 동작을 끄려면 비활성화를 선택하세요.</translation>
+      <source>Shortcuts work while the game has focus or DanteTL is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
+      <translation>게임에 포커스가 있거나 DanteTL가 최소화된 상태에서 단축키가 작동합니다. 조합을 선택한 후 적용을 누르세요. 동작을 끄려면 비활성화를 선택하세요.</translation>
     </message>
     <message>
       <source>Show / hide overlay</source>
@@ -3117,8 +3117,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>로그인되었지만 플랜 사용이 활성화되지 않았습니다. 승인하려면 다시 로그인하세요.</translation>
     </message>
     <message>
-      <source>Signed out locally. Remote revocation was not confirmed; disconnect DanteJP in ChatGPT usage settings.</source>
-      <translation>로컬에서 로그아웃되었습니다. 원격 해제가 확인되지 않았습니다. ChatGPT 사용 설정에서 DanteJP 연결을 해제하세요.</translation>
+      <source>Signed out locally. Remote revocation was not confirmed; disconnect DanteTL in ChatGPT usage settings.</source>
+      <translation>로컬에서 로그아웃되었습니다. 원격 해제가 확인되지 않았습니다. ChatGPT 사용 설정에서 DanteTL 연결을 해제하세요.</translation>
     </message>
     <message>
       <source>Signed out of ChatGPT.</source>
@@ -3317,10 +3317,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>텍스트 인식 (OCR)</translation>
     </message>
     <message>
-      <source>Text recognition is included with DanteJP. This guide helps you choose a translation model and optional GPU acceleration.
+      <source>Text recognition is included with DanteTL. This guide helps you choose a translation model and optional GPU acceleration.
 
 </source>
-      <translation>텍스트 인식은 DanteJP에 포함되어 있습니다. 이 가이드는 번역 모델과 선택적 GPU 가속을 선택하는 데 도움을 줍니다.
+      <translation>텍스트 인식은 DanteTL에 포함되어 있습니다. 이 가이드는 번역 모델과 선택적 GPU 가속을 선택하는 데 도움을 줍니다.
 
 </translation>
     </message>
@@ -3369,8 +3369,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>번들 앱 wheel이 없거나 모호합니다. 전체 ZIP을 추출하세요.</translation>
     </message>
     <message>
-      <source>The bundled installer is missing. Extract the complete DanteJP ZIP.</source>
-      <translation>번들 설치 프로그램이 없습니다. 전체 DanteJP ZIP의 압축을 풀어 주세요.</translation>
+      <source>The bundled installer is missing. Extract the complete DanteTL ZIP.</source>
+      <translation>번들 설치 프로그램이 없습니다. 전체 DanteTL ZIP의 압축을 풀어 주세요.</translation>
     </message>
     <message>
       <source>The currently committed translation model.</source>
@@ -3765,8 +3765,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>창 제목 사용</translation>
     </message>
     <message>
-      <source>Use your ChatGPT plan. To use only its included allowance, disable credit use for DanteJP in ChatGPT's usage settings. No automatic API-key fallback.</source>
-      <translation>ChatGPT 플랜을 사용하세요. 포함된 허용량만 사용하려면 ChatGPT 사용량 설정에서 DanteJP의 크레딧 사용을 비활성화하세요. API 키 자동 대체는 없습니다.</translation>
+      <source>Use your ChatGPT plan. To use only its included allowance, disable credit use for DanteTL in ChatGPT's usage settings. No automatic API-key fallback.</source>
+      <translation>ChatGPT 플랜을 사용하세요. 포함된 허용량만 사용하려면 ChatGPT 사용량 설정에서 DanteTL의 크레딧 사용을 비활성화하세요. API 키 자동 대체는 없습니다.</translation>
     </message>
     <message>
       <source>Use {value}</source>
@@ -3905,8 +3905,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>분류 대기 중…</translation>
     </message>
     <message>
-      <source>Welcome to DanteJP</source>
-      <translation>DanteJP에 오신 것을 환영합니다</translation>
+      <source>Welcome to DanteTL</source>
+      <translation>DanteTL에 오신 것을 환영합니다</translation>
     </message>
     <message>
       <source>Welsh</source>

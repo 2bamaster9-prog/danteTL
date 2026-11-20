@@ -14,17 +14,17 @@ from PySide6.QtWidgets import QApplication
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
-from dantejp.application.model_factories import (
+from dantetl.application.model_factories import (
     create_recognizer,
     ocr_backends,
     translation_backends,
 )
-from dantejp.application.preferences import PreferenceStore
-from dantejp.capture.windows import Windows
-from dantejp.runtime.hardware import HardwareCheck
-from dantejp.runtime.model_store import model_catalog
-from dantejp.ui.controls import InfoButton
-from dantejp.ui.demo import DemoWindow
+from dantetl.application.preferences import PreferenceStore
+from dantetl.capture.windows import Windows
+from dantetl.runtime.hardware import HardwareCheck
+from dantetl.runtime.model_store import model_catalog
+from dantetl.ui.controls import InfoButton
+from dantetl.ui.demo import DemoWindow
 
 
 def main() -> int:
@@ -59,7 +59,7 @@ def main() -> int:
     application = app_owner(window)
     # Show only our fixture name in screenshots, never another application's title.
     window.windows_combo.clear()
-    window.windows_combo.addItem("DanteJP Demo · 日本語のテスト")
+    window.windows_combo.addItem("DanteTL Demo · 日本語のテスト")
     window.show()
     started, stage = time.monotonic(), 0
     failed = False

@@ -2,8 +2,8 @@ import threading
 
 import pytest
 
-from dantejp.capture.worker import CaptureSession, FrameMailbox
-from dantejp.domain import CapturedFrame, CaptureState, Rect, WindowGeometry, WindowTarget
+from dantetl.capture.worker import CaptureSession, FrameMailbox
+from dantetl.domain import CapturedFrame, CaptureState, Rect, WindowGeometry, WindowTarget
 
 
 class FakeWindows:

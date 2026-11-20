@@ -6,13 +6,13 @@ import time
 from PySide6.QtGui import QColor, QFont, QGuiApplication, QImage, QPainter, QRawFont
 from verification_isolation import run_isolated
 
-from dantejp.application.model_factories import create_recognizer
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.languages.selection import LATIN_SOURCES, source_language
-from dantejp.ocr.tracking import TextTrack
-from dantejp.ocr.worker import Recognizer, recognize_regions
-from dantejp.runtime.ocr import CPU, CUDA
-from dantejp.translation.grouping import DialogueGrouper
+from dantetl.application.model_factories import create_recognizer
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.languages.selection import LATIN_SOURCES, source_language
+from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.worker import Recognizer, recognize_regions
+from dantetl.runtime.ocr import CPU, CUDA
+from dantetl.translation.grouping import DialogueGrouper
 
 
 def verify_profile(engine: Recognizer) -> None:

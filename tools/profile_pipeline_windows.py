@@ -21,26 +21,26 @@ from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent
 from PySide6.QtWidgets import QApplication, QWidget
 from verification_isolation import app_owner
 
-from dantejp.application.model_factories import create_recognizer, translation_backends
-from dantejp.capture.windows import Windows
-from dantejp.composition import application_session, setup_coordinator
-from dantejp.domain import WindowTarget
-from dantejp.languages.target import ENGLISH
-from dantejp.ocr.worker import OcrChoice
-from dantejp.paths import state_root
-from dantejp.translation.backend import ContextualBackend
-from dantejp.translation.dialogue.context import DialogueTurn
-from dantejp.translation.values import TranslationState
-from dantejp.ui.demo import DIALOGUE_LINES
-from dantejp.ui.desktop_driver import DesktopDriver
-from dantejp.ui.inspection import frame_image
-from dantejp.ui.main_window import MainWindow
+from dantetl.application.model_factories import create_recognizer, translation_backends
+from dantetl.capture.windows import Windows
+from dantetl.composition import application_session, setup_coordinator
+from dantetl.domain import WindowTarget
+from dantetl.languages.target import ENGLISH
+from dantetl.ocr.worker import OcrChoice
+from dantetl.paths import state_root
+from dantetl.translation.backend import ContextualBackend
+from dantetl.translation.dialogue.context import DialogueTurn
+from dantetl.translation.values import TranslationState
+from dantetl.ui.demo import DIALOGUE_LINES
+from dantetl.ui.desktop_driver import DesktopDriver
+from dantetl.ui.inspection import frame_image
+from dantetl.ui.main_window import MainWindow
 
 
 class TextFixture(QWidget):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("DanteJP latency fixture")
+        self.setWindowTitle("DanteTL latency fixture")
         self.resize(900, 580)
         self.lines = ("開始",)
         self.dialogue = False

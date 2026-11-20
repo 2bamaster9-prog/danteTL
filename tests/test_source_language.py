@@ -4,22 +4,22 @@ import pytest
 from test_live_session import Replay, frame
 from test_translation import Backend, until
 
-from dantejp.domain import Rect
-from dantejp.languages.paddle import PaddleOCRLanguage
-from dantejp.languages.selection import DEFAULT_SOURCE, source_language
-from dantejp.languages.source import SourceLanguage
-from dantejp.languages.target import TARGET_LANGUAGES
-from dantejp.ocr.tracking import TextTrack, TextTracker, prepare_matching
-from dantejp.ocr.values import OcrResult, TextRegion
-from dantejp.ocr.visual import VisualSession
-from dantejp.translation.backend import RequestRejected
-from dantejp.translation.backends import gemma, gguf, plamo
-from dantejp.translation.cache import TranslationCache, translation_key
-from dantejp.translation.cloud.protocol import request_body
-from dantejp.translation.cloud.values import CloudProfile
-from dantejp.translation.dialogue.layout import PanelLayout
-from dantejp.translation.grouping import DialogueGrouper, TextBlock
-from dantejp.translation.worker import TranslationSession
+from dantetl.domain import Rect
+from dantetl.languages.paddle import PaddleOCRLanguage
+from dantetl.languages.selection import DEFAULT_SOURCE, source_language
+from dantetl.languages.source import SourceLanguage
+from dantetl.languages.target import TARGET_LANGUAGES
+from dantetl.ocr.tracking import TextTrack, TextTracker, prepare_matching
+from dantetl.ocr.values import OcrResult, TextRegion
+from dantetl.ocr.visual import VisualSession
+from dantetl.translation.backend import RequestRejected
+from dantetl.translation.backends import gemma, gguf, plamo
+from dantetl.translation.cache import TranslationCache, translation_key
+from dantetl.translation.cloud.protocol import request_body
+from dantetl.translation.cloud.values import CloudProfile
+from dantetl.translation.dialogue.layout import PanelLayout
+from dantetl.translation.grouping import DialogueGrouper, TextBlock
+from dantetl.translation.worker import TranslationSession
 
 PORTUGUESE = source_language("pt")
 
@@ -268,7 +268,7 @@ def test_backends_use_the_selected_language_in_their_native_prompt():
 
 @pytest.mark.parametrize("target", TARGET_LANGUAGES.values(), ids=TARGET_LANGUAGES.keys())
 def test_backends_request_the_same_output_language(target):
-    from dantejp.translation.dialogue.context import DialogueTurn
+    from dantetl.translation.dialogue.context import DialogueTurn
 
     history = (DialogueTurn("先に行って。", "…"),)
     for prompt in (
@@ -293,10 +293,10 @@ def test_backends_request_the_same_output_language(target):
 def test_every_published_latin_source_shares_one_install_and_ocr_factory(monkeypatch):
     from unittest.mock import Mock
 
-    from dantejp.application.model_factories import ocr_backends
-    from dantejp.languages.selection import SOURCE_LANGUAGES
-    from dantejp.ocr import models, paddle
-    from dantejp.runtime.model_store import model_catalog
+    from dantetl.application.model_factories import ocr_backends
+    from dantetl.languages.selection import SOURCE_LANGUAGES
+    from dantetl.ocr import models, paddle
+    from dantetl.runtime.model_store import model_catalog
 
     # The publisher's Latin table includes English, Occitan, Māori and Latin itself.
     published_codes = (
@@ -308,7 +308,7 @@ def test_every_published_latin_source_shares_one_install_and_ocr_factory(monkeyp
     create = Mock()
     monkeypatch.setattr(paddle, "PaddleRecognizer", create)
     monkeypatch.setattr(
-        "dantejp.application.model_factories.gpu_runtime_installed",
+        "dantetl.application.model_factories.gpu_runtime_installed",
         lambda name="onnxruntime-gpu": name == "onnxruntime-gpu",
     )
     for code in published:
@@ -333,8 +333,8 @@ def test_source_change_drains_active_capture_and_keeps_output_language(tmp_path)
 
     from ownership_fixtures import Replay
 
-    from dantejp.application.preference_values import Preferences
-    from dantejp.application.preferences import PreferenceStore
+    from dantetl.application.preference_values import Preferences
+    from dantetl.application.preferences import PreferenceStore
 
     replay = Replay(tmp_path, preferences=Preferences(output_language="fr"))
     assert replay.app.start_capture(replay.capture.target, 1)
@@ -370,8 +370,8 @@ def test_source_switch_resumes_exact_game_and_reuses_only_compatible_ocr(
 
     from ownership_fixtures import Replay
 
-    from dantejp.application.preference_values import Preferences
-    from dantejp.ocr.worker import OcrChoice
+    from dantetl.application.preference_values import Preferences
+    from dantetl.ocr.worker import OcrChoice
 
     devices = tuple(OcrChoice(key, Mock(), key=key) for key in ("auto", "cpu"))
     replay = Replay(tmp_path, preferences=Preferences(source_language=source), ocr_choices=devices)
@@ -404,8 +404,8 @@ def test_source_switch_resumes_exact_game_and_reuses_only_compatible_ocr(
 def test_source_restart_respects_stops_closed_target_and_quit(tmp_path, action):
     from ownership_fixtures import Replay
 
-    from dantejp.application.preference_values import Preferences
-    from dantejp.application.values import ShutdownPhase
+    from dantetl.application.preference_values import Preferences
+    from dantetl.application.values import ShutdownPhase
 
     replay = Replay(tmp_path, preferences=Preferences(source_language="en"))
     assert replay.app.start_capture(replay.capture.target, 1)

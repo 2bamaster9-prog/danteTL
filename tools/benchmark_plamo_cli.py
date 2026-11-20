@@ -13,9 +13,9 @@ import threading
 import time
 from pathlib import Path
 
-from dantejp.runtime.assets import validate_asset
-from dantejp.runtime.owned_process import OwnedProcess
-from dantejp.runtime.setup_process import run_setup_command
+from dantetl.runtime.assets import validate_asset
+from dantetl.runtime.owned_process import OwnedProcess
+from dantetl.runtime.setup_process import run_setup_command
 from tools.benchmark_profiles import specialist_prompt
 from tools.benchmark_translation import DATA, MODEL_ROOT, ROOT, candidate_asset, cases, summarize
 from tools.verify_translation import process_memory

@@ -14,11 +14,11 @@ import shiboken6
 from PySide6.QtWidgets import QApplication
 from region_corpus import CASES, Case, accuracy, fixture
 
-from dantejp.domain import union_bounds
-from dantejp.ocr.meiki import MeikiRecognizer
-from dantejp.ocr.models import model_directory
-from dantejp.ocr.scan_plan import ScanLine, ScanPlanner, choose_scan
-from dantejp.ocr.worker import recognize_planned, recognize_regions
+from dantetl.domain import union_bounds
+from dantetl.ocr.meiki import MeikiRecognizer
+from dantetl.ocr.models import model_directory
+from dantetl.ocr.scan_plan import ScanLine, ScanPlanner, choose_scan
+from dantetl.ocr.worker import recognize_planned, recognize_regions
 
 
 def main() -> None:

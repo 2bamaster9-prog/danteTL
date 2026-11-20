@@ -6,14 +6,14 @@ import cv2
 import numpy as np
 import pytest
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr.presence import prepare_evidence
-from dantejp.ocr.tracking import TextTrack, TextTracker
-from dantejp.ocr.values import OcrResult, TextCharacter, TextRegion
-from dantejp.ocr.visual import VisualAnalyzer
-from dantejp.translation.grouping import DialogueGrouper, TextBlock
-from dantejp.translation.presentation import EnglishPresentation
-from dantejp.translation.values import TranslatedText, TranslationRequest
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.presence import prepare_evidence
+from dantetl.ocr.tracking import TextTrack, TextTracker
+from dantetl.ocr.values import OcrResult, TextCharacter, TextRegion
+from dantetl.ocr.visual import VisualAnalyzer
+from dantetl.translation.grouping import DialogueGrouper, TextBlock
+from dantetl.translation.presentation import EnglishPresentation
+from dantetl.translation.values import TranslatedText, TranslationRequest
 
 BOX = Rect(20, 30, 220, 28)
 

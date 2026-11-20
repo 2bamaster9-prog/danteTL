@@ -7,17 +7,17 @@ from unittest.mock import Mock
 import pytest
 from test_translation_plan import Engine, block, until
 
-from dantejp.application.cloud_services import CloudServices
-from dantejp.application.model_inventory import InventoryData, InventorySnapshot, ModelInventory
-from dantejp.application.preference_values import Preferences
-from dantejp.application.translation_coordinator import TranslationCoordinator
-from dantejp.languages.selection import source_language
-from dantejp.translation.cloud.values import CloudProfile
-from dantejp.translation.plan import TranslationPlan
-from dantejp.translation.routing import RoutedTranslationSession
-from dantejp.translation.selection import AssignmentChange
-from dantejp.translation.values import TranslationState
-from dantejp.translation.worker import BackendChoice, TranslationSession
+from dantetl.application.cloud_services import CloudServices
+from dantetl.application.model_inventory import InventoryData, InventorySnapshot, ModelInventory
+from dantetl.application.preference_values import Preferences
+from dantetl.application.translation_coordinator import TranslationCoordinator
+from dantetl.languages.selection import source_language
+from dantetl.translation.cloud.values import CloudProfile
+from dantetl.translation.plan import TranslationPlan
+from dantetl.translation.routing import RoutedTranslationSession
+from dantetl.translation.selection import AssignmentChange
+from dantetl.translation.values import TranslationState
+from dantetl.translation.worker import BackendChoice, TranslationSession
 
 
 def remote_ref(key):
@@ -254,7 +254,7 @@ def test_cloud_edits_preserve_unaffected_work_and_scope_credential_changes(tmp_p
 
     from test_cloud_services import create, finish
 
-    from dantejp.translation.cloud.state import CloudDraft
+    from dantetl.translation.cloud.state import CloudDraft
 
     service, _ = create(tmp_path)
     a, b, c = (replace(CloudProfile.new("deepseek"), name=name) for name in ("A", "B", "C"))

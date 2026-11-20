@@ -15,12 +15,12 @@ from PySide6.QtWidgets import QApplication
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
-from dantejp.application.preferences import PreferenceStore
-from dantejp.capture.windows import Windows
-from dantejp.runtime import model_store
-from dantejp.runtime.assets import ModelAsset
-from dantejp.runtime.hardware_values import Adapter, HardwareStatus
-from dantejp.runtime.model_store import ModelBundle
+from dantetl.application.preferences import PreferenceStore
+from dantetl.capture.windows import Windows
+from dantetl.runtime import model_store
+from dantetl.runtime.assets import ModelAsset
+from dantetl.runtime.hardware_values import Adapter, HardwareStatus
+from dantetl.runtime.model_store import ModelBundle
 
 
 def main() -> int:

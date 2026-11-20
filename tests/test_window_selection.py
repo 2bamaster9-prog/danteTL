@@ -3,8 +3,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from dantejp.capture.windows import Windows, WindowUnavailable
-from dantejp.domain import Rect, WindowGeometry
+from dantetl.capture.windows import Windows, WindowUnavailable
+from dantetl.domain import Rect, WindowGeometry
 
 
 @pytest.fixture

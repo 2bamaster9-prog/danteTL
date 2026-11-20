@@ -5,11 +5,11 @@ from unittest.mock import patch
 import cv2
 import numpy as np
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr import tracking, visual
-from dantejp.ocr.tracking import TextActivity, TextTrack, TextTracker
-from dantejp.ocr.values import OcrResult, TextRegion
-from dantejp.translation.grouping import DialogueGrouper
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr import tracking, visual
+from dantetl.ocr.tracking import TextActivity, TextTrack, TextTracker
+from dantetl.ocr.values import OcrResult, TextRegion
+from dantetl.translation.grouping import DialogueGrouper
 
 
 class AllPairs:

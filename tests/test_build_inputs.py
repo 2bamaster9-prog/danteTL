@@ -12,15 +12,15 @@ from unittest.mock import Mock
 
 import pytest
 
-from dantejp.runtime import probe
-from dantejp.runtime.values import PROFILES
+from dantetl.runtime import probe
+from dantetl.runtime.values import PROFILES
 
 
 def test_installed_cli_resolves_the_current_application_entry_point():
-    app = distribution("dantejp")
+    app = distribution("dantetl")
     (entry,) = (e for e in app.entry_points if e.group == "gui_scripts")
-    assert entry.name == "dantejp"
-    assert entry.load().__module__ == "dantejp.bootstrap"
+    assert entry.name == "dantetl"
+    assert entry.load().__module__ == "dantetl.bootstrap"
 
 
 @pytest.mark.parametrize("missing_module", [False, True])
@@ -32,7 +32,7 @@ def test_app_install_probe_loads_startup_dependencies_before_acceptance(
     )
     app = SimpleNamespace(
         version="0.1.0",
-        entry_points=[SimpleNamespace(group="gui_scripts", name="dantejp", load=load)],
+        entry_points=[SimpleNamespace(group="gui_scripts", name="dantetl", load=load)],
     )
     monkeypatch.setattr(probe, "distribution", lambda name: app)
     monkeypatch.setattr("sys.argv", ["probe", "cpu", "--application-only"])

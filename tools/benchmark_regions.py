@@ -14,10 +14,10 @@ import shiboken6
 from PySide6.QtGui import QColor, QFont, QImage, QPainter
 from PySide6.QtWidgets import QApplication
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry, union_bounds
-from dantejp.ocr.meiki import MeikiRecognizer
-from dantejp.ocr.models import model_directory
-from dantejp.ocr.worker import recognize_regions
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry, union_bounds
+from dantetl.ocr.meiki import MeikiRecognizer
+from dantetl.ocr.models import model_directory
+from dantetl.ocr.worker import recognize_regions
 
 
 def fixture(kind: str) -> tuple[CapturedFrame, tuple[Rect, ...], tuple[str, ...]]:

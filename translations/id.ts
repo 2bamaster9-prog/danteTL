@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <TS version="2.1" language="id" sourcelanguage="en">
   <context>
-    <name>DanteJP</name>
+    <name>DanteTL</name>
     <message>
       <source>
 
@@ -276,19 +276,19 @@ Folder perbaikan: {directory}</translation>
       <source>An unexpected error occurred:
 {error}
 
-Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
+Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>Terjadi kesalahan tak terduga:
 {error}
 
-Detail ada di %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
+Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     </message>
     <message>
-      <source>Another DanteJP instance is already installing a runtime.</source>
-      <translation>Instance DanteJP lain sedang menginstal runtime.</translation>
+      <source>Another DanteTL instance is already installing a runtime.</source>
+      <translation>Instance DanteTL lain sedang menginstal runtime.</translation>
     </message>
     <message>
-      <source>Another DanteJP instance is updating this ChatGPT account.</source>
-      <translation>Instance DanteJP lain sedang memperbarui akun ChatGPT ini.</translation>
+      <source>Another DanteTL instance is updating this ChatGPT account.</source>
+      <translation>Instance DanteTL lain sedang memperbarui akun ChatGPT ini.</translation>
     </message>
     <message>
       <source>Another app or Windows already uses this shortcut.</source>
@@ -815,8 +815,8 @@ Detail ada di %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Pilih koneksi tersimpan untuk penyedia ini, atau tambahkan kunci API baru.</translation>
     </message>
     <message>
-      <source>Choose a single-file GGUF chat model. The file stays in its current folder; DanteJP saves only a reference. The import test uses Japanese and English.</source>
-      <translation>Pilih model chat GGUF satu file. File tetap di folder saat ini; DanteJP hanya menyimpan referensi. Uji impor menggunakan bahasa Jepang dan Inggris.</translation>
+      <source>Choose a single-file GGUF chat model. The file stays in its current folder; DanteTL saves only a reference. The import test uses Japanese and English.</source>
+      <translation>Pilih model chat GGUF satu file. File tetap di folder saat ini; DanteTL hanya menyimpan referensi. Uji impor menggunakan bahasa Jepang dan Inggris.</translation>
     </message>
     <message>
       <source>Choose a supported provider and model.</source>
@@ -1119,8 +1119,8 @@ Detail ada di %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Tidak dapat menghentikan proses yang dimiliki.</translation>
     </message>
     <message>
-      <source>Counts belong to the selected saved model, including translation and classifier requests. Cache hits make no requests. Token totals include only usage reported by the provider; these are not billing totals. Counts reset when DanteJP exits.</source>
-      <translation>Hitungan milik model tersimpan yang dipilih, termasuk permintaan terjemahan dan pengklasifikasi. Cache hit tidak membuat permintaan. Total token hanya mencakup penggunaan yang dilaporkan oleh penyedia; ini bukan total tagihan. Hitungan diatur ulang saat DanteJP keluar.</translation>
+      <source>Counts belong to the selected saved model, including translation and classifier requests. Cache hits make no requests. Token totals include only usage reported by the provider; these are not billing totals. Counts reset when DanteTL exits.</source>
+      <translation>Hitungan milik model tersimpan yang dipilih, termasuk permintaan terjemahan dan pengklasifikasi. Cache hit tidak membuat permintaan. Total token hanya mencakup penggunaan yang dilaporkan oleh penyedia; ini bukan total tagihan. Hitungan diatur ulang saat DanteTL keluar.</translation>
     </message>
     <message>
       <source>Croatian</source>
@@ -1139,12 +1139,12 @@ Detail ada di %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Bahasa Ceko</translation>
     </message>
     <message>
-      <source>DANTEJP_DATA_DIR must be an absolute directory.</source>
-      <translation>DANTEJP_DATA_DIR harus berupa direktori absolut.</translation>
+      <source>DANTETL_DATA_DIR must be an absolute directory.</source>
+      <translation>DANTETL_DATA_DIR harus berupa direktori absolut.</translation>
     </message>
     <message>
-      <source>DANTEJP_RESOURCE_DIR must identify a complete standalone app.</source>
-      <translation>DANTEJP_RESOURCE_DIR harus mengidentifikasi aplikasi mandiri yang lengkap.</translation>
+      <source>DANTETL_RESOURCE_DIR must identify a complete standalone app.</source>
+      <translation>DANTETL_RESOURCE_DIR harus mengidentifikasi aplikasi mandiri yang lengkap.</translation>
     </message>
     <message>
       <source>DEBUG  Amber: changed pixels   Cyan: last completed OCR</source>
@@ -1155,16 +1155,16 @@ Detail ada di %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Bahasa Denmark</translation>
     </message>
     <message>
-      <source>DanteJP currently requires Windows.</source>
-      <translation>DanteJP saat ini memerlukan Windows.</translation>
+      <source>DanteTL currently requires Windows.</source>
+      <translation>DanteTL saat ini memerlukan Windows.</translation>
     </message>
     <message>
-      <source>DanteJP · Settings</source>
-      <translation>DanteJP · Pengaturan</translation>
+      <source>DanteTL · Settings</source>
+      <translation>DanteTL · Pengaturan</translation>
     </message>
     <message>
-      <source>DanteJP · Welcome</source>
-      <translation>DanteJP · Selamat Datang</translation>
+      <source>DanteTL · Welcome</source>
+      <translation>DanteTL · Selamat Datang</translation>
     </message>
     <message>
       <source>Debug overlay</source>
@@ -1179,8 +1179,8 @@ Detail ada di %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Hapus</translation>
     </message>
     <message>
-      <source>Demo opened. Refresh the window list and select DanteJP Demo.</source>
-      <translation>Demo dibuka. Segarkan daftar jendela dan pilih DanteJP Demo.</translation>
+      <source>Demo opened. Refresh the window list and select DanteTL Demo.</source>
+      <translation>Demo dibuka. Segarkan daftar jendela dan pilih DanteTL Demo.</translation>
     </message>
     <message>
       <source>Detect graphics cards and install acceleration inside the app.</source>
@@ -1223,8 +1223,8 @@ Detail ada di %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Riwayat dialog</translation>
     </message>
     <message>
-      <source>Dialogue history (Experimental) · DanteJP</source>
-      <translation>Riwayat dialog (Eksperimental) · DanteJP</translation>
+      <source>Dialogue history (Experimental) · DanteTL</source>
+      <translation>Riwayat dialog (Eksperimental) · DanteTL</translation>
     </message>
     <message>
       <source>Dialogue history · {count}/20</source>
@@ -1351,8 +1351,8 @@ Detail ada di %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Delapan akun ChatGPT sudah terdaftar.</translation>
     </message>
     <message>
-      <source>Eligible translations use your ChatGPT plan. Manage allowance and credit permissions in ChatGPT Settings → Usage. DanteJP never falls back to an API key.</source>
-      <translation>Terjemahan yang memenuhi syarat menggunakan paket ChatGPT Anda. Kelola kuota dan izin kredit di Pengaturan ChatGPT → Penggunaan. DanteJP tidak pernah beralih ke kunci API.</translation>
+      <source>Eligible translations use your ChatGPT plan. Manage allowance and credit permissions in ChatGPT Settings → Usage. DanteTL never falls back to an API key.</source>
+      <translation>Terjemahan yang memenuhi syarat menggunakan paket ChatGPT Anda. Kelola kuota dan izin kredit di Pengaturan ChatGPT → Penggunaan. DanteTL tidak pernah beralih ke kunci API.</translation>
     </message>
     <message>
       <source>Embedded chat template</source>
@@ -1723,8 +1723,8 @@ Detail ada di %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Sertakan dalam tangkapan layar</translation>
     </message>
     <message>
-      <source>Include translations in screenshots, display recordings and screen sharing. Turn off to ask Windows to exclude the overlay. Game/window-only capture may omit it either way; this does not affect DanteJP's OCR.</source>
-      <translation>Sertakan terjemahan dalam tangkapan layar, rekaman tampilan, dan berbagi layar. Matikan untuk meminta Windows mengecualikan overlay. Tangkapan game/jendela saja mungkin mengabaikannya; ini tidak memengaruhi OCR DanteJP.</translation>
+      <source>Include translations in screenshots, display recordings and screen sharing. Turn off to ask Windows to exclude the overlay. Game/window-only capture may omit it either way; this does not affect DanteTL's OCR.</source>
+      <translation>Sertakan terjemahan dalam tangkapan layar, rekaman tampilan, dan berbagi layar. Matikan untuk meminta Windows mengecualikan overlay. Tangkapan game/jendela saja mungkin mengabaikannya; ini tidak memengaruhi OCR DanteTL.</translation>
     </message>
     <message>
       <source>Included OCR files verified.</source>
@@ -2051,8 +2051,8 @@ Detail ada di %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Maksimum permintaan dimulai, termasuk percobaan ulang. Cache hit tidak menggunakan permintaan.</translation>
     </message>
     <message>
-      <source>Maximum reserved attempts for this model until DanteJP exits. Not a spending cap.</source>
-      <translation>Maksimum percobaan yang dicadangkan untuk model ini hingga DanteJP keluar. Bukan batas pengeluaran.</translation>
+      <source>Maximum reserved attempts for this model until DanteTL exits. Not a spending cap.</source>
+      <translation>Maksimum percobaan yang dicadangkan untuk model ini hingga DanteTL keluar. Bukan batas pengeluaran.</translation>
     </message>
     <message>
       <source>MeikiOCR · Japanese text recognition</source>
@@ -2383,8 +2383,8 @@ Detail ada di %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>Terjemahan aktif tertua: {value:.1f}s</translation>
     </message>
     <message>
-      <source>Only DanteJP modules may be launched by this entry point.</source>
-      <translation>Hanya modul DanteJP yang dapat diluncurkan oleh titik masuk ini.</translation>
+      <source>Only DanteTL modules may be launched by this entry point.</source>
+      <translation>Hanya modul DanteTL yang dapat diluncurkan oleh titik masuk ini.</translation>
     </message>
     <message>
       <source>Only a verified runtime can be selected.</source>
@@ -2407,8 +2407,8 @@ Detail ada di %LOCALAPPDATA%/DanteJP/logs/app.log.</translation>
       <translation>OpenAI · Kunci API</translation>
     </message>
     <message>
-      <source>Opening DanteJP with the installed runtime…</source>
-      <translation>Membuka DanteJP dengan runtime yang terpasang…</translation>
+      <source>Opening DanteTL with the installed runtime…</source>
+      <translation>Membuka DanteTL dengan runtime yang terpasang…</translation>
     </message>
     <message>
       <source>Operation cancelled.</source>
@@ -2805,8 +2805,8 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Responsif pada GPU yang diuji; CPU dan adegan sibuk lebih lambat.</translation>
     </message>
     <message>
-      <source>Restart DanteJP before changing more shortcuts.</source>
-      <translation>Mulai ulang DanteJP sebelum mengubah pintasan lainnya.</translation>
+      <source>Restart DanteTL before changing more shortcuts.</source>
+      <translation>Mulai ulang DanteTL sebelum mengubah pintasan lainnya.</translation>
     </message>
     <message>
       <source>Restart cancelled. Current runtime retained.</source>
@@ -2999,8 +2999,8 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Menyiapkan akselerasi…</translation>
     </message>
     <message>
-      <source>Setting up DanteJP</source>
-      <translation>Menyiapkan DanteJP</translation>
+      <source>Setting up DanteTL</source>
+      <translation>Menyiapkan DanteTL</translation>
     </message>
     <message>
       <source>Settings</source>
@@ -3065,8 +3065,8 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Label pendek</translation>
     </message>
     <message>
-      <source>Shortcuts work while the game has focus or DanteJP is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
-      <translation>Pintasan berfungsi saat game memiliki fokus atau DanteJP diminimalkan. Pilih kombinasi, lalu Terapkan. Pilih Nonaktif untuk mematikan suatu tindakan.</translation>
+      <source>Shortcuts work while the game has focus or DanteTL is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
+      <translation>Pintasan berfungsi saat game memiliki fokus atau DanteTL diminimalkan. Pilih kombinasi, lalu Terapkan. Pilih Nonaktif untuk mematikan suatu tindakan.</translation>
     </message>
     <message>
       <source>Show / hide overlay</source>
@@ -3117,8 +3117,8 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Sudah masuk, tetapi penggunaan paket belum diaktifkan. Masuk lagi untuk menyetujuinya.</translation>
     </message>
     <message>
-      <source>Signed out locally. Remote revocation was not confirmed; disconnect DanteJP in ChatGPT usage settings.</source>
-      <translation>Telah keluar secara lokal. Pencabutan jarak jauh tidak terkonfirmasi; putuskan DanteJP di pengaturan penggunaan ChatGPT.</translation>
+      <source>Signed out locally. Remote revocation was not confirmed; disconnect DanteTL in ChatGPT usage settings.</source>
+      <translation>Telah keluar secara lokal. Pencabutan jarak jauh tidak terkonfirmasi; putuskan DanteTL di pengaturan penggunaan ChatGPT.</translation>
     </message>
     <message>
       <source>Signed out of ChatGPT.</source>
@@ -3317,10 +3317,10 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Pengenalan teks (OCR)</translation>
     </message>
     <message>
-      <source>Text recognition is included with DanteJP. This guide helps you choose a translation model and optional GPU acceleration.
+      <source>Text recognition is included with DanteTL. This guide helps you choose a translation model and optional GPU acceleration.
 
 </source>
-      <translation>Pengenalan teks sudah termasuk dalam DanteJP. Panduan ini membantu Anda memilih model terjemahan dan akselerasi GPU opsional.
+      <translation>Pengenalan teks sudah termasuk dalam DanteTL. Panduan ini membantu Anda memilih model terjemahan dan akselerasi GPU opsional.
 
 </translation>
     </message>
@@ -3369,8 +3369,8 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Wheel aplikasi bawaan tidak ada atau ambigu. Ekstrak ZIP lengkap.</translation>
     </message>
     <message>
-      <source>The bundled installer is missing. Extract the complete DanteJP ZIP.</source>
-      <translation>Installer bawaan tidak ditemukan. Ekstrak ZIP DanteJP lengkap.</translation>
+      <source>The bundled installer is missing. Extract the complete DanteTL ZIP.</source>
+      <translation>Installer bawaan tidak ditemukan. Ekstrak ZIP DanteTL lengkap.</translation>
     </message>
     <message>
       <source>The currently committed translation model.</source>
@@ -3765,8 +3765,8 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Gunakan judul jendela</translation>
     </message>
     <message>
-      <source>Use your ChatGPT plan. To use only its included allowance, disable credit use for DanteJP in ChatGPT's usage settings. No automatic API-key fallback.</source>
-      <translation>Gunakan paket ChatGPT Anda. Untuk hanya menggunakan kuota yang disertakan, nonaktifkan penggunaan kredit untuk DanteJP di pengaturan penggunaan ChatGPT. Tidak ada fallback kunci API otomatis.</translation>
+      <source>Use your ChatGPT plan. To use only its included allowance, disable credit use for DanteTL in ChatGPT's usage settings. No automatic API-key fallback.</source>
+      <translation>Gunakan paket ChatGPT Anda. Untuk hanya menggunakan kuota yang disertakan, nonaktifkan penggunaan kredit untuk DanteTL di pengaturan penggunaan ChatGPT. Tidak ada fallback kunci API otomatis.</translation>
     </message>
     <message>
       <source>Use {value}</source>
@@ -3905,8 +3905,8 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Menunggu untuk mengklasifikasi…</translation>
     </message>
     <message>
-      <source>Welcome to DanteJP</source>
-      <translation>Selamat datang di DanteJP</translation>
+      <source>Welcome to DanteTL</source>
+      <translation>Selamat datang di DanteTL</translation>
     </message>
     <message>
       <source>Welsh</source>

@@ -5,10 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from dantejp import bootstrap as app
-from dantejp import desktop, paths
-from dantejp.runtime import setup as runtime_setup
-from dantejp.runtime.owned_process import _child_environment
+from dantetl import bootstrap as app
+from dantetl import desktop, paths
+from dantetl.runtime import setup as runtime_setup
+from dantetl.runtime.owned_process import _child_environment
 
 
 def test_relocated_frozen_helpers_use_executable_but_managed_runtimes_use_installed_module(
@@ -18,26 +18,26 @@ def test_relocated_frozen_helpers_use_executable_but_managed_runtimes_use_instal
     resources = bundle / "_internal/app"
     resources.mkdir(parents=True)
     (resources / "standalone.json").write_text("{}")
-    exe = bundle / "DanteJP.exe"
+    exe = bundle / "DanteTL.exe"
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "_MEIPASS", str(resources.parent), raising=False)
     monkeypatch.setattr(sys, "executable", str(exe))
     assert paths.resource_root() == resources
     assert paths.gui_executable() == exe
-    assert paths.module_command(exe, "dantejp.translation.models.probe", "request.json") == [
+    assert paths.module_command(exe, "dantetl.translation.models.probe", "request.json") == [
         str(exe),
         "--module",
-        "dantejp.translation.models.probe",
+        "dantetl.translation.models.probe",
         "request.json",
     ]
     managed = tmp_path / "AppData/pythonw.exe"
-    assert paths.module_command(managed, "dantejp") == [
+    assert paths.module_command(managed, "dantetl") == [
         str(managed),
         "-P",
         "-s",
         "-B",
         "-m",
-        "dantejp",
+        "dantetl",
     ]
 
 
@@ -47,10 +47,10 @@ def test_managed_wheel_resources_follow_launcher_but_frozen_resources_ignore_inh
     resources = tmp_path / "Current release 日本語/app"
     resources.mkdir(parents=True)
     (resources / "standalone.json").write_text("{}")
-    monkeypatch.setenv("DANTEJP_RESOURCE_DIR", str(resources))
+    monkeypatch.setenv("DANTETL_RESOURCE_DIR", str(resources))
     assert paths.resource_root() == resources
     assert paths.is_standalone()
-    monkeypatch.setenv("DANTEJP_RESOURCE_DIR", "missing")
+    monkeypatch.setenv("DANTETL_RESOURCE_DIR", "missing")
     with pytest.raises(ValueError, match="complete standalone"):
         paths.resource_root()
     monkeypatch.setattr(sys, "_MEIPASS", str(resources.parent), raising=False)
@@ -59,7 +59,7 @@ def test_managed_wheel_resources_follow_launcher_but_frozen_resources_ignore_inh
 
 def test_cpu_recovery_starts_without_attempting_saved_runtime(monkeypatch, tmp_path):
     monkeypatch.setattr(desktop, "state_root", lambda: tmp_path)
-    monkeypatch.setattr(sys, "argv", ["DanteJP.exe", "--cpu"])
+    monkeypatch.setattr(sys, "argv", ["DanteTL.exe", "--cpu"])
     monkeypatch.setattr(
         runtime_setup, "selected_runtime", lambda _: pytest.fail("Recovery must bypass selection")
     )
@@ -67,11 +67,11 @@ def test_cpu_recovery_starts_without_attempting_saved_runtime(monkeypatch, tmp_p
     monkeypatch.setattr(app, "main", lambda: started.append(True))
     desktop.main()
     assert started == [True]
-    assert sys.argv == ["DanteJP.exe"]
+    assert sys.argv == ["DanteTL.exe"]
 
 
 def test_helper_dispatch_does_not_start_ui_or_selected_runtime(monkeypatch):
-    monkeypatch.setattr(sys, "argv", ["DanteJP.exe", "--module", "dantejp.runtime.probe", "cpu"])
+    monkeypatch.setattr(sys, "argv", ["DanteTL.exe", "--module", "dantetl.runtime.probe", "cpu"])
     called = []
     monkeypatch.setattr(
         desktop.runpy, "run_module", lambda module, **kw: called.append((module, sys.argv[:]))
@@ -80,9 +80,9 @@ def test_helper_dispatch_does_not_start_ui_or_selected_runtime(monkeypatch):
         runtime_setup, "selected_runtime", lambda _: pytest.fail("Helper must not hand off")
     )
     desktop.main()
-    assert called == [("dantejp.runtime.probe", ["dantejp.runtime.probe", "cpu"])]
-    monkeypatch.setattr(sys, "argv", ["DanteJP.exe", "--module", "unrelated"])
-    with pytest.raises(ValueError, match="Only DanteJP"):
+    assert called == [("dantetl.runtime.probe", ["dantetl.runtime.probe", "cpu"])]
+    monkeypatch.setattr(sys, "argv", ["DanteTL.exe", "--module", "unrelated"])
+    with pytest.raises(ValueError, match="Only DanteTL"):
         desktop.main()
 
 

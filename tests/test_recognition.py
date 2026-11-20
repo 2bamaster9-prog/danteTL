@@ -3,9 +3,9 @@ import time
 from collections.abc import Callable
 from dataclasses import replace
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr.values import OcrResult, OcrState, TextRegion
-from dantejp.ocr.worker import OcrSession, overlay_result_ready
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.values import OcrResult, OcrState, TextRegion
+from dantetl.ocr.worker import OcrSession, overlay_result_ready
 
 
 def frame(sequence: int) -> CapturedFrame:

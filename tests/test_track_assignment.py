@@ -5,7 +5,7 @@ from random import Random
 
 import pytest
 
-from dantejp.ocr.track_assignment import UNMATCHED_SCORE, assign_tracks
+from dantetl.ocr.track_assignment import UNMATCHED_SCORE, assign_tracks
 
 
 def objective(edges, matches):

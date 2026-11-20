@@ -27,7 +27,7 @@ headers and accepted ordinary headers. See the [upstream advisory](https://githu
 
 DiskCache 5.6.3 remains a required import of the unmodified upstream llama-cpp-python package.
 Its [pickle deserialization advisory](https://github.com/advisories/GHSA-w8v5-vhqr-4h9v) requires
-reading attacker-modified cache data. DanteJP never enables llama.cpp's optional prompt/disk cache;
+reading attacker-modified cache data. DanteTL never enables llama.cpp's optional prompt/disk cache;
 its own translation cache uses SQLite text values, not pickle. Native category-model verification
 fails if a backend enables an upstream cache or constructs a DiskCache during model loading,
 inference or switching. Keep that boundary when changing adapters.

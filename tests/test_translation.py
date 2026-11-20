@@ -4,18 +4,18 @@ from dataclasses import replace
 
 import pytest
 
-from dantejp.application.live_session import LiveSession
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.languages.selection import source_language
-from dantejp.languages.target import ENGLISH, TARGET_LANGUAGES
-from dantejp.ocr.tracking import TextTrack, TextTracker
-from dantejp.ocr.values import OcrResult, TextCharacter, TextRegion
-from dantejp.translation.backend import RequestRejected
-from dantejp.translation.cache import TranslationCache, translation_key
-from dantejp.translation.dialogue.context import DialogueTurn
-from dantejp.translation.grouping import DialogueGrouper, TextBlock
-from dantejp.translation.values import TranslationRequest, TranslationState
-from dantejp.translation.worker import TranslationSession
+from dantetl.application.live_session import LiveSession
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.languages.selection import source_language
+from dantetl.languages.target import ENGLISH, TARGET_LANGUAGES
+from dantetl.ocr.tracking import TextTrack, TextTracker
+from dantetl.ocr.values import OcrResult, TextCharacter, TextRegion
+from dantetl.translation.backend import RequestRejected
+from dantetl.translation.cache import TranslationCache, translation_key
+from dantetl.translation.dialogue.context import DialogueTurn
+from dantetl.translation.grouping import DialogueGrouper, TextBlock
+from dantetl.translation.values import TranslationRequest, TranslationState
+from dantetl.translation.worker import TranslationSession
 
 
 def track(text="日本語", revision=1, key=1) -> TextTrack:

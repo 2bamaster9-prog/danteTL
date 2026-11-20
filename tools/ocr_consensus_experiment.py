@@ -10,8 +10,8 @@ from dataclasses import dataclass
 from math import ceil
 from typing import Literal
 
-from dantejp.domain import Rect
-from dantejp.ocr.tracking import TextTrack
+from dantetl.domain import Rect
+from dantetl.ocr.tracking import TextTrack
 
 Edit = tuple[int, int, str]
 

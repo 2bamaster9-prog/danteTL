@@ -11,16 +11,16 @@ from unittest.mock import Mock, patch
 from PySide6.QtWidgets import QApplication, QScrollArea
 from verification_isolation import app_owner, cloud_owner, create_inventory, find_model
 
-from dantejp.application.cloud_services import CloudServices
-from dantejp.capture.windows import Windows
-from dantejp.composition import application_session, setup_coordinator
-from dantejp.paths import state_root
-from dantejp.translation.cloud.chatgpt_auth import PLAN_SCOPE, ChatGPTConnections
-from dantejp.translation.cloud.profiles import CloudProfiles
-from dantejp.translation.cloud.protected_store import ProtectedStore
-from dantejp.translation.cloud.values import CatalogModel, CloudProfile
-from dantejp.ui.desktop_driver import DesktopDriver
-from dantejp.ui.main_window import MainWindow
+from dantetl.application.cloud_services import CloudServices
+from dantetl.capture.windows import Windows
+from dantetl.composition import application_session, setup_coordinator
+from dantetl.paths import state_root
+from dantetl.translation.cloud.chatgpt_auth import PLAN_SCOPE, ChatGPTConnections
+from dantetl.translation.cloud.profiles import CloudProfiles
+from dantetl.translation.cloud.protected_store import ProtectedStore
+from dantetl.translation.cloud.values import CatalogModel, CloudProfile
+from dantetl.ui.desktop_driver import DesktopDriver
+from dantetl.ui.main_window import MainWindow
 
 
 def drain(app: QApplication, predicate) -> None:
@@ -84,7 +84,7 @@ def main() -> None:
         try:
             drain(app, lambda: not application.cloud.busy)
             window.windows_combo.clear()
-            window.windows_combo.addItem("DanteJP Demo · 日本語のテスト")
+            window.windows_combo.addItem("DanteTL Demo · 日本語のテスト")
             window.routing.simple.setCurrentIndex(
                 find_model(window.routing.simple, window.routing.resolve("cloud:" + profile.key))
             )
@@ -197,7 +197,7 @@ def main() -> None:
             assert editor
             previous = editor.model.currentData()
             with patch(
-                "dantejp.application.cloud_services.fetch_models",
+                "dantetl.application.cloud_services.fetch_models",
                 return_value=(
                     CatalogModel("future-gemini", "Future Gemini · fixture", "gemini-no-thinking"),
                 ),

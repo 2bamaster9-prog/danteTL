@@ -7,17 +7,17 @@ from unittest.mock import Mock
 
 import pytest
 
-from dantejp.application.model_lifecycle import ModelLifecycle, RouteSelection
-from dantejp.application.preference_values import Preferences
-from dantejp.application.preferences import decode_preferences
-from dantejp.domain import Rect
-from dantejp.languages.target import ENGLISH
-from dantejp.ocr.tracking import TextTrack
-from dantejp.translation.grouping import TextBlock
-from dantejp.translation.plan import TranslationPlan
-from dantejp.translation.routing import RoutedTranslationSession
-from dantejp.translation.values import TranslationState
-from dantejp.translation.worker import BackendChoice, TranslationSession
+from dantetl.application.model_lifecycle import ModelLifecycle, RouteSelection
+from dantetl.application.preference_values import Preferences
+from dantetl.application.preferences import decode_preferences
+from dantetl.domain import Rect
+from dantetl.languages.target import ENGLISH
+from dantetl.ocr.tracking import TextTrack
+from dantetl.translation.grouping import TextBlock
+from dantetl.translation.plan import TranslationPlan
+from dantetl.translation.routing import RoutedTranslationSession
+from dantetl.translation.values import TranslationState
+from dantetl.translation.worker import BackendChoice, TranslationSession
 
 
 def until(predicate):
@@ -206,7 +206,7 @@ def test_preferences_validate_new_assignments_and_keep_manual_game_on_upgrade():
 def test_two_model_owners_initialize_and_share_persistent_cache(tmp_path):
     from concurrent.futures import ThreadPoolExecutor
 
-    from dantejp.translation.cache import TranslationCache
+    from dantetl.translation.cache import TranslationCache
 
     start = threading.Barrier(2)
     path = tmp_path / "new-cache.sqlite3"

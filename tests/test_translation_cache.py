@@ -2,7 +2,7 @@ import sqlite3
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from dantejp.translation.cache import TranslationCache, translation_key
+from dantetl.translation.cache import TranslationCache, translation_key
 
 
 def test_cache_key_separates_backend_settings_and_exact_source() -> None:

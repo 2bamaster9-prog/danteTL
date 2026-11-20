@@ -1,9 +1,9 @@
 from dataclasses import replace
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr.tracking import TextTracker
-from dantejp.ocr.values import OcrResult, TextRegion
-from dantejp.translation.grouping import DialogueGrouper
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.tracking import TextTracker
+from dantetl.ocr.values import OcrResult, TextRegion
+from dantetl.translation.grouping import DialogueGrouper
 
 FIRST = "新しい冒険がここから始まりますが、"
 SECOND = "その前に旅の準備をしてください。"

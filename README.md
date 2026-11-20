@@ -1,6 +1,6 @@
-# DanteJP
+# DanteTL
 
-DanteJP reads text in 35 source languages from a selected Windows game and displays translations in a click-through
+DanteTL reads text in 35 source languages from a selected Windows game and displays translations in a click-through
 overlay. Choose from 19 output languages in **Translation → Output language** or **Settings →
 Appearance**, including Japanese, Portuguese (Portugal), Portuguese (Brazil), Korean, and both Chinese scripts.
 If an assigned model lacks the selected language, the warning beside the selector offers a switch
@@ -11,7 +11,7 @@ use a local model or a supported cloud provider.
 
 For Windows x64. Windows 11 is the current validation target; use windowed or borderless fullscreen.
 
-1. Extract **DanteJP-windows-x64.zip** and open **DanteJP.exe**. Keep the `_internal` folder beside
+1. Extract **DanteTL-windows-x64.zip** and open **DanteTL.exe**. Keep the `_internal` folder beside
    the EXE. The standalone app needs no separate Python installation.
 2. Follow the **Setup assistant** to choose and download a local translator, or skip it and
    configure a cloud model under **Settings → Models**. Downloads require your confirmation.
@@ -19,7 +19,7 @@ For Windows x64. Windows 11 is the current validation target; use windowed or bo
    Return to the game to see the overlay. Models load in the background; first use may ask you to
    prepare a local model before continuing.
 
-DanteJP starts in English. Choose **App language** in the Setup assistant or under
+DanteTL starts in English. Choose **App language** in the Setup assistant or under
 **Settings → Appearance**. The interface updates immediately, including during setup or capture.
 
 Choose the source under **Translation → Game text language** or **Settings → Recognition**.
@@ -84,7 +84,7 @@ paid allowance.
 
 ChatGPT sign-in depends on your account's access and available models. API-key connections use
 separate API billing, not your chat subscription. Cloud requests consume provider allowance and
-may incur charges; DanteJP's request limits are not spending caps.
+may incur charges; DanteTL's request limits are not spending caps.
 
 Screenshots and OCR stay on your PC. Cloud translation sends recognized text, the game-name hint,
 and limited recent dialogue context to the selected provider.
@@ -107,7 +107,7 @@ window; the capture shortcut uses the focused window by default.
   Pause it to review or copy text while the game overlay continues updating.
 - **Settings → Experimental → Dialogue history** enables the optional reader. It is **off by
   default**. Once enabled, open **Dialogue** beside the Settings gear to read recent turns.
-  DanteJP remembers your opt-in. The reader can still misidentify dialogue or speakers. Cloud
+  DanteTL remembers your opt-in. The reader can still misidentify dialogue or speakers. Cloud
   classifiers make additional requests using your provider allowance.
 - To record or share the translated view, use display/entire-screen capture; game-only capture
   may omit the separate overlay. Keep **Include in screen capture** enabled.
@@ -115,9 +115,9 @@ window; the capture shortcut uses the focused window by default.
 ## Updates and limitations
 
 Close the app and extract an update into a new folder. Standalone models, settings, caches and
-optional runtimes live in **`%LOCALAPPDATA%\DanteJP`** and are reused across updates. Compatible
+optional runtimes live in **`%LOCALAPPDATA%\DanteTL`** and are reused across updates. Compatible
 runtimes do not need setup again for an app-only update. If GPU startup fails, launch
-`DanteJP.exe --cpu` to use the bundled CPU environment.
+`DanteTL.exe --cpu` to use the bundled CPU environment.
 
 Tiny text, unusual fonts, names, dialogue choices and dense layouts can produce recognition or
 translation errors. Check the inspector when a result looks wrong. Exclusive fullscreen, protected windows, HDR and individual game or
@@ -125,12 +125,12 @@ anti-cheat compatibility are not guaranteed.
 
 ## From source and contributing
 
-For a source checkout, **Run DanteJP.cmd** sets up and launches the app. Initial setup needs uv
+For a source checkout, **Run DanteTL.cmd** sets up and launches the app. Initial setup needs uv
 (or Python to bootstrap it) and C++ Build Tools for the CPU language-model engine. Source runs
 keep models and data in the project folder and do not bundle OCR weights; use the setup assistant
 to download them.
 
-The Python package and CLI are both `dantejp` (`python -m dantejp` or `uv run dantejp` after setup).
+The Python package and CLI are both `dantetl` (`python -m dantetl` or `uv run dantetl` after setup).
 
 See the [engineering guide](engineering/README.md) for development guidance,
 [verification](engineering/verification.md) for checks, and [building](engineering/building.md)

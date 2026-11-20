@@ -6,8 +6,8 @@ from unittest.mock import Mock
 import pytest
 from download_fixtures import download_bytes
 
-from dantejp.runtime import downloads as downloads
-from dantejp.runtime.setup_values import Cancelled
+from dantetl.runtime import downloads as downloads
+from dantetl.runtime.setup_values import Cancelled
 
 
 def export(tmp_path, wheels, *, marker="", digest=None):

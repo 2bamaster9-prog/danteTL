@@ -2,10 +2,10 @@ from dataclasses import replace
 
 import pytest
 
-from dantejp.domain import Rect
-from dantejp.ocr.tracking import TextTrack
-from dantejp.translation.dialogue.context import DialogueMemory, DialogueTurn
-from dantejp.translation.grouping import TextBlock
+from dantetl.domain import Rect
+from dantetl.ocr.tracking import TextTrack
+from dantetl.translation.dialogue.context import DialogueMemory, DialogueTurn
+from dantetl.translation.grouping import TextBlock
 
 
 def block(text="私の名前はリナです。", key=1, *, dialogue=True, x=100, y=600):

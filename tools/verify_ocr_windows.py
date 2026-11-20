@@ -18,13 +18,13 @@ from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 from verify_translation import process_memory
 
-from dantejp.application.model_factories import create_recognizer, translation_backends
-from dantejp.capture.windows import Windows
-from dantejp.domain import CapturedFrame, WindowTarget
-from dantejp.ocr.values import OcrState, TextRegion
-from dantejp.ocr.worker import OcrChoice
-from dantejp.translation.values import TranslationState
-from dantejp.ui.demo import DIALOGUE_LINES, DemoWindow
+from dantetl.application.model_factories import create_recognizer, translation_backends
+from dantetl.capture.windows import Windows
+from dantetl.domain import CapturedFrame, WindowTarget
+from dantetl.ocr.values import OcrState, TextRegion
+from dantetl.ocr.worker import OcrChoice
+from dantetl.translation.values import TranslationState
+from dantetl.ui.demo import DIALOGUE_LINES, DemoWindow
 
 
 class EquipmentMenu(QWidget):

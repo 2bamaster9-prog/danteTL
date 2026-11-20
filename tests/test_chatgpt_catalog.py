@@ -8,13 +8,13 @@ import time
 import httpx2
 import pytest
 
-from dantejp.translation.cloud.auth_work import AUTH_RESPONSE_LIMIT, AuthInterrupted, AuthWork
-from dantejp.translation.cloud.chatgpt_auth import (
+from dantetl.translation.cloud.auth_work import AUTH_RESPONSE_LIMIT, AuthInterrupted, AuthWork
+from dantetl.translation.cloud.chatgpt_auth import (
     MODEL_CATALOG_RESPONSE_LIMIT,
     PLAN_SCOPE,
     ChatGPTConnections,
 )
-from dantejp.translation.cloud.protected_store import ProtectedStore
+from dantetl.translation.cloud.protected_store import ProtectedStore
 
 
 class Body(httpx2.AsyncByteStream):

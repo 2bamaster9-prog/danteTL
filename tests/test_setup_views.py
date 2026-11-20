@@ -11,12 +11,12 @@ import shiboken6  # noqa: E402
 from PySide6.QtWidgets import QApplication, QWidget  # noqa: E402
 from test_setup_ownership import configured  # noqa: E402
 
-from dantejp.runtime.hardware_values import HardwareStatus  # noqa: E402
-from dantejp.runtime.setup_values import SetupLane  # noqa: E402
-from dantejp.translation.models.values import ImportedModel, ProbeResult  # noqa: E402
-from dantejp.ui.model_import_dialog import ModelImportDialog  # noqa: E402
-from dantejp.ui.runtime_dialog import RuntimeSetupDialog  # noqa: E402
-from dantejp.ui.setup_assistant import SetupAssistant  # noqa: E402
+from dantetl.runtime.hardware_values import HardwareStatus  # noqa: E402
+from dantetl.runtime.setup_values import SetupLane  # noqa: E402
+from dantetl.translation.models.values import ImportedModel, ProbeResult  # noqa: E402
+from dantetl.ui.model_import_dialog import ModelImportDialog  # noqa: E402
+from dantetl.ui.runtime_dialog import RuntimeSetupDialog  # noqa: E402
+from dantetl.ui.setup_assistant import SetupAssistant  # noqa: E402
 
 
 @pytest.fixture(scope="module")

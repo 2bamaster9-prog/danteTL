@@ -8,14 +8,14 @@ from tempfile import TemporaryDirectory
 
 from test_live_session import Capture, frame
 
-from dantejp.application.cloud_services import CloudServices
-from dantejp.application.live_session import LiveSession
-from dantejp.application.values import Scene
-from dantejp.domain import CaptureSnapshot, CaptureState
-from dantejp.translation.cloud.chatgpt_auth import ChatGPTConnections
-from dantejp.translation.cloud.profiles import CloudProfiles
-from dantejp.translation.cloud.protected_store import ProtectedStore
-from dantejp.translation.grouping import TextBlock
+from dantetl.application.cloud_services import CloudServices
+from dantetl.application.live_session import LiveSession
+from dantetl.application.values import Scene
+from dantetl.domain import CaptureSnapshot, CaptureState
+from dantetl.translation.cloud.chatgpt_auth import ChatGPTConnections
+from dantetl.translation.cloud.profiles import CloudProfiles
+from dantetl.translation.cloud.protected_store import ProtectedStore
+from dantetl.translation.grouping import TextBlock
 
 _applications = weakref.WeakKeyDictionary()
 _sources = weakref.WeakKeyDictionary()
@@ -81,9 +81,9 @@ def create_window(windows, recognizer, *backends_args, cloud=None, **kwargs):
     if kwargs.pop("scene_feed", False):
         kwargs["live_session"] = SceneFeed()
     args = (windows, recognizer, *backends_args)
-    from dantejp.ui.main_window import MainWindow
+    from dantetl.ui.main_window import MainWindow
 
-    temporary = TemporaryDirectory(prefix="dantejp-test-")
+    temporary = TemporaryDirectory(prefix="dantetl-test-")
     root = Path(temporary.name)
     kwargs.setdefault("preferences_path", root / "preferences.json")
     cloud = cloud or cloud_service(
@@ -93,8 +93,8 @@ def create_window(windows, recognizer, *backends_args, cloud=None, **kwargs):
     )
     from functools import partial
 
-    from dantejp.application.model_inventory import ModelInventory, inspect_models
-    from dantejp.runtime.model_store import mark_prepared
+    from dantetl.application.model_inventory import ModelInventory, inspect_models
+    from dantetl.runtime.model_store import mark_prepared
 
     backends = args[2] if len(args) > 2 else kwargs.get("backends", ())
     bundles = kwargs.get("models", ())
@@ -107,8 +107,8 @@ def create_window(windows, recognizer, *backends_args, cloud=None, **kwargs):
     )
     source = InventoryFeed(probe)
     inventory = ModelInventory(source, mark_prepared, initial=initial_probe())
-    from dantejp.composition import application_session, setup_coordinator
-    from dantejp.ui.desktop_driver import DesktopDriver
+    from dantetl.composition import application_session, setup_coordinator
+    from dantetl.ui.desktop_driver import DesktopDriver
 
     setup = setup_coordinator(inventory, bundles, root)
     driver = DesktopDriver()
@@ -129,7 +129,7 @@ def create_window(windows, recognizer, *backends_args, cloud=None, **kwargs):
 def cloud_panel(**kwargs):
     from PySide6.QtCore import QTimer
 
-    from dantejp.ui.cloud_settings import CloudSettings
+    from dantetl.ui.cloud_settings import CloudSettings
 
     panel = CloudSettings(cloud_service(**kwargs))
     timer = QTimer(panel)
@@ -139,17 +139,17 @@ def cloud_panel(**kwargs):
 
 
 def model_manager(*args, **kwargs):
-    from dantejp.ui.model_manager import ModelManager
+    from dantetl.ui.model_manager import ModelManager
 
-    temporary = TemporaryDirectory(prefix="dantejp-test-")
+    temporary = TemporaryDirectory(prefix="dantetl-test-")
     root = Path(temporary.name)
     service = cloud_service(
         catalog=CloudProfiles(root / "cloud.json"),
         secrets=NoCredentials,
         connections=ChatGPTConnections(ProtectedStore(root / "accounts")),
     )
-    from dantejp.application.model_inventory import ModelInventory, inspect_models
-    from dantejp.composition import setup_coordinator
+    from dantetl.application.model_inventory import ModelInventory, inspect_models
+    from dantetl.composition import setup_coordinator
 
     inventory = ModelInventory(
         lambda: inspect_models(args[0], lambda: ()),
@@ -163,8 +163,8 @@ def model_manager(*args, **kwargs):
 
 
 def find_model(combo, choice):
-    from dantejp.application.translation_coordinator import model_reference
-    from dantejp.translation.selection import ModelOption
+    from dantetl.application.translation_coordinator import model_reference
+    from dantetl.translation.selection import ModelOption
 
     reference = choice.reference if isinstance(choice, ModelOption) else model_reference(choice)
     return next(
@@ -230,7 +230,7 @@ def app_owner(window):
 
 
 def settings(window):
-    from dantejp.ui.settings_window import SettingsWindow
+    from dantetl.ui.settings_window import SettingsWindow
 
     panel = window.findChild(SettingsWindow)
     assert panel is not None
@@ -240,7 +240,7 @@ def settings(window):
 def cloud_owner(panel):
     from typing import cast
 
-    from dantejp.application.cloud_services import CloudServices
+    from dantetl.application.cloud_services import CloudServices
 
     return cast(CloudServices, panel.service)
 
@@ -248,14 +248,14 @@ def cloud_owner(panel):
 def setup_owner(panel):
     from typing import cast
 
-    from dantejp.application.setup_coordinator import SetupCoordinator
+    from dantetl.application.setup_coordinator import SetupCoordinator
 
     return cast(SetupCoordinator, panel.service)
 
 
 def set_ocr_available(window, ready):
 
-    from dantejp.application.model_values import ModelFile
+    from dantetl.application.model_values import ModelFile
 
     ocr = ModelFile(
         "ocr",

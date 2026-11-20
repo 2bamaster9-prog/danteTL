@@ -23,12 +23,12 @@ The script only orchestrates established tools:
    The build imports the wheel's CLI entry point with the working directory excluded, checking
    that nested packages are present without relying on the editable source installation.
 4. `uv export --locked --no-emit-project` produces dependency-only PEP 751 locks for each profile.
-5. `python -m PyInstaller packaging/DanteJP.spec` collects the app using upstream hooks/bootloader,
+5. `python -m PyInstaller packaging/DanteTL.spec` collects the app using upstream hooks/bootloader,
    including that same app wheel and SHA-256 sidecar for optional runtime installation.
 6. PowerShell `Compress-Archive` makes the portable ZIP; `Get-FileHash` creates SHA-256 sidecars.
 
-Outputs are `dist/DanteJP-windows-x64.zip`, `dist/dantejp-<version>-py3-none-any.whl`,
-`dist/dantejp-<version>.tar.gz` and `.sha256` sidecars. Distribute the portable ZIP to players;
+Outputs are `dist/DanteTL-windows-x64.zip`, `dist/dantetl-<version>-py3-none-any.whl`,
+`dist/dantetl-<version>.tar.gz` and `.sha256` sidecars. Distribute the portable ZIP to players;
 The Python wheel also ships inside the portable app for private runtime setup. Source distributions include the locked project,
 build spec, verification fixtures and engineering docs, without local models, caches or settings.
 For only Python artifacts, ordinary `uv build` works through the pinned PEP 517 backend.
@@ -45,7 +45,7 @@ Models, preferences and selection are kept. Moving an unchanged release requires
 Optional runtimes use standard offline `uv pip install --target --no-deps --require-hashes` to
 prepare only the bundled app wheel in an immutable, hash-specific AppData directory. This is shared
 across native profiles and takes no network access. A process-local `PYTHONPATH` selects that app,
-with `python -P -s -B -m dantejp` excluding the working directory and user site. No loaded files
+with `python -P -s -B -m dantetl` excluding the working directory and user site. No loaded files
 are replaced, so concurrent old instances and rollback keep their app code. The launcher passes
 the current bundle's read-only resources separately; no duplicate `app/src` tree, editable standalone
 install, custom bootstrap or dependency on the frozen interpreter is needed.
@@ -90,7 +90,7 @@ For a release:
 
 A tag must exactly equal `v` plus the project version. Only a successful tagged build publishes a
 GitHub Release, with the portable ZIP, wheel, source archive and SHA-256 sidecars. Extract the ZIP
-and launch `DanteJP.exe`; keep its `_internal` directory beside it. Failed checks/build/smoke tests
+and launch `DanteTL.exe`; keep its `_internal` directory beside it. Failed checks/build/smoke tests
 prevent publication. The release job downloads only that run's artifact, checks its hashes and
 uses GitHub CLI with `--verify-tag`; it cannot silently create a tag. No project code or checkout
 runs with its write token. PR/manual runs cannot publish. Existing releases are never overwritten;
@@ -111,7 +111,7 @@ for the scoped dependency exception and remaining repository/signing setup.
 Workflow references: [reusable checks](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows),
 [GitHub CLI releases](https://cli.github.com/manual/gh_release_create).
 
-The normal source shortcut remains `Run DanteJP.cmd`; `--cpu` bypasses a saved runtime for recovery.
+The normal source shortcut remains `Run DanteTL.cmd`; `--cpu` bypasses a saved runtime for recovery.
 Model and optional runtime setup live in the app. `tools/setup.ps1` remains a developer environment
 helper, while the old top-level setup/hardware shortcuts and custom packagers have been removed.
 

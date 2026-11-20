@@ -5,15 +5,15 @@ import time
 import httpx2
 import pytest
 
-from dantejp.domain import Rect
-from dantejp.ocr.tracking import TextTrack
-from dantejp.translation.cloud.auth_work import AuthInterrupted, AuthWork
-from dantejp.translation.cloud.backend import CloudBackend
-from dantejp.translation.cloud.chatgpt_auth import PLAN_SCOPE, ChatGPTConnections
-from dantejp.translation.cloud.protected_store import ProtectedStore
-from dantejp.translation.cloud.values import CloudProfile
-from dantejp.translation.values import TranslationState
-from dantejp.translation.worker import TranslationSession
+from dantetl.domain import Rect
+from dantetl.ocr.tracking import TextTrack
+from dantetl.translation.cloud.auth_work import AuthInterrupted, AuthWork
+from dantetl.translation.cloud.backend import CloudBackend
+from dantetl.translation.cloud.chatgpt_auth import PLAN_SCOPE, ChatGPTConnections
+from dantetl.translation.cloud.protected_store import ProtectedStore
+from dantetl.translation.cloud.values import CloudProfile
+from dantetl.translation.values import TranslationState
+from dantetl.translation.worker import TranslationSession
 
 
 def until(predicate):

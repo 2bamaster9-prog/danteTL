@@ -4,8 +4,8 @@ from dataclasses import replace
 
 import pytest
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr.scan_plan import (
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.scan_plan import (
     ScanCosts,
     ScanLine,
     ScanPlan,
@@ -13,8 +13,8 @@ from dantejp.ocr.scan_plan import (
     choose_scan,
     preserves_lines,
 )
-from dantejp.ocr.values import TextCharacter, TextRegion
-from dantejp.ocr.worker import OcrSession, recognize_planned
+from dantetl.ocr.values import TextCharacter, TextRegion
+from dantetl.ocr.worker import OcrSession, recognize_planned
 
 SIZE = (1920, 1080)
 COSTS = ScanCosts(40, 30)

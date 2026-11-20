@@ -1,6 +1,6 @@
 import pytest
 
-from dantejp.domain import (
+from dantetl.domain import (
     CapturedFrame,
     CaptureSnapshot,
     CaptureState,

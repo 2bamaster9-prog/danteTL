@@ -9,16 +9,16 @@ from unittest.mock import Mock
 
 import pytest
 
-from dantejp import bootstrap as app
-from dantejp.application.preferences import decode_preferences
-from dantejp.runtime import llama as llama_runtime
-from dantejp.runtime.setup_values import Cancelled
-from dantejp.translation.backend import RequestRejected
-from dantejp.translation.backends import gguf as gguf_backend
-from dantejp.translation.dialogue.context import DialogueTurn
-from dantejp.translation.models import gguf as gguf_models
-from dantejp.translation.models import probe as gguf_probe
-from dantejp.translation.models.gguf import available
+from dantetl import bootstrap as app
+from dantetl.application.preferences import decode_preferences
+from dantetl.runtime import llama as llama_runtime
+from dantetl.runtime.setup_values import Cancelled
+from dantetl.translation.backend import RequestRejected
+from dantetl.translation.backends import gguf as gguf_backend
+from dantetl.translation.dialogue.context import DialogueTurn
+from dantetl.translation.models import gguf as gguf_models
+from dantetl.translation.models import probe as gguf_probe
+from dantetl.translation.models.gguf import available
 
 
 def gguf_file(tmp_path, *, architecture="qwen3", template="{{ messages[0].content }}", split=1):
@@ -125,9 +125,9 @@ def test_hashing_cancel_and_same_size_changes_are_detected(tmp_path):
 def test_curated_models_use_pinned_hash_without_registering_or_loading_corrupt_weights(
     tmp_path, monkeypatch, architecture, fake_runtime
 ):
-    from dantejp.runtime.assets import ModelAsset
-    from dantejp.runtime.model_store import ModelBundle
-    from dantejp.translation.models.curated import CuratedModel
+    from dantetl.runtime.assets import ModelAsset
+    from dantetl.runtime.model_store import ModelBundle
+    from dantetl.translation.models.curated import CuratedModel
 
     path = gguf_file(tmp_path, architecture=architecture)
     asset = ModelAsset(

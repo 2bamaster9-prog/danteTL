@@ -9,10 +9,10 @@ from pathlib import Path
 
 import pytest
 
-from dantejp.runtime import download_transport, model_store
-from dantejp.runtime import downloads as runtime_downloads
-from dantejp.runtime.assets import ModelAsset
-from dantejp.runtime.setup_values import Cancelled
+from dantetl.runtime import download_transport, model_store
+from dantetl.runtime import downloads as runtime_downloads
+from dantetl.runtime.assets import ModelAsset
+from dantetl.runtime.setup_values import Cancelled
 
 
 @contextmanager
@@ -144,7 +144,7 @@ def test_cancel_interrupts_blocked_connection_setup(tmp_path, monkeypatch, phase
     def command(python, module, *args):
         script = (
             "import socket,time; from pathlib import Path; "
-            "from dantejp.runtime.download_transport import _receive; "
+            "from dantetl.runtime.download_transport import _receive; "
             f"marker=Path({str(marker)!r}); "
             "blocked=lambda *a,**kw: (marker.write_text('entered'),time.sleep(30))[1]; "
             + (

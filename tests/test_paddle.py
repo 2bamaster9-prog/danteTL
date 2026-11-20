@@ -5,9 +5,9 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr import paddle
-from dantejp.runtime.ocr import CPU, CUDA
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr import paddle
+from dantetl.runtime.ocr import CPU, CUDA
 
 
 @pytest.mark.parametrize(
@@ -25,7 +25,7 @@ from dantejp.runtime.ocr import CPU, CUDA
 def test_icon_evidence_preserves_confident_short_labels_and_punctuation(
     tmp_path, monkeypatch, prefix, strength, first, following, word, expected
 ):
-    dictionary = files("dantejp.ocr").joinpath("paddle_latin", "dictionary.json")
+    dictionary = files("dantetl.ocr").joinpath("paddle_latin", "dictionary.json")
     alphabet = ("", *json.loads(dictionary.read_bytes()), " ")
     bounds = Rect(0, 0, 960, 192)
     frame = CapturedFrame(1, 1, WindowGeometry(bounds, bounds, bounds, 96), bytes(960 * 192 * 4))

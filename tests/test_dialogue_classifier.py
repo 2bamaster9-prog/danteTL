@@ -7,24 +7,24 @@ from dataclasses import replace
 import httpx2
 import pytest
 
-from dantejp.application.live_session import LiveSession
-from dantejp.application.preference_values import Preferences
-from dantejp.application.preferences import decode_preferences
-from dantejp.domain import Rect
-from dantejp.ocr.tracking import TextTrack
-from dantejp.translation.backend import RequestRejected
-from dantejp.translation.cloud.backend import CloudAllowance, CloudBackend
-from dantejp.translation.cloud.values import CloudProfile
-from dantejp.translation.dialogue.classifier import (
+from dantetl.application.live_session import LiveSession
+from dantetl.application.preference_values import Preferences
+from dantetl.application.preferences import decode_preferences
+from dantetl.domain import Rect
+from dantetl.ocr.tracking import TextTrack
+from dantetl.translation.backend import RequestRejected
+from dantetl.translation.cloud.backend import CloudAllowance, CloudBackend
+from dantetl.translation.cloud.values import CloudProfile
+from dantetl.translation.dialogue.classifier import (
     Classification,
     ClassificationInput,
     ClassifierSession,
     parse_classification,
 )
-from dantejp.translation.dialogue.history import DialogueHistory
-from dantejp.translation.dialogue.layout import PanelContext
-from dantejp.translation.grouping import TextBlock
-from dantejp.translation.values import TranslatedText, TranslationRequest
+from dantetl.translation.dialogue.history import DialogueHistory
+from dantetl.translation.dialogue.layout import PanelContext
+from dantetl.translation.grouping import TextBlock
+from dantetl.translation.values import TranslatedText, TranslationRequest
 
 
 def until(predicate):

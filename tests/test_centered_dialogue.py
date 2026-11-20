@@ -4,12 +4,12 @@ from dataclasses import replace
 
 import pytest
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr.tracking import TextActivity, TextTrack, TextTracker
-from dantejp.ocr.values import OcrResult, TextRegion
-from dantejp.translation.dialogue.history import DialogueHistory
-from dantejp.translation.grouping import DialogueGrouper, TextBlock
-from dantejp.translation.values import TranslatedText, TranslationRequest
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.tracking import TextActivity, TextTrack, TextTracker
+from dantetl.ocr.values import OcrResult, TextRegion
+from dantetl.translation.dialogue.history import DialogueHistory
+from dantetl.translation.grouping import DialogueGrouper, TextBlock
+from dantetl.translation.values import TranslatedText, TranslationRequest
 
 
 def subtitles(scale=1.0):

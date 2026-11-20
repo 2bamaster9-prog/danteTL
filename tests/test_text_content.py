@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr.text_content import content_region
-from dantejp.ocr.tracking import TextTracker
-from dantejp.ocr.values import OcrResult, TextCharacter, TextRegion
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.text_content import content_region
+from dantetl.ocr.tracking import TextTracker
+from dantetl.ocr.values import OcrResult, TextCharacter, TextRegion
 
 
 def button_observations() -> tuple[TextRegion, ...]:

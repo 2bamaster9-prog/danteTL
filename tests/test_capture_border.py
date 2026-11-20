@@ -9,8 +9,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from dantejp.capture.worker import CaptureSession
-from dantejp.domain import CaptureState, Rect, WindowGeometry, WindowTarget
+from dantetl.capture.worker import CaptureSession
+from dantetl.domain import CaptureState, Rect, WindowGeometry, WindowTarget
 
 
 class Windows:

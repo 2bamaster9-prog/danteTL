@@ -2,12 +2,12 @@ import hashlib
 
 import pytest
 
-from dantejp.application import model_factories as app
-from dantejp.application.model_advice import RECOMMENDED_TRANSLATION
-from dantejp.runtime import llama as llama_runtime
-from dantejp.runtime import model_store
-from dantejp.runtime import ocr as ocr_runtime
-from dantejp.runtime.assets import ModelAsset
+from dantetl.application import model_factories as app
+from dantetl.application.model_advice import RECOMMENDED_TRANSLATION
+from dantetl.runtime import llama as llama_runtime
+from dantetl.runtime import model_store
+from dantetl.runtime import ocr as ocr_runtime
+from dantetl.runtime.assets import ModelAsset
 
 
 def test_recommended_catalog_and_backend_order_do_not_mix_recognition(tmp_path, monkeypatch):
@@ -85,8 +85,8 @@ def test_broken_optional_registry_keeps_healthy_inventory_and_recovers(
 ):
     from test_model_inventory import settle
 
-    from dantejp.application.model_inventory import ModelInventory, inspect_models
-    from dantejp.translation.models import gguf
+    from dantetl.application.model_inventory import ModelInventory, inspect_models
+    from dantetl.translation.models import gguf
 
     registry = tmp_path / "imported-models.json"
     broken = b'{"version": 1, "models": broken'
@@ -134,7 +134,7 @@ def test_automatic_ocr_depends_on_runtime_not_downloaded_meiki(catalog, monkeypa
 
 @pytest.mark.parametrize("device", [None, "cpu", "cuda", "vulkan"])
 def test_curated_choices_keep_identity_across_runtime_changes(catalog, monkeypatch, device):
-    from dantejp.application.preferences import decode_preferences
+    from dantetl.application.preferences import decode_preferences
 
     monkeypatch.setattr(llama_runtime, "installed_device", lambda: device)
     for key in ("gemma", "gemma-e4b", "qwen35-4b"):
@@ -161,7 +161,7 @@ def test_downloaded_plamo_stays_visible_but_old_engine_needs_update(
 ):
     from dataclasses import replace
 
-    from dantejp.translation.models.curated import MODELS
+    from dantetl.translation.models.curated import MODELS
 
     models = []
     for definition in MODELS:
@@ -183,7 +183,7 @@ def test_downloaded_plamo_stays_visible_but_old_engine_needs_update(
     for choice in choices:
         assert bool(choice.preparation_id) is supported
         assert bool(choice.unavailable_reason) is not supported
-        from dantejp.application.preferences import decode_preferences
+        from dantetl.application.preferences import decode_preferences
 
         saved = decode_preferences(
             {"version": 1, "model": choice.preference_key, "setup_model": choice.preference_key}

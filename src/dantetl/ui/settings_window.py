@@ -1,0 +1,456 @@
+"""One nonmodal settings window owns appearance, recognition and background setup views."""
+
+from dataclasses import replace
+
+from PySide6.QtCore import QSignalBlocker, Qt, Signal
+from PySide6.QtGui import QCloseEvent
+from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSlider,
+    QSpinBox,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
+
+from dantetl.application.hotkeys import HotkeyAction, Hotkeys
+from dantetl.application.preference_values import Preferences
+from dantetl.application.services import CloudCommands, SetupCommands
+from dantetl.i18n import display, mark, tr
+from dantetl.runtime.setup_values import SetupLane
+from dantetl.translation.selection import OcrOption
+from dantetl.ui.controls import (
+    InfoButton,
+    OutputLanguageCombo,
+    SourceLanguageCombo,
+    StatusBanner,
+    Switch,
+)
+from dantetl.ui.hotkey_settings import HotkeySettings
+from dantetl.ui.localization import InterfaceLanguageCombo, localized, on_language_change
+from dantetl.ui.model_manager import ModelManager
+from dantetl.ui.runtime_dialog import RuntimeSetupDialog
+
+
+class SettingsWindow(QDialog):
+    changed = Signal()
+    restart_requested = Signal(object)
+    runtime_created = Signal(object)
+
+    def __init__(
+        self,
+        preferences: Preferences,
+        ocr_choices: tuple[OcrOption, ...],
+        parent: QWidget,
+        *,
+        cloud: CloudCommands,
+        setup: SetupCommands,
+        hotkeys: Hotkeys | None = None,
+    ) -> None:
+        super().__init__(parent)
+        localized(self, windowTitle=mark("DanteTL · Settings"))
+        self.setWindowModality(Qt.WindowModality.NonModal)
+        self.resize(680, 620)
+        self.setMinimumSize(540, 440)
+        self._setup = setup
+        self._cloud = cloud
+        self._ocr_key = preferences.ocr_device
+        self.runtime: RuntimeSetupDialog | None = None
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 16, 20, 16)
+        self.model_notice = StatusBanner()
+        self.acceleration_notice = StatusBanner()
+        layout.addWidget(self.model_notice)
+        layout.addWidget(self.acceleration_notice)
+        self.tabs = QTabWidget()
+        self._pages: dict[str, QWidget] = {}
+        layout.addWidget(self.tabs, 1)
+        appearance = self._page(mark("Appearance"))
+        self.interface_language = InterfaceLanguageCombo(preferences.interface_language)
+        self._setting(
+            appearance,
+            self.interface_language,
+            mark("App language"),
+            "",
+        )
+        self.output_language = OutputLanguageCombo(preferences.output_language)
+        self._setting(
+            appearance,
+            self.output_language,
+            mark("Output language"),
+            mark("Applies to the overlay, inspector, and new dialogue history entries."),
+        )
+        self.language_notice = StatusBanner()
+        appearance.addWidget(self.language_notice)
+        self.stabilize = localized(Switch(), text=mark("Stabilize game boxes"))
+        self.stabilize.setChecked(preferences.stabilize)
+        self._setting(
+            appearance,
+            self.stabilize,
+            mark("Stabilize game boxes"),
+            mark(
+                "Keeps detected boxes steady when OCR jitters. Turn off only to inspect "
+                "raw OCR boxes. "
+                "Translation always uses stable tracking."
+            ),
+        )
+        self.opacity = QSlider(Qt.Orientation.Horizontal)
+        self.opacity.setRange(20, 100)
+        self.opacity.setValue(preferences.opacity)
+        self.opacity_value = QLabel(f"{preferences.opacity}%")
+        self._setting(
+            appearance,
+            self.opacity,
+            mark("Background opacity"),
+            mark(
+                "Higher values hide more of the original text. Lower values reveal more of "
+                "the game "
+                "behind the translation."
+            ),
+            self.opacity_value,
+        )
+        self.automatic_size = localized(Switch(), text=mark("Automatic text size"))
+        self.automatic_size.setChecked(preferences.automatic_size)
+        self._setting(
+            appearance,
+            self.automatic_size,
+            mark("Automatic text size"),
+            mark(
+                "Starts near the original text height, then wraps and shrinks within limits "
+                "to fit the translation."
+            ),
+        )
+        self.text_size = QSpinBox()
+        self.text_size.setRange(10, 60)
+        self.text_size.setValue(preferences.text_size)
+        localized(self.text_size, suffix=mark(" px"))
+        self.text_size.setMaximumWidth(160)
+        self.text_size.setEnabled(not preferences.automatic_size)
+        self._setting(
+            appearance,
+            self.text_size,
+            mark("Text size"),
+            mark(
+                "Fixed translation font size in physical pixels. "
+                "Used only when Automatic text size is off."
+            ),
+        )
+        appearance.addStretch()
+
+        recognition = self._page(mark("Recognition"))
+        self.source_picker = SourceLanguageCombo(preferences.source_language)
+        source_row = QHBoxLayout()
+        source_label = localized(QLabel(), text=mark("Game text language"))
+        source_label.setBuddy(self.source_picker)
+        source_row.addWidget(source_label)
+        source_row.addWidget(self.source_picker, 1)
+        recognition.addLayout(source_row)
+        self.group_dialogue = localized(Switch(), text=mark("Group dialogue lines"))
+        self.group_dialogue.setChecked(preferences.group_dialogue)
+        self._setting(
+            recognition,
+            self.group_dialogue,
+            mark("Group dialogue lines"),
+            mark(
+                "Translates nearby lines from the same dialogue panel together. Turn off "
+                "if unrelated "
+                "text is being joined."
+            ),
+        )
+        self.ocr_device = QComboBox()
+        self._ocr_choices: tuple[OcrOption, ...] = ()
+        self.set_ocr_choices(ocr_choices)
+        self._setting(
+            recognition,
+            self.ocr_device,
+            mark("OCR device"),
+            mark(
+                "Chooses the device that reads game text, separately from the translation model. "
+                "Automatic reports CPU fallback when acceleration cannot be used. Install "
+                "acceleration "
+                "in the Acceleration tab. AMD currently uses CPU OCR."
+            ),
+        )
+        self.capture_rate = QSpinBox()
+        self.capture_rate.setRange(2, 12)
+        localized(self.capture_rate, suffix=mark(" samples/s"))
+        self.capture_rate.setMaximumWidth(200)
+        self.capture_rate.setValue(preferences.capture_rate)
+        self._setting(
+            recognition,
+            self.capture_rate,
+            mark("Capture rate"),
+            mark(
+                "How often the app checks the game image for changes, not OCR calls per second. "
+                "Higher rates use more resources and cannot speed up a busy OCR worker."
+            ),
+        )
+        self.capture_note = localized(
+            QLabel(), text=mark("Device and capture rate apply when capture starts.")
+        )
+        self.capture_note.setWordWrap(True)
+        self.capture_note.setObjectName("muted")
+        recognition.addWidget(self.capture_note)
+        recognition.addStretch()
+
+        self.models = ModelManager(setup, self, cloud=cloud, embedded=True)
+        self.models.runtime_requested.connect(self.show_runtime)
+        self._pages["Models"] = self.models
+        self.tabs.addTab(self.models, tr("Models"))
+        self.runtime_layout = self._page(mark("Acceleration"))
+        self.runtime_layout.addStretch()
+        shortcuts = self._page(mark("Hotkeys"))
+        self.hotkeys = HotkeySettings(
+            preferences.overlay_hotkey,
+            preferences.capture_hotkey,
+            preferences.original_hotkey,
+            preferences.capture_focused_window,
+            hotkeys,
+        )
+        self.hotkeys.changed.connect(self.changed.emit)
+        shortcuts.addWidget(self.hotkeys)
+        experimental = self._page(mark("Experimental"))
+        note = localized(
+            QLabel(),
+            text=mark("Features under development. Results may be inaccurate or incomplete."),
+        )
+        note.setWordWrap(True)
+        note.setObjectName("muted")
+        experimental.addWidget(note)
+        self.backdrop_blur = localized(Switch(), text=mark("Blur behind translated text"))
+        self.backdrop_blur.setChecked(preferences.backdrop_blur)
+        self._setting(
+            experimental,
+            self.backdrop_blur,
+            mark("Blur behind translated text"),
+            mark(
+                "Blur the game behind each translated label. If Windows declines the effect, "
+                "the labels use the configured background opacity."
+            ),
+        )
+        self.history_enabled = localized(Switch(), text=mark("Dialogue history"))
+        self.history_enabled.setChecked(preferences.history_enabled)
+        self._setting(
+            experimental,
+            self.history_enabled,
+            mark("Dialogue history"),
+            mark(
+                "Collect recent dialogue in a separate reader. Dialogue and speaker detection may "
+                "be inaccurate. Disabled by default; your choice is saved."
+            ),
+        )
+        history_note = localized(
+            QLabel(),
+            text=mark(
+                "When enabled, open Dialogue beside the Settings gear to choose a classifier model "
+                "and read recent turns. Cloud classifiers use your plan/API allowance."
+            ),
+        )
+        history_note.setWordWrap(True)
+        experimental.addWidget(history_note)
+        experimental.addStretch()
+
+        def refresh_tabs() -> None:
+            for idx, choice in enumerate(self._ocr_choices):
+                self.ocr_device.setItemText(idx, display(choice.name))
+            for source, page in self._pages.items():
+                self.tabs.setTabText(self.tabs.indexOf(page), tr(source))
+
+        on_language_change(self.tabs, refresh_tabs)
+        self.tabs.currentChanged.connect(self._tab_changed)
+        footer = QHBoxLayout()
+        self.setup_assistant = localized(QPushButton(), text=mark("Setup assistant…"))
+        localized(
+            self.setup_assistant,
+            toolTip=mark("Guided model downloads and optional GPU setup. Stop capture first."),
+        )
+        footer.addWidget(self.setup_assistant)
+        self.save_note = QLabel()
+        self.save_note.setWordWrap(True)
+        self.save_note.setObjectName("muted")
+        footer.addWidget(self.save_note, 1)
+        close = localized(QPushButton(), text=mark("Close settings"))
+        close.clicked.connect(self.close)
+        footer.addStretch()
+        footer.addWidget(close)
+        layout.addLayout(footer)
+        for control in (
+            self.stabilize,
+            self.automatic_size,
+            self.group_dialogue,
+            self.history_enabled,
+            self.backdrop_blur,
+        ):
+            control.toggled.connect(lambda _: self.changed.emit())
+        self.opacity.valueChanged.connect(self._opacity_changed)
+        self.text_size.valueChanged.connect(lambda _: self.changed.emit())
+        self.capture_rate.valueChanged.connect(lambda _: self.changed.emit())
+        self.automatic_size.toggled.connect(lambda enabled: self.text_size.setEnabled(not enabled))
+        self.ocr_device.currentIndexChanged.connect(self._ocr_changed)
+
+    def _page(self, name: str) -> QVBoxLayout:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(16, 18, 16, 18)
+        layout.setSpacing(18)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        scroll.setWidget(page)
+        self._pages[name] = scroll
+        self.tabs.addTab(scroll, tr(name))
+        return layout
+
+    def _setting(
+        self,
+        layout: QVBoxLayout,
+        control: QWidget,
+        name: str,
+        help: str,
+        suffix: QWidget | None = None,
+    ) -> None:
+        localized(control, accessibleName=name, toolTip=help)
+        header = QHBoxLayout()
+        if isinstance(control, Switch):
+            header.addWidget(control)
+        else:
+            label = localized(QLabel(), text=name)
+            label.setBuddy(control)
+            header.addWidget(label)
+        if help:
+            header.addWidget(InfoButton(name, help))
+        header.addStretch()
+        if suffix:
+            header.addWidget(suffix)
+        layout.addLayout(header)
+        if not isinstance(control, Switch):
+            layout.addWidget(control)
+
+    def _opacity_changed(self, value: int) -> None:
+        self.opacity_value.setText(f"{value}%")
+        self.changed.emit()
+
+    def set_ocr_choices(self, choices: tuple[OcrOption, ...]) -> None:
+        if choices == self._ocr_choices:
+            return
+        self._ocr_choices = choices
+        with QSignalBlocker(self.ocr_device):
+            self.ocr_device.clear()
+            for choice in choices:
+                self.ocr_device.addItem(display(choice.name), choice)
+                if choice.key == self._ocr_key:
+                    self.ocr_device.setCurrentIndex(self.ocr_device.count() - 1)
+
+    def _ocr_changed(self) -> None:
+        choice = self.ocr_device.currentData()
+        self._ocr_key = choice.key or "cpu"
+        self.changed.emit()
+
+    def values(self, current: Preferences, *, show_overlay: bool, translation: bool) -> Preferences:
+        return replace(
+            current,
+            interface_language=self.interface_language.currentData(),
+            show_overlay=show_overlay,
+            translation=translation,
+            stabilize=self.stabilize.isChecked(),
+            opacity=self.opacity.value(),
+            backdrop_blur=self.backdrop_blur.isChecked(),
+            automatic_size=self.automatic_size.isChecked(),
+            text_size=self.text_size.value(),
+            group_dialogue=self.group_dialogue.isChecked(),
+            ocr_device=self._ocr_key,
+            capture_rate=self.capture_rate.value(),
+            overlay_hotkey=self.hotkeys.rows[HotkeyAction.OVERLAY].committed,
+            capture_hotkey=self.hotkeys.rows[HotkeyAction.CAPTURE].committed,
+            original_hotkey=self.hotkeys.rows[HotkeyAction.ORIGINAL].committed,
+            capture_focused_window=self.hotkeys.capture_focused.isChecked(),
+            history_enabled=self.history_enabled.isChecked(),
+        )
+
+    def show_hotkeys(self) -> None:
+        self.tabs.setCurrentWidget(self._pages["Hotkeys"])
+        self.show()
+        self.raise_()
+
+    def set_capture_active(self, active: bool) -> None:
+        self.capture_note.setText(
+            tr(
+                "Capture is running. Device and capture rate changes apply next time you "
+                "start capture."
+            )
+            if active
+            else tr("Device and capture rate apply when capture starts.")
+        )
+
+    def show_models(self) -> None:
+        self.models.refresh()
+        self.models.show()
+        self.tabs.setCurrentWidget(self._pages["Models"])
+        self.show()
+        self.raise_()
+
+    def show_recognition(self) -> None:
+        self.tabs.setCurrentWidget(self._pages["Recognition"])
+        self.show()
+        self.raise_()
+
+    def show_runtime(self) -> None:
+        self.tabs.setCurrentWidget(self._pages["Acceleration"])
+        if self.runtime:
+            self.runtime.show()
+        self.show()
+        self.raise_()
+
+    def _tab_changed(self, index: int) -> None:
+        if self.tabs.widget(index) is self._pages["Models"]:
+            self.models.refresh()
+        if self.tabs.widget(index) is self._pages["Acceleration"] and self.runtime is None:
+            self.runtime = RuntimeSetupDialog(self._setup, self, embedded=True)
+            self.runtime.restart_requested.connect(self.restart_requested.emit)
+            self.runtime_layout.insertWidget(0, self.runtime)
+            self.runtime_created.emit(self.runtime)
+
+    @property
+    def busy(self) -> bool:
+        return bool(
+            self._setup.job(SetupLane.MODELS).busy
+            or self._setup.job(SetupLane.RUNTIME).busy
+            or self._cloud.snapshot().busy
+        )
+
+    @property
+    def problem(self) -> str:
+        return (
+            self._setup.job(SetupLane.MODELS).progress.error
+            or self._cloud.snapshot().problem
+            or self._setup.job(SetupLane.RUNTIME).progress.error
+        )
+
+    def cancel_operations(self) -> None:
+        self._setup.cancel(SetupLane.MODELS)
+        self._setup.cancel(SetupLane.RUNTIME)
+        self._cloud.cancel()
+
+    def reject(self) -> None:
+        self.close()
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        if self.busy:
+            question = QMessageBox(self)
+            question.setWindowTitle(tr("Setup is still running"))
+            question.setText(tr("Keep setup running after closing Settings?"))
+            background = question.addButton(
+                tr("Continue in background"), QMessageBox.ButtonRole.AcceptRole
+            )
+            question.addButton(tr("Cancel operation"), QMessageBox.ButtonRole.DestructiveRole)
+            question.setDefaultButton(background)
+            question.exec()
+            if question.clickedButton() != background:
+                self.cancel_operations()
+        event.accept()

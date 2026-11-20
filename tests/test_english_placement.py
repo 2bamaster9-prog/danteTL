@@ -6,10 +6,10 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from dantejp.domain import Rect  # noqa: E402
-from dantejp.ocr.regions import intersects  # noqa: E402
-from dantejp.ui.english_placement import EnglishLabel, EnglishPlacement  # noqa: E402
-from dantejp.ui.text_layout import layout_english  # noqa: E402
+from dantetl.domain import Rect  # noqa: E402
+from dantetl.ocr.regions import intersects  # noqa: E402
+from dantetl.ui.english_placement import EnglishLabel, EnglishPlacement  # noqa: E402
+from dantetl.ui.text_layout import layout_english  # noqa: E402
 
 
 @pytest.fixture(scope="module", autouse=True)

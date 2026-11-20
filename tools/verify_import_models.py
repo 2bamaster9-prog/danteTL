@@ -6,8 +6,8 @@ import threading
 from dataclasses import asdict
 from pathlib import Path
 
-from dantejp.runtime.llama import installed_device
-from dantejp.translation.models.probe import ImportTest
+from dantetl.runtime.llama import installed_device
+from dantetl.translation.models.probe import ImportTest
 
 
 def main() -> None:

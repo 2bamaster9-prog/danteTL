@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <TS version="2.1" language="zh_hans" sourcelanguage="en">
   <context>
-    <name>DanteJP</name>
+    <name>DanteTL</name>
     <message>
       <source>
 
@@ -276,19 +276,19 @@ Repairs folder: {directory}</source>
       <source>An unexpected error occurred:
 {error}
 
-Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
+Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>发生意外错误：
 {error}
 
-详细信息位于 %LOCALAPPDATA%/DanteJP/logs/app.log。</translation>
+详细信息位于 %LOCALAPPDATA%/DanteTL/logs/app.log。</translation>
     </message>
     <message>
-      <source>Another DanteJP instance is already installing a runtime.</source>
-      <translation>另一个 DanteJP 实例正在安装运行时。</translation>
+      <source>Another DanteTL instance is already installing a runtime.</source>
+      <translation>另一个 DanteTL 实例正在安装运行时。</translation>
     </message>
     <message>
-      <source>Another DanteJP instance is updating this ChatGPT account.</source>
-      <translation>另一个 DanteJP 实例正在更新此 ChatGPT 账户。</translation>
+      <source>Another DanteTL instance is updating this ChatGPT account.</source>
+      <translation>另一个 DanteTL 实例正在更新此 ChatGPT 账户。</translation>
     </message>
     <message>
       <source>Another app or Windows already uses this shortcut.</source>
@@ -815,8 +815,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>为此提供商选择已保存的连接，或添加新的 API 密钥。</translation>
     </message>
     <message>
-      <source>Choose a single-file GGUF chat model. The file stays in its current folder; DanteJP saves only a reference. The import test uses Japanese and English.</source>
-      <translation>选择单文件 GGUF 聊天模型。文件保留在其当前文件夹中；DanteJP 仅保存引用。导入测试使用日语和英语。</translation>
+      <source>Choose a single-file GGUF chat model. The file stays in its current folder; DanteTL saves only a reference. The import test uses Japanese and English.</source>
+      <translation>选择单文件 GGUF 聊天模型。文件保留在其当前文件夹中；DanteTL 仅保存引用。导入测试使用日语和英语。</translation>
     </message>
     <message>
       <source>Choose a supported provider and model.</source>
@@ -1119,8 +1119,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>无法终止所属进程。</translation>
     </message>
     <message>
-      <source>Counts belong to the selected saved model, including translation and classifier requests. Cache hits make no requests. Token totals include only usage reported by the provider; these are not billing totals. Counts reset when DanteJP exits.</source>
-      <translation>计数属于所选已保存模型，包括翻译和分类器请求。缓存命中不会发起请求。Token 总数仅包含提供商报告的用量；这些并非计费总额。DanteJP 退出时计数会重置。</translation>
+      <source>Counts belong to the selected saved model, including translation and classifier requests. Cache hits make no requests. Token totals include only usage reported by the provider; these are not billing totals. Counts reset when DanteTL exits.</source>
+      <translation>计数属于所选已保存模型，包括翻译和分类器请求。缓存命中不会发起请求。Token 总数仅包含提供商报告的用量；这些并非计费总额。DanteTL 退出时计数会重置。</translation>
     </message>
     <message>
       <source>Croatian</source>
@@ -1139,12 +1139,12 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>捷克语</translation>
     </message>
     <message>
-      <source>DANTEJP_DATA_DIR must be an absolute directory.</source>
-      <translation>DANTEJP_DATA_DIR 必须是绝对目录。</translation>
+      <source>DANTETL_DATA_DIR must be an absolute directory.</source>
+      <translation>DANTETL_DATA_DIR 必须是绝对目录。</translation>
     </message>
     <message>
-      <source>DANTEJP_RESOURCE_DIR must identify a complete standalone app.</source>
-      <translation>DANTEJP_RESOURCE_DIR 必须指向完整的独立应用。</translation>
+      <source>DANTETL_RESOURCE_DIR must identify a complete standalone app.</source>
+      <translation>DANTETL_RESOURCE_DIR 必须指向完整的独立应用。</translation>
     </message>
     <message>
       <source>DEBUG  Amber: changed pixels   Cyan: last completed OCR</source>
@@ -1155,16 +1155,16 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>丹麦语</translation>
     </message>
     <message>
-      <source>DanteJP currently requires Windows.</source>
-      <translation>DanteJP 当前需要 Windows。</translation>
+      <source>DanteTL currently requires Windows.</source>
+      <translation>DanteTL 当前需要 Windows。</translation>
     </message>
     <message>
-      <source>DanteJP · Settings</source>
-      <translation>DanteJP · 设置</translation>
+      <source>DanteTL · Settings</source>
+      <translation>DanteTL · 设置</translation>
     </message>
     <message>
-      <source>DanteJP · Welcome</source>
-      <translation>DanteJP · 欢迎</translation>
+      <source>DanteTL · Welcome</source>
+      <translation>DanteTL · 欢迎</translation>
     </message>
     <message>
       <source>Debug overlay</source>
@@ -1179,8 +1179,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>删除</translation>
     </message>
     <message>
-      <source>Demo opened. Refresh the window list and select DanteJP Demo.</source>
-      <translation>演示已打开。刷新窗口列表并选择 DanteJP Demo。</translation>
+      <source>Demo opened. Refresh the window list and select DanteTL Demo.</source>
+      <translation>演示已打开。刷新窗口列表并选择 DanteTL Demo。</translation>
     </message>
     <message>
       <source>Detect graphics cards and install acceleration inside the app.</source>
@@ -1223,8 +1223,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>对话历史</translation>
     </message>
     <message>
-      <source>Dialogue history (Experimental) · DanteJP</source>
-      <translation>对话历史（实验性）· DanteJP</translation>
+      <source>Dialogue history (Experimental) · DanteTL</source>
+      <translation>对话历史（实验性）· DanteTL</translation>
     </message>
     <message>
       <source>Dialogue history · {count}/20</source>
@@ -1351,8 +1351,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>已注册八个 ChatGPT 账户。</translation>
     </message>
     <message>
-      <source>Eligible translations use your ChatGPT plan. Manage allowance and credit permissions in ChatGPT Settings → Usage. DanteJP never falls back to an API key.</source>
-      <translation>符合条件的翻译使用您的 ChatGPT 套餐。在 ChatGPT 设置 → 用量中管理额度和信用权限。DanteJP 绝不会回退到 API 密钥。</translation>
+      <source>Eligible translations use your ChatGPT plan. Manage allowance and credit permissions in ChatGPT Settings → Usage. DanteTL never falls back to an API key.</source>
+      <translation>符合条件的翻译使用您的 ChatGPT 套餐。在 ChatGPT 设置 → 用量中管理额度和信用权限。DanteTL 绝不会回退到 API 密钥。</translation>
     </message>
     <message>
       <source>Embedded chat template</source>
@@ -1723,8 +1723,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>包含在屏幕捕获中</translation>
     </message>
     <message>
-      <source>Include translations in screenshots, display recordings and screen sharing. Turn off to ask Windows to exclude the overlay. Game/window-only capture may omit it either way; this does not affect DanteJP's OCR.</source>
-      <translation>在截图、屏幕录制和屏幕共享中包含翻译。关闭以请求 Windows 排除叠加层。仅捕获游戏/窗口时可能仍会遗漏；这不会影响 DanteJP 的 OCR。</translation>
+      <source>Include translations in screenshots, display recordings and screen sharing. Turn off to ask Windows to exclude the overlay. Game/window-only capture may omit it either way; this does not affect DanteTL's OCR.</source>
+      <translation>在截图、屏幕录制和屏幕共享中包含翻译。关闭以请求 Windows 排除叠加层。仅捕获游戏/窗口时可能仍会遗漏；这不会影响 DanteTL 的 OCR。</translation>
     </message>
     <message>
       <source>Included OCR files verified.</source>
@@ -2051,8 +2051,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>最大请求启动次数（含重试）。缓存命中不消耗请求。</translation>
     </message>
     <message>
-      <source>Maximum reserved attempts for this model until DanteJP exits. Not a spending cap.</source>
-      <translation>DanteJP 退出前此模型的最大预留尝试次数。非支出上限。</translation>
+      <source>Maximum reserved attempts for this model until DanteTL exits. Not a spending cap.</source>
+      <translation>DanteTL 退出前此模型的最大预留尝试次数。非支出上限。</translation>
     </message>
     <message>
       <source>MeikiOCR · Japanese text recognition</source>
@@ -2383,8 +2383,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>最长的活动翻译：{value:.1f}s</translation>
     </message>
     <message>
-      <source>Only DanteJP modules may be launched by this entry point.</source>
-      <translation>此入口点只能启动 DanteJP 模块。</translation>
+      <source>Only DanteTL modules may be launched by this entry point.</source>
+      <translation>此入口点只能启动 DanteTL 模块。</translation>
     </message>
     <message>
       <source>Only a verified runtime can be selected.</source>
@@ -2407,8 +2407,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>OpenAI · API 密钥</translation>
     </message>
     <message>
-      <source>Opening DanteJP with the installed runtime…</source>
-      <translation>正在使用已安装的运行时打开 DanteJP…</translation>
+      <source>Opening DanteTL with the installed runtime…</source>
+      <translation>正在使用已安装的运行时打开 DanteTL…</translation>
     </message>
     <message>
       <source>Operation cancelled.</source>
@@ -2805,8 +2805,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>在测试过的 GPU 上响应良好；CPU 和繁忙场景下较慢。</translation>
     </message>
     <message>
-      <source>Restart DanteJP before changing more shortcuts.</source>
-      <translation>在更改更多快捷键之前请重启 DanteJP。</translation>
+      <source>Restart DanteTL before changing more shortcuts.</source>
+      <translation>在更改更多快捷键之前请重启 DanteTL。</translation>
     </message>
     <message>
       <source>Restart cancelled. Current runtime retained.</source>
@@ -2999,8 +2999,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>正在设置加速…</translation>
     </message>
     <message>
-      <source>Setting up DanteJP</source>
-      <translation>正在设置 DanteJP</translation>
+      <source>Setting up DanteTL</source>
+      <translation>正在设置 DanteTL</translation>
     </message>
     <message>
       <source>Settings</source>
@@ -3065,8 +3065,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>短标签</translation>
     </message>
     <message>
-      <source>Shortcuts work while the game has focus or DanteJP is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
-      <translation>快捷键在游戏获得焦点或 DanteJP 最小化时生效。选择一种组合，然后点击应用。选择“已禁用”可关闭某个操作。</translation>
+      <source>Shortcuts work while the game has focus or DanteTL is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
+      <translation>快捷键在游戏获得焦点或 DanteTL 最小化时生效。选择一种组合，然后点击应用。选择“已禁用”可关闭某个操作。</translation>
     </message>
     <message>
       <source>Show / hide overlay</source>
@@ -3117,8 +3117,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>已登录，但套餐使用未启用。请重新登录以批准。</translation>
     </message>
     <message>
-      <source>Signed out locally. Remote revocation was not confirmed; disconnect DanteJP in ChatGPT usage settings.</source>
-      <translation>已在本地退出登录。远程吊销未确认；请在 ChatGPT 使用设置中断开 DanteJP。</translation>
+      <source>Signed out locally. Remote revocation was not confirmed; disconnect DanteTL in ChatGPT usage settings.</source>
+      <translation>已在本地退出登录。远程吊销未确认；请在 ChatGPT 使用设置中断开 DanteTL。</translation>
     </message>
     <message>
       <source>Signed out of ChatGPT.</source>
@@ -3317,10 +3317,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>文字识别 (OCR)</translation>
     </message>
     <message>
-      <source>Text recognition is included with DanteJP. This guide helps you choose a translation model and optional GPU acceleration.
+      <source>Text recognition is included with DanteTL. This guide helps you choose a translation model and optional GPU acceleration.
 
 </source>
-      <translation>文字识别已包含在 DanteJP 中。本指南可帮助您选择翻译模型和可选的 GPU 加速。
+      <translation>文字识别已包含在 DanteTL 中。本指南可帮助您选择翻译模型和可选的 GPU 加速。
 
 </translation>
     </message>
@@ -3369,8 +3369,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>捆绑的应用 wheel 缺失或不明确。请解压完整的 ZIP。</translation>
     </message>
     <message>
-      <source>The bundled installer is missing. Extract the complete DanteJP ZIP.</source>
-      <translation>捆绑安装程序缺失。请解压完整的 DanteJP ZIP。</translation>
+      <source>The bundled installer is missing. Extract the complete DanteTL ZIP.</source>
+      <translation>捆绑安装程序缺失。请解压完整的 DanteTL ZIP。</translation>
     </message>
     <message>
       <source>The currently committed translation model.</source>
@@ -3765,8 +3765,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>使用窗口标题</translation>
     </message>
     <message>
-      <source>Use your ChatGPT plan. To use only its included allowance, disable credit use for DanteJP in ChatGPT's usage settings. No automatic API-key fallback.</source>
-      <translation>使用您的 ChatGPT 套餐。若要仅使用其包含的额度，请在 ChatGPT 的用量设置中为 DanteJP 禁用额度使用。不会自动回退到 API 密钥。</translation>
+      <source>Use your ChatGPT plan. To use only its included allowance, disable credit use for DanteTL in ChatGPT's usage settings. No automatic API-key fallback.</source>
+      <translation>使用您的 ChatGPT 套餐。若要仅使用其包含的额度，请在 ChatGPT 的用量设置中为 DanteTL 禁用额度使用。不会自动回退到 API 密钥。</translation>
     </message>
     <message>
       <source>Use {value}</source>
@@ -3905,8 +3905,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>正在等待分类…</translation>
     </message>
     <message>
-      <source>Welcome to DanteJP</source>
-      <translation>欢迎使用 DanteJP</translation>
+      <source>Welcome to DanteTL</source>
+      <translation>欢迎使用 DanteTL</translation>
     </message>
     <message>
       <source>Welsh</source>

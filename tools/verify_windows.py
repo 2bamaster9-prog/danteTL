@@ -12,12 +12,12 @@ import time
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QApplication
 
-from dantejp.capture.windows import Windows
-from dantejp.capture.worker import CaptureSession
-from dantejp.domain import CaptureState, WindowTarget, overlay_ready, sample_box
-from dantejp.ui.demo import DemoWindow
-from dantejp.ui.inspection import frame_image
-from dantejp.ui.overlay import OverlayWindow
+from dantetl.capture.windows import Windows
+from dantetl.capture.worker import CaptureSession
+from dantetl.domain import CaptureState, WindowTarget, overlay_ready, sample_box
+from dantetl.ui.demo import DemoWindow
+from dantetl.ui.inspection import frame_image
+from dantetl.ui.overlay import OverlayWindow
 
 
 def main() -> int:

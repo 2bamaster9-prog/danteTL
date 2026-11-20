@@ -1,4 +1,4 @@
-DanteJP uses Python, PySide6/Qt, ONNX Runtime, MeikiOCR, OpenCV, NumPy,
+DanteTL uses Python, PySide6/Qt, ONNX Runtime, MeikiOCR, OpenCV, NumPy,
 CTranslate2, llama.cpp/llama-cpp-python, uv and their dependencies.
 
 Upstream package metadata, source links and supplied license texts are retained
@@ -7,7 +7,7 @@ MeikiOCR's bundled weights, pinned hashes, sources and license notices are in
 _internal/third-party/meiki. llama.cpp and optional compiler-runtime notices are in
 _internal/third-party/native; binding notices accompany its package metadata.
 PaddleOCR's Latin vocabulary, model source notices and Apache 2.0 license are in
-_internal/dantejp/ocr/paddle_latin. Its ONNX weights are in _internal/app/models/paddle-latin-v5.
+_internal/dantetl/ocr/paddle_latin. Its ONNX weights are in _internal/app/models/paddle-latin-v5.
 PyInstaller supplies the executable bootloader under its distribution exception:
 https://pyinstaller.org/en/stable/license.html
 

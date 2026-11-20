@@ -12,9 +12,9 @@ from PySide6.QtCore import QPointF, QRectF
 from PySide6.QtGui import QColor, QFont, QImage, QPainter
 from PySide6.QtWidgets import QApplication
 
-from dantejp.domain import Rect
-from dantejp.ui.english_placement import EnglishLabel, EnglishPlacement
-from dantejp.ui.text_layout import EnglishLayout, layout_english
+from dantetl.domain import Rect
+from dantetl.ui.english_placement import EnglishLabel, EnglishPlacement
+from dantetl.ui.text_layout import EnglishLayout, layout_english
 
 
 def paint(painter: QPainter, layouts: tuple[EnglishLayout, ...]) -> None:

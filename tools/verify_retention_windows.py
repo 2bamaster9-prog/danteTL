@@ -20,20 +20,20 @@ from PySide6.QtWidgets import QApplication, QWidget
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
-from dantejp.application.model_factories import create_recognizer, translation_backends
-from dantejp.capture.windows import Windows
-from dantejp.domain import CapturedFrame, Rect, WindowTarget
-from dantejp.languages.selection import DEFAULT_SOURCE
-from dantejp.ocr.values import OcrState, TextCharacter, TextRegion
-from dantejp.ocr.worker import OcrChoice
-from dantejp.translation.grouping import TextBlock
-from dantejp.translation.values import TranslatedText
+from dantetl.application.model_factories import create_recognizer, translation_backends
+from dantetl.capture.windows import Windows
+from dantetl.domain import CapturedFrame, Rect, WindowTarget
+from dantetl.languages.selection import DEFAULT_SOURCE
+from dantetl.ocr.values import OcrState, TextCharacter, TextRegion
+from dantetl.ocr.worker import OcrChoice
+from dantetl.translation.grouping import TextBlock
+from dantetl.translation.values import TranslatedText
 
 
 class CharacterScreen(QWidget):
     def __init__(self, *, low_contrast: bool = False, colored: bool = False) -> None:
         super().__init__()
-        self.setWindowTitle("DanteJP stationary-label verification")
+        self.setWindowTitle("DanteTL stationary-label verification")
         self.resize(1200 if colored else 900, 580)
         self.phase = 0
         self.low_contrast = low_contrast

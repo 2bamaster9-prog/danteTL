@@ -3,10 +3,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from dantejp.runtime import first_run
-from dantejp.runtime.model_store import ModelOperation
-from dantejp.runtime.setup_values import Cancelled, DownloadProgress, ModelProgress
-from dantejp.runtime.values import PROFILES
+from dantetl.runtime import first_run
+from dantetl.runtime.model_store import ModelOperation
+from dantetl.runtime.setup_values import Cancelled, DownloadProgress, ModelProgress
+from dantetl.runtime.values import PROFILES
 
 
 def test_setup_plan_has_no_side_effect_until_run_and_preserves_byte_progress(monkeypatch, tmp_path):

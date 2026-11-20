@@ -5,14 +5,14 @@ from dataclasses import replace
 import cv2
 import numpy as np
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr.regions import padded, scan_regions
-from dantejp.ocr.tracking import TextTrack, TextTracker
-from dantejp.ocr.values import OcrResult, TextCharacter, TextRegion
-from dantejp.ocr.visual import VisualAnalyzer, VisualSession
-from dantejp.ocr.visual_values import VisualState
-from dantejp.ocr.worker import OcrSession, recognize_regions
-from dantejp.translation.grouping import DialogueGrouper
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.regions import padded, scan_regions
+from dantetl.ocr.tracking import TextTrack, TextTracker
+from dantetl.ocr.values import OcrResult, TextCharacter, TextRegion
+from dantetl.ocr.visual import VisualAnalyzer, VisualSession
+from dantetl.ocr.visual_values import VisualState
+from dantetl.ocr.worker import OcrSession, recognize_regions
+from dantetl.translation.grouping import DialogueGrouper
 
 
 def frame(sequence=1, *, size=(1000, 600), fill=30):
@@ -273,7 +273,7 @@ def test_unconsumed_visual_requests_union_coverage_on_the_newest_frame(monkeypat
         def observe(self, source, *args):
             return VisualState(source, True, scan_areas=(a if source.sequence == 1 else b,))
 
-    monkeypatch.setattr("dantejp.ocr.visual.VisualAnalyzer", lambda language: Analyzer())
+    monkeypatch.setattr("dantetl.ocr.visual.VisualAnalyzer", lambda language: Analyzer())
     session = VisualSession()
     session.start()
     try:

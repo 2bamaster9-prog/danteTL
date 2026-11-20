@@ -1,10 +1,10 @@
 from dataclasses import replace
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr.values import OcrResult, OcrSnapshot, OcrState
-from dantejp.ocr.visual_values import VisualState
-from dantejp.translation.values import TranslationSnapshot, TranslationState
-from dantejp.ui.diagnostics import debug_display
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState
+from dantetl.ocr.visual_values import VisualState
+from dantetl.translation.values import TranslationSnapshot, TranslationState
+from dantetl.ui.diagnostics import debug_display
 
 
 def source():

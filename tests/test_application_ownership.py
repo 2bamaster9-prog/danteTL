@@ -14,17 +14,17 @@ import pytest
 from ownership_fixtures import Replay
 from test_live_session import frame
 
-from dantejp.application.model_inventory import InventoryData
-from dantejp.application.preference_values import Preferences
-from dantejp.application.values import ShutdownPhase
-from dantejp.domain import CapturedFrame, CaptureSnapshot, CaptureState, Rect
-from dantejp.ocr.values import OcrResult, OcrSnapshot, OcrState, TextRegion
-from dantejp.ocr.visual_values import VisualState
-from dantejp.runtime.restart import RestartSnapshot
-from dantejp.translation.plan import TranslationPlan
-from dantejp.translation.selection import AssignmentChange
-from dantejp.translation.values import TranslationState
-from dantejp.translation.worker import BackendChoice
+from dantetl.application.model_inventory import InventoryData
+from dantetl.application.preference_values import Preferences
+from dantetl.application.values import ShutdownPhase
+from dantetl.domain import CapturedFrame, CaptureSnapshot, CaptureState, Rect
+from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState, TextRegion
+from dantetl.ocr.visual_values import VisualState
+from dantetl.runtime.restart import RestartSnapshot
+from dantetl.translation.plan import TranslationPlan
+from dantetl.translation.selection import AssignmentChange
+from dantetl.translation.values import TranslationState
+from dantetl.translation.worker import BackendChoice
 
 
 @pytest.fixture

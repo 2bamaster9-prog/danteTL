@@ -3,9 +3,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from dantejp.translation.backend import RequestRejected
-from dantejp.translation.backends import gemma
-from dantejp.translation.dialogue.context import DialogueTurn
+from dantetl.translation.backend import RequestRejected
+from dantetl.translation.backends import gemma
+from dantetl.translation.dialogue.context import DialogueTurn
 
 
 @pytest.fixture

@@ -9,10 +9,10 @@ import pytest
 from test_live_session import Replay as LiveReplay
 from test_visual_retention import Replay
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr.values import OcrResult, OcrSnapshot, OcrState, TextCharacter, TextRegion
-from dantejp.ocr.visual import VisualAnalyzer
-from dantejp.translation.values import (
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState, TextCharacter, TextRegion
+from dantetl.ocr.visual import VisualAnalyzer
+from dantetl.translation.values import (
     TranslatedText,
     TranslationRequest,
     TranslationSnapshot,

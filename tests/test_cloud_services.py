@@ -7,12 +7,12 @@ import threading
 import time
 from dataclasses import replace
 
-from dantejp.application.cloud_services import CloudServices
-from dantejp.translation.cloud.chatgpt_auth import ChatGPTConnections
-from dantejp.translation.cloud.profiles import CloudProfiles
-from dantejp.translation.cloud.protected_store import ProtectedStore
-from dantejp.translation.cloud.state import CloudDraft
-from dantejp.translation.cloud.values import CloudProfile
+from dantetl.application.cloud_services import CloudServices
+from dantetl.translation.cloud.chatgpt_auth import ChatGPTConnections
+from dantetl.translation.cloud.profiles import CloudProfiles
+from dantetl.translation.cloud.protected_store import ProtectedStore
+from dantetl.translation.cloud.state import CloudDraft
+from dantetl.translation.cloud.values import CloudProfile
 
 
 class Secrets:
@@ -93,7 +93,7 @@ def test_cancelled_worker_drains_before_new_commands_and_owner_cleanup(tmp_path,
             assert release.wait(3)
 
     monkeypatch.setattr(
-        "dantejp.application.cloud_services.CloudBackend", lambda *a, **k: Backend()
+        "dantetl.application.cloud_services.CloudBackend", lambda *a, **k: Backend()
     )
     draft = CloudDraft(CloudProfile.new("deepseek"), "", "fixture")
     service.test(draft)
@@ -140,10 +140,10 @@ class NoQt(importlib.abc.MetaPathFinder):
         if fullname.startswith(("PySide6", "shiboken6")):
             raise AssertionError("Application owner imported Qt: " + fullname)
 sys.meta_path.insert(0, NoQt())
-from dantejp.application.cloud_services import CloudServices
-from dantejp.translation.cloud.profiles import CloudProfiles
-from dantejp.translation.cloud.chatgpt_auth import ChatGPTConnections
-from dantejp.translation.cloud.protected_store import ProtectedStore
+from dantetl.application.cloud_services import CloudServices
+from dantetl.translation.cloud.profiles import CloudProfiles
+from dantetl.translation.cloud.chatgpt_auth import ChatGPTConnections
+from dantetl.translation.cloud.protected_store import ProtectedStore
 class NoSecrets:
     def read(self, key): raise AssertionError("Unexpected credential read")
 root = Path(sys.argv[1])
@@ -161,7 +161,7 @@ assert not service.snapshot().problem
 
 
 def test_account_refresh_scopes_recovery_even_if_later_discovery_fails(tmp_path, monkeypatch):
-    from dantejp.translation.cloud.values import ChatGPTAccount
+    from dantetl.translation.cloud.values import ChatGPTAccount
 
     service, _ = create(tmp_path)
     accounts = tuple(

@@ -5,8 +5,8 @@ prompts and implementation details. See [building](building.md) and [verificatio
 
 ## Package layout
 
-The distribution, Python package and CLI are `dantejp`; app-specific environment variables use
-`DANTEJP_*`. `DanteJP` is the display name. There are no aliases for previous names or module paths.
+The distribution, Python package and CLI are `dantetl`; app-specific environment variables use
+`DANTETL_*`. `DanteTL` is the display name. There are no aliases for previous names or module paths.
 
 | Package | Owns |
 | --- | --- |
@@ -90,7 +90,7 @@ Preferences and hardware work drain and hotkeys release before restart; failed r
 
 ## UI, identity and coordinates
 
-The public app name is DanteJP.
+The public app name is DanteTL.
 The interface locale is a separate preference from game source and translation target.
 Changing the interface language replaces the app-owned Qt catalogs and updates text on existing widgets. Capture, model workers and editable values keep their state. English is the fallback. Mark app-authored copy
 with `tr` and static metadata with `mark`, then translate that metadata for display.

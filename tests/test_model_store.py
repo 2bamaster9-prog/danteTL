@@ -6,8 +6,8 @@ from unittest.mock import Mock
 import pytest
 from download_fixtures import download_bytes
 
-from dantejp.runtime import model_store as store
-from dantejp.runtime.assets import ModelAsset
+from dantetl.runtime import model_store as store
+from dantetl.runtime.assets import ModelAsset
 
 
 def bundle(tmp_path):

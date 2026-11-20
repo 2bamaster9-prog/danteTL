@@ -10,7 +10,7 @@ from ctypes import wintypes
 from pathlib import Path
 from unittest.mock import patch
 
-from dantejp.translation.backend import ContextualBackend, TranslationBackend
+from dantetl.translation.backend import ContextualBackend, TranslationBackend
 
 
 def process_memory(pid: int | None = None) -> dict[str, float]:
@@ -101,10 +101,10 @@ def main() -> None:
     with patch.object(socket.socket, "connect", side_effect=AssertionError("Unexpected network")):
         started = time.monotonic()
         backend: TranslationBackend
-        from dantejp.application.model_factories import create_curated_translator
-        from dantejp.runtime.llama import installed_device
-        from dantejp.translation.backends.gemma import GemmaBackend
-        from dantejp.translation.backends.gemma import model_directory as gemma_directory
+        from dantetl.application.model_factories import create_curated_translator
+        from dantetl.runtime.llama import installed_device
+        from dantetl.translation.backends.gemma import GemmaBackend
+        from dantetl.translation.backends.gemma import model_directory as gemma_directory
 
         device = installed_device()
         assert device is not None, "Language-model engine is missing"
@@ -130,7 +130,7 @@ def main() -> None:
             assert any(word in english[2].lower() for word in ("setting", "config")), english
             dialogue = []
             if isinstance(backend, ContextualBackend):
-                from dantejp.translation.dialogue.context import DialogueTurn
+                from dantetl.translation.dialogue.context import DialogueTurn
 
                 context = (
                     DialogueTurn("私はリナ。これからよろしくね。", "I'm Rina. Nice to meet you."),

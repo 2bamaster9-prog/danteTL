@@ -8,7 +8,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from dantejp.runtime import llama as llama_runtime
+from dantetl.runtime import llama as llama_runtime
 
 
 @pytest.fixture(autouse=True)
@@ -159,7 +159,7 @@ def test_dynamic_backend_discovery_precedes_use_and_runs_once(monkeypatch, tmp_p
         ("0.3.37", True),
         ("invalid", False),
         ("0.4.7+cu130", True),
-        ("0.4.7+dantejp.b12345.cpu", True),
+        ("0.4.7+dantetl.b12345.cpu", True),
     ],
 )
 def test_plamo_capability_uses_package_metadata_only(monkeypatch, version, supported):

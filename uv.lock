@@ -5,13 +5,13 @@ required-markers = [
     "platform_machine == 'AMD64' and sys_platform == 'win32'",
 ]
 conflicts = [[
-    { package = "dantejp", group = "amd" },
-    { package = "dantejp", group = "cpu" },
-    { package = "dantejp", group = "gpu" },
+    { package = "dantetl", group = "amd" },
+    { package = "dantetl", group = "cpu" },
+    { package = "dantetl", group = "gpu" },
 ], [
-    { package = "dantejp", group = "gemma" },
-    { package = "dantejp", group = "gemma-vulkan" },
-    { package = "dantejp", group = "llm-cpu" },
+    { package = "dantetl", group = "gemma" },
+    { package = "dantetl", group = "gemma-vulkan" },
+    { package = "dantetl", group = "llm-cpu" },
 ]]
 
 [manifest]
@@ -236,7 +236,7 @@ wheels = [
 ]
 
 [[package]]
-name = "dantejp"
+name = "dantetl"
 version = "0.1.0"
 source = { editable = "." }
 default-groups = ["cpu", "dev"]
@@ -253,7 +253,7 @@ dependencies = [
 
 [package.dev-dependencies]
 amd = [
-    { name = "onnxruntime-directml", marker = "sys_platform == 'win32' or (extra == 'group-7-dantejp-gemma' and extra == 'group-7-dantejp-gemma-vulkan') or (extra == 'group-7-dantejp-gemma' and extra == 'group-7-dantejp-llm-cpu') or (extra == 'group-7-dantejp-gemma-vulkan' and extra == 'group-7-dantejp-llm-cpu')" },
+    { name = "onnxruntime-directml", marker = "sys_platform == 'win32' or (extra == 'group-7-dantetl-gemma' and extra == 'group-7-dantetl-gemma-vulkan') or (extra == 'group-7-dantetl-gemma' and extra == 'group-7-dantetl-llm-cpu') or (extra == 'group-7-dantetl-gemma-vulkan' and extra == 'group-7-dantetl-llm-cpu')" },
 ]
 bundle = [
     { name = "cmake" },
@@ -281,7 +281,7 @@ dev = [
 gemma = [
     { name = "diskcache" },
     { name = "jinja2" },
-    { name = "llama-cpp-python", version = "0.3.37", source = { url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.37-cu130/llama_cpp_python-0.3.37-py3-none-win_amd64.whl" }, marker = "sys_platform == 'win32' or (extra == 'group-7-dantejp-amd' and extra == 'group-7-dantejp-cpu') or (extra == 'group-7-dantejp-amd' and extra == 'group-7-dantejp-gpu') or (extra == 'group-7-dantejp-cpu' and extra == 'group-7-dantejp-gpu')" },
+    { name = "llama-cpp-python", version = "0.3.37", source = { url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.37-cu130/llama_cpp_python-0.3.37-py3-none-win_amd64.whl" }, marker = "sys_platform == 'win32' or (extra == 'group-7-dantetl-amd' and extra == 'group-7-dantetl-cpu') or (extra == 'group-7-dantetl-amd' and extra == 'group-7-dantetl-gpu') or (extra == 'group-7-dantetl-cpu' and extra == 'group-7-dantetl-gpu')" },
     { name = "nvidia-cublas" },
     { name = "nvidia-cuda-runtime" },
     { name = "pillow" },
@@ -289,7 +289,7 @@ gemma = [
 gemma-vulkan = [
     { name = "diskcache" },
     { name = "jinja2" },
-    { name = "llama-cpp-python", version = "0.3.37", source = { url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.37-vulkan/llama_cpp_python-0.3.37-py3-none-win_amd64.whl" }, marker = "sys_platform == 'win32' or (extra == 'group-7-dantejp-amd' and extra == 'group-7-dantejp-cpu') or (extra == 'group-7-dantejp-amd' and extra == 'group-7-dantejp-gpu') or (extra == 'group-7-dantejp-cpu' and extra == 'group-7-dantejp-gpu')" },
+    { name = "llama-cpp-python", version = "0.3.37", source = { url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.37-vulkan/llama_cpp_python-0.3.37-py3-none-win_amd64.whl" }, marker = "sys_platform == 'win32' or (extra == 'group-7-dantetl-amd' and extra == 'group-7-dantetl-cpu') or (extra == 'group-7-dantetl-amd' and extra == 'group-7-dantetl-gpu') or (extra == 'group-7-dantetl-cpu' and extra == 'group-7-dantetl-gpu')" },
     { name = "pillow" },
 ]
 gpu = [
@@ -300,7 +300,7 @@ gpu = [
     { name = "nvidia-cufft" },
     { name = "nvidia-curand" },
     { name = "nvidia-nvjitlink" },
-    { name = "onnxruntime-gpu", extra = ["cuda", "cudnn"], marker = "extra == 'group-7-dantejp-gpu' or (extra == 'group-7-dantejp-amd' and extra == 'group-7-dantejp-cpu') or (extra == 'group-7-dantejp-gemma' and extra == 'group-7-dantejp-gemma-vulkan') or (extra == 'group-7-dantejp-gemma' and extra == 'group-7-dantejp-llm-cpu') or (extra == 'group-7-dantejp-gemma-vulkan' and extra == 'group-7-dantejp-llm-cpu')" },
+    { name = "onnxruntime-gpu", extra = ["cuda", "cudnn"], marker = "extra == 'group-7-dantetl-gpu' or (extra == 'group-7-dantetl-amd' and extra == 'group-7-dantetl-cpu') or (extra == 'group-7-dantetl-gemma' and extra == 'group-7-dantetl-gemma-vulkan') or (extra == 'group-7-dantetl-gemma' and extra == 'group-7-dantetl-llm-cpu') or (extra == 'group-7-dantetl-gemma-vulkan' and extra == 'group-7-dantetl-llm-cpu')" },
 ]
 llm-common = [
     { name = "diskcache" },

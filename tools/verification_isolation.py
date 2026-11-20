@@ -7,10 +7,10 @@ from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import patch
 
-from dantejp.application.cloud_services import CloudServices
-from dantejp.translation.cloud.chatgpt_auth import ChatGPTConnections
-from dantejp.translation.cloud.profiles import CloudProfiles
-from dantejp.translation.cloud.protected_store import ProtectedStore
+from dantetl.application.cloud_services import CloudServices
+from dantetl.translation.cloud.chatgpt_auth import ChatGPTConnections
+from dantetl.translation.cloud.profiles import CloudProfiles
+from dantetl.translation.cloud.protected_store import ProtectedStore
 
 
 class NoCredentials:
@@ -25,7 +25,7 @@ class NoCredentials:
 
 
 def create_cloud() -> CloudServices:
-    temporary = tempfile.TemporaryDirectory(prefix="dantejp-verification-")
+    temporary = tempfile.TemporaryDirectory(prefix="dantetl-verification-")
     root = Path(temporary.name)
     service = CloudServices(
         CloudProfiles(root / "cloud.json"),
@@ -38,12 +38,12 @@ def create_cloud() -> CloudServices:
 
 
 def create_window(*args, **kwargs):
-    from dantejp.composition import application_session, setup_coordinator
-    from dantejp.paths import state_root
-    from dantejp.ui.desktop_driver import DesktopDriver
-    from dantejp.ui.main_window import MainWindow
+    from dantetl.composition import application_session, setup_coordinator
+    from dantetl.paths import state_root
+    from dantetl.ui.desktop_driver import DesktopDriver
+    from dantetl.ui.main_window import MainWindow
 
-    temporary = tempfile.TemporaryDirectory(prefix="dantejp-native-")
+    temporary = tempfile.TemporaryDirectory(prefix="dantetl-native-")
     root = Path(temporary.name)
     kwargs.setdefault("preferences_path", root / "preferences.json")
     kwargs.setdefault("cache_path", root / "cache.sqlite3")
@@ -71,7 +71,7 @@ def create_window(*args, **kwargs):
 def create_inventory(args, kwargs):
     from functools import partial
 
-    from dantejp.application.model_inventory import ModelInventory, inspect_models
+    from dantetl.application.model_inventory import ModelInventory, inspect_models
 
     backends = args[2] if len(args) > 2 else kwargs.get("backends", ())
     probe = partial(
@@ -90,8 +90,8 @@ def run_isolated(main: Callable[[], int | None]) -> None:
 
 
 def find_model(combo, choice):
-    from dantejp.application.translation_coordinator import model_reference
-    from dantejp.translation.selection import ModelOption
+    from dantetl.application.translation_coordinator import model_reference
+    from dantetl.translation.selection import ModelOption
 
     reference = choice.reference if isinstance(choice, ModelOption) else model_reference(choice)
     return next(
@@ -108,7 +108,7 @@ def find_model(combo, choice):
 def app_owner(window):
     from typing import cast
 
-    from dantejp.application.session import ApplicationSession
+    from dantetl.application.session import ApplicationSession
 
     return cast(ApplicationSession, window.application)
 
@@ -116,7 +116,7 @@ def app_owner(window):
 def cloud_owner(panel):
     from typing import cast
 
-    from dantejp.application.cloud_services import CloudServices
+    from dantetl.application.cloud_services import CloudServices
 
     return cast(CloudServices, panel.service)
 
@@ -124,6 +124,6 @@ def cloud_owner(panel):
 def setup_owner(panel):
     from typing import cast
 
-    from dantejp.application.setup_coordinator import SetupCoordinator
+    from dantetl.application.setup_coordinator import SetupCoordinator
 
     return cast(SetupCoordinator, panel.service)

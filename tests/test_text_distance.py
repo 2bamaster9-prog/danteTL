@@ -5,7 +5,7 @@ from random import Random
 
 import pytest
 
-from dantejp.ocr.text_distance import LcsSimilarity, within_edits
+from dantetl.ocr.text_distance import LcsSimilarity, within_edits
 
 
 def distance(first, second):

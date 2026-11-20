@@ -6,22 +6,22 @@ from pathlib import Path
 
 import pytest
 
-from dantejp import paths
-from dantejp.languages.selection import source_language
-from dantejp.ocr import models
-from dantejp.runtime import application as runtime_application
-from dantejp.runtime import model_store
-from dantejp.runtime import setup as runtime_setup
-from dantejp.runtime.assets import ModelAsset
-from dantejp.runtime.package import bundled_application
-from dantejp.runtime.requirements import expected_wheels
-from dantejp.translation.backends import gemma
+from dantetl import paths
+from dantetl.languages.selection import source_language
+from dantetl.ocr import models
+from dantetl.runtime import application as runtime_application
+from dantetl.runtime import model_store
+from dantetl.runtime import setup as runtime_setup
+from dantetl.runtime.assets import ModelAsset
+from dantetl.runtime.package import bundled_application
+from dantetl.runtime.requirements import expected_wheels
+from dantetl.translation.backends import gemma
 
 
 def app_wheel(resources, content=b"app version one"):
     directory = resources / "application"
     directory.mkdir(exist_ok=True)
-    wheel = directory / "dantejp-0.1.0-py3-none-any.whl"
+    wheel = directory / "dantetl-0.1.0-py3-none-any.whl"
     wheel.write_bytes(content)
     wheel.with_suffix(".whl.sha256").write_text(
         f"{hashlib.sha256(content).hexdigest()}  {wheel.name}\n", encoding="ascii"
@@ -30,13 +30,13 @@ def app_wheel(resources, content=b"app version one"):
 
 def install_app_metadata(resources, site):
     application = bundled_application(resources)
-    metadata = site / f"dantejp-{application.version}.dist-info"
+    metadata = site / f"dantetl-{application.version}.dist-info"
     metadata.mkdir(parents=True, exist_ok=True)
     (metadata / "direct_url.json").write_text(
         json.dumps({"archive_info": {"hashes": {"sha256": application.sha256}}}), "utf-8"
     )
-    (site / "dantejp").mkdir(exist_ok=True)
-    (site / "dantejp/__main__.py").touch()
+    (site / "dantetl").mkdir(exist_ok=True)
+    (site / "dantetl/__main__.py").touch()
 
 
 @pytest.fixture
@@ -62,8 +62,8 @@ def package(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "resource_root", lambda: resources)
     monkeypatch.setattr(runtime_application, "resource_root", lambda: paths.resource_root())
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "User AppData"))
-    monkeypatch.delenv("DANTEJP_DATA_DIR", raising=False)
-    for name in ("DANTEJP_MODEL_DIR", "DANTEJP_GEMMA_DIR"):
+    monkeypatch.delenv("DANTETL_DATA_DIR", raising=False)
+    for name in ("DANTETL_MODEL_DIR", "DANTETL_GEMMA_DIR"):
         monkeypatch.delenv(name, raising=False)
     return resources
 
@@ -71,7 +71,7 @@ def package(tmp_path, monkeypatch):
 def test_standalone_models_and_state_share_appdata_without_writing_beside_executable(package):
     before = set(package.rglob("*"))
     state = paths.state_root()
-    assert state.name == "DanteJP" and state.parent.name == "User AppData"
+    assert state.name == "DanteTL" and state.parent.name == "User AppData"
     assert runtime_setup.project_root() == state
     assert models.model_directory() == state / "models/meiki"
     assert gemma.model_directory() == state / "models/gemma-4-e2b"
@@ -81,13 +81,13 @@ def test_standalone_models_and_state_share_appdata_without_writing_beside_execut
 
 def test_source_checkout_preserves_existing_model_paths(package, monkeypatch):
     (package / "standalone.json").unlink()
-    monkeypatch.setenv("DANTEJP_DATA_DIR", "ignored-in-a-source-checkout")
+    monkeypatch.setenv("DANTETL_DATA_DIR", "ignored-in-a-source-checkout")
     assert paths.state_root() == package
     assert models.model_directory() == package / "models/meiki"
-    assert paths.module_command(Path("python.exe"), "dantejp") == [
+    assert paths.module_command(Path("python.exe"), "dantetl") == [
         "python.exe",
         "-m",
-        "dantejp",
+        "dantetl",
     ]
 
 
@@ -115,7 +115,7 @@ def test_bundled_ocr_is_available_offline_without_installing_or_copying(package,
     monkeypatch.setattr(paths, "resource_root", lambda: moved)
     assert models.model_directory() == moved / "models/meiki"
     explicit = moved.parent / "explicit models"
-    monkeypatch.setenv("DANTEJP_MODEL_DIR", str(explicit))
+    monkeypatch.setenv("DANTETL_MODEL_DIR", str(explicit))
     assert models.model_directory() == explicit
     assert not next(b for b in model_store.model_catalog() if b.key == "ocr").present()
 
@@ -123,13 +123,13 @@ def test_bundled_ocr_is_available_offline_without_installing_or_copying(package,
 @pytest.mark.parametrize(
     "code,folder,assets,resolve,override",
     [
-        ("ja", "meiki", "ASSETS", models.model_directory, "DANTEJP_MODEL_DIR"),
+        ("ja", "meiki", "ASSETS", models.model_directory, "DANTETL_MODEL_DIR"),
         (
             "en",
             "paddle-latin-v5",
             "PADDLE_ASSETS",
             models.paddle_directory,
-            "DANTEJP_PADDLE_MODEL_DIR",
+            "DANTETL_PADDLE_MODEL_DIR",
         ),
     ],
 )
@@ -164,10 +164,10 @@ def test_repair_cannot_write_to_standalone_resources(package):
 
 
 def test_explicit_state_override_requires_absolute_path(package, monkeypatch, tmp_path):
-    monkeypatch.setenv("DANTEJP_DATA_DIR", "relative")
+    monkeypatch.setenv("DANTETL_DATA_DIR", "relative")
     with pytest.raises(ValueError, match="absolute"):
         paths.state_root()
-    monkeypatch.setenv("DANTEJP_DATA_DIR", str(tmp_path / "test data"))
+    monkeypatch.setenv("DANTETL_DATA_DIR", str(tmp_path / "test data"))
     assert paths.state_root() == tmp_path / "test data"
 
 
@@ -178,7 +178,7 @@ def installer(package, monkeypatch):
     def command(argv, cwd, environment, *args, **kwargs):
         calls.append(argv)
         assert cwd == paths.resource_root()
-        assert environment["DANTEJP_DATA_DIR"] == str(paths.state_root())
+        assert environment["DANTETL_DATA_DIR"] == str(paths.state_root())
         if "venv" in argv:
             target = Path(environment["UV_PROJECT_ENVIRONMENT"])
             (target / "Scripts").mkdir(parents=True)
@@ -267,7 +267,7 @@ def test_app_update_and_relocation_reuse_legacy_dependencies(
 def test_failed_app_update_never_reinstalls_dependencies_or_overwrites_previous_code(
     package, installer, monkeypatch, failure
 ):
-    from dantejp.runtime.setup_values import Cancelled
+    from dantetl.runtime.setup_values import Cancelled
 
     calls, command = installer
     state = paths.state_root()
@@ -301,10 +301,10 @@ def test_failed_app_update_never_reinstalls_dependencies_or_overwrites_previous_
 
 def test_incomplete_or_ambiguous_release_never_supplies_an_application_wheel(package):
     wheel = bundled_application(package)
-    (wheel.path.parent / "dantejp-0.2.0-py3-none-any.whl").touch()
+    (wheel.path.parent / "dantetl-0.2.0-py3-none-any.whl").touch()
     with pytest.raises(ValueError, match="ambiguous"):
         bundled_application(package)
-    (wheel.path.parent / "dantejp-0.2.0-py3-none-any.whl").unlink()
+    (wheel.path.parent / "dantetl-0.2.0-py3-none-any.whl").unlink()
     wheel.path.with_suffix(".whl.sha256").write_text("not a checksum")
     with pytest.raises(ValueError, match="checksum"):
         bundled_application(package)
@@ -314,7 +314,7 @@ def test_installed_local_wheel_provenance_survives_relocation_but_requires_exact
     wheel = bundled_application(package)
     target = paths.state_root() / "example-runtime"
     install_app_metadata(package, target)
-    metadata = target / "dantejp-0.1.0.dist-info/direct_url.json"
+    metadata = target / "dantetl-0.1.0.dist-info/direct_url.json"
     # Actual uv local-wheel provenance: the original URL retains its integrity fragment.
     metadata.write_text(
         json.dumps(
@@ -340,7 +340,7 @@ def test_concurrent_launches_install_once_and_cancel_waiter_without_touching_own
 ):
     from concurrent.futures import ThreadPoolExecutor
 
-    from dantejp.runtime.setup_values import Cancelled
+    from dantetl.runtime.setup_values import Cancelled
 
     calls, command = installer
     root = paths.state_root()
@@ -378,8 +378,8 @@ def test_launch_environment_uses_only_current_app_and_retains_native_environment
 ):
     from unittest.mock import Mock
 
-    from dantejp.runtime import restart as runtime_restart
-    from dantejp.runtime.setup_process import run_setup_command
+    from dantetl.runtime import restart as runtime_restart
+    from dantetl.runtime.setup_process import run_setup_command
 
     root = paths.state_root()
     profile = runtime_setup.PROFILES[0]
@@ -398,7 +398,7 @@ def test_launch_environment_uses_only_current_app_and_retains_native_environment
     monkeypatch.setattr(runtime_restart, "OwnedProcess", launch)
     restart = runtime_restart.RuntimeRestart(root, ready)
     argv, cwd, env = launch.call_args.args
-    assert argv == [str(ready / "Scripts/pythonw.exe"), "-P", "-s", "-B", "-m", "dantejp"]
+    assert argv == [str(ready / "Scripts/pythonw.exe"), "-P", "-s", "-B", "-m", "dantetl"]
     assert cwd == root
     assert Path(env["PYTHONPATH"]).parent == root / ".applications"
     assert not any(
@@ -430,7 +430,7 @@ def test_launch_environment_uses_only_current_app_and_retains_native_environment
 def test_python_environment_cannot_break_probes_or_trigger_dependency_repair(
     package, installer, monkeypatch, profile, reuse
 ):
-    from dantejp.runtime.setup_process import run_setup_command
+    from dantetl.runtime.setup_process import run_setup_command
 
     root = paths.state_root()
     calls, command = installer
@@ -453,7 +453,7 @@ def test_python_environment_cannot_break_probes_or_trigger_dependency_repair(
 
     def probe(argv, cwd, environment, *args, **kwargs):
         command(argv, cwd, environment, *args, **kwargs)
-        if "dantejp.runtime.probe" in argv:
+        if "dantetl.runtime.probe" in argv:
             # Exercise real interpreter startup with the exact environment and flags passed
             # to either probe, without needing native inference packages in fast tests.
             script = (

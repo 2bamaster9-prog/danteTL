@@ -5,11 +5,11 @@ import os
 from pathlib import Path
 from typing import Any
 
-from dantejp.languages.target import ENGLISH, TargetLanguage
-from dantejp.runtime.llama import load_runtime
-from dantejp.translation.backend import RequestRejected
-from dantejp.translation.backends.gguf import completed_answer
-from dantejp.translation.dialogue.context import DialogueTurn
+from dantetl.languages.target import ENGLISH, TargetLanguage
+from dantetl.runtime.llama import load_runtime
+from dantetl.translation.backend import RequestRejected
+from dantetl.translation.backends.gguf import completed_answer
+from dantetl.translation.dialogue.context import DialogueTurn
 
 CONTEXT = 2048
 OUTPUT = 384

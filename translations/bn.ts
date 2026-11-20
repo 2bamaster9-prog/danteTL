@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <TS version="2.1" language="bn" sourcelanguage="en">
   <context>
-    <name>DanteJP</name>
+    <name>DanteTL</name>
     <message>
       <source>
 
@@ -276,19 +276,19 @@ Repairs folder: {directory}</source>
       <source>An unexpected error occurred:
 {error}
 
-Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
+Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>একটি অপ্রত্যাশিত ত্রুটি ঘটেছে:
 {error}
 
-বিস্তারিত %LOCALAPPDATA%/DanteJP/logs/app.log-এ আছে।</translation>
+বিস্তারিত %LOCALAPPDATA%/DanteTL/logs/app.log-এ আছে।</translation>
     </message>
     <message>
-      <source>Another DanteJP instance is already installing a runtime.</source>
-      <translation>অন্য একটি DanteJP ইনস্ট্যান্স ইতিমধ্যে একটি রানটাইম ইনস্টল করছে।</translation>
+      <source>Another DanteTL instance is already installing a runtime.</source>
+      <translation>অন্য একটি DanteTL ইনস্ট্যান্স ইতিমধ্যে একটি রানটাইম ইনস্টল করছে।</translation>
     </message>
     <message>
-      <source>Another DanteJP instance is updating this ChatGPT account.</source>
-      <translation>অন্য একটি DanteJP ইনস্ট্যান্স এই ChatGPT অ্যাকাউন্ট আপডেট করছে।</translation>
+      <source>Another DanteTL instance is updating this ChatGPT account.</source>
+      <translation>অন্য একটি DanteTL ইনস্ট্যান্স এই ChatGPT অ্যাকাউন্ট আপডেট করছে।</translation>
     </message>
     <message>
       <source>Another app or Windows already uses this shortcut.</source>
@@ -815,8 +815,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>এই প্রদানকারীর জন্য একটি সংরক্ষিত সংযোগ চয়ন করুন, অথবা একটি নতুন API কী যোগ করুন।</translation>
     </message>
     <message>
-      <source>Choose a single-file GGUF chat model. The file stays in its current folder; DanteJP saves only a reference. The import test uses Japanese and English.</source>
-      <translation>একটি একক-ফাইল GGUF চ্যাট মডেল চয়ন করুন। ফাইলটি তার বর্তমান ফোল্ডারে থাকে; DanteJP শুধু একটি রেফারেন্স সংরক্ষণ করে। আমদানি পরীক্ষা জাপানি এবং ইংরেজি ব্যবহার করে।</translation>
+      <source>Choose a single-file GGUF chat model. The file stays in its current folder; DanteTL saves only a reference. The import test uses Japanese and English.</source>
+      <translation>একটি একক-ফাইল GGUF চ্যাট মডেল চয়ন করুন। ফাইলটি তার বর্তমান ফোল্ডারে থাকে; DanteTL শুধু একটি রেফারেন্স সংরক্ষণ করে। আমদানি পরীক্ষা জাপানি এবং ইংরেজি ব্যবহার করে।</translation>
     </message>
     <message>
       <source>Choose a supported provider and model.</source>
@@ -1119,8 +1119,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>মালিকানাধীন প্রসেস বন্ধ করা যায়নি।</translation>
     </message>
     <message>
-      <source>Counts belong to the selected saved model, including translation and classifier requests. Cache hits make no requests. Token totals include only usage reported by the provider; these are not billing totals. Counts reset when DanteJP exits.</source>
-      <translation>গণনাগুলো নির্বাচিত সংরক্ষিত মডেলের অন্তর্গত, যার মধ্যে অনুবাদ ও ক্লাসিফায়ার অনুরোধ অন্তর্ভুক্ত। ক্যাশ হিট কোনো অনুরোধ করে না। টোকেন মোট শুধু প্রোভাইডারের রিপোর্ট করা ব্যবহার অন্তর্ভুক্ত করে; এগুলো বিলিং মোট নয়। DanteJP বন্ধ হলে গণনা রিসেট হয়।</translation>
+      <source>Counts belong to the selected saved model, including translation and classifier requests. Cache hits make no requests. Token totals include only usage reported by the provider; these are not billing totals. Counts reset when DanteTL exits.</source>
+      <translation>গণনাগুলো নির্বাচিত সংরক্ষিত মডেলের অন্তর্গত, যার মধ্যে অনুবাদ ও ক্লাসিফায়ার অনুরোধ অন্তর্ভুক্ত। ক্যাশ হিট কোনো অনুরোধ করে না। টোকেন মোট শুধু প্রোভাইডারের রিপোর্ট করা ব্যবহার অন্তর্ভুক্ত করে; এগুলো বিলিং মোট নয়। DanteTL বন্ধ হলে গণনা রিসেট হয়।</translation>
     </message>
     <message>
       <source>Croatian</source>
@@ -1139,12 +1139,12 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>চেক</translation>
     </message>
     <message>
-      <source>DANTEJP_DATA_DIR must be an absolute directory.</source>
-      <translation>DANTEJP_DATA_DIR অবশ্যই একটি পরম ডিরেক্টরি হতে হবে।</translation>
+      <source>DANTETL_DATA_DIR must be an absolute directory.</source>
+      <translation>DANTETL_DATA_DIR অবশ্যই একটি পরম ডিরেক্টরি হতে হবে।</translation>
     </message>
     <message>
-      <source>DANTEJP_RESOURCE_DIR must identify a complete standalone app.</source>
-      <translation>DANTEJP_RESOURCE_DIR অবশ্যই একটি সম্পূর্ণ স্বতন্ত্র অ্যাপ চিহ্নিত করতে হবে।</translation>
+      <source>DANTETL_RESOURCE_DIR must identify a complete standalone app.</source>
+      <translation>DANTETL_RESOURCE_DIR অবশ্যই একটি সম্পূর্ণ স্বতন্ত্র অ্যাপ চিহ্নিত করতে হবে।</translation>
     </message>
     <message>
       <source>DEBUG  Amber: changed pixels   Cyan: last completed OCR</source>
@@ -1155,16 +1155,16 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>ডেনিশ</translation>
     </message>
     <message>
-      <source>DanteJP currently requires Windows.</source>
-      <translation>DanteJP বর্তমানে Windows প্রয়োজন।</translation>
+      <source>DanteTL currently requires Windows.</source>
+      <translation>DanteTL বর্তমানে Windows প্রয়োজন।</translation>
     </message>
     <message>
-      <source>DanteJP · Settings</source>
-      <translation>DanteJP · সেটিংস</translation>
+      <source>DanteTL · Settings</source>
+      <translation>DanteTL · সেটিংস</translation>
     </message>
     <message>
-      <source>DanteJP · Welcome</source>
-      <translation>DanteJP · স্বাগতম</translation>
+      <source>DanteTL · Welcome</source>
+      <translation>DanteTL · স্বাগতম</translation>
     </message>
     <message>
       <source>Debug overlay</source>
@@ -1179,8 +1179,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>মুছুন</translation>
     </message>
     <message>
-      <source>Demo opened. Refresh the window list and select DanteJP Demo.</source>
-      <translation>ডেমো খোলা হয়েছে। উইন্ডো তালিকা রিফ্রেশ করুন এবং DanteJP ডেমো নির্বাচন করুন।</translation>
+      <source>Demo opened. Refresh the window list and select DanteTL Demo.</source>
+      <translation>ডেমো খোলা হয়েছে। উইন্ডো তালিকা রিফ্রেশ করুন এবং DanteTL ডেমো নির্বাচন করুন।</translation>
     </message>
     <message>
       <source>Detect graphics cards and install acceleration inside the app.</source>
@@ -1223,8 +1223,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>সংলাপের ইতিহাস</translation>
     </message>
     <message>
-      <source>Dialogue history (Experimental) · DanteJP</source>
-      <translation>সংলাপের ইতিহাস (পরীক্ষামূলক) · DanteJP</translation>
+      <source>Dialogue history (Experimental) · DanteTL</source>
+      <translation>সংলাপের ইতিহাস (পরীক্ষামূলক) · DanteTL</translation>
     </message>
     <message>
       <source>Dialogue history · {count}/20</source>
@@ -1351,8 +1351,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>আটটি ChatGPT অ্যাকাউন্ট ইতিমধ্যে নিবন্ধিত।</translation>
     </message>
     <message>
-      <source>Eligible translations use your ChatGPT plan. Manage allowance and credit permissions in ChatGPT Settings → Usage. DanteJP never falls back to an API key.</source>
-      <translation>যোগ্য অনুবাদগুলো আপনার ChatGPT প্ল্যান ব্যবহার করে। ChatGPT Settings → Usage-তে ভাতা ও ক্রেডিট অনুমতি পরিচালনা করুন। DanteJP কখনো API কী-তে ফিরে যায় না।</translation>
+      <source>Eligible translations use your ChatGPT plan. Manage allowance and credit permissions in ChatGPT Settings → Usage. DanteTL never falls back to an API key.</source>
+      <translation>যোগ্য অনুবাদগুলো আপনার ChatGPT প্ল্যান ব্যবহার করে। ChatGPT Settings → Usage-তে ভাতা ও ক্রেডিট অনুমতি পরিচালনা করুন। DanteTL কখনো API কী-তে ফিরে যায় না।</translation>
     </message>
     <message>
       <source>Embedded chat template</source>
@@ -1723,8 +1723,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>স্ক্রিন ক্যাপচারে অন্তর্ভুক্ত করুন</translation>
     </message>
     <message>
-      <source>Include translations in screenshots, display recordings and screen sharing. Turn off to ask Windows to exclude the overlay. Game/window-only capture may omit it either way; this does not affect DanteJP's OCR.</source>
-      <translation>স্ক্রিনশট, ডিসপ্লে রেকর্ডিং এবং স্ক্রিন শেয়ারিংয়ে অনুবাদ অন্তর্ভুক্ত করুন। ওভারলে বাদ দিতে Windows-কে বলতে এটি বন্ধ করুন। গেম/শুধু-উইন্ডো ক্যাপচারে যেভাবেই হোক এটি বাদ পড়তে পারে; এটি DanteJP-এর OCR-কে প্রভাবিত করে না।</translation>
+      <source>Include translations in screenshots, display recordings and screen sharing. Turn off to ask Windows to exclude the overlay. Game/window-only capture may omit it either way; this does not affect DanteTL's OCR.</source>
+      <translation>স্ক্রিনশট, ডিসপ্লে রেকর্ডিং এবং স্ক্রিন শেয়ারিংয়ে অনুবাদ অন্তর্ভুক্ত করুন। ওভারলে বাদ দিতে Windows-কে বলতে এটি বন্ধ করুন। গেম/শুধু-উইন্ডো ক্যাপচারে যেভাবেই হোক এটি বাদ পড়তে পারে; এটি DanteTL-এর OCR-কে প্রভাবিত করে না।</translation>
     </message>
     <message>
       <source>Included OCR files verified.</source>
@@ -2051,8 +2051,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>সর্বোচ্চ অনুরোধ শুরু, পুনরায় চেষ্টাসহ। ক্যাশ হিট কোনো অনুরোধ ব্যবহার করে না।</translation>
     </message>
     <message>
-      <source>Maximum reserved attempts for this model until DanteJP exits. Not a spending cap.</source>
-      <translation>DanteJP বন্ধ হওয়ার আগ পর্যন্ত এই মডেলের জন্য সর্বোচ্চ সংরক্ষিত প্রচেষ্টা। এটি ব্যয়সীমা নয়।</translation>
+      <source>Maximum reserved attempts for this model until DanteTL exits. Not a spending cap.</source>
+      <translation>DanteTL বন্ধ হওয়ার আগ পর্যন্ত এই মডেলের জন্য সর্বোচ্চ সংরক্ষিত প্রচেষ্টা। এটি ব্যয়সীমা নয়।</translation>
     </message>
     <message>
       <source>MeikiOCR · Japanese text recognition</source>
@@ -2383,8 +2383,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>প্রাচীনতম সক্রিয় অনুবাদ: {value:.1f}s</translation>
     </message>
     <message>
-      <source>Only DanteJP modules may be launched by this entry point.</source>
-      <translation>এই এন্ট্রি পয়েন্ট দিয়ে কেবল DanteJP মডিউল চালু করা যাবে।</translation>
+      <source>Only DanteTL modules may be launched by this entry point.</source>
+      <translation>এই এন্ট্রি পয়েন্ট দিয়ে কেবল DanteTL মডিউল চালু করা যাবে।</translation>
     </message>
     <message>
       <source>Only a verified runtime can be selected.</source>
@@ -2407,8 +2407,8 @@ Details are in %LOCALAPPDATA%/DanteJP/logs/app.log.</source>
       <translation>OpenAI · API কী</translation>
     </message>
     <message>
-      <source>Opening DanteJP with the installed runtime…</source>
-      <translation>ইনস্টল করা রানটাইম দিয়ে DanteJP খোলা হচ্ছে…</translation>
+      <source>Opening DanteTL with the installed runtime…</source>
+      <translation>ইনস্টল করা রানটাইম দিয়ে DanteTL খোলা হচ্ছে…</translation>
     </message>
     <message>
       <source>Operation cancelled.</source>
@@ -2805,8 +2805,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>পরীক্ষিত GPU-তে প্রতিক্রিয়াশীল; CPU এবং ব্যস্ত দৃশ্য ধীর।</translation>
     </message>
     <message>
-      <source>Restart DanteJP before changing more shortcuts.</source>
-      <translation>আরও শর্টকাট পরিবর্তনের আগে DanteJP পুনরায় চালু করুন।</translation>
+      <source>Restart DanteTL before changing more shortcuts.</source>
+      <translation>আরও শর্টকাট পরিবর্তনের আগে DanteTL পুনরায় চালু করুন।</translation>
     </message>
     <message>
       <source>Restart cancelled. Current runtime retained.</source>
@@ -2999,8 +2999,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>অ্যাক্সিলারেশন সেট আপ করা হচ্ছে…</translation>
     </message>
     <message>
-      <source>Setting up DanteJP</source>
-      <translation>DanteJP সেট আপ করা হচ্ছে</translation>
+      <source>Setting up DanteTL</source>
+      <translation>DanteTL সেট আপ করা হচ্ছে</translation>
     </message>
     <message>
       <source>Settings</source>
@@ -3065,8 +3065,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>সংক্ষিপ্ত লেবেল</translation>
     </message>
     <message>
-      <source>Shortcuts work while the game has focus or DanteJP is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
-      <translation>গেমে ফোকাস থাকলে বা DanteJP মিনিমাইজ থাকলে শর্টকাট কাজ করে। একটি সমন্বয় বেছে নিয়ে Apply করুন। কোনো অ্যাকশন বন্ধ করতে Disabled নির্বাচন করুন।</translation>
+      <source>Shortcuts work while the game has focus or DanteTL is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
+      <translation>গেমে ফোকাস থাকলে বা DanteTL মিনিমাইজ থাকলে শর্টকাট কাজ করে। একটি সমন্বয় বেছে নিয়ে Apply করুন। কোনো অ্যাকশন বন্ধ করতে Disabled নির্বাচন করুন।</translation>
     </message>
     <message>
       <source>Show / hide overlay</source>
@@ -3117,8 +3117,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>সাইন ইন হয়েছে, কিন্তু প্ল্যান ব্যবহার সক্রিয় করা হয়নি। অনুমোদন করতে আবার সাইন ইন করুন।</translation>
     </message>
     <message>
-      <source>Signed out locally. Remote revocation was not confirmed; disconnect DanteJP in ChatGPT usage settings.</source>
-      <translation>স্থানীয়ভাবে সাইন আউট হয়েছে। দূরবর্তী বাতিলকরণ নিশ্চিত হয়নি; ChatGPT ব্যবহারের সেটিংসে DanteJP সংযোগ বিচ্ছিন্ন করুন।</translation>
+      <source>Signed out locally. Remote revocation was not confirmed; disconnect DanteTL in ChatGPT usage settings.</source>
+      <translation>স্থানীয়ভাবে সাইন আউট হয়েছে। দূরবর্তী বাতিলকরণ নিশ্চিত হয়নি; ChatGPT ব্যবহারের সেটিংসে DanteTL সংযোগ বিচ্ছিন্ন করুন।</translation>
     </message>
     <message>
       <source>Signed out of ChatGPT.</source>
@@ -3317,10 +3317,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>পাঠ্য শনাক্তকরণ (OCR)</translation>
     </message>
     <message>
-      <source>Text recognition is included with DanteJP. This guide helps you choose a translation model and optional GPU acceleration.
+      <source>Text recognition is included with DanteTL. This guide helps you choose a translation model and optional GPU acceleration.
 
 </source>
-      <translation>পাঠ্য শনাক্তকরণ DanteJP-এর সাথে অন্তর্ভুক্ত। এই গাইডটি আপনাকে একটি অনুবাদ মডেল এবং ঐচ্ছিক GPU ত্বরণ বেছে নিতে সাহায্য করবে।
+      <translation>পাঠ্য শনাক্তকরণ DanteTL-এর সাথে অন্তর্ভুক্ত। এই গাইডটি আপনাকে একটি অনুবাদ মডেল এবং ঐচ্ছিক GPU ত্বরণ বেছে নিতে সাহায্য করবে।
 
 </translation>
     </message>
@@ -3369,8 +3369,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>বান্ডল করা অ্যাপ wheel-টি অনুপস্থিত বা অস্পষ্ট। সম্পূর্ণ ZIP এক্সট্র্যাক্ট করুন।</translation>
     </message>
     <message>
-      <source>The bundled installer is missing. Extract the complete DanteJP ZIP.</source>
-      <translation>বান্ডল করা ইনস্টলার অনুপস্থিত। সম্পূর্ণ DanteJP ZIP এক্সট্র্যাক্ট করুন।</translation>
+      <source>The bundled installer is missing. Extract the complete DanteTL ZIP.</source>
+      <translation>বান্ডল করা ইনস্টলার অনুপস্থিত। সম্পূর্ণ DanteTL ZIP এক্সট্র্যাক্ট করুন।</translation>
     </message>
     <message>
       <source>The currently committed translation model.</source>
@@ -3765,8 +3765,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>উইন্ডো শিরোনাম ব্যবহার করুন</translation>
     </message>
     <message>
-      <source>Use your ChatGPT plan. To use only its included allowance, disable credit use for DanteJP in ChatGPT's usage settings. No automatic API-key fallback.</source>
-      <translation>আপনার ChatGPT প্ল্যান ব্যবহার করুন। শুধুমাত্র এর অন্তর্ভুক্ত ভাতা ব্যবহার করতে, ChatGPT-এর ব্যবহার সেটিংসে DanteJP-এর জন্য ক্রেডিট ব্যবহার নিষ্ক্রিয় করুন। স্বয়ংক্রিয় API-কী ফলব্যাক নেই।</translation>
+      <source>Use your ChatGPT plan. To use only its included allowance, disable credit use for DanteTL in ChatGPT's usage settings. No automatic API-key fallback.</source>
+      <translation>আপনার ChatGPT প্ল্যান ব্যবহার করুন। শুধুমাত্র এর অন্তর্ভুক্ত ভাতা ব্যবহার করতে, ChatGPT-এর ব্যবহার সেটিংসে DanteTL-এর জন্য ক্রেডিট ব্যবহার নিষ্ক্রিয় করুন। স্বয়ংক্রিয় API-কী ফলব্যাক নেই।</translation>
     </message>
     <message>
       <source>Use {value}</source>
@@ -3905,8 +3905,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>শ্রেণিবদ্ধ করার জন্য অপেক্ষা করা হচ্ছে…</translation>
     </message>
     <message>
-      <source>Welcome to DanteJP</source>
-      <translation>DanteJP-এ স্বাগতম</translation>
+      <source>Welcome to DanteTL</source>
+      <translation>DanteTL-এ স্বাগতম</translation>
     </message>
     <message>
       <source>Welsh</source>

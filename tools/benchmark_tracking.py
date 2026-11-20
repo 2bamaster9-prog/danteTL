@@ -13,10 +13,10 @@ import time
 from dataclasses import asdict, replace
 from pathlib import Path
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr.presence import prepare_evidence
-from dantejp.ocr.tracking import TextTracker, prepare_matching
-from dantejp.ocr.values import OcrResult, TextRegion
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.presence import prepare_evidence
+from dantetl.ocr.tracking import TextTracker, prepare_matching
+from dantetl.ocr.values import OcrResult, TextRegion
 
 
 def observations(length: int, repeats: int):

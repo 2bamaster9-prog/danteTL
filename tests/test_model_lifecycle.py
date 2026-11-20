@@ -1,8 +1,8 @@
 from unittest.mock import Mock
 
-from dantejp.application.model_lifecycle import ModelPhase
-from dantejp.translation.values import TranslationSnapshot, TranslationState
-from dantejp.translation.worker import BackendChoice, TranslationSession
+from dantetl.application.model_lifecycle import ModelPhase
+from dantetl.translation.values import TranslationSnapshot, TranslationState
+from dantetl.translation.worker import BackendChoice, TranslationSession
 
 
 class Worker(TranslationSession):
@@ -35,7 +35,7 @@ class Worker(TranslationSession):
 def setup(tmp_path):
     from ownership_fixtures import Replay
 
-    from dantejp.application.model_inventory import InventoryData
+    from dantetl.application.model_inventory import InventoryData
 
     base = BackendChoice("Base", Mock(), "base")
     candidate = BackendChoice("New", Mock(), "new", "new")
@@ -43,7 +43,7 @@ def setup(tmp_path):
 
 
 def propose(replay, choice):
-    from dantejp.translation.plan import TranslationPlan
+    from dantetl.translation.plan import TranslationPlan
 
     return replay.translation.lifecycle.request_assignment(
         TranslationPlan("local:" + choice.key, "local:" + choice.key), choice

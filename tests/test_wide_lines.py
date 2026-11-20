@@ -2,9 +2,9 @@ from dataclasses import replace
 
 import pytest
 
-from dantejp.domain import Rect
-from dantejp.ocr.values import TextCharacter, TextRegion
-from dantejp.ocr.wide_lines import recover_wide_lines
+from dantetl.domain import Rect
+from dantetl.ocr.values import TextCharacter, TextRegion
+from dantetl.ocr.wide_lines import recover_wide_lines
 
 
 def line(text: str, y: int = 30) -> TextRegion:

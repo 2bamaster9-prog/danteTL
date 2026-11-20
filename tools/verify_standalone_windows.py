@@ -16,10 +16,10 @@ from zipfile import ZipFile
 import cv2
 import numpy as np
 
-from dantejp.capture.windows import Windows
-from dantejp.domain import WindowTarget
-from dantejp.runtime.owned_process import OwnedProcess
-from dantejp.runtime.setup_process import run_setup_command
+from dantetl.capture.windows import Windows
+from dantetl.domain import WindowTarget
+from dantetl.runtime.owned_process import OwnedProcess
+from dantetl.runtime.setup_process import run_setup_command
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -68,7 +68,7 @@ def download_helper(exe: Path, output: Path, environment: dict[str, str]) -> Non
             [
                 str(exe),
                 "--module",
-                "dantejp.runtime.download_transport",
+                "dantetl.runtime.download_transport",
                 f"http://127.0.0.1:{server.server_port}/fixture",
                 str(temporary),
                 str(len(payload)),
@@ -94,7 +94,7 @@ def desktop(
 ) -> None:
     token = uuid4().hex
     process = OwnedProcess(
-        [str(exe)], output, environment | {"DANTEJP_RESTART_TOKEN": token}, show_window=True
+        [str(exe)], output, environment | {"DANTETL_RESTART_TOKEN": token}, show_window=True
     )
     receipt = state / "data/restarts" / token
     windows = Windows()
@@ -126,7 +126,7 @@ def desktop(
             time.sleep(0.1)
         post = ctypes.WinDLL("user32").PostMessageW
         post.argtypes = (ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t)
-        for title in (welcome, "DanteJP"):
+        for title in (welcome, "DanteTL"):
             owned = owned_windows()
             while not any(t.title == title for t in owned):
                 assert time.monotonic() < deadline, (title, owned)
@@ -145,7 +145,7 @@ def desktop(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--zip", type=Path, default=ROOT / "dist/DanteJP-windows-x64.zip")
+    parser.add_argument("--zip", type=Path, default=ROOT / "dist/DanteTL-windows-x64.zip")
     parser.add_argument("--bundle", type=Path, help="Verify an already built/extracted bundle")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--headless", action="store_true", help="Skip desktop startup on CI")
@@ -164,18 +164,18 @@ def main() -> None:
                 if not (relocated / name).resolve().is_relative_to(relocated):
                     raise ValueError("ZIP path escapes extraction.")
             archive.extractall(relocated)
-        bundle = relocated / "DanteJP"
+        bundle = relocated / "DanteTL"
     before = files(bundle)
     assert not (bundle / "_internal/app/src").exists(), "No duplicate application source tree"
     assert not (bundle / "_internal/app/bootstrap.py").exists(), "No custom runtime bootstrap"
-    exe = bundle / "DanteJP.exe"
+    exe = bundle / "DanteTL.exe"
     image = exe.read_bytes()
     pe = struct.unpack_from("<I", image, 0x3C)[0]
     assert struct.unpack_from("<H", image, pe + 24 + 68)[0] == 2, "Must be a GUI executable"
     environment = {
         key: value
         for key, value in os.environ.items()
-        if not key.startswith(("UV_", "DANTEJP_", "_PYI"))
+        if not key.startswith(("UV_", "DANTETL_", "_PYI"))
         and key not in ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV", "QT_QPA_PLATFORM")
     }
     environment.update(
@@ -183,7 +183,7 @@ def main() -> None:
         LOCALAPPDATA=str(output / "AppData"),
         PYINSTALLER_RESET_ENVIRONMENT="1",
     )
-    state = output / "AppData/DanteJP"
+    state = output / "AppData/DanteTL"
     saved = {"profile": "nvidia", "environment": "nvidia-" + "0" * 32}
     if args.invalid_selection:
         (state / "data").mkdir(parents=True)
@@ -206,7 +206,7 @@ def main() -> None:
         [
             str(exe),
             "--module",
-            "dantejp.runtime.probe",
+            "dantetl.runtime.probe",
             "cpu",
             "--ocr-image",
             str(ROOT / "tests/fixtures/ocr.png"),
@@ -227,7 +227,7 @@ def main() -> None:
     assert Path(result["latin_ocr"]["models"]) == bundle / "_internal/app/models/paddle-latin-v5"
     download_helper(exe, output, environment)
     if not args.headless:
-        desktop(exe, output, environment, state, "DanteJP · Welcome")
+        desktop(exe, output, environment, state, "DanteTL · Welcome")
         assert (state / "logs/app.log").is_file()
         # A saved interface locale must load from the relocated release before setup appears.
         from PySide6.QtCore import QTranslator
@@ -235,9 +235,9 @@ def main() -> None:
         prefs = state / "data/preferences.json"
         for code in ("pt-PT", "ja"):
             catalog = QTranslator()
-            assert catalog.load(str(ROOT / f"src/dantejp/ui/locales/{code}.qm"))
-            welcome = catalog.translate("DanteJP", "DanteJP · Welcome")
-            assert welcome and welcome != "DanteJP · Welcome"
+            assert catalog.load(str(ROOT / f"src/dantetl/ui/locales/{code}.qm"))
+            welcome = catalog.translate("DanteTL", "DanteTL · Welcome")
+            assert welcome and welcome != "DanteTL · Welcome"
             prefs.write_text(
                 json.dumps({"version": 1, "setup_seen": False, "interface_language": code}), "utf-8"
             )

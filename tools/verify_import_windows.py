@@ -12,19 +12,19 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
-from dantejp.application.model_factories import (
+from dantetl.application.model_factories import (
     create_recognizer,
     ocr_backends,
     translation_backends,
 )
-from dantejp.capture.windows import Windows
-from dantejp.domain import WindowTarget
-from dantejp.runtime.model_store import model_catalog
-from dantejp.translation.models import gguf as gguf_models
-from dantejp.translation.routing import RoutedTranslationSession
-from dantejp.translation.values import TranslationState
-from dantejp.translation.worker import TranslationSession
-from dantejp.ui.demo import DemoWindow
+from dantetl.capture.windows import Windows
+from dantetl.domain import WindowTarget
+from dantetl.runtime.model_store import model_catalog
+from dantetl.translation.models import gguf as gguf_models
+from dantetl.translation.routing import RoutedTranslationSession
+from dantetl.translation.values import TranslationState
+from dantetl.translation.worker import TranslationSession
+from dantetl.ui.demo import DemoWindow
 
 
 def main() -> None:
@@ -53,8 +53,8 @@ def main() -> None:
 
     with (
         patch.object(gguf_models, "registry_path", return_value=registry),
-        patch("dantejp.runtime.model_store.is_prepared", return_value=False),
-        patch("dantejp.runtime.model_store.mark_prepared"),
+        patch("dantetl.runtime.model_store.is_prepared", return_value=False),
+        patch("dantetl.runtime.model_store.mark_prepared"),
         patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes),
         patch.object(QMessageBox, "warning") as warning,
     ):

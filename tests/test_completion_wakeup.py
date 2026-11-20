@@ -14,10 +14,10 @@ from PySide6.QtCore import QCoreApplication, QEvent  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 from ui_fixtures import create_window as MainWindow  # noqa: E402
 
-from dantejp.completion_wakeup import CompletionWakeup  # noqa: E402
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry  # noqa: E402
-from dantejp.ocr.values import OcrResult, TextRegion  # noqa: E402
-from dantejp.translation.values import TranslatedText, TranslationRequest  # noqa: E402
+from dantetl.completion_wakeup import CompletionWakeup  # noqa: E402
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry  # noqa: E402
+from dantetl.ocr.values import OcrResult, TextRegion  # noqa: E402
+from dantetl.translation.values import TranslatedText, TranslationRequest  # noqa: E402
 
 
 @pytest.fixture(scope="module")

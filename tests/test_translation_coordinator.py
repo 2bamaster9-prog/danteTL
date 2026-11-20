@@ -6,16 +6,16 @@ from unittest.mock import Mock
 import pytest
 from ownership_fixtures import Replay
 
-from dantejp.application.model_inventory import InventoryData
-from dantejp.application.preference_values import Preferences
-from dantejp.translation.cloud.values import CloudProfile
-from dantejp.translation.plan import TranslationPlan
-from dantejp.translation.selection import AssignmentChange
-from dantejp.translation.worker import BackendChoice
+from dantetl.application.model_inventory import InventoryData
+from dantetl.application.preference_values import Preferences
+from dantetl.translation.cloud.values import CloudProfile
+from dantetl.translation.plan import TranslationPlan
+from dantetl.translation.selection import AssignmentChange
+from dantetl.translation.worker import BackendChoice
 
 
 def test_prepared_worker_adoption_uses_loaded_identity_after_other_category_changes(tmp_path):
-    from dantejp.translation.values import TranslationState
+    from dantetl.translation.values import TranslationState
 
     first = BackendChoice("First", Mock(), "first", "first-weights")
     second = BackendChoice("Second", Mock(), "second")
@@ -46,7 +46,7 @@ def test_prepared_worker_adoption_uses_loaded_identity_after_other_category_chan
 
 
 def test_successful_preparation_updates_options_even_if_receipt_write_fails(tmp_path):
-    from dantejp.translation.values import TranslationState
+    from dantetl.translation.values import TranslationState
 
     choice = BackendChoice("New", Mock(), "new", "new-weights")
     replay = Replay(tmp_path, data=InventoryData((choice,)))
@@ -56,7 +56,7 @@ def test_successful_preparation_updates_options_even_if_receipt_write_fails(tmp_
         replay.inventory.record_prepared = Mock(side_effect=OSError("read-only"))
         from test_model_lifecycle import Worker
 
-        from dantejp.application.translation_coordinator import TranslationCoordinator
+        from dantetl.application.translation_coordinator import TranslationCoordinator
 
         worker = Worker(choice)
         owner = TranslationCoordinator(

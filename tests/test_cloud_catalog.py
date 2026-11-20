@@ -5,10 +5,10 @@ from dataclasses import replace
 import httpx2
 import pytest
 
-from dantejp.translation.cloud.catalog import CatalogCache, fetch_models
-from dantejp.translation.cloud.profiles import CloudProfiles
-from dantejp.translation.cloud.protocol import decoding_identity, request_body
-from dantejp.translation.cloud.values import CatalogModel, CloudProfile
+from dantetl.translation.cloud.catalog import CatalogCache, fetch_models
+from dantetl.translation.cloud.profiles import CloudProfiles
+from dantetl.translation.cloud.protocol import decoding_identity, request_body
+from dantetl.translation.cloud.values import CatalogModel, CloudProfile
 
 
 @pytest.mark.parametrize("provider", ["openai", "deepseek", "gemini", "claude"])

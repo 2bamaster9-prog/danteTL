@@ -1,4 +1,4 @@
-"""Maintain DanteJP's Qt Linguist catalogs. Network use requires the translate command."""
+"""Maintain DanteTL's Qt Linguist catalogs. Network use requires the translate command."""
 
 import argparse
 import ast
@@ -18,10 +18,10 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from string import Formatter
 
-from dantejp.i18n import INTERFACE_LANGUAGES
+from dantetl.i18n import INTERFACE_LANGUAGES
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "src/dantejp"
+SOURCE = ROOT / "src/dantetl"
 TRANSLATIONS = ROOT / "translations"
 PACKAGED = SOURCE / "ui/locales"
 MODEL = "deepseek-flash"
@@ -55,14 +55,14 @@ def read_catalog(code: str) -> dict[str, str]:
         return {}
     return {
         message.findtext("source", ""): message.findtext("translation", "")
-        for message in ET.parse(path).findall("./context[name='DanteJP']/message")
+        for message in ET.parse(path).findall("./context[name='DanteTL']/message")
     }
 
 
 def write_catalog(code: str, entries: dict[str, str]) -> None:
     root = ET.Element("TS", version="2.1", language=code.replace("-", "_"), sourcelanguage="en")
     context = ET.SubElement(root, "context")
-    ET.SubElement(context, "name").text = "DanteJP"
+    ET.SubElement(context, "name").text = "DanteTL"
     for source, target in sorted(entries.items()):
         message = ET.SubElement(context, "message")
         ET.SubElement(message, "source").text = source
@@ -91,7 +91,7 @@ def tokens(message: str) -> Counter[str]:
         if name is not None
     ]
     literals = re.findall(
-        r"%p%|%[vm]|%[A-Z_]+%|DANTEJP_[A-Z_]+|https?://[^\s]+|\*\.gguf|</?[^<>]+>|\n",
+        r"%p%|%[vm]|%[A-Z_]+%|DANTETL_[A-Z_]+|https?://[^\s]+|\*\.gguf|</?[^<>]+>|\n",
         message,
     )
     return Counter(fields + literals)
@@ -106,7 +106,7 @@ def valid(source: str, target: str) -> bool:
 
 def generate_batch(key: str, code: str, batch: list[str]) -> dict[str, str]:
     prompt = (
-        f"Translate DanteJP desktop UI messages for the target locale {code}. "
+        f"Translate DanteTL desktop UI messages for the target locale {code}. "
         "Return a JSON object with exactly the provided numeric keys and translated strings. "
         "Use concise, natural game-localization software terminology. Translate "
         "every message. "
@@ -214,7 +214,7 @@ def main() -> None:
             compiled = QTranslator()
             loaded = compiled.load(str(PACKAGED / f"{code}.qm"))
             app_strings_match = all(
-                compiled.translate("DanteJP", source) == target
+                compiled.translate("DanteTL", source) == target
                 for source, target in catalog.items()
             )
             native_strings_match = all(

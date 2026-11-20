@@ -12,14 +12,14 @@ from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QBrush, QColor, QImage, QPainter, QPalette, QPixmap
 from PySide6.QtWidgets import QApplication, QWidget
 
-from dantejp.capture.windows import Windows
-from dantejp.capture.worker import CaptureSession
-from dantejp.domain import CaptureState, Rect, WindowTarget, sample_box
-from dantejp.ocr.tracking import TextTrack
-from dantejp.translation.values import TranslatedText, TranslationRequest
-from dantejp.ui.demo import DemoWindow
-from dantejp.ui.inspection import frame_image
-from dantejp.ui.overlay import OverlayWindow
+from dantetl.capture.windows import Windows
+from dantetl.capture.worker import CaptureSession
+from dantetl.domain import CaptureState, Rect, WindowTarget, sample_box
+from dantetl.ocr.tracking import TextTrack
+from dantetl.translation.values import TranslatedText, TranslationRequest
+from dantetl.ui.demo import DemoWindow
+from dantetl.ui.inspection import frame_image
+from dantetl.ui.overlay import OverlayWindow
 
 
 def verify_menu_blur(

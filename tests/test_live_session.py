@@ -7,8 +7,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from dantejp.application.live_session import LiveSession
-from dantejp.domain import (
+from dantetl.application.live_session import LiveSession
+from dantetl.domain import (
     CapturedFrame,
     CaptureSnapshot,
     CaptureState,
@@ -16,13 +16,13 @@ from dantejp.domain import (
     WindowGeometry,
     WindowTarget,
 )
-from dantejp.languages.selection import DEFAULT_SOURCE
-from dantejp.ocr.tracking import prepare_matching
-from dantejp.ocr.values import OcrResult, OcrSnapshot, OcrState, TextCharacter, TextRegion
-from dantejp.ocr.visual import VisualSession
-from dantejp.ocr.visual_values import VisualState
-from dantejp.translation.dialogue.classifier import Classification
-from dantejp.translation.values import (
+from dantetl.languages.selection import DEFAULT_SOURCE
+from dantetl.ocr.tracking import prepare_matching
+from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState, TextCharacter, TextRegion
+from dantetl.ocr.visual import VisualSession
+from dantetl.ocr.visual_values import VisualState
+from dantetl.translation.dialogue.classifier import Classification
+from dantetl.translation.values import (
     TranslatedText,
     TranslationRequest,
     TranslationSnapshot,
@@ -189,7 +189,7 @@ def test_completion_bursts_do_not_count_as_new_observations_or_change_english():
 
 @pytest.mark.parametrize("failure", ["prepare_matching", "prepare_evidence"])
 def test_review_failure_releases_ocr_and_recovers_on_the_next_result(monkeypatch, failure):
-    from dantejp.ocr import visual
+    from dantetl.ocr import visual
 
     original = getattr(visual, failure)
 

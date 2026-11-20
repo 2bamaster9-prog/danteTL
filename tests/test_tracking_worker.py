@@ -9,14 +9,14 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 from test_live_session import Capture, Ocr
 
-from dantejp.application.live_session import LiveSession
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr import presence, visual
-from dantejp.ocr.tracking import TextTracker, prepare_matching
-from dantejp.ocr.values import OcrResult, OcrSnapshot, OcrState, TextRegion
-from dantejp.ocr.visual import VisualSession
-from dantejp.ocr.visual_values import VisualState
-from dantejp.translation.values import (
+from dantetl.application.live_session import LiveSession
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr import presence, visual
+from dantetl.ocr.tracking import TextTracker, prepare_matching
+from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState, TextRegion
+from dantetl.ocr.visual import VisualSession
+from dantetl.ocr.visual_values import VisualState
+from dantetl.translation.values import (
     TranslatedText,
     TranslationRequest,
     TranslationSnapshot,

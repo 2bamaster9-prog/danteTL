@@ -4,12 +4,12 @@ from dataclasses import replace
 
 import pytest
 
-from dantejp.domain import Rect
-from dantejp.languages.target import TARGET_LANGUAGES
-from dantejp.ocr.tracking import TextTrack
-from dantejp.translation.dialogue.history import DialogueHistory
-from dantejp.translation.grouping import TextBlock
-from dantejp.translation.values import TranslatedText, TranslationRequest
+from dantetl.domain import Rect
+from dantetl.languages.target import TARGET_LANGUAGES
+from dantetl.ocr.tracking import TextTrack
+from dantetl.translation.dialogue.history import DialogueHistory
+from dantetl.translation.grouping import TextBlock
+from dantetl.translation.values import TranslatedText, TranslationRequest
 
 SIZE = (1920, 1080)
 

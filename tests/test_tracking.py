@@ -2,9 +2,9 @@ from dataclasses import replace
 
 import pytest
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr.tracking import TextTrack, TextTracker, TrackingPolicy
-from dantejp.ocr.values import OcrResult, TextCharacter, TextRegion
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.tracking import TextTrack, TextTracker, TrackingPolicy
+from dantetl.ocr.values import OcrResult, TextCharacter, TextRegion
 
 
 def region(

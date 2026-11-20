@@ -5,9 +5,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from dantejp.application.shutdown import ShutdownCoordinator
-from dantejp.application.values import ShutdownPhase
-from dantejp.runtime.restart import RestartSnapshot
+from dantetl.application.shutdown import ShutdownCoordinator
+from dantetl.application.values import ShutdownPhase
+from dantetl.runtime.restart import RestartSnapshot
 
 
 def fixture():

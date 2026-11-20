@@ -15,23 +15,23 @@ from PySide6.QtWidgets import QApplication
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
-from dantejp import composition
-from dantejp.application.hotkeys import HotkeyAction, Hotkeys
-from dantejp.application.model_factories import (
+from dantetl import composition
+from dantetl.application.hotkeys import HotkeyAction, Hotkeys
+from dantetl.application.model_factories import (
     create_recognizer,
     ocr_backends,
     translation_backends,
 )
-from dantejp.application.preference_values import Preferences
-from dantejp.application.preferences import PreferenceStore
-from dantejp.capture.windows import Windows
-from dantejp.paths import is_standalone
-from dantejp.runtime import downloads as runtime_downloads
-from dantejp.runtime import setup as runtime_setup
-from dantejp.runtime.model_store import model_catalog
-from dantejp.runtime.restart import RuntimeRestart
-from dantejp.runtime.setup_values import SetupLane
-from dantejp.ui.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
+from dantetl.application.preference_values import Preferences
+from dantetl.application.preferences import PreferenceStore
+from dantetl.capture.windows import Windows
+from dantetl.paths import is_standalone
+from dantetl.runtime import downloads as runtime_downloads
+from dantetl.runtime import setup as runtime_setup
+from dantetl.runtime.model_store import model_catalog
+from dantetl.runtime.restart import RuntimeRestart
+from dantetl.runtime.setup_values import SetupLane
+from dantetl.ui.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
 
 
 def main() -> int:
@@ -179,7 +179,7 @@ def main() -> int:
                     return
                 post = ctypes.WinDLL("user32").PostMessageW
                 post.argtypes = (ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t)
-                welcome = [t for t in targets if t.title == "DanteJP · Welcome"]
+                welcome = [t for t in targets if t.title == "DanteTL · Welcome"]
                 if welcome:
                     # Modal welcome can ignore the owner's close. Dismiss it first;
                     # the next tick closes the app after the modal guard has unwound.

@@ -49,13 +49,13 @@ if ($DownloadOcr) {
 if ($LASTEXITCODE -ne 0) { throw 'Python distribution build failed.' }
 # Bundle the exact wheel made by Hatchling, with the same standard SHA-256 sidecar as releases.
 $appVersion = & $python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"
-$appWheel = Get-Item "dist/dantejp-$appVersion-py3-none-any.whl"
+$appWheel = Get-Item "dist/dantetl-$appVersion-py3-none-any.whl"
 # A pure-Python wheel is directly importable. Check its actual startup graph with
 # cwd excluded, so an editable source install cannot hide missing wheel modules.
 $previousPythonPath = $env:PYTHONPATH
 try {
     $env:PYTHONPATH = $appWheel.FullName
-    & $python -P -s -B -m dantejp.runtime.probe cpu --application-only
+    & $python -P -s -B -m dantetl.runtime.probe cpu --application-only
     if ($LASTEXITCODE -ne 0) { throw 'Built application wheel cannot load its entry point.' }
 } finally {
     $env:PYTHONPATH = $previousPythonPath
@@ -69,14 +69,14 @@ foreach ($profile in @('cpu', 'nvidia', 'amd')) {
     & $uv export --locked --offline --no-default-groups --no-emit-project --group $groups[0] --group $groups[1] --format pylock.toml --output-file "build/runtime-locks/pylock.$profile.toml" --quiet
     if ($LASTEXITCODE -ne 0) { throw "Dependency export failed for $profile." }
 }
-& $python -m PyInstaller --noconfirm --clean --workpath build/pyinstaller --distpath dist packaging/DanteJP.spec
+& $python -m PyInstaller --noconfirm --clean --workpath build/pyinstaller --distpath dist packaging/DanteTL.spec
 if ($LASTEXITCODE -ne 0) { throw 'PyInstaller build failed.' }
-Copy-Item -LiteralPath packaging/README.txt,packaging/THIRD-PARTY.txt -Destination dist/DanteJP
-Compress-Archive -LiteralPath dist/DanteJP -DestinationPath dist/DanteJP-windows-x64.zip -Force
-$outputs = @(Get-Item dist/DanteJP-windows-x64.zip) + @(Get-ChildItem dist/dantejp-*.whl,dist/dantejp-*.tar.gz)
+Copy-Item -LiteralPath packaging/README.txt,packaging/THIRD-PARTY.txt -Destination dist/DanteTL
+Compress-Archive -LiteralPath dist/DanteTL -DestinationPath dist/DanteTL-windows-x64.zip -Force
+$outputs = @(Get-Item dist/DanteTL-windows-x64.zip) + @(Get-ChildItem dist/dantetl-*.whl,dist/dantetl-*.tar.gz)
 foreach ($file in $outputs) {
     $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     # LF sidecars also work with GNU sha256sum in the Linux release job.
     "$hash  $($file.Name)`n" | Set-Content -LiteralPath ($file.FullName + '.sha256') -Encoding ascii -NoNewline
 }
-Write-Host 'Built dist/DanteJP-windows-x64.zip and standard wheel/source distributions.'
+Write-Host 'Built dist/DanteTL-windows-x64.zip and standard wheel/source distributions.'

@@ -2,9 +2,9 @@
 
 from dataclasses import replace
 
-from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr.tracking import TextTrack, TextTracker
-from dantejp.ocr.values import OcrResult, TextCharacter, TextRegion
+from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.tracking import TextTrack, TextTracker
+from dantetl.ocr.values import OcrResult, TextCharacter, TextRegion
 from tools.ocr_consensus_experiment import EvidenceWindow, Reading
 
 BOX = Rect(100, 100, 500, 30)

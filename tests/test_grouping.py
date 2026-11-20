@@ -2,10 +2,10 @@ from dataclasses import replace
 
 import pytest
 
-from dantejp.domain import Rect
-from dantejp.ocr.tracking import TextTrack
-from dantejp.translation.grouping import DialogueGrouper, TextBlock, join_lines
-from dantejp.translation.values import TranslationRequest
+from dantetl.domain import Rect
+from dantetl.ocr.tracking import TextTrack
+from dantetl.translation.grouping import DialogueGrouper, TextBlock, join_lines
+from dantetl.translation.values import TranslationRequest
 
 
 def line(
