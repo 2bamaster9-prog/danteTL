@@ -2,10 +2,12 @@
 
 import json
 import os
+from contextlib import AbstractContextManager
 from dataclasses import asdict
 from pathlib import Path
 from uuid import uuid4
 
+from dantetl.file_lock import file_lock
 from dantetl.i18n import tr
 from dantetl.paths import state_root
 from dantetl.translation.cloud.values import (
@@ -19,6 +21,15 @@ class CloudProfiles:
 
     def __init__(self, path: Path | None = None) -> None:
         self.path = path or state_root() / "data/cloud-models.json"
+
+    def transaction(self) -> AbstractContextManager[None]:
+        """Serialize model, connection and vault changes using the same catalog identity."""
+        return file_lock(self.path.with_suffix(".lock"))
+
+    def update(self, profile: CloudProfile, *, remove: bool = False) -> None:
+        with self.transaction():
+            remaining = tuple(p for p in self.read() if p.key != profile.key)
+            self.write(remaining if remove else (*remaining, profile))
 
     def read(self) -> tuple[CloudProfile, ...]:
         if not self.path.exists():

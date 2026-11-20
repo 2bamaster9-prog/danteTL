@@ -27,21 +27,22 @@ class ApiConnections:
     def discover(
         self, vault: Callable[[], Secrets], on_problem: Callable[[str], None]
     ) -> ApiInventory:
-        profiles = self.catalog.read()
-        try:
-            secrets = vault()
-            connections = self._read(profiles, secrets, on_problem)
-        except (OSError, ValueError):
-            on_problem(tr("Invalid API connection settings."))
-            return ApiInventory(profiles, (), frozenset())
-        ready = set()
-        for connection in connections:
+        with self.catalog.transaction():
+            profiles = self.catalog.read()
             try:
-                if secrets.read(connection.key):
-                    ready.add(connection.key)
+                secrets = vault()
+                connections = self._read(profiles, secrets, on_problem)
             except (OSError, ValueError):
-                on_problem(tr("Windows could not read the saved API key."))
-        return ApiInventory(profiles, connections, frozenset(ready))
+                on_problem(tr("Invalid API connection settings."))
+                return ApiInventory(profiles, (), frozenset())
+            ready = set()
+            for connection in connections:
+                try:
+                    if secrets.read(connection.key):
+                        ready.add(connection.key)
+                except (OSError, ValueError):
+                    on_problem(tr("Windows could not read the saved API key."))
+            return ApiInventory(profiles, connections, frozenset(ready))
 
     def _read(
         self,
@@ -97,55 +98,60 @@ class ApiConnections:
             temporary.unlink(missing_ok=True)
 
     def secret(self, profile: CloudProfile, secrets: Secrets) -> str:
-        connections = self._read(self.catalog.read(), secrets)
-        if not any(
-            c.key == profile.credential_key and c.provider == profile.provider for c in connections
-        ):
-            return ""
-        return secrets.read(profile.credential_key) or ""
+        with self.catalog.transaction():
+            connections = self._read(self.catalog.read(), secrets)
+            if not any(
+                c.key == profile.credential_key and c.provider == profile.provider
+                for c in connections
+            ):
+                return ""
+            return secrets.read(profile.credential_key) or ""
 
     def save_model(
         self, profile: CloudProfile, connection: str, secret: str, secrets: Secrets
-    ) -> CloudProfile:
-        profiles = self.catalog.read()
-        connections = self._read(profiles, secrets)
-        existing = next(
-            (c for c in connections if c.key == connection and c.provider == profile.provider), None
-        )
-        if connection and existing is None:
-            raise ValueError(
-                tr("Choose a saved connection for this provider, or add a new API key.")
+    ) -> tuple[CloudProfile, bool]:
+        with self.catalog.transaction():
+            profiles = self.catalog.read()
+            connections = self._read(profiles, secrets)
+            existing = next(
+                (c for c in connections if c.key == connection and c.provider == profile.provider),
+                None,
             )
-        selected = existing or ApiConnection(
-            "api-" + uuid4().hex, profile.provider, profile.name + " key"
-        )
-        previous = secrets.read(selected.key)
-        if not secret and not previous:
-            raise ValueError(tr("Enter an API key or choose a saved connection."))
-        saved = replace(profile, credential=selected.key)
-        updated = tuple(p for p in profiles if p.key != profile.key) + (saved,)
-        if len(updated) > MAX_CLOUD_PROFILES or (existing is None and len(connections) >= 16):
-            raise ValueError(tr("Remove an unused model or connection before adding another."))
-        try:
-            if secret:
-                secrets.write(selected.key, secret)
-            if existing is None:
-                self._write(connections + (selected,))
-            self.catalog.write(updated)
-        except Exception:
-            if secret:
-                if previous:
-                    secrets.write(selected.key, previous)
-                else:
-                    secrets.delete(selected.key)
-            if existing is None:
-                self._write(connections)
-            raise
-        return saved
+            if connection and existing is None:
+                raise ValueError(
+                    tr("Choose a saved connection for this provider, or add a new API key.")
+                )
+            selected = existing or ApiConnection(
+                "api-" + uuid4().hex, profile.provider, profile.name + " key"
+            )
+            previous = secrets.read(selected.key)
+            if not secret and not previous:
+                raise ValueError(tr("Enter an API key or choose a saved connection."))
+            saved = replace(profile, credential=selected.key)
+            updated = tuple(p for p in profiles if p.key != profile.key) + (saved,)
+            if len(updated) > MAX_CLOUD_PROFILES or (existing is None and len(connections) >= 16):
+                raise ValueError(tr("Remove an unused model or connection before adding another."))
+            try:
+                if secret:
+                    secrets.write(selected.key, secret)
+                if existing is None:
+                    self._write(connections + (selected,))
+                self.catalog.write(updated)
+            except Exception:
+                if secret:
+                    if previous:
+                        secrets.write(selected.key, previous)
+                    else:
+                        secrets.delete(selected.key)
+                if existing is None:
+                    self._write(connections)
+                raise
+            return saved, bool(secret and secret != previous)
 
     def forget(self, key: str, secrets: Secrets) -> None:
-        connections = self._read(self.catalog.read(), secrets)
-        if not any(c.key == key for c in connections):
-            raise ValueError(tr("This connection is no longer available."))
-        secrets.delete(key)
-        self._write(tuple(c for c in connections if c.key != key))
+        with self.catalog.transaction():
+            connections = self._read(self.catalog.read(), secrets)
+            if not any(c.key == key for c in connections):
+                raise ValueError(tr("This connection is no longer available."))
+            secrets.delete(key)
+            self._write(tuple(c for c in connections if c.key != key))

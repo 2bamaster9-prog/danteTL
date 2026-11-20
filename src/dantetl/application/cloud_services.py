@@ -340,13 +340,10 @@ class CloudServices:
                 raise ValueError(tr("Save cancelled."))
             profile = draft.profile
             if profile.provider != "chatgpt":
-                previous_secret = (
-                    secrets.read(draft.connection) if draft.secret and draft.connection else None
-                )
-                saved = self.api_connections.save_model(
+                saved, key_changed = self.api_connections.save_model(
                     profile, draft.connection, draft.secret, secrets
                 )
-                if draft.secret and draft.secret != previous_secret:
+                if key_changed:
                     self._credential_changes.add((profile.provider, saved.credential_key))
                 if draft.models is not None:
                     try:
@@ -364,8 +361,7 @@ class CloudServices:
                     for a in accounts
                 ):
                     raise ValueError(tr("Sign in and choose an available account model first."))
-                profiles = self.catalog.read()
-                self.catalog.write(tuple(p for p in profiles if p.key != profile.key) + (profile,))
+                self.catalog.update(profile)
             return tr("Model saved. Select it on the main screen to use it.")
 
         self._select_after = draft.profile.key
@@ -448,7 +444,7 @@ class CloudServices:
             return
 
         def remove(_: Secrets) -> str:
-            self.catalog.write(tuple(p for p in self.catalog.read() if p.key != profile.key))
+            self.catalog.update(profile, remove=True)
             with self._lock:
                 self._allowances.pop(profile.key, None)
             return tr("Model removed. Its connection is still saved.")

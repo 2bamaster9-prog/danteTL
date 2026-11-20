@@ -406,7 +406,8 @@ turns; growth/corrections update a turn, new capture clears history. Reader hist
 ## Cloud and credential boundary
 
 Cloud discovery reports unreadable account records and API credentials and disables their dependent
-profiles. Healthy connections remain usable.
+profiles. Healthy connections remain usable. Cloud model, connection and API credential changes
+share a per-catalog interprocess lock from the initial read through commit or rollback.
 
 Cloud use needs explicit configuration/route selection. Send bounded recognized text/context and optional
 game hint, never frames. Editing/testing does not commit routing. Validate complete answers and bounded
