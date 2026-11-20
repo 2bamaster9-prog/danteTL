@@ -13,7 +13,8 @@ from dantejp.ocr.scan_plan import (
     choose_scan,
     preserves_lines,
 )
-from dantejp.ocr.worker import OcrSession, TextCharacter, TextRegion, recognize_planned
+from dantejp.ocr.values import TextCharacter, TextRegion
+from dantejp.ocr.worker import OcrSession, recognize_planned
 
 SIZE = (1920, 1080)
 COSTS = ScanCosts(40, 30)

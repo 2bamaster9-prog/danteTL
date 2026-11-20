@@ -1,9 +1,9 @@
 from dataclasses import replace
 
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
-from dantejp.ocr.visual import VisualState
-from dantejp.ocr.worker import OcrResult, OcrSnapshot, OcrState
-from dantejp.translation.worker import TranslationSnapshot, TranslationState
+from dantejp.ocr.values import OcrResult, OcrSnapshot, OcrState
+from dantejp.ocr.visual_values import VisualState
+from dantejp.translation.values import TranslationSnapshot, TranslationState
 from dantejp.ui.diagnostics import debug_display
 
 

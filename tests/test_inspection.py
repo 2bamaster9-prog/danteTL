@@ -30,7 +30,7 @@ from ui_fixtures import find_model
 from dantejp.application.translation_coordinator import model_reference
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry  # noqa: E402
 from dantejp.ocr.tracking import TextTrack  # noqa: E402
-from dantejp.ocr.worker import OcrResult, TextCharacter, TextRegion  # noqa: E402
+from dantejp.ocr.values import OcrResult, TextCharacter, TextRegion  # noqa: E402
 from dantejp.translation.grouping import TextBlock  # noqa: E402
 from dantejp.translation.worker import (  # noqa: E402
     BackendChoice,
@@ -346,8 +346,8 @@ def test_model_summary_separates_ratings_capabilities_and_unrated_imports(app):
 
 def test_processing_panel_distinguishes_cached_work_and_resets_stale_capture_metrics(app):
     from dantejp.domain import CaptureSnapshot, CaptureState
-    from dantejp.ocr.visual import VisualState
-    from dantejp.ocr.worker import OcrSnapshot, OcrState
+    from dantejp.ocr.values import OcrSnapshot, OcrState
+    from dantejp.ocr.visual_values import VisualState
     from dantejp.ui.processing_panel import ProcessingPanel
 
     panel = ProcessingPanel()
@@ -1649,8 +1649,8 @@ def test_saved_model_choice_survives_runtime_change_without_implicit_preparation
 
 def test_inspector_disclosure_and_pause_do_not_change_the_injected_live_session(app, tmp_path):
     from dantejp.application.live_session import LiveSession
-    from dantejp.ocr.visual import VisualState
-    from dantejp.ocr.worker import OcrSnapshot, OcrState
+    from dantejp.ocr.values import OcrSnapshot, OcrState
+    from dantejp.ocr.visual_values import VisualState
 
     windows = Mock()
     windows.list_targets.return_value = []

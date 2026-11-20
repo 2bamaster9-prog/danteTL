@@ -19,7 +19,7 @@ from dantejp.ocr.regions import padded, scan_regions
 from dantejp.ocr.text_content import content_region
 from dantejp.ocr.tracking import MatchingEvidence, TextActivity, TextTrack, prepare_matching
 from dantejp.ocr.values import OcrResult, TextRegion
-from dantejp.ocr.visual_values import VisualState as VisualState
+from dantejp.ocr.visual_values import VisualState
 
 logger = logging.getLogger(__name__)
 cv2: Any

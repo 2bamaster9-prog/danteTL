@@ -8,7 +8,7 @@ import numpy as np
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
 from dantejp.ocr import tracking, visual
 from dantejp.ocr.tracking import TextActivity, TextTrack, TextTracker
-from dantejp.ocr.worker import OcrResult, TextRegion
+from dantejp.ocr.values import OcrResult, TextRegion
 from dantejp.translation.grouping import DialogueGrouper
 
 

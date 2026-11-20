@@ -8,14 +8,10 @@ import numpy as np
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
 from dantejp.ocr.regions import padded, scan_regions
 from dantejp.ocr.tracking import TextTrack, TextTracker
-from dantejp.ocr.visual import VisualAnalyzer, VisualSession, VisualState
-from dantejp.ocr.worker import (
-    OcrResult,
-    OcrSession,
-    TextCharacter,
-    TextRegion,
-    recognize_regions,
-)
+from dantejp.ocr.values import OcrResult, TextCharacter, TextRegion
+from dantejp.ocr.visual import VisualAnalyzer, VisualSession
+from dantejp.ocr.visual_values import VisualState
+from dantejp.ocr.worker import OcrSession, recognize_regions
 from dantejp.translation.grouping import DialogueGrouper
 
 

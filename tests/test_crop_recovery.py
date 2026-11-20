@@ -6,7 +6,7 @@ import pytest
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
 from dantejp.ocr.crop_recovery import recovery_preserves_lines, split_glyphs
 from dantejp.ocr.meiki import MeikiRecognizer, convert_regions
-from dantejp.ocr.worker import TextCharacter, TextRegion
+from dantejp.ocr.values import TextCharacter, TextRegion
 from dantejp.runtime.ocr import CPU
 
 

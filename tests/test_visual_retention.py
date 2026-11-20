@@ -9,8 +9,8 @@ import pytest
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
 from dantejp.ocr.presence import prepare_evidence
 from dantejp.ocr.tracking import TextTrack, TextTracker
+from dantejp.ocr.values import OcrResult, TextCharacter, TextRegion
 from dantejp.ocr.visual import VisualAnalyzer
-from dantejp.ocr.worker import OcrResult, TextCharacter, TextRegion
 from dantejp.translation.grouping import DialogueGrouper, TextBlock
 from dantejp.translation.presentation import EnglishPresentation
 from dantejp.translation.worker import TranslatedText, TranslationRequest

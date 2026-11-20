@@ -8,7 +8,7 @@ from PySide6.QtGui import QColor, QFont, QFontDatabase, QFontMetricsF, QImage, Q
 
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
 from dantejp.ocr.regions import intersects
-from dantejp.ocr.worker import TextRegion
+from dantejp.ocr.values import TextRegion
 
 
 @dataclass(frozen=True, slots=True)

@@ -6,7 +6,7 @@ import pytest
 
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
 from dantejp.ocr.tracking import TextActivity, TextTrack, TextTracker
-from dantejp.ocr.worker import OcrResult, TextRegion
+from dantejp.ocr.values import OcrResult, TextRegion
 from dantejp.translation.dialogue.history import DialogueHistory
 from dantejp.translation.grouping import DialogueGrouper, TextBlock
 from dantejp.translation.worker import TranslatedText, TranslationRequest

@@ -9,7 +9,7 @@ from dantejp.domain import CapturedFrame, Rect, WindowGeometry
 from dantejp.languages.selection import source_language
 from dantejp.languages.target import ENGLISH, TARGET_LANGUAGES
 from dantejp.ocr.tracking import TextTrack, TextTracker
-from dantejp.ocr.worker import OcrResult, TextCharacter, TextRegion
+from dantejp.ocr.values import OcrResult, TextCharacter, TextRegion
 from dantejp.translation.backend import RequestRejected
 from dantejp.translation.cache import TranslationCache, translation_key
 from dantejp.translation.dialogue.context import DialogueTurn

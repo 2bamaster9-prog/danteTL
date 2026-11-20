@@ -8,8 +8,9 @@ import pytest
 
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
 from dantejp.ocr.tracking import TextTrack, TextTracker, TrackingPolicy
-from dantejp.ocr.visual import VisualAnalyzer, VisualSession, VisualState
-from dantejp.ocr.worker import OcrResult, TextRegion
+from dantejp.ocr.values import OcrResult, TextRegion
+from dantejp.ocr.visual import VisualAnalyzer, VisualSession
+from dantejp.ocr.visual_values import VisualState
 
 BOX = Rect(20, 50, 180, 24)
 TEXT = "新しい冒険がここから始まります"

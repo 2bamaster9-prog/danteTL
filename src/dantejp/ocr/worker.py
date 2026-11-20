@@ -12,11 +12,7 @@ from dantejp.domain import CapturedFrame, Rect, WindowGeometry
 from dantejp.i18n import tr
 from dantejp.ocr.regions import scan_regions
 from dantejp.ocr.scan_plan import ScanCosts, ScanLine, ScanPlan, ScanPlanner, preserves_lines
-from dantejp.ocr.values import OcrResult as OcrResult
-from dantejp.ocr.values import OcrSnapshot as OcrSnapshot
-from dantejp.ocr.values import OcrState as OcrState
-from dantejp.ocr.values import TextCharacter as TextCharacter
-from dantejp.ocr.values import TextRegion as TextRegion
+from dantejp.ocr.values import OcrResult, OcrSnapshot, OcrState, TextRegion
 
 logger = logging.getLogger(__name__)
 

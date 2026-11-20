@@ -25,8 +25,9 @@ from dantejp.ocr.meiki import MeikiRecognizer
 from dantejp.ocr.models import model_directory
 from dantejp.ocr.presence import prepare_evidence
 from dantejp.ocr.tracking import TextTracker, prepare_matching
+from dantejp.ocr.values import OcrResult
 from dantejp.ocr.visual import VisualAnalyzer
-from dantejp.ocr.worker import OcrResult, recognize_regions
+from dantejp.ocr.worker import recognize_regions
 from dantejp.ui.inspection import OcrInspector
 
 EXPECTED = ("新しい冒険が、ここから始まる。", "旅の準備はできましたか？", "設定")

@@ -7,7 +7,7 @@ import pytest
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
 from dantejp.ocr.text_content import content_region
 from dantejp.ocr.tracking import TextTracker
-from dantejp.ocr.worker import OcrResult, TextCharacter, TextRegion
+from dantejp.ocr.values import OcrResult, TextCharacter, TextRegion
 
 
 def button_observations() -> tuple[TextRegion, ...]:

@@ -14,7 +14,8 @@ from dantejp.domain import CapturedFrame, Rect, WindowGeometry
 from dantejp.ocr import presence, visual
 from dantejp.ocr.tracking import TextTracker, prepare_matching
 from dantejp.ocr.values import OcrResult, OcrSnapshot, OcrState, TextRegion
-from dantejp.ocr.visual import VisualSession, VisualState
+from dantejp.ocr.visual import VisualSession
+from dantejp.ocr.visual_values import VisualState
 from dantejp.translation.values import (
     TranslatedText,
     TranslationRequest,

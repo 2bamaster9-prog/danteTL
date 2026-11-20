@@ -4,7 +4,7 @@ import pytest
 
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
 from dantejp.ocr.tracking import TextTrack, TextTracker, TrackingPolicy
-from dantejp.ocr.worker import OcrResult, TextCharacter, TextRegion
+from dantejp.ocr.values import OcrResult, TextCharacter, TextRegion
 
 
 def region(

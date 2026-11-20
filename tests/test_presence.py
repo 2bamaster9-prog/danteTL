@@ -3,7 +3,7 @@ from dataclasses import replace
 from dantejp.domain import CapturedFrame, Rect, WindowGeometry
 from dantejp.ocr.presence import EvidenceReader, FrameEvidence, prepare_evidence
 from dantejp.ocr.tracking import TextTracker
-from dantejp.ocr.worker import OcrResult, TextRegion
+from dantejp.ocr.values import OcrResult, TextRegion
 
 BOX = Rect(10, 10, 80, 20)
 
