@@ -157,6 +157,11 @@ pause freezes both displayed languages only. Resume shows the newest pair. Model
 English; resize/minimize/stop also clear frozen source presentation.
 
 `VisualSession` owns bounded thumbnails, tiles, templates/probes and one pending job, never frame history.
+Discovery compares adjacent luminance thumbnails and localized clusters of changing color edges.
+Each tile also keeps stroke detail from its last requested scan so slowly fading text can trigger
+regional OCR. Widespread fine motion contributes no extra discovery demand. Independent luminance
+checks and periodic full discovery still run. Supplemental edge evidence can request recognition.
+The presence and tracking policies decide whether to hide or retire a translation.
 Between OCR passes, a painted block can hide when every current member loses its glyph pattern.
 A vacant line can hide on the first detailed capture if its backing or surrounding area changes
 and native color edges confirm the space is clear. Other vacant lines require three distinct captures

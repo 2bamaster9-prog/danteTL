@@ -724,16 +724,16 @@ class VisualAnalyzer:
         import cv2
         import numpy as np
 
+        from dantetl.ocr.discovery import DiscoveryTiles
+
         cv2.setNumThreads(1)
-        self._previous: Bytes | None = None
-        self._streak: Bytes = np.zeros((18, 32), np.uint8)
+        self._tiles = DiscoveryTiles()
         self._anchors: dict[TextTrack, _Anchor] = {}
         self._probes: list[_Probe] = []
         self._ocr_sequence = 0
         self._sequence = 0
         self._size: tuple[int, int] | None = None
         self._last_full = float("-inf")
-        self._dirty: Mask = np.zeros((18, 32), dtype=bool)
         self._followup: float | None = None
         self._followup_areas: tuple[Rect, ...] | None = None
         self._avoided = 0
@@ -889,24 +889,11 @@ class VisualAnalyzer:
             self._checked = frozenset(t for t, same in matches.items() if same is not None)
             self._unchanged = frozenset(t for t, same in matches.items() if same is True)
         now = frame.captured_at
-        small = cv2.cvtColor(
-            cv2.resize(pixels, (640, 360), interpolation=cv2.INTER_AREA), cv2.COLOR_BGRA2GRAY
-        )
-        changed_tiles = np.ones((18, 32), dtype=bool)
-        significant = np.zeros((18, 32), dtype=bool)
-        strong_changes = significant
-        if self._previous is not None and fresh:
-            delta = np.abs(small.astype(np.int16) - self._previous.astype(np.int16))
-            energy = delta.reshape(18, 20, 32, 20).mean(axis=(1, 3))
-            changed_tiles = energy > 0
-            tiles = energy > 1.5
-            significant = tiles
-            strong_changes = energy >= 12
-            self._dirty |= (tiles & (self._streak == 0)) | (~tiles & (self._streak >= 2))
-            self._streak = np.where(tiles, np.minimum(self._streak + 1, 8), 0).astype(np.uint8)
+        evidence = self._tiles.observe(pixels, now, fresh=fresh)
+        changed_tiles = evidence.changed
         # A blank capture can be a one-frame flash. Require some surviving scene
         # detail before using a single capture as evidence of a panel closing.
-        scene_has_detail = bool(self._anchors and fresh and np.ptp(small) >= 16)
+        scene_has_detail = bool(self._anchors and fresh and np.ptp(evidence.gray) >= 16)
         hidden = frozenset(
             key
             for key, anchor in self._anchors.items()
@@ -916,7 +903,7 @@ class VisualAnalyzer:
                 now,
                 _touches(changed_tiles, key.bounds, size),
                 scene_has_detail,
-                _surroundings_changed(strong_changes, key.bounds, size),
+                _surroundings_changed(evidence.strong, key.bounds, size),
             )
         )
         stable, blocked = [], set()
@@ -952,7 +939,7 @@ class VisualAnalyzer:
         refresh = now - self._last_full >= 3.0
         # Delay only the revealing area, not unrelated newly opened UI. Dirty tiles
         # accumulate until requested so rate limiting never loses a one-frame change.
-        eligible = self._dirty.copy()
+        eligible = self._tiles.dirty.copy()
         for b in growing_areas:
             x1, y1 = max(0, b.x * 32 // size[0]), max(0, b.y * 18 // size[1])
             x2, y2 = (
@@ -980,14 +967,12 @@ class VisualAnalyzer:
                     probe.requested_at = now
             if coverage is None:
                 self._last_full = now
-                self._dirty[:] = False
-            else:
-                self._dirty &= ~eligible
-            self._followup = None if due or (refresh and self._previous is not None) else now + 0.3
+            self._tiles.requested(None if coverage is None else eligible, now)
+            self._followup = None if due or (refresh and self._sequence > 0) else now + 0.3
             self._followup_areas = coverage
         elif fresh:
             self._avoided += 1
-        self._previous, self._sequence = small, max(frame.sequence, self._sequence)
+        self._sequence = max(frame.sequence, self._sequence)
         return VisualState(
             frame,
             request,
@@ -1013,7 +998,7 @@ class VisualAnalyzer:
                     ceil(int(x + 1) * size[0] / 32) - int(x) * size[0] // 32,
                     ceil(int(y + 1) * size[1] / 18) - int(y) * size[1] // 18,
                 )
-                for y, x in zip(*np.nonzero(significant), strict=True)
+                for y, x in zip(*np.nonzero(evidence.significant), strict=True)
             ),
         )
 

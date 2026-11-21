@@ -115,7 +115,10 @@ coordinates and first/warm/after-full timings. Preserve raw accuracy evidence; i
 alone do not prove successful inference. Regional tests cover crop offsets/edges, whole-line closure,
 unscanned-track retention, coalesced coverage, per-line sequences and independent discovery.
 
-For fixed-line edits compare real CPU and strict CUDA reads against ordinary regional detection on
+For discovery changes replay an isolated dim digit, equal-luminance colored lettering, a slow fade,
+and moving scenery without text at the same capture timestamps. Record time to the first regional
+request separately from correct OCR and visible English. Count extra OCR on moving scenery. For
+fixed-line edits compare real CPU and strict CUDA reads against ordinary regional detection on
 identical pixels, including growth and removal. Exercise uncertain reads and source invalidation
 through the worker, and verify that a successful direct read reports only its sampled coverage.
 

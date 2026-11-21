@@ -61,6 +61,55 @@ def test_idle_frames_skip_inference_but_changes_and_periodic_refreshes_are_not_s
     assert analyzer.observe(picture(49, ink=False)).request_ocr
 
 
+@pytest.mark.parametrize("scene", ["isoluminant", "small_digit", "fade", "scenery", "particles"])
+def test_discovery_of_local_strokes_and_gradual_changes_without_chasing_scenery(scene):
+    bounds = Rect(0, 0, 1920, 1080)
+    geometry = WindowGeometry(bounds, bounds, bounds, 96)
+    visual = VisualAnalyzer()
+    demand = []
+    for i in range(34):
+        now = i / 60 if i < 2 else 0.8 + i / 60
+        image = np.full((1080, 1920, 4), (76, 76, 76, 255), np.uint8)
+        if scene == "scenery":
+            gray = ((np.arange(1920) + i) % 1920 // 30 + 76).astype(np.uint8)
+            image[:, :, :3] = gray[None, :, None]
+        elif scene == "particles":
+            for j in range(70):
+                cv2.circle(
+                    image,
+                    (45 + j % 14 * 130 + i % 15, 70 + j // 14 * 160),
+                    2,
+                    (140, 140, 140, 255),
+                    1,
+                )
+        elif i >= 12:
+            gray = min(210, 76 + (i - 12) * 2)
+            color = {
+                "isoluminant": (0, 0, 254, 255),
+                "small_digit": (145, 145, 145, 255),
+                "fade": (gray, gray, gray, 255),
+            }[scene]
+            cv2.putText(
+                image,
+                "1" if scene == "small_digit" else "MENU",
+                (618, 404),
+                0,
+                0.5 if scene == "small_digit" else 1.2,
+                color,
+                1 if scene == "small_digit" else 2,
+                cv2.LINE_AA,
+            )
+        state = visual.observe(CapturedFrame(i + 1, now, geometry, image.tobytes()))
+        if i >= 12 and state.request_ocr:
+            demand.append((i, state.scan_areas))
+    if scene in ("scenery", "particles"):
+        assert not demand
+    else:
+        first, areas = demand[0]
+        assert first <= (26 if scene == "fade" else 12)
+        assert areas and any(area.contains(Rect(618, 398, 10, 6)) for area in areas)
+
+
 def test_missing_strokes_supply_early_corroboration_for_a_covered_ocr_miss():
     analyzer = VisualAnalyzer()
     result, track = reference()
