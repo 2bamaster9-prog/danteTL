@@ -10,7 +10,7 @@ from typing import Protocol, runtime_checkable
 
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
 from dantetl.i18n import tr
-from dantetl.ocr.regions import scan_regions
+from dantetl.ocr.regions import intersects, scan_regions
 from dantetl.ocr.scan_plan import ScanCosts, ScanLine, ScanPlan, ScanPlanner, preserves_lines
 from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState, TextRegion
 
@@ -28,6 +28,33 @@ class Recognizer(Protocol):
 class CostedRecognizer(Protocol):
     @property
     def scan_costs(self) -> ScanCosts | None: ...
+
+
+class _ScanWindow:
+    """Rate-limit repeated work while admitting independent crops to an idle reader."""
+
+    def __init__(self) -> None:
+        self.until = float("-inf")
+        self.areas: tuple[Rect, ...] | None = ()
+
+    def delay(self, areas: tuple[Rect, ...] | None, now: float) -> float:
+        if now >= self.until:
+            return 0.0
+        previous = self.areas
+        if (
+            areas is not None
+            and previous is not None
+            and len(areas) + len(previous) <= 4
+            and any(all(not intersects(area, old) for old in previous) for area in areas)
+        ):
+            return 0.0
+        return self.until - now
+
+    def start(self, areas: tuple[Rect, ...] | None, now: float) -> None:
+        if now >= self.until:
+            self.until = now + 0.12
+            self.areas = ()
+        self.areas = None if areas is None or self.areas is None else self.areas + areas
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +85,7 @@ class OcrSession:
         self._done = threading.Event()
         self._stop = False
         self._generation = 0
+        self._scan_window = _ScanWindow()
         self._last_sequence = 0
         self._pending: tuple[int, CapturedFrame, tuple[Rect, ...] | None] | None = None
         self._require_ack = require_ack
@@ -103,10 +131,12 @@ class OcrSession:
     def invalidate(self) -> None:
         with self._condition:
             self._generation += 1
+            self._scan_window = _ScanWindow()
             self._last_sequence = 0
             self._acknowledged = 0
             self._pending = None
             self._snapshot = replace(self._snapshot, result=None)
+            self._condition.notify()
 
     def request_stop(self) -> None:
         with self._condition:
@@ -176,9 +206,16 @@ class OcrSession:
                     if self._stop:
                         return
                     job = self._pending
+                    assert job is not None
+                    now = time.monotonic()
+                    delay = self._scan_window.delay(job[2], now)
+                    if delay > 0:
+                        del job
+                        self._condition.wait(timeout=delay)
+                        continue
+                    self._scan_window.start(job[2], now)
                     self._pending = None
                     self._processing_since = time.monotonic()
-                assert job is not None
                 generation, frame, areas = job
                 started = time.monotonic()
                 costs = engine.scan_costs if isinstance(engine, CostedRecognizer) else None

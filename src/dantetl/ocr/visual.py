@@ -732,7 +732,6 @@ class VisualAnalyzer:
         self._ocr_sequence = 0
         self._sequence = 0
         self._size: tuple[int, int] | None = None
-        self._last_request = float("-inf")
         self._last_full = float("-inf")
         self._dirty: Mask = np.zeros((18, 32), dtype=bool)
         self._followup: float | None = None
@@ -974,9 +973,8 @@ class VisualAnalyzer:
         coverage = (
             None if refresh else scan_regions(proposed, size, tuple(t.bounds for t in tracks))
         )
-        request = fresh and now - self._last_request >= 0.12 and coverage != ()
+        request = fresh and coverage != ()
         if request:
-            self._last_request = now
             for probe in self._probes:
                 if coverage is None or any(area.contains(probe.bounds) for area in coverage):
                     probe.requested_at = now

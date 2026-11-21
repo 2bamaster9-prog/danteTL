@@ -189,6 +189,10 @@ acknowledges that observation once and requests a new full scan, preserving acce
 
 Partial OCR has explicit coverage; unscanned tracks are not misses. Pending areas union while pixels
 are replaced. Retain per-line probe source sequences, whole-line closure and single coordinate offsets.
+Within 120 ms the idle OCR worker can admit up to four requested areas if each additional
+batch includes a disjoint area. Fully overlapping or full-frame demand waits on the worker
+deadline, including when capture stops producing frames. The latest
+pending image and accumulated coverage still require acknowledgement of the previous result.
 An artificial-edge detection discards the provisional crops. An optimized plan retries the original
 demand directly. An edge in the original crops triggers one full-frame fallback.
 Independent full-discovery deadlines cannot be delayed

@@ -207,6 +207,56 @@ def test_worker_unions_waiting_coverage_on_latest_frame_and_waits_for_acknowledg
         wait_for(lambda: session.finished)
 
 
+def test_idle_worker_starts_disjoint_demand_and_wakes_for_the_last_overlapping_capture(monkeypatch):
+    from types import SimpleNamespace
+
+    from dantetl.ocr import worker
+
+    clock = [5.0]
+    seen = []
+    waiting = threading.Event()
+
+    def monotonic():
+        if clock[0] == 5.09:
+            waiting.set()
+        return clock[0]
+
+    monkeypatch.setattr(worker, "time", SimpleNamespace(monotonic=monotonic))
+
+    class Engine:
+        def recognize(self, source, *, full_size=None):
+            seen.append((source.sequence, clock[0]))
+            return ()
+
+        def close(self):
+            pass
+
+    session = OcrSession(Engine, require_ack=True)
+    session.start()
+    a, b = Rect(100, 100, 80, 60), Rect(600, 400, 80, 60)
+    try:
+        c = Rect(300, 100, 80, 60)
+        for sequence, areas, now in ((1, (a,), 5.0), (2, (b,), 5.05), (3, (b, c), 5.06)):
+            clock[0] = now
+            session.submit(frame(sequence), areas)
+            wait_for(
+                lambda expected=sequence: (
+                    (r := session.snapshot().result) is not None and r.frame.sequence == expected
+                )
+            )
+            session.acknowledge(sequence)
+        clock[0] = 5.09
+        session.submit(frame(4), (b,))
+        assert waiting.wait(1)
+        assert seen == [(1, 5.0), (2, 5.05), (3, 5.06), (3, 5.06)]
+        clock[0] = 5.121
+        wait_for(lambda: (r := session.snapshot().result) is not None and r.frame.sequence == 4)
+        assert seen[-1] == (4, 5.121)
+    finally:
+        session.request_stop()
+        wait_for(lambda: session.finished)
+
+
 def ink_frame(sequence, *, label=False, continuation=False):
     source = frame(sequence)
     pixels = np.frombuffer(source.bgra, np.uint8).reshape(600, 1000, 4).copy()
