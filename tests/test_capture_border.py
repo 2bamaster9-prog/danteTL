@@ -106,6 +106,27 @@ def test_border_change_drains_native_capture_keeps_frame_and_increases_sequence(
     assert len(instances) == 2 and instances[-1].stopped
 
 
+def test_padded_native_rows_publish_only_owned_client_pixels(monkeypatch):
+    instances, release = native_fixture(monkeypatch)
+    session = CaptureSession(WindowTarget(12, 34, "fixture"), Windows(), fps=0)
+    session.start()
+    try:
+        wait_for(lambda: session.snapshot().frame is not None)
+        storage = np.arange(8 * 13 * 4, dtype=np.uint8).reshape(8, 13, 4)
+        client = storage[:, 2:10]
+        expected = client.tobytes()
+        instances[0].on_frame_arrived(
+            SimpleNamespace(width=8, height=8, frame_buffer=client), instances[0]
+        )
+        storage.fill(0)
+        frame = session.snapshot().frame
+        assert frame and frame.sequence == 2 and frame.bgra == expected
+    finally:
+        release.set()
+        session.request_stop()
+        wait_for(lambda: session.finished)
+
+
 @pytest.mark.parametrize(
     ("fps", "interval_ms", "callbacks"),
     [

@@ -159,9 +159,13 @@ class CaptureSession:
                 crop = client_crop((frame.width, frame.height), geometry)
                 if crop is None:
                     return  # A resize may deliver frames with obsolete dimensions.
-                pixels = frame.frame_buffer[
+                client = frame.frame_buffer[
                     crop.y : crop.y + crop.height, crop.x : crop.x + crop.width, :4
-                ].tobytes(order="C")
+                ]
+                # WGC rows are packed BGRA, but their pitch can include padding or
+                # window chrome. Copy one contiguous row at a time into owned bytes.
+                row_bytes = crop.width * 4
+                pixels = client.reshape(crop.height, row_bytes).view(f"V{row_bytes}").tobytes()
                 self._sequence += 1
                 self.mailbox.publish(CapturedFrame(self._sequence, now, geometry, pixels))
                 if period:

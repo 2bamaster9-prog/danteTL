@@ -120,6 +120,8 @@ Users can set a sampling target or select Unlimited to accept each native callba
 At a numeric target, the rate guard admits slightly early callbacks in their scheduled slot.
 Unlimited disables both pacing limits. Both modes replace the latest frame in one mailbox,
 and OCR keeps its independent request cadence and coverage policy.
+Capture copies packed BGRA rows from the mapped client area. The owned frame excludes row
+padding and window chrome and remains valid after the native callback returns.
 
 The overlay is nonactivating/input-transparent; hide on focus loss, minimize, stop, source failure or
 size mismatch. Border edits reopen only the same native source while retaining processing owners and
