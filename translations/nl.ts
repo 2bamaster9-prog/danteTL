@@ -539,8 +539,8 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Vastlegfrequentie</translation>
     </message>
     <message>
-      <source>Capture rate must be between 1 and 30.</source>
-      <translation>Vastlegfrequentie moet tussen 1 en 30 liggen.</translation>
+      <source>Capture rate cannot be negative.</source>
+      <translation>De opnamesnelheid mag niet negatief zijn.</translation>
     </message>
     <message>
       <source>Capture source closed.</source>
@@ -3703,6 +3703,10 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
     <message>
       <source>Unknown speaker</source>
       <translation>Onbekende spreker</translation>
+    </message>
+    <message>
+      <source>Unlimited</source>
+      <translation>Onbegrensd</translation>
     </message>
     <message>
       <source>Unloading translation model…</source>

@@ -3,6 +3,9 @@ from dataclasses import dataclass
 from dantetl.application.hotkeys import DEFAULT_CAPTURE, DEFAULT_ORIGINAL, DEFAULT_OVERLAY
 from dantetl.languages.target import ENGLISH
 
+# Numeric targets use the full range supported by Qt's integer editor. Zero is unlimited.
+MAX_CAPTURE_RATE = 2**31 - 1
+
 
 @dataclass(frozen=True, slots=True)
 class Preferences:

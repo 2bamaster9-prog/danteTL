@@ -1564,7 +1564,10 @@ def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_pat
     window.font_size.setValue(26)
     window.group_dialogue.setChecked(False)
     window.ocr_device.setCurrentIndex(1)
-    window.capture_rate.setValue(5)
+    window.capture_rate.setValue(144)
+    assert application.values.capture_rate == 144
+    window.capture_rate.setValue(0)
+    assert window.capture_rate.text() == "Unlimited"
     window.translate_check.setChecked(False)
     window.overlay_check.setChecked(False)
     deadline = time.monotonic() + 2
@@ -1581,7 +1584,7 @@ def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_pat
     assert not restored.stabilize_check.isChecked() and not restored.group_dialogue.isChecked()
     assert restored._overlay._opacity == 0.61 and restored.font_size.value() == 26
     assert not restored.automatic_font.isChecked() and restored.font_size.isEnabled()
-    assert restored.ocr_device.currentData().key == "cpu" and restored.capture_rate.value() == 5
+    assert restored.ocr_device.currentData().key == "cpu" and restored.capture_rate.value() == 0
     assert not restored.translate_check.isChecked() and not restored.overlay_check.isChecked()
     assert not restored.advanced.isChecked() and not restored.inspector.pause.isChecked()
     factory.assert_not_called()

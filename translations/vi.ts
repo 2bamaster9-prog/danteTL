@@ -539,8 +539,8 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Tốc độ chụp</translation>
     </message>
     <message>
-      <source>Capture rate must be between 1 and 30.</source>
-      <translation>Tốc độ chụp phải nằm trong khoảng 1 đến 30.</translation>
+      <source>Capture rate cannot be negative.</source>
+      <translation>Tốc độ chụp không thể là số âm.</translation>
     </message>
     <message>
       <source>Capture source closed.</source>
@@ -3703,6 +3703,10 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
     <message>
       <source>Unknown speaker</source>
       <translation>Người nói không xác định</translation>
+    </message>
+    <message>
+      <source>Unlimited</source>
+      <translation>Không giới hạn</translation>
     </message>
     <message>
       <source>Unloading translation model…</source>

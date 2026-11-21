@@ -197,7 +197,7 @@ class ProcessingPanel(QWidget):
                 tr(
                     "{value:.1f} / {capture_rate} Hz",
                     value=frame.sequence / max(0.1, now - started_at),
-                    capture_rate=capture_rate,
+                    capture_rate=capture_rate or "∞",
                 ),
                 tr("{duration_ms:.1f} ms", duration_ms=visual.duration_ms),
                 str(self.waiting_blocks),

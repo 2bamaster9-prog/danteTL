@@ -106,18 +106,27 @@ def test_border_change_drains_native_capture_keeps_frame_and_increases_sequence(
     assert len(instances) == 2 and instances[-1].stopped
 
 
-def test_slightly_early_native_frames_fill_their_eight_fps_slots_without_accepting_bursts(
-    monkeypatch,
+@pytest.mark.parametrize(
+    ("fps", "interval_ms", "callbacks"),
+    [
+        (8, 125, ((0.004, 1), (0.121, 2), (0.127, 2), (0.249, 3), (0.375, 4))),
+        (144, 6, ((0.001, 1), (0.0068, 2), (0.007, 2), (0.014, 3))),
+        (0, 0, ((0.0, 2), (0.0001, 3), (0.0002, 4))),
+    ],
+)
+def test_capture_sampling_paces_numeric_targets_and_accepts_all_unlimited_callbacks(
+    monkeypatch, fps, interval_ms, callbacks
 ):
     instances, release = native_fixture(monkeypatch)
     now = 0.0
-    session = CaptureSession(WindowTarget(12, 34, "fixture"), Windows(), fps=8, clock=lambda: now)
+    session = CaptureSession(WindowTarget(12, 34, "fixture"), Windows(), fps=fps, clock=lambda: now)
     session.start()
     try:
         wait_for(lambda: session.snapshot().frame is not None)
         native = instances[0]
+        assert native.options["minimum_update_interval"] == interval_ms
         data = SimpleNamespace(width=8, height=8, frame_buffer=np.zeros((8, 8, 4), dtype=np.uint8))
-        for timestamp, expected in ((0.004, 1), (0.121, 2), (0.127, 2), (0.249, 3), (0.375, 4)):
+        for timestamp, expected in callbacks:
             now = timestamp
             native.on_frame_arrived(data, native)
             frame = session.snapshot().frame

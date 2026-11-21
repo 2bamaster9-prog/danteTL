@@ -539,8 +539,8 @@ Os detalhes estão em %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Taxa de captura</translation>
     </message>
     <message>
-      <source>Capture rate must be between 1 and 30.</source>
-      <translation>A taxa de captura tem de estar entre 1 e 30.</translation>
+      <source>Capture rate cannot be negative.</source>
+      <translation>A taxa de captura não pode ser negativa.</translation>
     </message>
     <message>
       <source>Capture source closed.</source>
@@ -3703,6 +3703,10 @@ Transferências de modelos: até {size:.2f} GB; os ficheiros existentes são ver
     <message>
       <source>Unknown speaker</source>
       <translation>Orador desconhecido</translation>
+    </message>
+    <message>
+      <source>Unlimited</source>
+      <translation>Sem limite</translation>
     </message>
     <message>
       <source>Unloading translation model…</source>

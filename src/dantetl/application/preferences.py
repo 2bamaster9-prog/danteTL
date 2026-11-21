@@ -9,7 +9,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from dantetl.application.hotkeys import parse_shortcut
-from dantetl.application.preference_values import Preferences
+from dantetl.application.preference_values import MAX_CAPTURE_RATE, Preferences
 from dantetl.i18n import INTERFACE_LANGUAGES, tr
 from dantetl.languages.selection import SOURCE_LANGUAGES
 from dantetl.languages.target import TARGET_LANGUAGES
@@ -19,7 +19,7 @@ def decode_preferences(value: object) -> Preferences:
     if not isinstance(value, dict) or value.get("version") != 1:
         raise ValueError(tr("Unsupported settings format; defaults are being used."))
     defaults = asdict(Preferences())
-    ranges = {"opacity": (20, 100), "text_size": (10, 60), "capture_rate": (2, 12)}
+    ranges = {"opacity": (20, 100), "text_size": (10, 60), "capture_rate": (0, MAX_CAPTURE_RATE)}
     choices = {
         "source_language": set(SOURCE_LANGUAGES),
         "output_language": set(TARGET_LANGUAGES),

@@ -539,8 +539,8 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>Частота захвата</translation>
     </message>
     <message>
-      <source>Capture rate must be between 1 and 30.</source>
-      <translation>Частота захвата должна быть от 1 до 30.</translation>
+      <source>Capture rate cannot be negative.</source>
+      <translation>Частота захвата не может быть отрицательной.</translation>
     </message>
     <message>
       <source>Capture source closed.</source>
@@ -3703,6 +3703,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Unknown speaker</source>
       <translation>Неизвестный говорящий</translation>
+    </message>
+    <message>
+      <source>Unlimited</source>
+      <translation>Без ограничений</translation>
     </message>
     <message>
       <source>Unloading translation model…</source>

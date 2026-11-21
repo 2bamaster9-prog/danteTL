@@ -30,7 +30,7 @@ def main() -> int:
     demo.show()
     target = WindowTarget(int(demo.winId()), os.getpid(), demo.windowTitle())
     overlay = OverlayWindow(windows)
-    session = CaptureSession(target, windows)
+    session = CaptureSession(target, windows, fps=144)
     session.start()
     started = time.monotonic()
     stage = 0
@@ -63,7 +63,7 @@ def main() -> int:
                 if session.finished:
                     evidence["first_shutdown_finished"] = True
                     demo.showNormal()
-                    session = CaptureSession(target, windows)
+                    session = CaptureSession(target, windows, fps=0)
                     session.start()
                     sequence = 0
                     stage = 6

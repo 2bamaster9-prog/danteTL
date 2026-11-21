@@ -539,8 +539,8 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Laju tangkapan</translation>
     </message>
     <message>
-      <source>Capture rate must be between 1 and 30.</source>
-      <translation>Laju tangkapan harus antara 1 dan 30.</translation>
+      <source>Capture rate cannot be negative.</source>
+      <translation>Laju tangkapan tidak boleh negatif.</translation>
     </message>
     <message>
       <source>Capture source closed.</source>
@@ -3703,6 +3703,10 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
     <message>
       <source>Unknown speaker</source>
       <translation>Pembicara tidak dikenal</translation>
+    </message>
+    <message>
+      <source>Unlimited</source>
+      <translation>Tanpa batas</translation>
     </message>
     <message>
       <source>Unloading translation model…</source>

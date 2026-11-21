@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from dantetl.application.hotkeys import HotkeyAction, Hotkeys
-from dantetl.application.preference_values import Preferences
+from dantetl.application.preference_values import MAX_CAPTURE_RATE, Preferences
 from dantetl.application.services import CloudCommands, SetupCommands
 from dantetl.i18n import display, mark, tr
 from dantetl.runtime.setup_values import SetupLane
@@ -178,8 +178,8 @@ class SettingsWindow(QDialog):
             ),
         )
         self.capture_rate = QSpinBox()
-        self.capture_rate.setRange(2, 12)
-        localized(self.capture_rate, suffix=mark(" samples/s"))
+        self.capture_rate.setRange(0, MAX_CAPTURE_RATE)
+        localized(self.capture_rate, suffix=mark(" samples/s"), specialValueText=mark("Unlimited"))
         self.capture_rate.setMaximumWidth(200)
         self.capture_rate.setValue(preferences.capture_rate)
         self._setting(

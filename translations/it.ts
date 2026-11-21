@@ -539,8 +539,8 @@ I dettagli sono in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Frequenza di acquisizione</translation>
     </message>
     <message>
-      <source>Capture rate must be between 1 and 30.</source>
-      <translation>La frequenza di acquisizione deve essere compresa tra 1 e 30.</translation>
+      <source>Capture rate cannot be negative.</source>
+      <translation>La frequenza di acquisizione non può essere negativa.</translation>
     </message>
     <message>
       <source>Capture source closed.</source>
@@ -3703,6 +3703,10 @@ Download dei modelli: fino a {size:.2f} GB; i file esistenti vengono verificati 
     <message>
       <source>Unknown speaker</source>
       <translation>Emittente sconosciuto</translation>
+    </message>
+    <message>
+      <source>Unlimited</source>
+      <translation>Senza limiti</translation>
     </message>
     <message>
       <source>Unloading translation model…</source>

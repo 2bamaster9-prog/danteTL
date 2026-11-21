@@ -539,8 +539,8 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>ক্যাপচার হার</translation>
     </message>
     <message>
-      <source>Capture rate must be between 1 and 30.</source>
-      <translation>ক্যাপচার হার ১ থেকে ৩০ এর মধ্যে হতে হবে।</translation>
+      <source>Capture rate cannot be negative.</source>
+      <translation>ক্যাপচারের হার ঋণাত্মক হতে পারে না।</translation>
     </message>
     <message>
       <source>Capture source closed.</source>
@@ -3703,6 +3703,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Unknown speaker</source>
       <translation>অজানা বক্তা</translation>
+    </message>
+    <message>
+      <source>Unlimited</source>
+      <translation>সীমাহীন</translation>
     </message>
     <message>
       <source>Unloading translation model…</source>

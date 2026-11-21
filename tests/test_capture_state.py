@@ -87,6 +87,6 @@ def test_concurrent_shutdown_prevents_further_publication() -> None:
     assert mailbox.snapshot().frame is None
 
 
-def test_capture_rate_is_bounded() -> None:
+def test_negative_capture_rate_is_rejected() -> None:
     with pytest.raises(ValueError):
-        CaptureSession(WindowTarget(1, 1, ""), FakeWindows(), fps=0)
+        CaptureSession(WindowTarget(1, 1, ""), FakeWindows(), fps=-1)

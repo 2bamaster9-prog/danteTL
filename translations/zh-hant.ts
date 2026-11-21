@@ -539,8 +539,8 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>擷取速率</translation>
     </message>
     <message>
-      <source>Capture rate must be between 1 and 30.</source>
-      <translation>擷取速率必須介於 1 到 30 之間。</translation>
+      <source>Capture rate cannot be negative.</source>
+      <translation>擷取頻率不能為負數。</translation>
     </message>
     <message>
       <source>Capture source closed.</source>
@@ -3703,6 +3703,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Unknown speaker</source>
       <translation>未知的說話者</translation>
+    </message>
+    <message>
+      <source>Unlimited</source>
+      <translation>無限制</translation>
     </message>
     <message>
       <source>Unloading translation model…</source>

@@ -539,8 +539,8 @@ Details finden Sie in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Aufnahmerate</translation>
     </message>
     <message>
-      <source>Capture rate must be between 1 and 30.</source>
-      <translation>Die Aufnahmerate muss zwischen 1 und 30 liegen.</translation>
+      <source>Capture rate cannot be negative.</source>
+      <translation>Die Aufnahmerate darf nicht negativ sein.</translation>
     </message>
     <message>
       <source>Capture source closed.</source>
@@ -3703,6 +3703,10 @@ Modell-Downloads: bis zu {size:.2f} GB; vorhandene Dateien werden geprüft und w
     <message>
       <source>Unknown speaker</source>
       <translation>Unbekannter Sprecher</translation>
+    </message>
+    <message>
+      <source>Unlimited</source>
+      <translation>Unbegrenzt</translation>
     </message>
     <message>
       <source>Unloading translation model…</source>

@@ -22,7 +22,7 @@ def test_new_install_defaults_and_bad_individual_values_are_safe():
         {
             "version": 1,
             "opacity": True,
-            "capture_rate": 400,
+            "capture_rate": -1,
             "text_size": "large",
             "show_overlay": "false",
             "include_overlay_in_capture": "false",
@@ -49,7 +49,7 @@ def test_preferences_roundtrip_with_no_handles_paths_or_session_debug_state(tmp_
         text_size=27,
         source_language="sr-Latn",
         ocr_device="cpu",
-        capture_rate=5,
+        capture_rate=400,
         model="gemma",
         translation=False,
         include_overlay_in_capture=False,

@@ -73,8 +73,8 @@ class CaptureSession:
         on_change: Callable[[], None] | None = None,
         show_border: bool = True,
     ) -> None:
-        if not 1 <= fps <= 30:
-            raise ValueError(tr("Capture rate must be between 1 and 30."))
+        if fps < 0:
+            raise ValueError(tr("Capture rate cannot be negative."))
         self.target = target
         self.mailbox = FrameMailbox(on_change)
         self._windows = windows
@@ -134,14 +134,14 @@ class CaptureSession:
         self._windows.geometry(self.target)
         border = self._border()
         first_sequence = self._sequence
-        period = 1 / self._fps
+        period = 1 / self._fps if self._fps else 0.0
         jitter = min(0.016, period / 8)
         closed = threading.Event()
         capture = WindowsCapture(
             window_hwnd=self.target.hwnd,
             cursor_capture=False,
             draw_border=None if border else False,
-            minimum_update_interval=round(1000 / self._fps),
+            minimum_update_interval=1000 // self._fps if self._fps else 0,
         )
 
         @capture.event
@@ -152,7 +152,7 @@ class CaptureSession:
             now = self._clock()
             # WGC already paces callbacks. A slightly early delivery belongs to
             # this slot; dropping it adds a full capture interval at menu changes.
-            if now < self._next_sample - jitter:
+            if period and now < self._next_sample - jitter:
                 return
             try:
                 geometry = self._windows.geometry(self.target)
@@ -164,7 +164,8 @@ class CaptureSession:
                 ].tobytes(order="C")
                 self._sequence += 1
                 self.mailbox.publish(CapturedFrame(self._sequence, now, geometry, pixels))
-                self._next_sample = max(now, self._next_sample) + period
+                if period:
+                    self._next_sample = max(now, self._next_sample) + period
             except Exception as error:
                 logger.exception("Could not process a captured frame")
                 self.mailbox.set_state(CaptureState.FAILED, str(error))

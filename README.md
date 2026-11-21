@@ -30,6 +30,10 @@ The Windows ZIP includes **MeikiOCR** for Japanese and **PaddleOCR** for all 34 
 Both work offline on CPU from first launch. Choose
 **Automatic** in an NVIDIA runtime to accelerate both detection and recognition.
 
+Under **Settings → Recognition → Capture rate**, enter a target in samples per second, or lower
+the value to **Unlimited** to sample every frame Windows delivers. The setting takes effect
+the next time you start capture. Higher rates can catch changes sooner and use more resources.
+
 Local translation weights are separate downloads. Reopen **Settings → Setup assistant…** with capture stopped, or manage
 models directly in **Settings → Models**.
 

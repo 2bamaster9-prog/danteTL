@@ -539,8 +539,8 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>कैप्चर दर</translation>
     </message>
     <message>
-      <source>Capture rate must be between 1 and 30.</source>
-      <translation>कैप्चर दर 1 और 30 के बीच होनी चाहिए।</translation>
+      <source>Capture rate cannot be negative.</source>
+      <translation>कैप्चर दर ऋणात्मक नहीं हो सकती।</translation>
     </message>
     <message>
       <source>Capture source closed.</source>
@@ -3703,6 +3703,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Unknown speaker</source>
       <translation>अज्ञात वक्ता</translation>
+    </message>
+    <message>
+      <source>Unlimited</source>
+      <translation>असीमित</translation>
     </message>
     <message>
       <source>Unloading translation model…</source>

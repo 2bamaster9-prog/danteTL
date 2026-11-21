@@ -22,6 +22,7 @@ from PySide6.QtWidgets import QApplication, QWidget
 from verification_isolation import app_owner
 
 from dantetl.application.model_factories import create_recognizer, translation_backends
+from dantetl.application.preference_values import MAX_CAPTURE_RATE
 from dantetl.capture.windows import Windows
 from dantetl.composition import application_session, setup_coordinator
 from dantetl.domain import WindowTarget
@@ -159,11 +160,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", choices=("gemma", "gemma-e4b", "qwen35-4b"), default="gemma")
     parser.add_argument("--device", choices=("cuda", "cpu"), default="cuda")
-    parser.add_argument("--capture-rate", type=int, choices=(8, 12), default=8)
+    parser.add_argument("--capture-rate", type=int, default=8, help="Samples/s, or 0 for unlimited")
     parser.add_argument("--advanced", action="store_true")
     parser.add_argument("--repeats", type=int, default=1, choices=range(1, 61))
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if not 0 <= args.capture_rate <= MAX_CAPTURE_RATE:
+        parser.error(f"--capture-rate must be between 0 and {MAX_CAPTURE_RATE}")
     args.output.mkdir(parents=True, exist_ok=True)
     unique = str(time.time_ns())
     windows = Windows()
