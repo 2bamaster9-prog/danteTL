@@ -1,7 +1,8 @@
 from dataclasses import replace
 
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
-from dantetl.ocr.tracking import TextTracker
+from dantetl.languages.selection import source_language
+from dantetl.ocr.tracking import TextActivity, TextTrack, TextTracker
 from dantetl.ocr.values import OcrResult, TextRegion
 from dantetl.translation.grouping import DialogueGrouper
 
@@ -60,6 +61,45 @@ def test_unpunctuated_reveal_waits_for_a_quiet_period_but_does_not_stall_forever
         assert not any(b.text != "設定" for b in replay.step(FIRST[:count]).ready)
     assert not any(b.text != "設定" for b in replay.step(FIRST[:10]).ready)
     assert any(b.text == FIRST[:10] for b in replay.step(FIRST[:10], dt=0.6).ready)
+
+
+def test_pause_after_a_comma_waits_for_the_second_row():
+    replay = Reveal()
+    replay.step(FIRST[:7])
+    replay.step(FIRST)
+    assert not any(b.text == FIRST for b in replay.step(FIRST, dt=1.2).ready)
+    replay.step(FIRST, SECOND)
+    assert any(b.text == FIRST + SECOND for b in replay.step(FIRST, SECOND, dt=0.25).ready)
+
+
+def test_static_ocr_comma_cannot_strand_a_finished_turn():
+    replay = Reveal()
+    replay.step(FIRST)
+    assert any(b.text == FIRST for b in replay.step(FIRST, dt=1.6).ready)
+
+
+def test_visual_readiness_only_accelerates_a_whole_isolated_sentence():
+    language = source_language("en")
+    grouper = DialogueGrouper(language=language)
+    line = TextTrack(1, "Is the door open?", Rect(50, 100, 170, 20))
+    activity = TextActivity(line, 1, False, False)
+
+    def ready(track, observed):
+        return grouper.update(
+            (track,), (), 1.065, activity=(observed,), complete_lines=frozenset((track,))
+        ).ready
+
+    assert ready(line, activity)
+    assert not ready(line, replace(activity, growing=True))
+    assert not ready(line, replace(activity, pending=True))
+    for fragment in (
+        "Please talk to Dr.",
+        "We could try…",
+        "“Is the door open?",
+        "When we get there,",
+    ):
+        edit = replace(line, text=fragment)
+        assert not ready(edit, replace(activity, observation=edit))
 
 
 def test_pending_source_edits_cannot_be_enqueued_as_the_old_confirmed_fragment() -> None:

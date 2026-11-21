@@ -39,6 +39,34 @@ def reference():
     return OcrResult(source, (TextRegion(TEXT, BOX),), 300, 0.3), TextTrack(1, TEXT, BOX)
 
 
+@pytest.mark.parametrize(
+    "mode", ["complete", "overhang", "weak", "comma", "growing", "continuation", "gap"]
+)
+def test_whole_sentence_appearance_requires_a_clean_transition_and_later_capture(mode):
+    analyzer = VisualAnalyzer()
+    text = TEXT + ("、" if mode == "comma" else "。")
+    bounds = replace(BOX, width=176) if mode == "overhang" else BOX
+    track = TextTrack(1, text, bounds)
+    before = replace(picture(1, ink=mode == "growing"), captured_at=0.0)
+    sequence = 3 if mode == "gap" else 2
+    source = replace(picture(sequence), captured_at=0.05)
+    region = TextRegion(text, bounds, line_confidence=0.89 if mode == "weak" else 0.99)
+    result = OcrResult(source, (region,), 10, 0.06)
+    analyzer.observe(before)
+    analyzer.observe(source)
+    assert not analyzer.observe(source, result, (track,), (1,)).complete_lines
+    later = replace(
+        picture(sequence + 1, second_chars=int(mode == "continuation")), captured_at=0.115
+    )
+    proof = analyzer.observe(later, result, (track,), (1,))
+    assert proof.complete_lines == (
+        frozenset((track,)) if mode in ("complete", "overhang") else frozenset()
+    )
+    if mode == "complete":
+        edited = replace(picture(sequence + 2, second_chars=1), captured_at=0.135)
+        assert not analyzer.observe(edited, result, (track,), (1,)).complete_lines
+
+
 def test_diagnostic_changes_are_local_physical_rects_not_requested_ocr_coverage():
     analyzer = VisualAnalyzer()
     initial = analyzer.observe(picture(1))

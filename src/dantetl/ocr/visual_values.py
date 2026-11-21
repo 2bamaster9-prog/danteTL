@@ -32,3 +32,4 @@ class VisualState:
     cleared: frozenset[TextTrack] = frozenset()
     rejected_sequence: int = 0
     review_message: str = ""
+    complete_lines: frozenset[TextTrack] = frozenset()

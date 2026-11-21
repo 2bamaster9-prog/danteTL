@@ -122,6 +122,16 @@ class SourceLanguage:
     def is_choice(self, text: str) -> bool:
         return bool(self.lists.line_marker.match(text)) and not self.quote_start.match(text)
 
+    def explicit_sentence_end(self, text: str) -> bool:
+        """Unambiguous endings for accelerated dispatch. Periods can be abbreviations."""
+        text = text.strip()
+        for left, right in (("「", "」"), ("『", "』"), ("“", "”"), ("(", ")"), ("（", "）")):
+            if text.count(left) != text.count(right):
+                return False
+        if text.count('"') % 2:
+            return False
+        return text.rstrip('」』”")）').endswith(tuple(c for c in self.terminal if c != "."))
+
     @property
     def standalone_menu_labels(self) -> frozenset[str]:
         return self.menu_labels

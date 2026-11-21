@@ -101,6 +101,7 @@ class LiveSession:
         self._grouper = DialogueGrouper(language=language)
         self._presentation = EnglishPresentation()
         self._context_reset_sequence = 0
+        self._early_lines: frozenset[TextTrack] = frozenset()
         self.history = DialogueHistory()
         self.history_enabled = False
         self._history_language = language
@@ -261,6 +262,7 @@ class LiveSession:
         return True
 
     def reset(self, translation: TranslationWorker | None = None) -> None:
+        self._early_lines = frozenset()
         self.accepted = None
         self._ocr_failed = False
         self._consumed_sequence = 0
@@ -358,12 +360,15 @@ class LiveSession:
     ) -> Scene:
         tracks = self._tracker.visible(frame, now) if frame else ()
         ready = self._tracker.translation_tracks(frame, now) if frame else ()
+        proof = self.visual_state.complete_lines
+        self._early_lines = proof if frame is self.visual_state.frame else self._early_lines & proof
         grouped = self._grouper.update(
             tracks,
             ready,
             now,
             enabled=grouping,
             activity=self._tracker.translation_activity(),
+            complete_lines=self._early_lines,
             dash_edges=self._tracker.opening_dash_edges() if grouping else None,
             lettering=self._tracker.lettering() if grouping else None,
         )

@@ -871,6 +871,7 @@ class DialogueGrouper:
         *,
         enabled: bool = True,
         activity: tuple[TextActivity, ...] | None = None,
+        complete_lines: frozenset[TextTrack] = frozenset(),
         dash_edges: dict[TextTrack, int] | None = None,
         lettering: dict[TextTrack, Lettering] | None = None,
     ) -> GroupedText:
@@ -908,11 +909,23 @@ class DialogueGrouper:
         ready = tuple(
             block
             for block in blocks
-            if all(key in ready_keys for key in block.key)
-            and (
-                self._activity_ready(block, observed, now, enabled)
-                if activity is not None
-                else len(block.lines) == 1 or now - since[block.key] >= self._settle_seconds
+            if (
+                enabled
+                and len(block.lines) == 1
+                and block.lines[0] in complete_lines
+                and (member := observed.get(block.lines[0].track_id)) is not None
+                and member.observation == block.lines[0]
+                and not member.growing
+                and not member.pending
+                and self._language.explicit_sentence_end(block.text)
+            )
+            or (
+                all(key in ready_keys for key in block.key)
+                and (
+                    self._activity_ready(block, observed, now, enabled)
+                    if activity is not None
+                    else len(block.lines) == 1 or now - since[block.key] >= self._settle_seconds
+                )
             )
         )
         self._since = since
@@ -936,4 +949,12 @@ class DialogueGrouper:
             revealing or len(block.lines) > 1 or self._language.internal_prose(block.text)
         )
         quiet = 0.18 if complete else 0.55 if unfinished_prose else 0.35
+        if (
+            enabled
+            and (revealing or len(block.lines) == 1)
+            and block.text.rstrip().endswith(self._language.commas)
+        ):
+            # Allow a clause pause before the continuation. OCR sometimes mistakes
+            # a final period for a comma, so even this wait must be bounded.
+            quiet = 1.5
         return now - max(t.changed_at for t in members) >= quiet

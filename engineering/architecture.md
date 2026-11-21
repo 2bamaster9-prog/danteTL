@@ -284,6 +284,14 @@ cues, OCR cleanup, and evidence for quoted speech, equipment text and speaker na
 combines that evidence with paragraph position, row geometry and competing choices. The reader and
 grouper use the same list syntax, with different evidence thresholds for possible and marked choices.
 Pixel measurements, ambiguity checks, settling and request limits belong to the shared pipeline.
+An isolated horizontal sentence may use a shorter dispatch delay when a confident first reading
+appeared across a previously blank panel between consecutive captures. The ending must be
+unambiguous for the source language. A separate capture at least 60 ms later must preserve
+the exact glyphs and surrounding continuation space. Wrapped rows, typewriter growth, ambiguous
+periods and closing quotes alone use ordinary confirmation. With grouping enabled, a revealing
+or single-row dialogue clause ending in a comma allows a 1.5-second quiet period for a
+continuation. This accommodates OCR that reads a terminal period as a comma. Unpunctuated turns keep their
+normal quiet-period fallback.
 Changing the source clears dialogue history, translation demand, tracks and visual evidence.
 If the same recognizer and device can serve the new language, capture and OCR continue on their
 existing workers with a new evidence generation. Both pickers ask for confirmation when active

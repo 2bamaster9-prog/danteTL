@@ -77,6 +77,12 @@ checks once after changes settle; repeat only for new changes, failures or unres
 
 ## Processing and model acceptance
 
+For pre-translation latency, replay a high-confidence sentence appearing on a blank panel.
+Compare its first eligible request with ordinary settling on the same captured sequence.
+Include a typewriter pause at a comma, a delayed second row, a terminal OCR comma and a Latin
+abbreviation.
+Measure visual readiness separately from model inference and time to visible English.
+
 `tools/benchmark_tracking.py --output artifacts/<slice>/tracking.json` measures completed dense
 4K OCR observations, including long text, reordering, edits, same-pixel misses, removals and partial
 coverage. It reports worker preparation separately from serialized tracking. Optional `--baseline`

@@ -27,6 +27,8 @@ if TYPE_CHECKING:
     import numpy as np
     from numpy.typing import NDArray
 
+    from dantetl.ocr.pop_in import SentenceAppearance
+
     Bytes = NDArray[np.uint8]
     Gray = NDArray[np.float32]
     # percentile currently promotes normalized ink to float64; preserve that math.
@@ -685,6 +687,7 @@ class _Probe:
     checked: bool = False
     dirty: bool = False
     growth: bool = False
+    appearance: SentenceAppearance | None = None
 
 
 def _tile_bounds(bounds: Rect, size: tuple[int, int]) -> tuple[int, int, int, int]:
@@ -732,7 +735,10 @@ class VisualAnalyzer:
         self._probes: list[_Probe] = []
         self._ocr_sequence = 0
         self._sequence = 0
+        self._captured_at = float("-inf")
+        self._before: dict[int, Bytes] = {}
         self._size: tuple[int, int] | None = None
+        self._dpi = 0
         self._last_full = float("-inf")
         self._followup: float | None = None
         self._followup_areas: tuple[Rect, ...] | None = None
@@ -752,7 +758,11 @@ class VisualAnalyzer:
         if result is None:
             return
         source = _pixels(result.frame)
-        if source is None or source.shape != pixels.shape:
+        if (
+            source is None
+            or source.shape != pixels.shape
+            or result.frame.geometry.dpi != job.frame.geometry.dpi
+        ):
             return
         cleaned = [content_region(r, self._language) for r in result.regions[:512]]
         by_id = {
@@ -817,14 +827,19 @@ class VisualAnalyzer:
         self._ocr_sequence = result.frame.sequence
         # A partial observation says nothing about the rest of the screen. Keep
         # those bounded dialogue probes and their exact original pixel references.
+        live = {t.track_id: t for t in job.tracks}
         prior = [
             p
             for p in self._probes
-            if p.track_id in {t.track_id for t in job.tracks}
-            and p.track_id not in by_id
-            and result.scanned is not None
+            if p.track_id in live and p.track_id not in by_id and result.scanned is not None
         ]
+        for probe in prior:
+            probe.appearance = None  # Only the current accepted reading can authorize dispatch.
         self._probes = []
+        from dantetl.ocr.pop_in import SentenceAppearance
+
+        before = self._before.get(result.frame.sequence)
+        appearances = 0
         growing = {a.observation.track_id for a in job.activity if a.growing}
         for index, region in enumerate(cleaned):
             if len(self._probes) >= 128:
@@ -843,6 +858,22 @@ class VisualAnalyzer:
             )
             crop = _crop(source, area, wide=True)
             if crop is not None:
+                appearance = None
+                if (
+                    before is not None
+                    and appearances < 2
+                    and dialogue
+                    and key not in growing
+                    and 0.95 <= (region.confidence or 0) <= 1
+                    and (not region.characters or region.characters[-1].confidence >= 0.90)
+                    and self._language.explicit_sentence_end(region.text)
+                    and (track := live.get(key)) is not None
+                    and track.text_revision == 1
+                    and track.bounds == b
+                    and track.text == region.text
+                ):
+                    appearance = SentenceAppearance.from_transition(before, source, b)
+                    appearances += 1
                 self._probes.append(
                     _Probe(
                         index,
@@ -854,6 +885,7 @@ class VisualAnalyzer:
                         dialogue,
                         result.frame.sequence,
                         region.text,
+                        appearance=appearance,
                     )
                 )
         self._probes.extend(prior[: 128 - len(self._probes)])
@@ -871,9 +903,10 @@ class VisualAnalyzer:
         pixels = _pixels(frame)
         if pixels is None:
             return VisualState(frame, True, message=tr("Visual evidence unavailable; using OCR."))
-        if self._size != frame.geometry.client.size:
+        if self._size != frame.geometry.client.size or self._dpi != frame.geometry.dpi:
             self.__init__(self._language)
             self._size = frame.geometry.client.size
+            self._dpi = frame.geometry.dpi
         size = frame.geometry.client.size
         fresh = frame.sequence > self._sequence
         self._references(_Job(frame, result, tracks, assignments, activity), pixels)
@@ -889,6 +922,7 @@ class VisualAnalyzer:
             self._checked = frozenset(t for t, same in matches.items() if same is not None)
             self._unchanged = frozenset(t for t, same in matches.items() if same is True)
         now = frame.captured_at
+        previous = self._tiles.thumbnail
         evidence = self._tiles.observe(pixels, now, fresh=fresh)
         changed_tiles = evidence.changed
         # A blank capture can be a one-frame flash. Require some surviving scene
@@ -908,6 +942,7 @@ class VisualAnalyzer:
         )
         stable, blocked = [], set()
         stable_tracks = []
+        complete_lines = set()
         growing_areas = []
         local_areas = []
         for probe in self._probes:
@@ -923,6 +958,22 @@ class VisualAnalyzer:
                 probe.growth = _added_ink(probe.reference, current)
                 probe.previous, probe.checked = current, True
             dirty, growth = probe.dirty, probe.growth
+            if (
+                probe.appearance is not None
+                and result
+                and probe.source_sequence == result.frame.sequence
+            ):
+                age = now - result.frame.captured_at
+                if age >= 0.18 or dirty or growth or not probe.appearance.matches(pixels):
+                    probe.appearance = None
+                elif frame.sequence > probe.source_sequence and age >= 0.06:
+                    complete_lines.update(
+                        t
+                        for t in tracks
+                        if t.track_id == probe.track_id
+                        and t.text == probe.source_text
+                        and t.text_revision == 1
+                    )
             quiet = now - probe.changed_at >= 0.16
             if growth and probe.track_id is not None:
                 blocked.add(probe.track_id)
@@ -962,6 +1013,15 @@ class VisualAnalyzer:
         )
         request = fresh and coverage != ()
         if request:
+            if (
+                previous is not None
+                and frame.sequence == self._sequence + 1
+                and 0 < now - self._captured_at <= 0.15
+                and np.any(evidence.changed)
+            ):
+                self._before[frame.sequence] = previous
+                if len(self._before) > 4:
+                    del self._before[next(iter(self._before))]
             for probe in self._probes:
                 if coverage is None or any(area.contains(probe.bounds) for area in coverage):
                     probe.requested_at = now
@@ -972,7 +1032,9 @@ class VisualAnalyzer:
             self._followup_areas = coverage
         elif fresh:
             self._avoided += 1
-        self._sequence = max(frame.sequence, self._sequence)
+        if fresh:
+            self._sequence = frame.sequence
+            self._captured_at = now
         return VisualState(
             frame,
             request,
@@ -991,6 +1053,7 @@ class VisualAnalyzer:
             checked=self._checked,
             scan_areas=coverage,
             stable_tracks=tuple(stable_tracks),
+            complete_lines=frozenset(complete_lines),
             changed_areas=tuple(
                 Rect(
                     int(x) * size[0] // 32,
