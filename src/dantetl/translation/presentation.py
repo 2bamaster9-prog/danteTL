@@ -2,7 +2,9 @@
 
 from dataclasses import dataclass, replace
 
+from dantetl.ocr.regions import intersects
 from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.visual_values import MenuSample
 from dantetl.translation.grouping import TextBlock
 from dantetl.translation.values import TranslatedText, TranslationRequest
 
@@ -29,6 +31,7 @@ class EnglishPresentation:
         self._concealed: dict[TranslationRequest, tuple[str, ...]] = {}
         self._ready: dict[TranslationRequest, TranslatedText] = {}
         self._scope: object = None
+        self._menus: dict[MenuSample, Publication] = {}
         self._inputs: (
             tuple[tuple[TextBlock, ...], tuple[TranslatedText, ...], frozenset[TextTrack]] | None
         ) = None
@@ -40,6 +43,63 @@ class EnglishPresentation:
         self._ready.clear()
         self._inputs = None
         self._scope = None
+        self._menus.clear()
+
+    def menu_previews(
+        self,
+        matches: tuple[MenuSample, ...],
+        retained: tuple[TextBlock, ...],
+    ) -> tuple[Publication, ...]:
+        """Paint an exact returning label until normal OCR publication takes over."""
+        if not matches:
+            return ()
+        singles = {
+            p.painted.lines[0]: p
+            for p in self._visible
+            if len(p.painted.lines) == 1 and not p.painted.dialogue
+        }
+        current = {line for block in retained for line in block.lines}
+        previews = []
+        for sample in matches:
+            line = sample.line
+            if (
+                line in current
+                and line in singles
+                and singles[line].translation.request.source == line.text
+            ):
+                self._menus[sample] = singles[line]
+                if len(self._menus) > 16:
+                    del self._menus[next(iter(self._menus))]
+            stored = self._menus.get(sample)
+            if stored is None or any(t.track_id == line.track_id for t in current):
+                continue
+            if any(
+                intersects(line.bounds, p.painted.bounds)
+                or p.painted.lines[0].track_id == -line.track_id
+                for p in (*self._visible, *previews)
+            ):
+                continue
+            if any(
+                intersects(sample.guard, b.bounds)
+                and (
+                    len(b.lines) != 1
+                    or b.dialogue
+                    or b.text != line.text
+                    or b.bounds != line.bounds
+                )
+                for b in retained
+            ):
+                continue
+            # The preview has a display-only identity. It never enters tracking,
+            # translation, dialogue history or the set of accepted OCR observations.
+            preview = replace(stored.painted, lines=(replace(line, track_id=-line.track_id),))
+            previews.append(
+                Publication(
+                    preview,
+                    replace(stored.translation, request=TranslationRequest.from_block(preview)),
+                )
+            )
+        return tuple(previews)
 
     def update(
         self,

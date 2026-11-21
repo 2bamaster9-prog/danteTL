@@ -23,7 +23,12 @@ from dantetl.translation.dialogue.classifier import ClassifierSession
 from dantetl.translation.dialogue.history import DialogueHistory
 from dantetl.translation.grouping import DialogueGrouper, TextBlock
 from dantetl.translation.presentation import EnglishPresentation
-from dantetl.translation.values import TranslatedText, TranslationSnapshot, TranslationWorker
+from dantetl.translation.values import (
+    TranslatedText,
+    TranslationSnapshot,
+    TranslationState,
+    TranslationWorker,
+)
 
 
 class CaptureWorker(Protocol):
@@ -101,6 +106,7 @@ class LiveSession:
         self._grouper = DialogueGrouper(language=language)
         self._presentation = EnglishPresentation()
         self._context_reset_sequence = 0
+        self._scene_sequence = 0
         self._early_lines: frozenset[TextTrack] = frozenset()
         self.history = DialogueHistory()
         self.history_enabled = False
@@ -262,6 +268,7 @@ class LiveSession:
         return True
 
     def reset(self, translation: TranslationWorker | None = None) -> None:
+        self._scene_sequence = 0
         self._early_lines = frozenset()
         self.accepted = None
         self._ocr_failed = False
@@ -360,6 +367,7 @@ class LiveSession:
     ) -> Scene:
         tracks = self._tracker.visible(frame, now) if frame else ()
         ready = self._tracker.translation_tracks(frame, now) if frame else ()
+        self._scene_sequence = frame.sequence if frame else 0
         proof = self.visual_state.complete_lines
         self._early_lines = proof if frame is self.visual_state.frame else self._early_lines & proof
         grouped = self._grouper.update(
@@ -457,6 +465,13 @@ class LiveSession:
         )
         if self.history_enabled:
             self.history.published(tuple(p.translation for p in published))
+        if (
+            state.frame
+            and state.frame.sequence == self._scene_sequence
+            and snapshot.state == TranslationState.READY
+            and not state.message
+        ):
+            published += self._presentation.menu_previews(state.matching_menus, retained)
         return EnglishScene(
             snapshot, tuple(p.painted for p in published), tuple(p.translation for p in published)
         )

@@ -264,6 +264,13 @@ immediately. Retired members, model changes, source resets and explicit grouping
 the affected publications. A visually concealed publication can return for the same live content.
 When its track IDs acquire different text, only a ready translation can restore English there.
 
+For a known standalone menu word, the visual worker can retain its exact native pixels with
+two text-heights of surrounding context. It keeps at most eight patches of 65,536 pixels each.
+Only a confident covered reading paired with a published single-label translation can paint
+a preview after retirement. The latest capture must match the patch at its original location
+and DPI. A preview is a display-only block within the same source, target and backend generation.
+Normal OCR discovery continues and the preview never contributes a track, request or history turn.
+
 Tracker evidence has independent optional records for pending text, pending geometry, crop presence
 and completed absence. Each record owns its associated counts, time or source bounds; clearing a
 candidate clears that evidence together. Accepted display and confidence review state survive pending

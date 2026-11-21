@@ -20,7 +20,7 @@ from dantetl.languages.selection import DEFAULT_SOURCE
 from dantetl.ocr.tracking import prepare_matching
 from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState, TextCharacter, TextRegion
 from dantetl.ocr.visual import VisualSession
-from dantetl.ocr.visual_values import VisualState
+from dantetl.ocr.visual_values import MenuSample, VisualState
 from dantetl.translation.dialogue.classifier import Classification
 from dantetl.translation.values import (
     TranslatedText,
@@ -185,6 +185,41 @@ def test_completion_bursts_do_not_count_as_new_observations_or_change_english():
         assert replay.live.publish(backend, scene.requests, scene.blocks) == english
     assert replay.live.accepted is not None and replay.live.accepted.frame is source
     assert replay.live._tracker._sequence == 1
+
+
+def test_exact_menu_reappearance_paints_before_ocr_and_never_supplies_a_translation_job():
+    replay = Replay()
+    source = frame(1)
+    region = TextRegion("設定", Rect(50, 40, 100, 30))
+    scene = replay.observe(source, (region,))
+    sample = MenuSample(scene.tracks[0], 1, Rect(10, 5, 180, 110))
+    backend = Mock()
+    english = TranslatedText(TranslationRequest.from_block(scene.blocks[0]), "Settings")
+    backend.snapshot.return_value = TranslationSnapshot(TranslationState.READY, (english,))
+    replay.visual.current = replace(replay.visual.current, matching_menus=(sample,))
+    replay.live.reconcile(source, 1.6)
+    replay.live.publish(backend, scene.requests, scene.blocks)
+    # Completed misses retire the original track before reopening.
+    for seq in range(2, 7):
+        scene = replay.observe(frame(seq, float(seq)), ())
+    assert not scene.tracks
+    backend.snapshot.return_value = TranslationSnapshot(TranslationState.READY)
+    returned = frame(7, 7)
+    replay.visual.current = VisualState(frame=returned, matching_menus=(sample,))
+    replay.live.reconcile(returned, 7)
+    scene = replay.live.scene(returned, 7, grouping=True)
+    assert not scene.requests and not scene.blocks
+    preview = replay.live.publish(backend, scene.requests, scene.blocks)
+    assert len(preview.translations) == 1 and preview.translations[0].english == "Settings"
+    assert preview.blocks[0].bounds == region.bounds and preview.blocks[0].lines[0].track_id < 0
+    assert not backend.update.call_args.args[0]
+    replay.live.scene(frame(8, 7.01), 7.01, grouping=True)
+    assert not replay.live.publish(backend, (), ()).blocks  # New capture awaiting its pixel check.
+    replay.live.scene(returned, 7, grouping=True)
+    backend.snapshot.return_value = TranslationSnapshot(
+        TranslationState.READY, backend_generation=1
+    )
+    assert not replay.live.publish(backend, (), ()).blocks
 
 
 @pytest.mark.parametrize("failure", ["prepare_matching", "prepare_evidence"])

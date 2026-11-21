@@ -728,9 +728,11 @@ class VisualAnalyzer:
         import numpy as np
 
         from dantetl.ocr.discovery import DiscoveryTiles
+        from dantetl.ocr.menu_appearance import MenuAppearance
 
         cv2.setNumThreads(1)
         self._tiles = DiscoveryTiles()
+        self._menus = MenuAppearance(language)
         self._anchors: dict[TextTrack, _Anchor] = {}
         self._probes: list[_Probe] = []
         self._ocr_sequence = 0
@@ -825,6 +827,7 @@ class VisualAnalyzer:
         if result.frame.sequence == self._ocr_sequence:
             return
         self._ocr_sequence = result.frame.sequence
+        self._menus.observe(source, result, job.tracks, by_id)
         # A partial observation says nothing about the rest of the screen. Keep
         # those bounded dialogue probes and their exact original pixel references.
         live = {t.track_id: t for t in job.tracks}
@@ -1054,6 +1057,7 @@ class VisualAnalyzer:
             scan_areas=coverage,
             stable_tracks=tuple(stable_tracks),
             complete_lines=frozenset(complete_lines),
+            matching_menus=self._menus.matching(pixels),
             changed_areas=tuple(
                 Rect(
                     int(x) * size[0] // 32,

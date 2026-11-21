@@ -67,6 +67,27 @@ def test_whole_sentence_appearance_requires_a_clean_transition_and_later_capture
         assert not analyzer.observe(edited, result, (track,), (1,)).complete_lines
 
 
+def test_menu_pixels_require_the_same_native_glyphs_and_surroundings_after_retirement():
+    analyzer = VisualAnalyzer()
+    b = Rect(20, 50, 100, 24)
+    track = TextTrack(7, "設定", b)
+    source = picture(1)
+    result = OcrResult(source, (TextRegion(track.text, b, line_confidence=0.99),), 20, 0.02)
+    matches = analyzer.observe(source, result, (track,), (7,)).matching_menus
+    assert len(matches) == 1 and matches[0].line == track
+    assert not analyzer.observe(picture(2, ink=False)).matching_menus
+    assert analyzer.observe(picture(3)).matching_menus == matches
+    changed = bytearray(source.bgra)
+    changed[(49 * source.width + 20) * 4] ^= 1
+    assert not analyzer.observe(replace(picture(4), bgra=bytes(changed))).matching_menus
+    glyph_change = bytearray(source.bgra)
+    glyph_change[(53 * source.width + 22) * 4] ^= 1
+    assert not analyzer.observe(replace(picture(5), bgra=bytes(glyph_change))).matching_menus
+    assert not analyzer.observe(
+        replace(picture(6), geometry=replace(source.geometry, dpi=144))
+    ).matching_menus
+
+
 def test_diagnostic_changes_are_local_physical_rects_not_requested_ocr_coverage():
     analyzer = VisualAnalyzer()
     initial = analyzer.observe(picture(1))

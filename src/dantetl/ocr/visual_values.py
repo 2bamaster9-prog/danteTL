@@ -8,6 +8,13 @@ from dantetl.ocr.tracking import MatchingEvidence, TextTrack
 
 
 @dataclass(frozen=True, slots=True)
+class MenuSample:
+    line: TextTrack
+    sequence: int
+    guard: Rect
+
+
+@dataclass(frozen=True, slots=True)
 class VisualState:
     frame: CapturedFrame | None = None
     request_ocr: bool = False
@@ -33,3 +40,4 @@ class VisualState:
     rejected_sequence: int = 0
     review_message: str = ""
     complete_lines: frozenset[TextTrack] = frozenset()
+    matching_menus: tuple[MenuSample, ...] = ()
