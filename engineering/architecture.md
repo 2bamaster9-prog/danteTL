@@ -216,6 +216,13 @@ if any join is uncertain, the result is shorter, or previously observed glyph po
 coverage. Recovered text and character boxes belong to one original detection. Bound the extra
 work per line and per scan.
 
+On a single regional request the OCR worker can read an edited character directly from a
+previously detected horizontal line. It compares every pixel of the requested area with the
+previous covered OCR source, requires an isolated change within one character, and verifies
+the new reading and confidence. Readers without character boxes use this only for numeric
+fields. A successful read reports just its sampled line as coverage. Uncertain results,
+changed surroundings, growth and subsequent reads after a direct read use the detector.
+
 Tracking is deterministic and bounded (128 tracks, 512 candidate regions). Existing matches precede
 new admission; truncated input cannot vote for absence. Spatially gated bipartite components use optimal
 assignment with explicit unmatched costs, stable IDs and canonical tie ordering. Distant identical labels

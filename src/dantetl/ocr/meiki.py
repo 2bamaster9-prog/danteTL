@@ -228,6 +228,11 @@ class MeikiRecognizer:
                     return centered
         return regions
 
+    def read_line(self, bgr: np.ndarray) -> TextRegion | None:
+        height, width = bgr.shape[:2]
+        rows = self._engine.read_pieces(bgr, [Rect(0, 0, width, height)])
+        return rows[0] if len(rows) == 1 else None
+
     def _recognize(
         self, bgr: Any, width: int, height: int, *, origin: tuple[int, int] = (0, 0)
     ) -> tuple[TextRegion, ...]:

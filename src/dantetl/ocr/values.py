@@ -1,6 +1,6 @@
 """Immutable OCR observations and worker status; physical pixel coordinates."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 
 from dantetl.domain import CapturedFrame, Rect
@@ -22,6 +22,16 @@ class TextRegion:
     characters: tuple[TextCharacter, ...] = ()
     vertical: bool = False
     line_confidence: float | None = None
+
+    def translated(self, x: int, y: int) -> "TextRegion":
+        def moved(b: Rect) -> Rect:
+            return replace(b, x=b.x + x, y=b.y + y)
+
+        return replace(
+            self,
+            bounds=moved(self.bounds),
+            characters=tuple(replace(c, bounds=moved(c.bounds)) for c in self.characters),
+        )
 
     @property
     def confidence(self) -> float | None:

@@ -10,6 +10,7 @@ from typing import Protocol, runtime_checkable
 
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
 from dantetl.i18n import tr
+from dantetl.ocr.fixed_line import LineReader, reread_line
 from dantetl.ocr.regions import intersects, scan_regions
 from dantetl.ocr.scan_plan import ScanCosts, ScanLine, ScanPlan, ScanPlanner, preserves_lines
 from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState, TextRegion
@@ -182,7 +183,9 @@ class OcrSession:
                 if self._stop:
                     return
             engine = self._factory()
+            reader = engine if isinstance(engine, LineReader) else None
             planner = ScanPlanner()
+            used_detector = False
             with self._condition:
                 if self._stop:
                     return
@@ -214,13 +217,24 @@ class OcrSession:
                         self._condition.wait(timeout=delay)
                         continue
                     self._scan_window.start(job[2], now)
+                    previous = self._snapshot.result if used_detector else None
                     self._pending = None
                     self._processing_since = time.monotonic()
                 generation, frame, areas = job
                 started = time.monotonic()
                 costs = engine.scan_costs if isinstance(engine, CostedRecognizer) else None
                 plan = planner.plan(areas, frame.geometry.client.size, generation, costs)
-                regions, scanned, rejected = recognize_planned(engine, frame, plan)
+                direct = (
+                    reread_line(reader, frame, previous, areas[0])
+                    if previous and areas and len(areas) == 1 and reader is not None
+                    else None
+                )
+                if direct is None:
+                    regions, scanned, rejected = recognize_planned(engine, frame, plan)
+                else:
+                    line, sample = direct
+                    regions, scanned, rejected = (line,), (sample,), False
+                used_detector = direct is None
                 completed = time.monotonic()
                 result = OcrResult(frame, regions, (completed - started) * 1000, completed, scanned)
                 with self._condition:
@@ -244,7 +258,7 @@ class OcrSession:
                 if published:
                     self._notify()
                 # Do not keep old frame buffers alive through the next idle wait.
-                del job, frame, result
+                del job, frame, result, previous
         except Exception as error:
             logger.exception("Local OCR failed")
             with self._condition:
@@ -344,18 +358,7 @@ def _recognize_crops(
             ):
                 return None
 
-            def shifted(b: Rect, origin: Rect = area) -> Rect:
-                return replace(b, x=b.x + origin.x, y=b.y + origin.y)
-
-            regions.append(
-                replace(
-                    region,
-                    bounds=shifted(b),
-                    characters=tuple(
-                        replace(c, bounds=shifted(c.bounds)) for c in region.characters
-                    ),
-                )
-            )
+            regions.append(region.translated(area.x, area.y))
     return tuple(regions)
 
 

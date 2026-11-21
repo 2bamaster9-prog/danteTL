@@ -4,6 +4,7 @@ from dataclasses import replace
 
 import cv2
 import numpy as np
+import pytest
 
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
 from dantetl.ocr.regions import padded, scan_regions
@@ -270,6 +271,89 @@ def ink_frame(sequence, *, label=False, continuation=False):
             pixels, "MENU", (770, 470), cv2.FONT_HERSHEY_SIMPLEX, 1, (230, 230, 230, 255), 2
         )
     return replace(source, bgra=pixels.tobytes())
+
+
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "substitution",
+        "glyph_boxes",
+        "weak",
+        "wrong_cell",
+        "outside",
+        "cleared",
+        "reset",
+        "reader_error",
+    ],
+)
+def test_worker_rereads_only_verified_fixed_line_edits(mode):
+    box, area = Rect(110, 60, 64, 20), Rect(75, 35, 140, 75)
+    direct_calls, detector_calls = [], []
+
+    def row(text, bounds, strength=0.98):
+        chars = ()
+        if mode == "glyph_boxes":
+            chars = tuple(
+                TextCharacter(c, Rect(bounds.x + 16 * i, bounds.y, 16, bounds.height), strength)
+                for i, c in enumerate(text)
+            )
+        return TextRegion(text, bounds, chars, line_confidence=strength)
+
+    class Reader:
+        def recognize(self, source, *, full_size=None):
+            detector_calls.append(source.sequence)
+            if source.sequence == 1:
+                return (row("1234", box),)
+            b = replace(box, x=box.x - area.x, y=box.y - area.y) if full_size else box
+            return (row("124" if mode == "cleared" else "1284", b),)
+
+        def read_line(self, bgr):
+            direct_calls.append(True)
+            if mode == "reader_error":
+                raise ValueError("synthetic failed read")
+            return row(
+                "7234" if mode == "wrong_cell" else "1284",
+                Rect(0, 0, bgr.shape[1], bgr.shape[0]),
+                0.45 if mode == "weak" else 0.98,
+            )
+
+        def close(self):
+            pass
+
+    session = OcrSession(Reader, require_ack=True)
+    session.start()
+    try:
+        source = frame(1, size=(400, 240))
+        original = np.frombuffer(source.bgra, np.uint8).reshape(240, 400, 4).copy()
+        original[65:76, 145:149, :3] = 205
+        session.submit(replace(source, bgra=original.tobytes()))
+        wait_for(lambda: session.snapshot().result is not None)
+        session.acknowledge(1)
+        if mode == "reset":
+            session.invalidate()
+        original[65:76, 145:149, :3] = 30
+        if mode != "cleared":
+            original[65:76, 148:152, :3] = 205
+        if mode == "outside":
+            original[40, 80] = 255
+        session.submit(replace(source, sequence=2, bgra=original.tobytes()), (area,))
+        wait_for(lambda: (r := session.snapshot().result) and r.frame.sequence == 2)
+        result = session.snapshot().result
+        assert result and result.regions[0].text == ("124" if mode == "cleared" else "1284")
+        if mode in ("substitution", "glyph_boxes"):
+            assert direct_calls and detector_calls == [1]
+            assert result.covers(box) and not result.covers(area)
+            assert result.regions[0].bounds.contains(Rect(145, 65, 7, 11))
+            session.acknowledge(2)
+            session.submit(replace(source, sequence=3, bgra=original.tobytes()), (area,))
+            wait_for(lambda: (r := session.snapshot().result) and r.frame.sequence == 3)
+            assert detector_calls == [1, 3] and len(direct_calls) == 1
+        else:
+            assert detector_calls == [1, 2] and result.scanned == (area,)
+            assert bool(direct_calls) == (mode in ("weak", "wrong_cell", "reader_error"))
+    finally:
+        session.request_stop()
+        wait_for(lambda: session.finished)
 
 
 def test_new_menu_is_scanned_locally_while_unrelated_dialogue_keeps_revealing():

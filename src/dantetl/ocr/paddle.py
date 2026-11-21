@@ -129,6 +129,11 @@ class PaddleRecognizer:
                 lines.append(region)
         return tuple(sorted(lines, key=lambda line: (line.bounds.y, line.bounds.x)))
 
+    def read_line(self, bgr: np.ndarray) -> TextRegion | None:
+        height, width = bgr.shape[:2]
+        bounds = Rect(0, 0, width, height)
+        return self._read(bgr, bounds, bounds)
+
     def _boxes(
         self, image: np.ndarray, full_size: tuple[int, int] | None
     ) -> list[tuple[Rect, Rect]]:

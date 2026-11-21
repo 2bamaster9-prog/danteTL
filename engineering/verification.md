@@ -115,6 +115,10 @@ coordinates and first/warm/after-full timings. Preserve raw accuracy evidence; i
 alone do not prove successful inference. Regional tests cover crop offsets/edges, whole-line closure,
 unscanned-track retention, coalesced coverage, per-line sequences and independent discovery.
 
+For fixed-line edits compare real CPU and strict CUDA reads against ordinary regional detection on
+identical pixels, including growth and removal. Exercise uncertain reads and source invalidation
+through the worker, and verify that a successful direct read reports only its sampled coverage.
+
 `tools/verify_translation.py` defaults to Gemma E2B. Use `--backend gemma --device cpu` or
 `--device cuda` with the correct interpreter. It reports model/cache identity, load/warm/inference
 and memory; sample phrases are a smoke test, not a quality ranking. Imports and curated models must
