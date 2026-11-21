@@ -317,6 +317,11 @@ grouping finds no successor, a long unfinished row can pair with one tightly cen
 sentence ending. A split word or a quoted term followed by a copula supplies the continuation
 evidence. A short centered final word can also close a quotation embedded in a space-separated label.
 This pair ends at its second row.
+For left-aligned dialogue with a short final row and no terminal punctuation, the matching worker
+can measure the left, top and bottom edges of a flat panel in the gutter beside each OCR line.
+Uniquely adjacent rows of matching lettering can form one request when those edges agree and the
+panel closely fits the text vertically. This evidence works across source languages, including
+Japanese particles and space-separated word wraps. Source-language spacing still controls the join.
 A sentence can end on a full-width row within a paragraph. A shortened sentence-ending row followed
 by a full-width row can separate paragraphs within an established column. A trailing dash remains
 continuation. Prose evidence may occur after the opening row. Quoted wraps tolerate hanging

@@ -1,14 +1,31 @@
-"""Small color summaries from the exact OCR observation, computed on the matching worker."""
+"""Bounded ink and panel measurements from the exact OCR source on the matching worker."""
 
 from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
 
-from dantetl.domain import CapturedFrame
+from dantetl.domain import CapturedFrame, Rect
 from dantetl.languages.selection import DEFAULT_SOURCE
 from dantetl.languages.source import SourceLanguage
 from dantetl.ocr.values import TextRegion
+
+
+@dataclass(frozen=True, slots=True)
+class PanelEdges:
+    left: int
+    top: int
+    bottom: int
+
+    def agrees(self, other: "PanelEdges", tolerance: float) -> bool:
+        return (
+            max(
+                abs(self.left - other.left),
+                abs(self.top - other.top),
+                abs(self.bottom - other.bottom),
+            )
+            <= tolerance
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,6 +33,39 @@ class Lettering:
     ink: tuple[float, float, float]
     inline_accent: bool
     neutral: bool
+    panel: PanelEdges | None = None
+
+
+def _panel_edges(pixels: NDArray[np.uint8], b: Rect) -> PanelEdges | None:
+    """Measure a flat panel in the gutter just before the first glyph, away from the ink."""
+    height, width = pixels.shape[:2]
+    unit = min(128, b.height)
+    x, y = b.x - max(3, round(0.3 * unit)), b.y + b.height // 2
+    if not (0 < x < width and 0 <= y < height and unit >= 6):
+        return None
+    surface = pixels[y, x, :3].astype(np.int16)
+    left, top, bottom = max(0, x - 2 * unit), max(0, y - 6 * unit), min(height, y + 6 * unit + 1)
+
+    def edge(strip: NDArray[np.uint8]) -> int | None:
+        # Require a sustained contrast outside the first edge. A uniform screen or a
+        # single stray pixel in the gutter cannot establish an enclosing panel.
+        delta = np.abs(strip - surface).max(axis=1)
+        outside = np.flatnonzero(delta > 8)
+        if not outside.size:
+            return None
+        index = int(outside[0])
+        if index < 2 or index + 3 >= len(delta) or min(delta[index + 1 : index + 4]) < 12:
+            return None
+        return index
+
+    gutter = edge(pixels[y, left : x + 1, :3][::-1])
+    if gutter is None:
+        return None
+    up = edge(pixels[top : y + 1, x, :3][::-1])
+    down = edge(pixels[y:bottom, x, :3])
+    if up is None or down is None or up + down < b.height:
+        return None
+    return PanelEdges(x - gutter + 1, y - up + 1, y + down)
 
 
 def _runs(crop: NDArray[np.uint8]) -> tuple[bool, bool]:
@@ -63,6 +113,14 @@ def sample_lettering(
         if language.sample_effect_lettering(row.text):
             accent, neutral = _runs(crop)
         samples.append(
-            (index, Lettering((float(ink[0]), float(ink[1]), float(ink[2])), accent, neutral))
+            (
+                index,
+                Lettering(
+                    (float(ink[0]), float(ink[1]), float(ink[2])),
+                    accent,
+                    neutral,
+                    _panel_edges(pixels, b),
+                ),
+            )
         )
     return tuple(samples)

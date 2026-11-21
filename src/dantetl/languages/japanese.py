@@ -65,6 +65,10 @@ class Japanese(SourceLanguage):
     percentage_lead = re.compile(r"(?:[がはをもに]?(?:さらに|更に)|[がはをもに])")
     percentage_label_terms = ("による", "に対する")
 
+    @property
+    def standalone_menu_labels(self) -> frozenset[str]:
+        return self.menu_labels | {"設定", "保存", "セーブ", "ロード", "終了"}
+
     def contains_text(self, text: str) -> bool:
         return _SCRIPT.search(text) is not None
 

@@ -7,6 +7,7 @@ import pytest
 from test_live_session import Replay
 
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.languages.selection import source_language
 from dantetl.ocr.values import TextRegion
 
 
@@ -20,6 +21,54 @@ def panel(regions: tuple[TextRegion, ...], *, accent: bool) -> CapturedFrame:
         b = regions[0].bounds
         pixels[b.y : b.y + b.height, b.x + 99 : b.x + 219 : 3, :3] = (200, 60, 230)
     return CapturedFrame(1, 1, WindowGeometry(bounds, bounds, bounds, 96), pixels.tobytes())
+
+
+@pytest.mark.parametrize(
+    ("code", "first", "tail"),
+    [
+        ("en", "After looking through the archive, I finally found the letter you", "sent me"),
+        ("fr", "En rangeant mes archives, j’ai retrouvé la lettre que tu", "m’avais envoyée"),
+        ("es", "Al ordenar mis archivos, encontré la carta que me", "habías enviado"),
+        ("ja", "古い手紙を整理していたら、あなたが書いたものを見つけた", "わね"),
+    ],
+)
+@pytest.mark.parametrize("layout", ["bubble", "buttons", "no_edges", "large_panel", "heading"])
+def test_unpunctuated_wrap_requires_a_shared_fitted_panel(code, first, tail, layout):
+    language = source_language(code)
+    speaker = "姫子" if code == "ja" else "Mira"
+    if layout == "heading":
+        first = "図書館所蔵特別展示資料目録" if code == "ja" else "Mira Valentina Castiglione"
+    rows = (
+        TextRegion(speaker, Rect(62, 7, 50, 17)),
+        TextRegion(first, Rect(90, 52, 640, 25)),
+        TextRegion(tail, Rect(89, 89, 110, 19)),
+    )
+    pixels = np.full((190, 800, 4), (200, 200, 200, 255), np.uint8)
+    if layout != "no_edges":
+        pixels[36 : 123 if layout != "large_panel" else 180, 65:770, :3] = 234
+    if layout == "buttons":
+        pixels[79:85, 65:770, :3] = 200
+    for row in rows:
+        b = row.bounds
+        pixels[b.y : b.y + b.height, b.x : b.x + b.width : 3, :3] = 24
+    viewport = Rect(0, 0, 800, 190)
+    source = CapturedFrame(1, 1, WindowGeometry(viewport, viewport, viewport, 96), pixels.tobytes())
+    replay = Replay(language=language)
+    scene = replay.observe(source, rows[::-1])
+    expected = (
+        [speaker, first + language.word_separator + tail]
+        if layout == "bubble"
+        else [speaker, first, tail]
+    )
+    assert [block.text for block in scene.requests] == expected
+    assert [block.text for block in replay.live.scene(source, 2, grouping=False).requests] == [
+        speaker,
+        first,
+        tail,
+    ]
+    later = replace(source, sequence=2, captured_at=2)
+    scene = replay.observe(later, (rows[-1],), scanned=(Rect(65, 77, 160, 45),))
+    assert [block.text for block in scene.requests] == expected
 
 
 def test_prose_closing_with_an_ocr_comma_leaves_short_button_out_of_request():

@@ -122,6 +122,10 @@ class SourceLanguage:
     def is_choice(self, text: str) -> bool:
         return bool(self.lists.line_marker.match(text)) and not self.quote_start.match(text)
 
+    @property
+    def standalone_menu_labels(self) -> frozenset[str]:
+        return self.menu_labels
+
     def has_speaker_punctuation(self, text: str) -> bool:
         return any(c in self.label_punctuation or c in self.speaker_delimiters for c in text)
 

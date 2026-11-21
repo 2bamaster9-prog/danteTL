@@ -116,6 +116,7 @@ def _can_follow(
     revealing: bool = False,
     previous_row: Rect | None = None,
     opening_quote: bool = False,
+    lettering: dict[TextTrack, Lettering] | None = None,
 ) -> bool:
     a, b = upper.bounds, lower.bounds
     height = max(1, min(a.height, b.height))
@@ -198,6 +199,13 @@ def _can_follow(
     ):
         # Two successive ink heights may differ even when each matches the preceding
         # body row. Require the same margin and row pitch to bridge that variation.
+        height_ratio = 1.45
+    if (
+        lettering
+        and height * height_ratio < max(a.height, b.height) <= height * 1.45
+        and len(_panel_paragraph(language, (upper, lower), lettering)) == 2
+    ):
+        # Shorter words may have smaller OCR ink boxes even in the same font.
         height_ratio = 1.45
     return (
         max(a.height, b.height) <= height * height_ratio
@@ -580,12 +588,56 @@ def _quote_openings(
     return openings
 
 
+def _panel_paragraph(
+    language: SourceLanguage, lines: tuple[TextTrack, ...], lettering: dict[TextTrack, Lettering]
+) -> tuple[TextTrack, ...]:
+    """Recover a ragged, unpunctuated wrap inside one closely fitting text panel."""
+    first = lines[0]
+    a = first.bounds
+    style = lettering.get(first)
+    opening = first.text.strip()
+    if (
+        style is None
+        or style.panel is None
+        or a.width < 12 * a.height
+        or language.starts_item(opening)
+        or opening.endswith((*language.endings, "...", "…", "~", "～"))
+        or not 0 <= a.y - style.panel.top <= 1.5 * a.height
+    ):
+        return (first,)
+    words = opening.split()
+    if not (
+        language.internal_prose(opening)
+        or (language.prose_script and language.prose_script.search(opening))
+        or (len(words) >= 4 and any(word[0].islower() for word in words[1:]))
+    ):
+        return (first,)  # A wide heading and its byline can fit the same card.
+    panel = style.panel
+    for index, line in enumerate(lines[1:], start=1):
+        b = line.bounds
+        unit = min(a.height, b.height)
+        other = lettering.get(line)
+        if (
+            other is None
+            or other.panel is None
+            or not panel.agrees(other.panel, 0.35 * unit)
+            or abs(b.x - a.x) > 0.55 * unit
+            or line.text.strip() in language.standalone_menu_labels
+            or any(abs(x - y) >= 85 for x, y in zip(style.ink, other.ink, strict=True))
+        ):
+            break
+        if b.width <= 0.8 * a.width and 0 <= panel.bottom - b.y - b.height <= 1.5 * unit:
+            return lines[: index + 1]
+    return (first,)
+
+
 def _blocks(
     language: SourceLanguage,
     tracks: tuple[TextTrack, ...],
     enabled: bool,
     growing: frozenset[int],
     dash_edges: dict[TextTrack, int],
+    lettering: dict[TextTrack, Lettering],
 ) -> tuple[TextBlock, ...]:
     ordered = sorted(tracks[:128], key=lambda t: (t.bounds.y, t.bounds.x, t.track_id))
     row_tops = [t.bounds.y for t in ordered] if enabled else []
@@ -613,6 +665,7 @@ def _blocks(
                 revealing=revealing or line.track_id in growing,
                 previous_row=previous,
                 opening_quote=line.track_id == continuation,
+                lettering=lettering,
             )
         )
 
@@ -704,7 +757,7 @@ def _blocks(
             or _dialogue_evidence(language, lines)
             or any(line.track_id in growing for line in lines)
         ):
-            lines = (first,)  # Nearby menu labels alone are not evidence of a dialogue box.
+            lines = _panel_paragraph(language, lines, lettering)
         used.update(line.track_id for line in lines)
         dialogue = enabled and (
             len(lines) > 1
@@ -771,7 +824,7 @@ class DialogueGrouper:
         row_growth = growing | {
             row.track_id for row, parts in rows.items() if any(t.track_id in growing for t in parts)
         }
-        blocks = _blocks(self._language, physical, enabled, row_growth, dash_edges)
+        blocks = _blocks(self._language, physical, enabled, row_growth, dash_edges, lettering)
         if enabled:
             owners = {row: block.lines for block in blocks for row in block.lines}
             segments = list(dialogue_segments(physical, owners, lettering, self._language))

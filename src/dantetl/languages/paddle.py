@@ -4,12 +4,24 @@ from typing import ClassVar
 
 from dantetl.languages.source import SourceLanguage
 
+_MENU_LABELS = {
+    "en": frozenset(("Settings", "Save", "Load", "Inventory", "Options", "Quit")),
+    "de": frozenset(("Einstellungen", "Speichern", "Laden", "Inventar", "Beenden")),
+    "es": frozenset(("Configuración", "Guardar", "Cargar", "Inventario", "Salir")),
+    "fr": frozenset(("Paramètres", "Sauvegarder", "Charger", "Inventaire", "Quitter")),
+    "pt": frozenset(("Definições", "Configurações", "Salvar", "Carregar", "Inventário", "Sair")),
+}
+
 
 class PaddleOCRLanguage(SourceLanguage):
     """Override individual cues in a subclass for a particular source language."""
 
     __slots__ = ()
     inline_quotes: ClassVar[tuple[tuple[str, str], ...]] = (('"', '"'), ("“", "”"), ("‘", "’"))
+
+    @property
+    def standalone_menu_labels(self) -> frozenset[str]:
+        return _MENU_LABELS.get(self.code, self.menu_labels)
 
     def quoted_term_with_suffix(self, text: str) -> bool:
         """A quoted name followed by more words on the same physical row."""
