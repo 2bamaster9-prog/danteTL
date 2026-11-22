@@ -5,7 +5,7 @@ from typing import Protocol
 
 from dantetl.application.notice import Notices
 from dantetl.application.preference_values import Preferences
-from dantetl.application.services import CloudCommands, SetupCommands
+from dantetl.application.services import CacheCommands, CloudCommands, SetupCommands
 from dantetl.application.values import (
     ApplicationControls,
     ApplicationView,
@@ -18,6 +18,8 @@ from dantetl.translation.selection import AssignmentChange, OcrOption
 
 
 class ApplicationCommands(Protocol):
+    @property
+    def cache(self) -> CacheCommands: ...
     @property
     def cloud(self) -> CloudCommands: ...
     @property

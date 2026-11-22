@@ -447,12 +447,20 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>ไม่ได้ติดตั้ง CUDA runtime เปิด การตั้งค่า → การเร่งความเร็ว หรือเลือก CPU</translation>
     </message>
     <message>
+      <source>Cache</source>
+      <translation>แคช</translation>
+    </message>
+    <message>
       <source>Cache limits must be positive.</source>
       <translation>ขีดจำกัดแคชต้องเป็นค่าบวก</translation>
     </message>
     <message>
       <source>Cached catalog</source>
       <translation>แคตตาล็อกแคช</translation>
+    </message>
+    <message>
+      <source>Cached translations: {count}</source>
+      <translation>คำแปลในแคช: {count} รายการ</translation>
     </message>
     <message>
       <source>Can change meaning or produce awkward phrasing.</source>
@@ -921,6 +929,18 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Clear</source>
       <translation>ล้าง</translation>
+    </message>
+    <message>
+      <source>Clear cached translations for {game}? Entries shared with other games are kept.</source>
+      <translation>ล้างแคชคำแปลของ {game} หรือไม่ รายการที่ใช้ร่วมกับเกมอื่นจะยังคงอยู่</translation>
+    </message>
+    <message>
+      <source>Clear entire cache…</source>
+      <translation>ล้างแคชทั้งหมด…</translation>
+    </message>
+    <message>
+      <source>Clear selected game…</source>
+      <translation>ล้างแคชของเกมที่เลือก…</translation>
     </message>
     <message>
       <source>Close</source>
@@ -2483,6 +2503,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>รอดำเนินการ</translation>
     </message>
     <message>
+      <source>Permanently clear all cached translations?</source>
+      <translation>ลบคำแปลทั้งหมดในแคชอย่างถาวรหรือไม่</translation>
+    </message>
+    <message>
       <source>Physical client pixels · DPI {dpi}</source>
       <translation>พิกเซลไคลเอนต์แบบกายภาพ · DPI {dpi}</translation>
     </message>
@@ -3653,6 +3677,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>โมเดลภายในเครื่องสองตัวจะถูกโหลดพร้อมกัน การใช้ RAM / VRAM อาจเพิ่มขึ้นประมาณสองเท่า เลือกโมเดลเดียวกันในทั้งสองแถวเพื่อแชร์สำเนาเดียว</translation>
     </message>
     <message>
+      <source>Unassigned</source>
+      <translation>ยังไม่ระบุเกม</translation>
+    </message>
+    <message>
       <source>Unavailable</source>
       <translation>ไม่พร้อมใช้งาน</translation>
     </message>
@@ -3971,6 +3999,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Work skipped</source>
       <translation>ข้ามงาน</translation>
+    </message>
+    <message>
+      <source>Working…</source>
+      <translation>กำลังประมวลผล…</translation>
     </message>
     <message>
       <source>Write results for a windowed executable</source>

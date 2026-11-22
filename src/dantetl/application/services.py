@@ -7,9 +7,16 @@ from dantetl.application.model_values import ModelFile
 from dantetl.runtime.hardware_values import HardwareStatus
 from dantetl.runtime.setup_values import RuntimeStatus, SetupJob, SetupLane, SetupReview
 from dantetl.runtime.values import RuntimeProfile
+from dantetl.translation.cache_values import CacheView
 from dantetl.translation.cloud.state import CloudDraft, CloudSnapshot
 from dantetl.translation.cloud.values import CloudProfile, CloudUsage
 from dantetl.translation.models.values import ImportedModel, ProbeResult
+
+
+class CacheCommands(Protocol):
+    def snapshot(self) -> CacheView: ...
+    def refresh(self) -> None: ...
+    def clear(self, game: str | None) -> None: ...
 
 
 class CloudCommands(Protocol):

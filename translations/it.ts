@@ -447,12 +447,20 @@ I dettagli sono in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Il runtime CUDA non è installato. Apri Impostazioni → Accelerazione o scegli CPU.</translation>
     </message>
     <message>
+      <source>Cache</source>
+      <translation>Cache</translation>
+    </message>
+    <message>
       <source>Cache limits must be positive.</source>
       <translation>I limiti della cache devono essere positivi.</translation>
     </message>
     <message>
       <source>Cached catalog</source>
       <translation>Catalogo memorizzato</translation>
+    </message>
+    <message>
+      <source>Cached translations: {count}</source>
+      <translation>Traduzioni nella cache: {count}</translation>
     </message>
     <message>
       <source>Can change meaning or produce awkward phrasing.</source>
@@ -921,6 +929,18 @@ I dettagli sono in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Clear</source>
       <translation>Cancella</translation>
+    </message>
+    <message>
+      <source>Clear cached translations for {game}? Entries shared with other games are kept.</source>
+      <translation>Svuotare la cache delle traduzioni di {game}? Le voci condivise con altri giochi verranno mantenute.</translation>
+    </message>
+    <message>
+      <source>Clear entire cache…</source>
+      <translation>Svuota tutta la cache…</translation>
+    </message>
+    <message>
+      <source>Clear selected game…</source>
+      <translation>Svuota cache del gioco selezionato…</translation>
     </message>
     <message>
       <source>Close</source>
@@ -2483,6 +2503,10 @@ I dettagli sono in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>In sospeso</translation>
     </message>
     <message>
+      <source>Permanently clear all cached translations?</source>
+      <translation>Eliminare definitivamente tutte le traduzioni nella cache?</translation>
+    </message>
+    <message>
       <source>Physical client pixels · DPI {dpi}</source>
       <translation>Pixel client fisici · DPI {dpi}</translation>
     </message>
@@ -3653,6 +3677,10 @@ Download dei modelli: fino a {size:.2f} GB; i file esistenti vengono verificati 
       <translation>Due modelli locali restano caricati insieme. L'uso di RAM / VRAM può raddoppiare circa; scegli lo stesso modello in entrambe le righe per condividere una sola copia.</translation>
     </message>
     <message>
+      <source>Unassigned</source>
+      <translation>Senza gioco assegnato</translation>
+    </message>
+    <message>
       <source>Unavailable</source>
       <translation>Non disponibile</translation>
     </message>
@@ -3971,6 +3999,10 @@ Download dei modelli: fino a {size:.2f} GB; i file esistenti vengono verificati 
     <message>
       <source>Work skipped</source>
       <translation>Lavoro saltato</translation>
+    </message>
+    <message>
+      <source>Working…</source>
+      <translation>Elaborazione…</translation>
     </message>
     <message>
       <source>Write results for a windowed executable</source>

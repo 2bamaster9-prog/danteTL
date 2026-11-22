@@ -119,6 +119,7 @@ class MainWindow(QMainWindow):
             self,
             cloud=self.application.cloud,
             setup=self.application.setup,
+            cache=self.application.cache,
             hotkeys=self._hotkeys,
         )
         self._model_manager = self._settings.models
@@ -895,6 +896,8 @@ class MainWindow(QMainWindow):
         self.routing.set_models(controls.options, controls.assignment)
         self._refresh_history_models(controls.options)
         self._settings.models.refresh_view()
+        if self._settings.cache.isVisible():
+            self._settings.cache.refresh_view()
         self._settings.models.cloud.refresh_view()
         if self._settings.runtime:
             self._settings.runtime.refresh_view()

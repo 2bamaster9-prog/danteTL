@@ -447,12 +447,20 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>وقت تشغيل CUDA غير مثبت. افتح الإعدادات ← التسريع أو اختر CPU.</translation>
     </message>
     <message>
+      <source>Cache</source>
+      <translation>ذاكرة التخزين المؤقت</translation>
+    </message>
+    <message>
       <source>Cache limits must be positive.</source>
       <translation>يجب أن تكون حدود ذاكرة التخزين المؤقت موجبة.</translation>
     </message>
     <message>
       <source>Cached catalog</source>
       <translation>كتالوج مخزن مؤقت</translation>
+    </message>
+    <message>
+      <source>Cached translations: {count}</source>
+      <translation>الترجمات المخزّنة مؤقتًا: {count}</translation>
     </message>
     <message>
       <source>Can change meaning or produce awkward phrasing.</source>
@@ -921,6 +929,18 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Clear</source>
       <translation>مسح</translation>
+    </message>
+    <message>
+      <source>Clear cached translations for {game}? Entries shared with other games are kept.</source>
+      <translation>هل تريد مسح الترجمات المخزّنة مؤقتًا للعبة {game}؟ سيتم الاحتفاظ بالإدخالات المشتركة مع ألعاب أخرى.</translation>
+    </message>
+    <message>
+      <source>Clear entire cache…</source>
+      <translation>مسح ذاكرة التخزين المؤقت بالكامل…</translation>
+    </message>
+    <message>
+      <source>Clear selected game…</source>
+      <translation>مسح ذاكرة اللعبة المحددة…</translation>
     </message>
     <message>
       <source>Close</source>
@@ -2483,6 +2503,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>قيد الانتظار</translation>
     </message>
     <message>
+      <source>Permanently clear all cached translations?</source>
+      <translation>هل تريد حذف جميع الترجمات المخزّنة مؤقتًا نهائيًا؟</translation>
+    </message>
+    <message>
       <source>Physical client pixels · DPI {dpi}</source>
       <translation>بكسلات العميل الفعلية · DPI {dpi}</translation>
     </message>
@@ -3653,6 +3677,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>يبقى نموذجان محليان محمّلين معاً. قد يتضاعف استخدام RAM / VRAM تقريباً؛ اختر النموذج نفسه في كلا الصفين لمشاركة نسخة واحدة.</translation>
     </message>
     <message>
+      <source>Unassigned</source>
+      <translation>بلا لعبة معيّنة</translation>
+    </message>
+    <message>
       <source>Unavailable</source>
       <translation>غير متاح</translation>
     </message>
@@ -3971,6 +3999,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Work skipped</source>
       <translation>تم تخطي العمل</translation>
+    </message>
+    <message>
+      <source>Working…</source>
+      <translation>جارٍ التنفيذ…</translation>
     </message>
     <message>
       <source>Write results for a windowed executable</source>

@@ -456,6 +456,12 @@ Older databases initialize the counter from existing translations once in the sc
 only the indexed oldest excess rows, without scanning an offset on every write. Keep the O(1) memory LRU.
 Disk failure preserves files and falls back visibly to bounded memory. English caches are not encrypted;
 source text appears only through hashed keys. No routine logging/saving of frames or recognized text.
+Settings → Cache shows unique translations and counts by game. A separate indexed relation records
+the normalized game hint (or capture title) on successful lookup and insertion. A capture with
+no name appears as Unassigned. Game names are local metadata. Clearing a game removes its ownership
+and exclusive translations. Clearing the entire cache also removes shared and unassigned entries.
+Both actions require confirmation. SQLite transactions retire game IDs on deletion, so an older
+in-flight completion cannot refill the cleared scope. Maintenance runs off the UI thread.
 `DialogueMemory` is two turns/512 characters for one unambiguous panel, separate from the reader. Freeze
 and hash context per request; only valid published English seeds it. Menus remain independent; reset on
 scene/session/layout/age. Turn identity follows exact members/growth/correction lineage, not similar words

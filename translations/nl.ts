@@ -447,12 +447,20 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>CUDA-runtime is niet geïnstalleerd. Open Instellingen → Versnelling of kies CPU.</translation>
     </message>
     <message>
+      <source>Cache</source>
+      <translation>Cache</translation>
+    </message>
+    <message>
       <source>Cache limits must be positive.</source>
       <translation>Cachelimieten moeten positief zijn.</translation>
     </message>
     <message>
       <source>Cached catalog</source>
       <translation>Gecachte catalogus</translation>
+    </message>
+    <message>
+      <source>Cached translations: {count}</source>
+      <translation>Vertalingen in de cache: {count}</translation>
     </message>
     <message>
       <source>Can change meaning or produce awkward phrasing.</source>
@@ -921,6 +929,18 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Clear</source>
       <translation>Wissen</translation>
+    </message>
+    <message>
+      <source>Clear cached translations for {game}? Entries shared with other games are kept.</source>
+      <translation>De vertalingen in de cache voor {game} wissen? Vermeldingen die met andere spellen worden gedeeld blijven behouden.</translation>
+    </message>
+    <message>
+      <source>Clear entire cache…</source>
+      <translation>Hele cache wissen…</translation>
+    </message>
+    <message>
+      <source>Clear selected game…</source>
+      <translation>Cache van geselecteerd spel wissen…</translation>
     </message>
     <message>
       <source>Close</source>
@@ -2483,6 +2503,10 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>In behandeling</translation>
     </message>
     <message>
+      <source>Permanently clear all cached translations?</source>
+      <translation>Alle vertalingen in de cache definitief wissen?</translation>
+    </message>
+    <message>
       <source>Physical client pixels · DPI {dpi}</source>
       <translation>Fysieke clientpixels · DPI {dpi}</translation>
     </message>
@@ -3653,6 +3677,10 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
       <translation>Twee lokale modellen blijven samen geladen. RAM-/VRAM-gebruik kan ongeveer verdubbelen; kies hetzelfde model in beide rijen om één kopie te delen.</translation>
     </message>
     <message>
+      <source>Unassigned</source>
+      <translation>Geen spel toegewezen</translation>
+    </message>
+    <message>
       <source>Unavailable</source>
       <translation>Niet beschikbaar</translation>
     </message>
@@ -3971,6 +3999,10 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
     <message>
       <source>Work skipped</source>
       <translation>Werk overgeslagen</translation>
+    </message>
+    <message>
+      <source>Working…</source>
+      <translation>Bezig…</translation>
     </message>
     <message>
       <source>Write results for a windowed executable</source>

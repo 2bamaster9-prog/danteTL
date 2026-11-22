@@ -447,12 +447,20 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>Среда выполнения CUDA не установлена. Откройте Настройки → Ускорение или выберите CPU.</translation>
     </message>
     <message>
+      <source>Cache</source>
+      <translation>Кэш</translation>
+    </message>
+    <message>
       <source>Cache limits must be positive.</source>
       <translation>Лимиты кэша должны быть положительными.</translation>
     </message>
     <message>
       <source>Cached catalog</source>
       <translation>Кэшированный каталог</translation>
+    </message>
+    <message>
+      <source>Cached translations: {count}</source>
+      <translation>Переводов в кэше: {count}</translation>
     </message>
     <message>
       <source>Can change meaning or produce awkward phrasing.</source>
@@ -921,6 +929,18 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Clear</source>
       <translation>Очистить</translation>
+    </message>
+    <message>
+      <source>Clear cached translations for {game}? Entries shared with other games are kept.</source>
+      <translation>Очистить кэш переводов для {game}? Записи, используемые в других играх, сохранятся.</translation>
+    </message>
+    <message>
+      <source>Clear entire cache…</source>
+      <translation>Очистить весь кэш…</translation>
+    </message>
+    <message>
+      <source>Clear selected game…</source>
+      <translation>Очистить кэш выбранной игры…</translation>
     </message>
     <message>
       <source>Close</source>
@@ -2483,6 +2503,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>В ожидании</translation>
     </message>
     <message>
+      <source>Permanently clear all cached translations?</source>
+      <translation>Безвозвратно удалить все переводы из кэша?</translation>
+    </message>
+    <message>
       <source>Physical client pixels · DPI {dpi}</source>
       <translation>Физические пиксели клиента · DPI {dpi}</translation>
     </message>
@@ -3653,6 +3677,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>Две локальные модели остаются загруженными одновременно. Использование RAM / VRAM может примерно удвоиться; выберите одну и ту же модель в обеих строках, чтобы использовать одну копию.</translation>
     </message>
     <message>
+      <source>Unassigned</source>
+      <translation>Без привязки к игре</translation>
+    </message>
+    <message>
       <source>Unavailable</source>
       <translation>Недоступно</translation>
     </message>
@@ -3971,6 +3999,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Work skipped</source>
       <translation>Работа пропущена</translation>
+    </message>
+    <message>
+      <source>Working…</source>
+      <translation>Обработка…</translation>
     </message>
     <message>
       <source>Write results for a windowed executable</source>

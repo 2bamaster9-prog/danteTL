@@ -23,6 +23,7 @@ from dantetl.application.preferences import PreferenceStore
 from dantetl.capture.windows import Windows
 from dantetl.runtime.hardware import HardwareCheck
 from dantetl.runtime.model_store import model_catalog
+from dantetl.translation.cache import TranslationCache
 from dantetl.ui.controls import InfoButton
 from dantetl.ui.demo import DemoWindow
 
@@ -39,6 +40,14 @@ def main() -> int:
     app.setQuitOnLastWindowClosed(False)
     demo = DemoWindow(dialogue=True)
     preferences_path = args.output / f"preferences-{time.time_ns()}.json"
+    cache_path = args.output / f"cache-{time.time_ns()}.sqlite3"
+    cache = TranslationCache(cache_path)
+    for game in ("DanteTL Demo", "Second demo"):
+        cache.lookup_pending(("Settings", game), reset=False, game=game)
+        cache.put("Settings", "Settings", scope=cache.scope)
+        cache.put(game, "Map", scope=cache.scope)
+    cache.put("Inventory", "Inventory")
+    cache.close()
     hardware = HardwareCheck()
     hardware.start()
     models = model_catalog()
@@ -54,6 +63,7 @@ def main() -> int:
         models=models,
         ocr_backends=ocr_backends(),
         preferences_path=preferences_path,
+        cache_path=cache_path,
         hardware=hardware,
     )
     application = app_owner(window)
@@ -126,11 +136,26 @@ def main() -> int:
                     "Models",
                     "Acceleration",
                     "Hotkeys",
+                    "Cache",
                     "Experimental",
                 ]
                 assert settings.runtime is None  # Merely opening Settings does not start setup.
                 assert window.stabilize_check.isChecked() and window.automatic_font.isChecked()
                 settings.grab().save(str(args.output / "appearance.png"))
+                settings.tabs.setCurrentWidget(settings.cache)
+                stage = 101
+            elif stage == 101:
+                if application.cache.snapshot().busy:
+                    return
+                settings.cache.refresh_view()
+                assert settings.cache.games.count() == 3
+                assert settings.cache.status.text() == "Cached translations: 4"
+                settings.cache.games.setCurrentRow(0)
+                assert (
+                    settings.cache.clear_game.isEnabled() and settings.cache.clear_all.isEnabled()
+                )
+                settings.grab().save(str(args.output / "cache.png"))
+                evidence["cache_inventory_and_actions"] = True
                 settings.tabs.setCurrentIndex(settings.tabs.count() - 1)
                 assert not settings.history_enabled.isChecked()
                 assert not window.history_button.isVisible()

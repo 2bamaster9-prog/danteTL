@@ -6,6 +6,7 @@ from unittest.mock import Mock
 from test_live_session import Capture, Ocr, Visual, frame
 from test_model_lifecycle import Worker
 
+from dantetl.application.cache_management import CacheManagement
 from dantetl.application.cloud_services import CloudServices
 from dantetl.application.live_session import LiveSession
 from dantetl.application.model_inventory import InventoryData, ModelInventory
@@ -221,6 +222,7 @@ class Replay:
             setup=self.setup,
             preferences=self.preferences,
             shutdown=self.shutdown,
+            cache=CacheManagement(root / "cache", lambda: None),
             capture=create_capture,
         )
 

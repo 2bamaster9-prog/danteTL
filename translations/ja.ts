@@ -447,12 +447,20 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>CUDAランタイムがインストールされていません。設定 → アクセラレーションを開くかCPUを選択してください。</translation>
     </message>
     <message>
+      <source>Cache</source>
+      <translation>キャッシュ</translation>
+    </message>
+    <message>
       <source>Cache limits must be positive.</source>
       <translation>キャッシュ制限は正の値である必要があります。</translation>
     </message>
     <message>
       <source>Cached catalog</source>
       <translation>キャッシュされたカタログ</translation>
+    </message>
+    <message>
+      <source>Cached translations: {count}</source>
+      <translation>キャッシュ済みの翻訳：{count} 件</translation>
     </message>
     <message>
       <source>Can change meaning or produce awkward phrasing.</source>
@@ -921,6 +929,18 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Clear</source>
       <translation>クリア</translation>
+    </message>
+    <message>
+      <source>Clear cached translations for {game}? Entries shared with other games are kept.</source>
+      <translation>「{game}」の翻訳キャッシュを削除しますか？ 他のゲームでも使われている翻訳は残ります。</translation>
+    </message>
+    <message>
+      <source>Clear entire cache…</source>
+      <translation>キャッシュをすべて削除…</translation>
+    </message>
+    <message>
+      <source>Clear selected game…</source>
+      <translation>選択したゲームのキャッシュを削除…</translation>
     </message>
     <message>
       <source>Close</source>
@@ -2483,6 +2503,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>保留中</translation>
     </message>
     <message>
+      <source>Permanently clear all cached translations?</source>
+      <translation>キャッシュされた翻訳をすべて完全に削除しますか？</translation>
+    </message>
+    <message>
       <source>Physical client pixels · DPI {dpi}</source>
       <translation>物理クライアントピクセル · DPI {dpi}</translation>
     </message>
@@ -3653,6 +3677,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>2つのローカルモデルが同時にロードされます。RAM/VRAMの使用量は約2倍になる可能性があります。1つのコピーを共有するには、両方の行で同じモデルを選択してください。</translation>
     </message>
     <message>
+      <source>Unassigned</source>
+      <translation>ゲーム未割り当て</translation>
+    </message>
+    <message>
       <source>Unavailable</source>
       <translation>利用不可</translation>
     </message>
@@ -3971,6 +3999,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Work skipped</source>
       <translation>作業をスキップしました</translation>
+    </message>
+    <message>
+      <source>Working…</source>
+      <translation>処理中…</translation>
     </message>
     <message>
       <source>Write results for a windowed executable</source>

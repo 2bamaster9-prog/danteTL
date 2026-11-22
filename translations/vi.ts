@@ -447,12 +447,20 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Chưa cài đặt môi trường chạy CUDA. Mở Cài đặt → Tăng tốc hoặc chọn CPU.</translation>
     </message>
     <message>
+      <source>Cache</source>
+      <translation>Bộ nhớ đệm</translation>
+    </message>
+    <message>
       <source>Cache limits must be positive.</source>
       <translation>Giới hạn bộ nhớ đệm phải là số dương.</translation>
     </message>
     <message>
       <source>Cached catalog</source>
       <translation>Danh mục đã lưu</translation>
+    </message>
+    <message>
+      <source>Cached translations: {count}</source>
+      <translation>Bản dịch trong bộ nhớ đệm: {count}</translation>
     </message>
     <message>
       <source>Can change meaning or produce awkward phrasing.</source>
@@ -921,6 +929,18 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Clear</source>
       <translation>Xóa</translation>
+    </message>
+    <message>
+      <source>Clear cached translations for {game}? Entries shared with other games are kept.</source>
+      <translation>Xóa bản dịch trong bộ nhớ đệm của {game}? Các mục dùng chung với trò chơi khác sẽ được giữ lại.</translation>
+    </message>
+    <message>
+      <source>Clear entire cache…</source>
+      <translation>Xóa toàn bộ bộ nhớ đệm…</translation>
+    </message>
+    <message>
+      <source>Clear selected game…</source>
+      <translation>Xóa bộ nhớ đệm của trò chơi đã chọn…</translation>
     </message>
     <message>
       <source>Close</source>
@@ -2483,6 +2503,10 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Đang chờ</translation>
     </message>
     <message>
+      <source>Permanently clear all cached translations?</source>
+      <translation>Xóa vĩnh viễn tất cả bản dịch trong bộ nhớ đệm?</translation>
+    </message>
+    <message>
       <source>Physical client pixels · DPI {dpi}</source>
       <translation>Điểm ảnh máy khách vật lý · DPI {dpi}</translation>
     </message>
@@ -3653,6 +3677,10 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Hai mô hình cục bộ được giữ tải cùng lúc. Mức dùng RAM / VRAM có thể tăng gần gấp đôi; chọn cùng một mô hình ở cả hai hàng để dùng chung một bản sao.</translation>
     </message>
     <message>
+      <source>Unassigned</source>
+      <translation>Chưa gán trò chơi</translation>
+    </message>
+    <message>
       <source>Unavailable</source>
       <translation>Không khả dụng</translation>
     </message>
@@ -3971,6 +3999,10 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
     <message>
       <source>Work skipped</source>
       <translation>Đã bỏ qua tác vụ</translation>
+    </message>
+    <message>
+      <source>Working…</source>
+      <translation>Đang xử lý…</translation>
     </message>
     <message>
       <source>Write results for a windowed executable</source>

@@ -447,12 +447,20 @@ Les détails se trouvent dans %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Le runtime CUDA n'est pas installé. Ouvrez Paramètres → Accélération ou choisissez CPU.</translation>
     </message>
     <message>
+      <source>Cache</source>
+      <translation>Cache</translation>
+    </message>
+    <message>
       <source>Cache limits must be positive.</source>
       <translation>Les limites du cache doivent être positives.</translation>
     </message>
     <message>
       <source>Cached catalog</source>
       <translation>Catalogue en cache</translation>
+    </message>
+    <message>
+      <source>Cached translations: {count}</source>
+      <translation>Traductions en cache : {count}</translation>
     </message>
     <message>
       <source>Can change meaning or produce awkward phrasing.</source>
@@ -921,6 +929,18 @@ Les détails se trouvent dans %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Clear</source>
       <translation>Effacer</translation>
+    </message>
+    <message>
+      <source>Clear cached translations for {game}? Entries shared with other games are kept.</source>
+      <translation>Vider le cache des traductions de {game} ? Les entrées partagées avec d’autres jeux seront conservées.</translation>
+    </message>
+    <message>
+      <source>Clear entire cache…</source>
+      <translation>Vider tout le cache…</translation>
+    </message>
+    <message>
+      <source>Clear selected game…</source>
+      <translation>Vider le cache du jeu sélectionné…</translation>
     </message>
     <message>
       <source>Close</source>
@@ -2483,6 +2503,10 @@ Les détails se trouvent dans %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>En attente</translation>
     </message>
     <message>
+      <source>Permanently clear all cached translations?</source>
+      <translation>Supprimer définitivement toutes les traductions en cache ?</translation>
+    </message>
+    <message>
       <source>Physical client pixels · DPI {dpi}</source>
       <translation>Pixels client physiques · DPI {dpi}</translation>
     </message>
@@ -3653,6 +3677,10 @@ Téléchargements de modèles : jusqu'à {size:.2f} Go ; les fichiers existants 
       <translation>Deux modèles locaux restent chargés simultanément. L'utilisation de la RAM / VRAM peut environ doubler ; choisissez le même modèle dans les deux lignes pour partager une seule copie.</translation>
     </message>
     <message>
+      <source>Unassigned</source>
+      <translation>Sans jeu associé</translation>
+    </message>
+    <message>
       <source>Unavailable</source>
       <translation>Indisponible</translation>
     </message>
@@ -3971,6 +3999,10 @@ Téléchargements de modèles : jusqu'à {size:.2f} Go ; les fichiers existants 
     <message>
       <source>Work skipped</source>
       <translation>Travail ignoré</translation>
+    </message>
+    <message>
+      <source>Working…</source>
+      <translation>Traitement en cours…</translation>
     </message>
     <message>
       <source>Write results for a windowed executable</source>

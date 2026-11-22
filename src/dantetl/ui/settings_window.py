@@ -21,10 +21,11 @@ from PySide6.QtWidgets import (
 
 from dantetl.application.hotkeys import HotkeyAction, Hotkeys
 from dantetl.application.preference_values import MAX_CAPTURE_RATE, Preferences
-from dantetl.application.services import CloudCommands, SetupCommands
+from dantetl.application.services import CacheCommands, CloudCommands, SetupCommands
 from dantetl.i18n import display, mark, tr
 from dantetl.runtime.setup_values import SetupLane
 from dantetl.translation.selection import OcrOption
+from dantetl.ui.cache_settings import CacheSettings
 from dantetl.ui.controls import (
     InfoButton,
     OutputLanguageCombo,
@@ -51,6 +52,7 @@ class SettingsWindow(QDialog):
         *,
         cloud: CloudCommands,
         setup: SetupCommands,
+        cache: CacheCommands,
         hotkeys: Hotkeys | None = None,
     ) -> None:
         super().__init__(parent)
@@ -215,6 +217,9 @@ class SettingsWindow(QDialog):
         )
         self.hotkeys.changed.connect(self.changed.emit)
         shortcuts.addWidget(self.hotkeys)
+        self.cache = CacheSettings(cache)
+        self._pages["Cache"] = self.cache
+        self.tabs.addTab(self.cache, tr("Cache"))
         experimental = self._page(mark("Experimental"))
         note = localized(
             QLabel(),

@@ -447,12 +447,20 @@ Details finden Sie in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>CUDA-Runtime ist nicht installiert. Öffne Einstellungen → Beschleunigung oder wähle CPU.</translation>
     </message>
     <message>
+      <source>Cache</source>
+      <translation>Cache</translation>
+    </message>
+    <message>
       <source>Cache limits must be positive.</source>
       <translation>Cache-Limits müssen positiv sein.</translation>
     </message>
     <message>
       <source>Cached catalog</source>
       <translation>Zwischengespeicherter Katalog</translation>
+    </message>
+    <message>
+      <source>Cached translations: {count}</source>
+      <translation>Gespeicherte Übersetzungen: {count}</translation>
     </message>
     <message>
       <source>Can change meaning or produce awkward phrasing.</source>
@@ -921,6 +929,18 @@ Details finden Sie in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Clear</source>
       <translation>Leeren</translation>
+    </message>
+    <message>
+      <source>Clear cached translations for {game}? Entries shared with other games are kept.</source>
+      <translation>Den Übersetzungscache für {game} leeren? Von anderen Spielen mitverwendete Einträge bleiben erhalten.</translation>
+    </message>
+    <message>
+      <source>Clear entire cache…</source>
+      <translation>Gesamten Cache leeren…</translation>
+    </message>
+    <message>
+      <source>Clear selected game…</source>
+      <translation>Cache des ausgewählten Spiels leeren…</translation>
     </message>
     <message>
       <source>Close</source>
@@ -2483,6 +2503,10 @@ Details finden Sie in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Ausstehend</translation>
     </message>
     <message>
+      <source>Permanently clear all cached translations?</source>
+      <translation>Alle zwischengespeicherten Übersetzungen endgültig löschen?</translation>
+    </message>
+    <message>
       <source>Physical client pixels · DPI {dpi}</source>
       <translation>Physische Client-Pixel · DPI {dpi}</translation>
     </message>
@@ -3653,6 +3677,10 @@ Modell-Downloads: bis zu {size:.2f} GB; vorhandene Dateien werden geprüft und w
       <translation>Zwei lokale Modelle bleiben gleichzeitig geladen. RAM-/VRAM-Nutzung kann sich ungefähr verdoppeln; wähle in beiden Zeilen dasselbe Modell, um eine Kopie gemeinsam zu nutzen.</translation>
     </message>
     <message>
+      <source>Unassigned</source>
+      <translation>Kein Spiel zugeordnet</translation>
+    </message>
+    <message>
       <source>Unavailable</source>
       <translation>Nicht verfügbar</translation>
     </message>
@@ -3971,6 +3999,10 @@ Modell-Downloads: bis zu {size:.2f} GB; vorhandene Dateien werden geprüft und w
     <message>
       <source>Work skipped</source>
       <translation>Arbeit übersprungen</translation>
+    </message>
+    <message>
+      <source>Working…</source>
+      <translation>Wird verarbeitet…</translation>
     </message>
     <message>
       <source>Write results for a windowed executable</source>

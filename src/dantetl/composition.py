@@ -5,6 +5,7 @@ from collections.abc import Callable
 from functools import partial
 from pathlib import Path
 
+from dantetl.application.cache_management import CacheManagement
 from dantetl.application.cloud_services import CloudServices
 from dantetl.application.hotkeys import Hotkeys
 from dantetl.application.live_session import LiveSession
@@ -51,6 +52,7 @@ def application_session(
 ) -> ApplicationSession:
     preferences = preferences or PreferenceStore(preferences_path)
     cache = cache_path or state_root() / "data/game-translations.sqlite3"
+    cache_management = CacheManagement(cache, notify)
     initial_choices = ocr_backends or (OcrChoice("CPU", recognizer_factory, key="cpu"),)
 
     live = live_session or LiveSession(
@@ -80,7 +82,7 @@ def application_session(
         translation.lifecycle,
         setup_busy=lambda: setup.busy or cloud.busy or not inventory.finished,
         cancel_setup=cancel_setup,
-        preferences_idle=lambda: preferences.idle,
+        preferences_idle=lambda: preferences.idle and not cache_management.snapshot().busy,
         hardware_finished=lambda: hardware is None or hardware.finished,
         release_hotkeys=lambda: hotkeys.release() if hotkeys else None,
         restart=lambda target: RestartOperation(state_root(), target, create=RuntimeRestart),
@@ -96,6 +98,7 @@ def application_session(
         setup=setup,
         preferences=preferences,
         shutdown=shutdown,
+        cache=cache_management,
         capture=lambda target, fps, border: CaptureSession(
             target, windows, fps=fps, show_border=border, on_change=notify
         ),

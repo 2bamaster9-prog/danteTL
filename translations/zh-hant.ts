@@ -447,12 +447,20 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>未安裝 CUDA 執行階段。請開啟設定 → 加速，或選擇 CPU。</translation>
     </message>
     <message>
+      <source>Cache</source>
+      <translation>快取</translation>
+    </message>
+    <message>
       <source>Cache limits must be positive.</source>
       <translation>快取限制必須為正數。</translation>
     </message>
     <message>
       <source>Cached catalog</source>
       <translation>已快取目錄</translation>
+    </message>
+    <message>
+      <source>Cached translations: {count}</source>
+      <translation>已快取的翻譯：{count} 筆</translation>
     </message>
     <message>
       <source>Can change meaning or produce awkward phrasing.</source>
@@ -921,6 +929,18 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Clear</source>
       <translation>清除</translation>
+    </message>
+    <message>
+      <source>Clear cached translations for {game}? Entries shared with other games are kept.</source>
+      <translation>清除《{game}》的翻譯快取？與其他遊戲共用的項目將保留。</translation>
+    </message>
+    <message>
+      <source>Clear entire cache…</source>
+      <translation>清空全部快取…</translation>
+    </message>
+    <message>
+      <source>Clear selected game…</source>
+      <translation>清除所選遊戲的快取…</translation>
     </message>
     <message>
       <source>Close</source>
@@ -2483,6 +2503,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>待處理</translation>
     </message>
     <message>
+      <source>Permanently clear all cached translations?</source>
+      <translation>永久清除所有已快取的翻譯？</translation>
+    </message>
+    <message>
       <source>Physical client pixels · DPI {dpi}</source>
       <translation>實體用戶端像素 · DPI {dpi}</translation>
     </message>
@@ -3653,6 +3677,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>兩個本機模型會同時保持載入。RAM / VRAM 使用量可能約略加倍；在兩列中選擇相同模型即可共用一份副本。</translation>
     </message>
     <message>
+      <source>Unassigned</source>
+      <translation>未指定遊戲</translation>
+    </message>
+    <message>
       <source>Unavailable</source>
       <translation>無法使用</translation>
     </message>
@@ -3971,6 +3999,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Work skipped</source>
       <translation>已略過工作</translation>
+    </message>
+    <message>
+      <source>Working…</source>
+      <translation>處理中…</translation>
     </message>
     <message>
       <source>Write results for a windowed executable</source>

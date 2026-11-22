@@ -447,12 +447,20 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>CUDA 런타임이 설치되지 않았습니다. 설정 → 가속을 열거나 CPU를 선택하세요.</translation>
     </message>
     <message>
+      <source>Cache</source>
+      <translation>캐시</translation>
+    </message>
+    <message>
       <source>Cache limits must be positive.</source>
       <translation>캐시 제한은 양수여야 합니다.</translation>
     </message>
     <message>
       <source>Cached catalog</source>
       <translation>캐시된 카탈로그</translation>
+    </message>
+    <message>
+      <source>Cached translations: {count}</source>
+      <translation>캐시된 번역: {count}개</translation>
     </message>
     <message>
       <source>Can change meaning or produce awkward phrasing.</source>
@@ -921,6 +929,18 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Clear</source>
       <translation>지우기</translation>
+    </message>
+    <message>
+      <source>Clear cached translations for {game}? Entries shared with other games are kept.</source>
+      <translation>{game}의 번역 캐시를 지울까요? 다른 게임과 공유하는 항목은 유지됩니다.</translation>
+    </message>
+    <message>
+      <source>Clear entire cache…</source>
+      <translation>전체 캐시 지우기…</translation>
+    </message>
+    <message>
+      <source>Clear selected game…</source>
+      <translation>선택한 게임의 캐시 지우기…</translation>
     </message>
     <message>
       <source>Close</source>
@@ -2483,6 +2503,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>대기 중</translation>
     </message>
     <message>
+      <source>Permanently clear all cached translations?</source>
+      <translation>캐시된 번역을 모두 영구적으로 삭제할까요?</translation>
+    </message>
+    <message>
       <source>Physical client pixels · DPI {dpi}</source>
       <translation>물리적 클라이언트 픽셀 · DPI {dpi}</translation>
     </message>
@@ -3653,6 +3677,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>两个本地模型会同时保持加载。RAM / VRAM 使用量可能大约翻倍；在两行中选择同一模型可共享一个副本。</translation>
     </message>
     <message>
+      <source>Unassigned</source>
+      <translation>게임 미지정</translation>
+    </message>
+    <message>
       <source>Unavailable</source>
       <translation>사용 불가</translation>
     </message>
@@ -3971,6 +3999,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Work skipped</source>
       <translation>작업 건너뜀</translation>
+    </message>
+    <message>
+      <source>Working…</source>
+      <translation>처리 중…</translation>
     </message>
     <message>
       <source>Write results for a windowed executable</source>

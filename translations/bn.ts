@@ -447,12 +447,20 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>CUDA রানটাইম ইনস্টল করা নেই। সেটিংস → ত্বরণ খুলুন অথবা CPU বেছে নিন।</translation>
     </message>
     <message>
+      <source>Cache</source>
+      <translation>ক্যাশ</translation>
+    </message>
+    <message>
       <source>Cache limits must be positive.</source>
       <translation>ক্যাশে সীমা ধনাত্মক হতে হবে।</translation>
     </message>
     <message>
       <source>Cached catalog</source>
       <translation>ক্যাশ করা ক্যাটালগ</translation>
+    </message>
+    <message>
+      <source>Cached translations: {count}</source>
+      <translation>ক্যাশে রাখা অনুবাদ: {count}</translation>
     </message>
     <message>
       <source>Can change meaning or produce awkward phrasing.</source>
@@ -921,6 +929,18 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Clear</source>
       <translation>মুছুন</translation>
+    </message>
+    <message>
+      <source>Clear cached translations for {game}? Entries shared with other games are kept.</source>
+      <translation>{game} গেমের ক্যাশে রাখা অনুবাদ মুছবেন? অন্য গেমেও ব্যবহৃত এন্ট্রিগুলি রাখা হবে।</translation>
+    </message>
+    <message>
+      <source>Clear entire cache…</source>
+      <translation>সম্পূর্ণ ক্যাশ মুছুন…</translation>
+    </message>
+    <message>
+      <source>Clear selected game…</source>
+      <translation>নির্বাচিত গেমের ক্যাশ মুছুন…</translation>
     </message>
     <message>
       <source>Close</source>
@@ -2483,6 +2503,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>মুলতুবি</translation>
     </message>
     <message>
+      <source>Permanently clear all cached translations?</source>
+      <translation>ক্যাশে রাখা সব অনুবাদ স্থায়ীভাবে মুছবেন?</translation>
+    </message>
+    <message>
       <source>Physical client pixels · DPI {dpi}</source>
       <translation>ভৌত ক্লায়েন্ট পিক্সেল · DPI {dpi}</translation>
     </message>
@@ -3653,6 +3677,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>দুটি স্থানীয় মডেল একসাথে লোড থাকে। RAM / VRAM ব্যবহার প্রায় দ্বিগুণ হতে পারে; একটি কপি শেয়ার করতে দুই সারিতে একই মডেল নির্বাচন করুন।</translation>
     </message>
     <message>
+      <source>Unassigned</source>
+      <translation>গেম নির্ধারিত নেই</translation>
+    </message>
+    <message>
       <source>Unavailable</source>
       <translation>অনুপলব্ধ</translation>
     </message>
@@ -3971,6 +3999,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Work skipped</source>
       <translation>কাজ বাদ দেওয়া হয়েছে</translation>
+    </message>
+    <message>
+      <source>Working…</source>
+      <translation>কাজ চলছে…</translation>
     </message>
     <message>
       <source>Write results for a windowed executable</source>

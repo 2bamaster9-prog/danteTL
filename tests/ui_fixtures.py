@@ -86,6 +86,7 @@ def create_window(windows, recognizer, *backends_args, cloud=None, **kwargs):
     temporary = TemporaryDirectory(prefix="dantetl-test-")
     root = Path(temporary.name)
     kwargs.setdefault("preferences_path", root / "preferences.json")
+    kwargs.setdefault("cache_path", root / "translations.sqlite3")
     cloud = cloud or cloud_service(
         catalog=CloudProfiles(root / "cloud.json"),
         secrets=NoCredentials,

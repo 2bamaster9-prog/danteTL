@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from dantetl.application.cache_management import CacheManagement
 from dantetl.application.capture_lifecycle import CaptureLifecycle, CapturePhase, WindowAccess
 from dantetl.application.cloud_services import CloudServices
 from dantetl.application.live_session import CaptureWorker, LiveSession
@@ -66,6 +67,7 @@ class ApplicationSession:
         inventory: ModelInventory,
         cloud: CloudServices,
         setup: SetupCoordinator,
+        cache: CacheManagement,
         preferences: PreferenceStore,
         shutdown: ShutdownCoordinator,
         capture: Callable[[WindowTarget, int, bool], CaptureWorker],
@@ -76,6 +78,7 @@ class ApplicationSession:
         self._source_models = source_models
         self.inventory, self.cloud, self.setup = inventory, cloud, setup
         self.preferences, self.shutdown = preferences, shutdown
+        self.cache = cache
         self._notify = notify
         self.live, self.translation = live, translation
         self.capture = CaptureLifecycle(live, windows, ocr_choices, capture)

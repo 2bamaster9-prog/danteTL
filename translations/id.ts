@@ -447,12 +447,20 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Runtime CUDA tidak terpasang. Buka Pengaturan → Akselerasi atau pilih CPU.</translation>
     </message>
     <message>
+      <source>Cache</source>
+      <translation>Cache</translation>
+    </message>
+    <message>
       <source>Cache limits must be positive.</source>
       <translation>Batas cache harus positif.</translation>
     </message>
     <message>
       <source>Cached catalog</source>
       <translation>Katalog tersimpan</translation>
+    </message>
+    <message>
+      <source>Cached translations: {count}</source>
+      <translation>Terjemahan dalam cache: {count}</translation>
     </message>
     <message>
       <source>Can change meaning or produce awkward phrasing.</source>
@@ -921,6 +929,18 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Clear</source>
       <translation>Hapus</translation>
+    </message>
+    <message>
+      <source>Clear cached translations for {game}? Entries shared with other games are kept.</source>
+      <translation>Hapus cache terjemahan untuk {game}? Entri yang digunakan oleh game lain akan tetap disimpan.</translation>
+    </message>
+    <message>
+      <source>Clear entire cache…</source>
+      <translation>Kosongkan seluruh cache…</translation>
+    </message>
+    <message>
+      <source>Clear selected game…</source>
+      <translation>Hapus cache game terpilih…</translation>
     </message>
     <message>
       <source>Close</source>
@@ -2483,6 +2503,10 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Tertunda</translation>
     </message>
     <message>
+      <source>Permanently clear all cached translations?</source>
+      <translation>Hapus semua terjemahan dalam cache secara permanen?</translation>
+    </message>
+    <message>
       <source>Physical client pixels · DPI {dpi}</source>
       <translation>Piksel klien fisik · DPI {dpi}</translation>
     </message>
@@ -3653,6 +3677,10 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Dua model lokal tetap dimuat bersamaan. Penggunaan RAM / VRAM dapat kira-kira berlipat ganda; pilih model yang sama di kedua baris untuk berbagi satu salinan.</translation>
     </message>
     <message>
+      <source>Unassigned</source>
+      <translation>Tanpa game</translation>
+    </message>
+    <message>
       <source>Unavailable</source>
       <translation>Tidak tersedia</translation>
     </message>
@@ -3971,6 +3999,10 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
     <message>
       <source>Work skipped</source>
       <translation>Pekerjaan dilewati</translation>
+    </message>
+    <message>
+      <source>Working…</source>
+      <translation>Memproses…</translation>
     </message>
     <message>
       <source>Write results for a windowed executable</source>

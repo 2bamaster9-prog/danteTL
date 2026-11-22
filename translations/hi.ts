@@ -447,12 +447,20 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>CUDA रनटाइम इंस्टॉल नहीं है। सेटिंग्स → त्वरण खोलें या CPU चुनें।</translation>
     </message>
     <message>
+      <source>Cache</source>
+      <translation>कैश</translation>
+    </message>
+    <message>
       <source>Cache limits must be positive.</source>
       <translation>कैश सीमाएँ धनात्मक होनी चाहिए।</translation>
     </message>
     <message>
       <source>Cached catalog</source>
       <translation>कैश कैटलॉग</translation>
+    </message>
+    <message>
+      <source>Cached translations: {count}</source>
+      <translation>कैश में सहेजे गए अनुवाद: {count}</translation>
     </message>
     <message>
       <source>Can change meaning or produce awkward phrasing.</source>
@@ -921,6 +929,18 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Clear</source>
       <translation>साफ़ करें</translation>
+    </message>
+    <message>
+      <source>Clear cached translations for {game}? Entries shared with other games are kept.</source>
+      <translation>{game} के कैश में सहेजे गए अनुवाद मिटाएँ? अन्य गेम के साथ साझा प्रविष्टियाँ बनी रहेंगी।</translation>
+    </message>
+    <message>
+      <source>Clear entire cache…</source>
+      <translation>पूरा कैश साफ़ करें…</translation>
+    </message>
+    <message>
+      <source>Clear selected game…</source>
+      <translation>चुने गए गेम का कैश साफ़ करें…</translation>
     </message>
     <message>
       <source>Close</source>
@@ -2483,6 +2503,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>लंबित</translation>
     </message>
     <message>
+      <source>Permanently clear all cached translations?</source>
+      <translation>कैश में सहेजे गए सभी अनुवाद स्थायी रूप से मिटाएँ?</translation>
+    </message>
+    <message>
       <source>Physical client pixels · DPI {dpi}</source>
       <translation>भौतिक क्लाइंट पिक्सेल · DPI {dpi}</translation>
     </message>
@@ -3653,6 +3677,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>दो स्थानीय मॉडल साथ लोड रहते हैं। RAM / VRAM उपयोग लगभग दोगुना हो सकता है; एक प्रति साझा करने के लिए दोनों पंक्तियों में वही मॉडल चुनें।</translation>
     </message>
     <message>
+      <source>Unassigned</source>
+      <translation>कोई गेम तय नहीं है</translation>
+    </message>
+    <message>
       <source>Unavailable</source>
       <translation>अनुपलब्ध</translation>
     </message>
@@ -3971,6 +3999,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Work skipped</source>
       <translation>कार्य छोड़ा गया</translation>
+    </message>
+    <message>
+      <source>Working…</source>
+      <translation>प्रक्रिया जारी है…</translation>
     </message>
     <message>
       <source>Write results for a windowed executable</source>
