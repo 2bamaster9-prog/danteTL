@@ -160,6 +160,7 @@ class Replay:
             # Static settling may have advanced a revision since the worker's
             # previous matching snapshot. Return evidence for the refreshed tracks.
             self.live.reconcile(source, source.captured_at)
+        self.live.reconcile(source, source.captured_at + 0.6)
         return self.live.scene(source, source.captured_at + 0.6, grouping=True)
 
 

@@ -1,7 +1,7 @@
 """Bounded, deterministic text tracking. No frame history, clocks, Qt, or models.
 
-Observe each completed OCR frame once, then ask for visible tracks using capture's
-latest frame and an explicit monotonic time. Display geometry has a deadband around
+Observe each completed OCR frame once, then advance with the latest capture frame
+and an explicit monotonic time. Display geometry has a deadband around
 its last committed position, rather than following every detector fluctuation.
 """
 
@@ -34,6 +34,17 @@ class TextActivity:
     changed_at: float
     growing: bool
     pending: bool
+
+
+@dataclass(frozen=True, slots=True)
+class TrackingSnapshot:
+    client_size: tuple[int, int] | None = None
+    visible: tuple[TextTrack, ...] = ()
+    confirmed: tuple[TextTrack, ...] = ()
+    activity: tuple[TextActivity, ...] = ()
+    dash_edges: tuple[tuple[TextTrack, int], ...] = ()
+    lettering: tuple[tuple[TextTrack, Lettering], ...] = ()
+    corrections: tuple[tuple[TextTrack, TextTrack], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -730,7 +741,7 @@ class TextTracker:
             track.best_confidence = score
         track.reading = track.value.text
 
-    def display_predecessors(self) -> tuple[tuple[TextTrack, TextTrack], ...]:
+    def _display_predecessors(self) -> tuple[tuple[TextTrack, TextTrack], ...]:
         """Previous accepted reading of each live OCR correction."""
         return tuple(
             (track.value, track.display_predecessor)
@@ -869,11 +880,11 @@ class TextTracker:
             track.value = replace(track.value, bounds=region.bounds)
             track.geometry_candidate = None
 
-    def visible(self, latest: CapturedFrame, now: float) -> tuple[TextTrack, ...]:
-        """Retain committed state between observations; time alone cannot prove absence."""
+    def advance(self, latest: CapturedFrame, now: float) -> TrackingSnapshot:
+        """Settle edits and proven absences on an unchanged frame, then publish one view."""
         if self._size != latest.geometry.client.size:
             self.reset()
-            return ()
+            return TrackingSnapshot()
         for key in list(self._tracks):
             track = self._tracks[key]
             static = track.last_sequence == latest.sequence and track.absence is None
@@ -899,18 +910,30 @@ class TextTracker:
                 >= self._policy.static_settle_seconds
             ):
                 del self._tracks[key]
-        return tuple(track.value for track in self._tracks.values())
+        return self.snapshot()
 
-    def translation_tracks(self, latest: CapturedFrame, now: float) -> tuple[TextTrack, ...]:
-        """Translate confirmed display content; preserve it through jitter/miss grace.
+    def snapshot(self) -> TrackingSnapshot:
+        dash_edges: list[tuple[TextTrack, int]] = []
+        lettering: list[tuple[TextTrack, Lettering]] = []
+        for track in self._tracks.values():
+            appearance = track.appearance.get((track.value.text, track.value.bounds))
+            if appearance:
+                edge, sample = appearance
+                if edge is not None:
+                    dash_edges.append((track.value, edge))
+                if sample is not None:
+                    lettering.append((track.value, sample))
+        return TrackingSnapshot(
+            client_size=self._size,
+            visible=tuple(track.value for track in self._tracks.values()),
+            confirmed=tuple(track.value for track in self._tracks.values() if track.confirmed),
+            activity=self._translation_activity(),
+            dash_edges=tuple(dash_edges),
+            lettering=tuple(lettering),
+            corrections=self._display_predecessors(),
+        )
 
-        Initial/typewriter candidates wait for confirmation. Once content is committed,
-        keep its English until a new revision commits or its track actually expires.
-        """
-        visible = self.visible(latest, now)
-        return tuple(value for value in visible if self._tracks[value.track_id].confirmed)
-
-    def translation_activity(self) -> tuple[TextActivity, ...]:
+    def _translation_activity(self) -> tuple[TextActivity, ...]:
         """Expose reveal timing without allowing candidate text to alter displayed English."""
         return tuple(
             TextActivity(
@@ -923,23 +946,6 @@ class TextTracker:
             )
             for track in self._tracks.values()
         )
-
-    def opening_dash_edges(self) -> dict[TextTrack, int]:
-        """Only offer pixel evidence for the committed reading and location."""
-        return {
-            track.value: edge
-            for track in self._tracks.values()
-            if (appearance := track.appearance.get((track.value.text, track.value.bounds)))
-            and (edge := appearance[0]) is not None
-        }
-
-    def lettering(self) -> dict[TextTrack, Lettering]:
-        return {
-            track.value: sample
-            for track in self._tracks.values()
-            if (appearance := track.appearance.get((track.value.text, track.value.bounds)))
-            and (sample := appearance[1]) is not None
-        }
 
     def confirm_visual(self, sequence: int, indices: tuple[int, ...], now: float) -> None:
         """Settle a current OCR reading whose expanded pixels stayed stable afterward.

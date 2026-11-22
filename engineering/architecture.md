@@ -292,7 +292,9 @@ The visual worker prepares immutable crop digests and geometric/text match score
 source and an immutable snapshot of prior track identities, text and observed bounds. Results carry
 source sequence/time/geometry and are discarded after worker invalidation. `LiveSession` rejects stale
 matching state before reconciliation; assignment, confirmation, retention and acknowledgement remain
-serialized on the application owner. No pixel hashing or text-pair scoring runs on Qt. Direct policy
+serialized on the application owner. After adopting evidence, reconciliation advances static settling
+once and publishes an immutable tracking snapshot. Visual submission, grouping, history and display
+consume that same revision. Reading a snapshot never advances the tracker. No pixel hashing or text-pair scoring runs on Qt. Direct policy
 replays can calculate scores inline. Preparation caches only one bounded result, including on visual
 pattern-analysis failure. At most 1,024 proposed crops are hashed, each capped at 65,536 pixels; the
 application consumes digests under the original one-million-pixel observation budget in the original

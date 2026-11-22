@@ -386,13 +386,13 @@ def test_stable_expanded_pixels_confirm_current_reading_without_a_second_model_p
     latest = picture(3, animation=True)
     state = analyzer.observe(latest, result, (track,), (1,))
     assert state.stable_regions == (0,)
-    assert not tracker.translation_tracks(latest, 0.3)
+    assert not tracker.advance(latest, 0.3).confirmed
     tracker.confirm_visual(state.ocr_sequence, state.stable_regions, latest.captured_at)
-    assert tracker.translation_tracks(latest, 0.3) == (track,)
+    assert tracker.advance(latest, 0.3).confirmed == (track,)
     newer = OcrResult(picture(4), (TextRegion("違う文章です", BOX),), 100, 0.5)
     tracker.observe(newer)
     tracker.confirm_visual(state.ocr_sequence, state.stable_regions, 1)
-    assert tracker.visible(newer.frame, 0.5)[0].text == TEXT
+    assert tracker.advance(newer.frame, 0.5).visible[0].text == TEXT
 
 
 def test_single_unchanged_wgc_frame_can_still_use_normal_static_settling():
@@ -401,7 +401,7 @@ def test_single_unchanged_wgc_frame_can_still_use_normal_static_settling():
     tracker.observe(result)
     state = analyzer.observe(result.frame, result, (track,), (1,))
     assert not state.blocked  # No new WGC callback is required to release an invented visual wait.
-    assert tracker.translation_tracks(result.frame, 0.5) == (track,)
+    assert tracker.advance(result.frame, 0.5).confirmed == (track,)
 
 
 def test_unreliable_pixels_and_revision_changes_cannot_reuse_an_old_occlusion():
@@ -425,7 +425,7 @@ def test_visual_absence_needs_a_fresh_negative_ocr_and_frees_capacity_for_the_ne
     analyzer.observe(picture(2, ink=False), result, (track,), (1,))
     state = analyzer.observe(picture(3, ink=False), result, (track,), (1,))
     assert state.presence.absent == {track}
-    assert tracker.visible(picture(3, ink=False), 0.3) == (track,)
+    assert tracker.advance(picture(3, ink=False), 0.3).visible == (track,)
     changed = OcrResult(
         picture(3, ink=False), (TextRegion("次の画面", Rect(250, 150, 90, 24)),), 300, 0.55
     )

@@ -271,7 +271,7 @@ def main() -> int:
             if stage == 8 and phrase_id and application.live.capture:
                 latest = application.live.capture.snapshot().frame
                 if latest:
-                    current = application.live._tracker.visible(latest, now)
+                    current = application.live.tracking.visible
                     assert any(t.track_id == phrase_id for t in current), (
                         "Track blinked between OCR passes"
                     )
@@ -289,10 +289,9 @@ def main() -> int:
                 assert expected in text, text
                 if args.dialogue:
                     assert DIALOGUE_LINES[1] in text, text
-                    assert any(
-                        t.text == "旅人"
-                        for t in application.live._tracker.visible(result.frame, now)
-                    ), "Unscanned speaker disappeared"
+                    assert any(t.text == "旅人" for t in application.live.tracking.visible), (
+                        "Unscanned speaker disappeared"
+                    )
                 assert window.inspector.table.rowCount() == len(result.regions)
                 evidence["live_japanese_recognized"] = True
                 evidence["ocr_ms"] = round(result.duration_ms, 1)
@@ -308,7 +307,7 @@ def main() -> int:
                     evidence["actual_gpu_provider"] = application.live.ocr.snapshot().provider
                 initial_size = result.frame.geometry.client.size
                 frozen = result
-                tracks = application.live._tracker.visible(result.frame, now)
+                tracks = application.live.tracking.visible
                 phrase = next((t for t in tracks if t.text == expected), None)
                 if phrase is None:
                     return  # Raw OCR can complete before its source-matched track commits.
@@ -320,7 +319,7 @@ def main() -> int:
                 and frozen
                 and result.frame.sequence >= frozen.frame.sequence + 3
             ):
-                tracks = application.live._tracker.visible(result.frame, now)
+                tracks = application.live.tracking.visible
                 phrase = next(t for t in tracks if t.track_id == phrase_id)
                 assert phrase.bounds == phrase_bounds, "Stationary dialogue box changed bounds"
                 if args.translation:
@@ -644,11 +643,7 @@ def main() -> int:
                     )
                     evidence["reopened_panel_restored_painted_pixels"] = True
                 assert result is not None
-                restored = next(
-                    t
-                    for t in application.live._tracker.visible(result.frame, now)
-                    if t.text == expected
-                )
+                restored = next(t for t in application.live.tracking.visible if t.text == expected)
                 evidence["closed_panel_identity_retired"] = restored.track_id != phrase_id
                 phrase_id, phrase_bounds = restored.track_id, restored.bounds
                 transitions_done = True
@@ -751,7 +746,7 @@ def main() -> int:
                 "visual_blocked": sorted(application.live.visual_state.blocked),
                 "readings": [
                     {"text": a.observation.text, "pending": a.pending, "growing": a.growing}
-                    for a in application.live._tracker.translation_activity()
+                    for a in application.live.tracking.activity
                 ],
             }
             traceback.print_exc()

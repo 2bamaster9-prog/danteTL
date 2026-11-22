@@ -128,15 +128,15 @@ def test_partial_misses_cannot_remove_unscanned_tracks_or_split_dialogue():
     )
     initial = frame()
     tracker.observe(OcrResult(initial, lines, 20, 0.2))
-    original = tracker.translation_tracks(initial, 1)
-    group = grouper.update(original, original, 1, activity=tracker.translation_activity())
+    original = tracker.advance(initial, 1).confirmed
+    group = grouper.update(original, original, 1, activity=tracker.snapshot().activity)
     assert len(group.ready) == 1 and len(group.ready[0].lines) == 2
     for i in range(2, 20):
         source = frame(i, fill=i * 3)
         tracker.observe(OcrResult(source, (), 20, source.captured_at, (Rect(700, 400, 100, 100),)))
-        assert tracker.translation_tracks(source, 100) == original
+        assert tracker.advance(source, 100).confirmed == original
         assert (
-            grouper.update(original, original, 100, activity=tracker.translation_activity()).ready
+            grouper.update(original, original, 100, activity=tracker.snapshot().activity).ready
             == group.ready
         )
     # Scanning only the continuation changes the complete group's request, not its first line.
@@ -145,10 +145,10 @@ def test_partial_misses_cannot_remove_unscanned_tracks_or_split_dialogue():
     tracker.observe(
         OcrResult(source, (revised,), 20, source.captured_at, (Rect(20, 135, 400, 45),))
     )
-    current = tracker.translation_tracks(source, source.captured_at + 0.6)
+    current = tracker.advance(source, source.captured_at + 0.6).confirmed
     assert current[0] == original[0]
     grouped = grouper.update(
-        current, current, source.captured_at + 1, activity=tracker.translation_activity()
+        current, current, source.captured_at + 1, activity=tracker.snapshot().activity
     )
     assert len(grouped.ready) == 1 and grouped.ready[0].text.endswith(revised.text)
 
@@ -158,12 +158,12 @@ def test_later_unrelated_scan_does_not_settle_an_earlier_negative_observation():
     source = frame(1)
     box = Rect(20, 30, 90, 25)
     tracker.observe(OcrResult(source, (TextRegion("設定", box),), 20, 0.2))
-    tracker.visible(source, 1)
+    tracker.advance(source, 1)
     source = frame(2, fill=60)
     tracker.observe(OcrResult(source, (), 20, 0.3, (Rect(0, 0, 200, 100),)))
     unrelated = frame(3, fill=60)
     tracker.observe(OcrResult(unrelated, (), 20, 0.4, (Rect(600, 400, 100, 100),)))
-    assert tracker.visible(unrelated, 10)
+    assert tracker.advance(unrelated, 10).visible
 
 
 def test_worker_unions_waiting_coverage_on_latest_frame_and_waits_for_acknowledgement():
@@ -472,7 +472,7 @@ def test_unrelated_partial_scan_cannot_delay_confirmation_of_a_finished_dialogue
     box = Rect(48, 98, 310, 25)
     first = OcrResult(ink_frame(1), (TextRegion("これから長い文章が表示されます", box),), 30, 0.2)
     ids = tracker.observe(first)
-    old = tracker.translation_tracks(first.frame, 1)
+    old = tracker.advance(first.frame, 1).confirmed
     visual.observe(first.frame, first, old, ids)
     edit = OcrResult(
         ink_frame(2),
@@ -482,16 +482,16 @@ def test_unrelated_partial_scan_cannot_delay_confirmation_of_a_finished_dialogue
         (Rect(0, 80, 500, 100),),
     )
     ids = tracker.observe(edit)
-    visual.observe(edit.frame, edit, old, ids, tracker.translation_activity())
+    visual.observe(edit.frame, edit, old, ids, tracker.snapshot().activity)
     unrelated = OcrResult(ink_frame(4), (), 20, 0.55, (Rect(700, 400, 200, 100),))
     ids = tracker.observe(unrelated)
-    state = visual.observe(unrelated.frame, unrelated, old, ids, tracker.translation_activity())
+    state = visual.observe(unrelated.frame, unrelated, old, ids, tracker.snapshot().activity)
     assert state.stable_tracks == ((old[0].track_id, 2, edit.regions[0].text),)
     tracker.confirm_observations(state.stable_tracks, unrelated.frame.captured_at)
-    assert tracker.visible(unrelated.frame, 0.55)[0].text == edit.regions[0].text
+    assert tracker.advance(unrelated.frame, 0.55).visible[0].text == edit.regions[0].text
     newer = replace(
         edit, frame=ink_frame(5), regions=(TextRegion("次の文章に変わりました。", box),)
     )
     tracker.observe(newer)
     tracker.confirm_observations(state.stable_tracks, 0.7)
-    assert tracker.visible(newer.frame, 0.7)[0].text == edit.regions[0].text
+    assert tracker.advance(newer.frame, 0.7).visible[0].text == edit.regions[0].text

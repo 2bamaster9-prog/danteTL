@@ -57,10 +57,7 @@ def test_spatial_matching_preserves_all_pairs_replay_with_reorder_edits_and_larg
         ids = fast.observe(result)
         with patch.object(tracking, "SpatialCandidates", AllPairs):
             assert ids == reference.observe(result)
-        assert fast.visible(frame, result.completed_at) == reference.visible(
-            frame, result.completed_at
-        )
-        assert fast.translation_tracks(frame, result.completed_at) == reference.translation_tracks(
+        assert fast.advance(frame, result.completed_at) == reference.advance(
             frame, result.completed_at
         )
         if sequence == 12:

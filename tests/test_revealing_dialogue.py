@@ -33,11 +33,9 @@ class Reveal:
         self.tracker.observe(OcrResult(frame, tuple(regions), 25, self.now + 0.025))
         # Capture advances independently; polling must not pretend a candidate is static.
         latest = replace(frame, sequence=self.sequence + 1)
+        tracks = self.tracker.advance(latest, self.now + 0.025)
         return self.grouper.update(
-            self.tracker.visible(latest, self.now + 0.025),
-            self.tracker.translation_tracks(latest, self.now + 0.025),
-            self.now + 0.025,
-            activity=self.tracker.translation_activity(),
+            tracks.visible, tracks.confirmed, self.now + 0.025, activity=tracks.activity
         )
 
 

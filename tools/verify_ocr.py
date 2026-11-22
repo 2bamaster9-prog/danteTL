@@ -116,7 +116,7 @@ def main() -> None:
         preparation_timings.append((time.perf_counter() - started) * 1000)
         started = time.perf_counter()
         tracker.observe(result, review=CandidateReview(pixels=pixels, matching=matching))
-        tracker.visible(source, result.completed_at)
+        tracker.advance(source, result.completed_at)
         tracking_timings.append((time.perf_counter() - started) * 1000)
     evidence = {
         "fixture": f"original synthetic Japanese text, {frame.width}x{frame.height}",
@@ -161,7 +161,7 @@ def main() -> None:
             pixels=prepare_evidence(result), matching=prepare_matching(result, ())
         ),
     )
-    tracks = tracker.visible(reference, 0.05)
+    tracks = tracker.advance(reference, 0.05).visible
     visual_times, requests = [], 0
     for i in range(1, 17):
         state = visual.observe(

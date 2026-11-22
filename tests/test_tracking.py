@@ -43,7 +43,20 @@ class Replay:
         )
         self.result = OcrResult(frame, regions, 20, self.now + 0.02)
         self.ids = self.tracker.observe(self.result)
-        return self.tracker.visible(frame, self.now + 0.02)
+        return self.tracker.advance(frame, self.now + 0.02).visible
+
+
+def test_only_explicit_advancement_settles_a_static_observation():
+    replay = Replay()
+    first = replay.step(region())
+    assert replay.result is not None
+    before = replay.tracker.snapshot()
+    assert before.visible == first and not before.confirmed
+    for _ in range(3):
+        assert replay.tracker.snapshot() == before
+    after = replay.tracker.advance(replay.result.frame, replay.now + 1)
+    assert after.visible == after.confirmed == first
+    assert not before.confirmed and after == replay.tracker.snapshot()
 
 
 def test_pending_text_and_geometry_survive_partial_scan_and_delayed_confirmation():
@@ -59,16 +72,16 @@ def test_pending_text_and_geometry_survive_partial_scan_and_delayed_confirmation
     partial = OcrResult(latest, (), 900, latest.captured_at + 0.9, (Rect(0, 0, 100, 100),))
     replay.tracker.observe(partial)
     for now in (partial.completed_at, partial.completed_at + 10):
-        assert replay.tracker.translation_tracks(latest, now) == (original,)
-        assert replay.tracker.translation_activity()[0].pending
+        assert replay.tracker.advance(latest, now).confirmed == (original,)
+        assert replay.tracker.snapshot().activity[0].pending
     replay.tracker.confirm_observations(((original.track_id, source.sequence, growth.text),), 12)
-    committed = replay.tracker.translation_tracks(latest, 12)[0]
+    committed = replay.tracker.advance(latest, 12).confirmed[0]
     assert committed.text == growth.text and committed.bounds == growth.bounds
     assert committed.track_id == original.track_id
     assert committed.text_revision == original.text_revision + 1
     replay.tracker.reset()
     replay.tracker.confirm_observations(((original.track_id, source.sequence, growth.text),), 13)
-    assert replay.tracker.visible(latest, 13) == ()
+    assert replay.tracker.advance(latest, 13).visible == ()
 
 
 def test_completed_miss_discards_text_and_geometry_candidates_without_revoking_accepted_text():
@@ -79,8 +92,8 @@ def test_completed_miss_discards_text_and_geometry_candidates_without_revoking_a
     assert replay.step(growth) == (original,)
     assert replay.step(dt=0.1) == (original,)
     assert replay.result is not None
-    assert replay.tracker.translation_tracks(replay.result.frame, replay.now + 10) == (original,)
-    assert not replay.tracker.translation_activity()[0].pending
+    assert replay.tracker.advance(replay.result.frame, replay.now + 10).confirmed == (original,)
+    assert not replay.tracker.snapshot().activity[0].pending
     # The next positive observation begins fresh evidence, rather than completing
     # either discarded candidate with its pre-miss hit count.
     assert replay.step(growth, dt=0.9) == (original,)
@@ -197,7 +210,7 @@ def test_icon_and_label_share_one_track_and_keep_the_tight_reading(prefix, label
     for rows in (pair[::-1], (wide,), (clean,), pair):
         assert replay.step(*rows) == (original,)
         assert replay.result is not None
-        assert replay.tracker.translation_tracks(replay.result.frame, replay.now) == (original,)
+        assert replay.tracker.advance(replay.result.frame, replay.now).confirmed == (original,)
 
 
 def test_icon_only_scan_then_text_only_scan_confirm_one_correction():
@@ -283,7 +296,7 @@ def test_competing_nearby_labels_preserve_both_ids_instead_of_greedy_replacement
     replay.step(*reversed(rows))
     assert replay.ids == ((2, 1) if reverse else (1, 2))
     assert replay.result is not None
-    assert len(replay.tracker.translation_tracks(replay.result.frame, replay.now)) == 2
+    assert len(replay.tracker.advance(replay.result.frame, replay.now).confirmed) == 2
 
 
 def test_equal_score_ties_use_geometry_instead_of_detector_order():
@@ -340,10 +353,10 @@ def test_slow_ocr_and_advancing_capture_do_not_prove_text_disappeared() -> None:
     original = replay.step(region())
     assert replay.result is not None
     source = replay.result.frame
-    assert replay.tracker.visible(source, 100) == original
+    assert replay.tracker.advance(source, 100).visible == original
     advanced = replace(source, sequence=source.sequence + 1, captured_at=1)
-    assert replay.tracker.visible(advanced, 1.1) == original
-    assert replay.tracker.visible(advanced, 100) == original
+    assert replay.tracker.advance(advanced, 1.1).visible == original
+    assert replay.tracker.advance(advanced, 100).visible == original
 
 
 def test_duplicate_or_out_of_order_results_cannot_confirm_a_text_change() -> None:
@@ -356,7 +369,7 @@ def test_duplicate_or_out_of_order_results_cannot_confirm_a_text_change() -> Non
     for _ in range(20):
         replay.tracker.observe(result)
         replay.tracker.observe(old)
-    assert replay.tracker.visible(result.frame, replay.now) == original
+    assert replay.tracker.advance(result.frame, replay.now).visible == original
     assert replay.step(region("犬"))[0].text == "犬"
 
 
@@ -368,7 +381,7 @@ def test_reset_and_resize_clear_state_without_reusing_ids() -> None:
         replay.result.frame,
         geometry=replace(replay.result.frame.geometry, client=Rect(0, 0, 1280, 720)),
     )
-    assert replay.tracker.visible(resized, replay.now) == ()
+    assert replay.tracker.advance(resized, replay.now).visible == ()
     second = replay.step(region())[0]
     assert second.track_id > original.track_id
     replay.tracker.reset()
@@ -398,7 +411,7 @@ def test_static_window_keeps_identity_when_capture_eventually_resumes() -> None:
     replay = Replay()
     original = replay.step(region())
     assert replay.result is not None
-    assert replay.tracker.visible(replay.result.frame, 10) == original
+    assert replay.tracker.advance(replay.result.frame, 10).visible == original
     assert replay.step(region(x=102), dt=10) == original
 
 
@@ -407,12 +420,12 @@ def test_final_static_edit_settles_without_a_second_capture_frame() -> None:
     original = replay.step(region("猫"))[0]
     replay.step(region("犬", width=420))
     assert replay.result is not None
-    assert replay.tracker.visible(replay.result.frame, replay.now + 0.3)[0] is original
-    settled = replay.tracker.visible(replay.result.frame, replay.now + 0.4)[0]
+    assert replay.tracker.advance(replay.result.frame, replay.now + 0.3).visible[0] is original
+    settled = replay.tracker.advance(replay.result.frame, replay.now + 0.4).visible[0]
     assert settled.track_id == original.track_id
     assert settled.text == "犬" and settled.text_revision == 2
     assert settled.bounds.width == 420
-    assert replay.tracker.visible(replay.result.frame, replay.now + 5)[0] is settled
+    assert replay.tracker.advance(replay.result.frame, replay.now + 5).visible[0] is settled
 
 
 def test_pending_edit_does_not_settle_on_unprocessed_advancing_capture() -> None:
@@ -421,7 +434,7 @@ def test_pending_edit_does_not_settle_on_unprocessed_advancing_capture() -> None
     replay.step(region("犬"))
     assert replay.result is not None
     advanced = replace(replay.result.frame, sequence=replay.sequence + 1)
-    assert replay.tracker.visible(advanced, replay.now + 0.4)[0] is original
+    assert replay.tracker.advance(advanced, replay.now + 0.4).visible[0] is original
 
 
 def test_slow_consecutive_observations_can_confirm_a_new_reading() -> None:
@@ -436,24 +449,24 @@ def test_translation_waits_for_confirmation_and_preserves_committed_content_thro
     replay = Replay()
     replay.step(region("新しい冒険"))
     assert replay.result is not None
-    assert replay.tracker.translation_tracks(replay.result.frame, replay.now + 0.1) == ()
+    assert replay.tracker.advance(replay.result.frame, replay.now + 0.1).confirmed == ()
     stable = replay.step(region("新しい冒険"))
     assert replay.result is not None
-    assert replay.tracker.translation_tracks(replay.result.frame, replay.now) == stable
+    assert replay.tracker.advance(replay.result.frame, replay.now).confirmed == stable
     replay.step(region("新しい冒険が始まる"))
     assert replay.result is not None
-    assert replay.tracker.translation_tracks(replay.result.frame, replay.now) == stable
-    settled = replay.tracker.translation_tracks(replay.result.frame, replay.now + 0.4)
+    assert replay.tracker.advance(replay.result.frame, replay.now).confirmed == stable
+    settled = replay.tracker.advance(replay.result.frame, replay.now + 0.4).confirmed
     assert settled[0].text == "新しい冒険が始まる"
     replay.step()
     assert replay.result is not None
-    assert replay.tracker.translation_tracks(replay.result.frame, replay.now) == settled
+    assert replay.tracker.advance(replay.result.frame, replay.now).confirmed == settled
     replay.step()
     assert replay.result is not None
-    assert replay.tracker.translation_tracks(replay.result.frame, replay.now) == settled
+    assert replay.tracker.advance(replay.result.frame, replay.now).confirmed == settled
     replay.step()
     assert replay.result is not None
-    assert replay.tracker.translation_tracks(replay.result.frame, replay.now) == ()
+    assert replay.tracker.advance(replay.result.frame, replay.now).confirmed == ()
 
 
 @pytest.mark.parametrize(
@@ -478,7 +491,7 @@ def test_alternating_weaker_or_equal_variants_keep_the_winning_text_and_box(
             assert current is original
             assert replay.result is not None
             assert replay.result.regions[0].text == variant  # Raw inspection is untouched.
-            assert replay.tracker.translation_tracks(replay.result.frame, replay.now) == (original,)
+            assert replay.tracker.advance(replay.result.frame, replay.now).confirmed == (original,)
         # A weaker observation of the winning spelling must not lower its remembered score.
         assert replay.step(region(winner, confidence=0.5))[0] is original
 
@@ -539,7 +552,7 @@ def test_elapsed_time_and_visual_confirmation_cannot_promote_a_weaker_spelling()
     for elapsed in (0.35, 1.26, 5.0):
         replay.tracker.observe(replay.result)  # Duplicate polls cannot add confirmation evidence.
         replay.tracker.confirm_visual(frame.sequence, (0,), replay.now + elapsed)
-        assert replay.tracker.visible(frame, replay.now + elapsed)[0] is original
+        assert replay.tracker.advance(frame, replay.now + elapsed).visible[0] is original
 
 
 def test_changed_dialogue_resets_confidence_even_when_it_keeps_the_same_track_id() -> None:
@@ -628,13 +641,13 @@ def test_dense_slow_results_and_two_pass_dropouts_keep_all_committed_objects() -
         tracker.observe(OcrResult(frame, detected[::-1], 1100, captured + 1.1))
         latest = replace(frame, sequence=sequence + 1, captured_at=captured + 1)
         for offset in (1.1, 1.4, 1.8, 2.2):
-            current = tracker.visible(latest, captured + offset)
+            current = tracker.advance(latest, captured + offset).visible
             if not original:
                 original = current
             assert len(current) == 80
             assert all(a is b for a, b in zip(original, current, strict=True))
         if sequence >= 2:
-            assert tracker.translation_tracks(latest, captured + 2.2) == original
+            assert tracker.advance(latest, captured + 2.2).confirmed == original
 
 
 def test_duplicate_polls_and_skipped_capture_frames_never_count_as_absence() -> None:
@@ -645,7 +658,7 @@ def test_duplicate_polls_and_skipped_capture_frames_never_count_as_absence() -> 
     latest = replace(replay.result.frame, sequence=1000, captured_at=20)
     for now in range(1, 100):
         replay.tracker.observe(replay.result)
-        assert replay.tracker.visible(latest, now) == original
+        assert replay.tracker.advance(latest, now).visible == original
     assert replay.step() == original
     assert replay.step() == ()
 
@@ -656,8 +669,8 @@ def test_static_miss_without_pixel_evidence_does_not_expire_on_a_timer() -> None
     replay.step()
     assert replay.result is not None
     frame = replay.result.frame
-    assert replay.tracker.visible(frame, replay.result.completed_at + 0.2) == original
-    assert replay.tracker.visible(frame, replay.result.completed_at + 50) == original
+    assert replay.tracker.advance(frame, replay.result.completed_at + 0.2).visible == original
+    assert replay.tracker.advance(frame, replay.result.completed_at + 50).visible == original
 
 
 def test_fast_missing_passes_need_time_span_and_redetection_resets_absence() -> None:
@@ -733,8 +746,8 @@ def test_quiet_pixels_cannot_commit_a_single_weak_disagreement_on_a_locked_label
         replay.tracker.confirm_observations(
             ((locked[0].track_id, f.sequence, reading.text),), replay.now + 5
         )
-        assert replay.tracker.translation_tracks(f, replay.now + 5) == locked
-        assert not replay.tracker.translation_activity()[0].pending
+        assert replay.tracker.advance(f, replay.now + 5).confirmed == locked
+        assert not replay.tracker.snapshot().activity[0].pending
     assert replay.step(noise)[0].text == noise.text
 
 
@@ -751,7 +764,7 @@ def test_same_line_origin_does_not_spawn_duplicate_partial_tracks(first, followi
     original = replay.step(first)[0]
     pending = replay.step(following)
     assert len(pending) == 1 and pending[0].track_id == original.track_id
-    assert replay.tracker.translation_activity()[0].pending
+    assert replay.tracker.snapshot().activity[0].pending
     final = replay.step(following)
     assert len(final) == 1 and final[0].track_id == original.track_id
     assert final[0].text == following.text

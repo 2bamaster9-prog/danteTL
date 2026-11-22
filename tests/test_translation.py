@@ -670,7 +670,7 @@ def test_noisy_readings_do_not_clear_english_or_trigger_more_translation(tmp_pat
         characters = tuple(TextCharacter(char, bounds, confidence) for char in text)
         region = TextRegion(text, bounds, characters)
         tracker.observe(OcrResult(frame, (region,), 20, now + 0.02))
-        session.update(tracker.translation_tracks(frame, now + 0.02))
+        session.update(tracker.advance(frame, now + 0.02).confirmed)
 
     session.start()
     try:
@@ -715,9 +715,8 @@ def test_busy_screen_keeps_english_and_dialogue_membership_between_slow_passes(t
             latest = replace(frame, sequence=sequence + 1, captured_at=captured + 1)
             for offset in (1.1, 1.5, 1.9):
                 now = captured + offset
-                grouped = grouper.update(
-                    tracker.visible(latest, now), tracker.translation_tracks(latest, now), now
-                )
+                tracks = tracker.advance(latest, now)
+                grouped = grouper.update(tracks.visible, tracks.confirmed, now)
                 session.update(grouped.ready)
                 if committed is not None:
                     assert session.snapshot().results == committed

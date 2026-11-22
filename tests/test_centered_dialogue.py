@@ -130,12 +130,9 @@ def test_partial_scans_keep_centered_group_and_do_not_duplicate_history():
         frame = CapturedFrame(sequence, sequence, geometry, b"")
         # A scan elsewhere says nothing about the subtitle members.
         tracker.observe(OcrResult(frame, (), 20, sequence + 0.02, (Rect(0, 0, 100, 100),)))
-        visible = tracker.visible(frame, sequence + 0.5)
+        tracks = tracker.advance(frame, sequence + 0.5)
         grouped = grouper.update(
-            visible,
-            tracker.translation_tracks(frame, sequence + 0.5),
-            sequence + 0.5,
-            activity=tracker.translation_activity(),
+            tracks.visible, tracks.confirmed, sequence + 0.5, activity=tracks.activity
         )
         assert len(grouped.blocks[-1].lines) == 2
         history.observe(grouped.blocks, grouped.ready, rect.size, sequence + 0.5)

@@ -347,7 +347,7 @@ def main() -> int:
             evidence["baseline"] = repr(baseline)
             evidence["showing"] = repr((window._overlay._blocks, window._overlay._translations))
             evidence["visual"] = repr(replace(application.live.visual_state, frame=None))
-            evidence["tracks"] = repr(application.live._tracker.translation_activity())
+            evidence["tracks"] = repr(application.live.tracking.activity)
             latest = window.inspector.result
             evidence["last_coverage"] = repr(latest.scanned) if latest else "none"
             evidence["last_source_age"] = now - latest.frame.captured_at if latest else None

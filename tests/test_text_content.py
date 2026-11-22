@@ -48,7 +48,7 @@ def test_alternating_detector_icon_crops_keep_exact_track_geometry_and_revision(
         now = sequence * 0.25
         frame = CapturedFrame(sequence, now, WindowGeometry(bounds, bounds, bounds, 96), b"")
         tracker.observe(OcrResult(frame, (raw,), 20, now + 0.02))
-        current = tracker.visible(frame, now + 0.02)[0]
+        current = tracker.advance(frame, now + 0.02).visible[0]
         if winner is None:
             winner = current
         assert current is winner

@@ -47,10 +47,10 @@ def test_stale_matching_cannot_mutate_tracks_or_consume_the_observation():
     first, second = observation(1), observation(2, changed=True)
     stale = prepare_matching(second, ())
     tracker.observe(first)
-    previous = tracker.visible(first.frame, 2)
+    previous = tracker.advance(first.frame, 2).visible
     with pytest.raises(ValueError, match="current source/state"):
         tracker.observe(second, review=CandidateReview(matching=stale))
-    assert tracker.visible(first.frame, 2) == previous
+    assert tracker.advance(first.frame, 2).visible == previous
     fresh = prepare_matching(second, tracker.matching_sources(second.frame))
     assert tracker.observe(second, review=CandidateReview(matching=fresh)) == tuple(
         t.track_id for t in previous

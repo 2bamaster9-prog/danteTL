@@ -64,8 +64,8 @@ def replay(length, repeats, baseline):
         evidence_times.append((time.perf_counter() - started) * 1000)
         started = time.perf_counter()
         ids = tracker.observe(result, review=CandidateReview(pixels=evidence, matching=matching))
-        visible = tracker.visible(result.frame, result.completed_at)
-        ready = tracker.translation_tracks(result.frame, result.completed_at)
+        tracks = tracker.advance(result.frame, result.completed_at)
+        visible, ready = tracks.visible, tracks.confirmed
         tracking.append((time.perf_counter() - started) * 1000)
         if old:
             started = time.perf_counter()

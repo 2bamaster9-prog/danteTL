@@ -32,7 +32,7 @@ def test_alternating_shared_edit_reproduces_live_fallback_and_proposes_observed_
             sequence, sequence / 4, WindowGeometry(bounds, bounds, bounds, 96), b""
         )
         tracker.observe(OcrResult(frame, (region,), 10, sequence / 4))
-        (live,) = tracker.visible(frame, sequence / 4)
+        (live,) = tracker.advance(frame, sequence / 4).visible
         assert live.text == OLD and live.text_revision == 1
         if sequence >= 3:
             proposal = experiment.observe(accepted, reading(sequence, text))

@@ -15,7 +15,7 @@ from dantetl.languages.selection import DEFAULT_SOURCE
 from dantetl.languages.source import SourceLanguage
 from dantetl.languages.target import ENGLISH, TargetLanguage
 from dantetl.ocr.observation import TextTrack
-from dantetl.ocr.tracking import TextActivity, TextTracker
+from dantetl.ocr.tracking import TextActivity, TextTracker, TrackingSnapshot
 from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState
 from dantetl.ocr.visual import VisualSession
 from dantetl.ocr.visual_values import VisualState
@@ -104,6 +104,7 @@ class LiveSession:
         self.assignments: tuple[int | None, ...] = ()
         self.valid_size: tuple[int, int] | None = None
         self._tracker = TextTracker(language=language)
+        self.tracking = TrackingSnapshot()
         self._grouper = DialogueGrouper(language=language)
         self._presentation = EnglishPresentation()
         self._context_reset_sequence = 0
@@ -281,6 +282,7 @@ class LiveSession:
             self.visual.invalidate(language=self._language)
         self.visual_state = VisualState()
         self._tracker.reset()
+        self.tracking = TrackingSnapshot()
         self._grouper.reset()
         self._presentation.reset()
         self._context_reset_sequence = 0
@@ -338,16 +340,18 @@ class LiveSession:
                 self.ocr.acknowledge(self._consumed_sequence)
                 candidate = None
             if state.frame is not None:
-                self.visual_state = state
                 if state.request_ocr:
                     self.ocr.submit(state.frame, state.scan_areas)
                 self._tracker.confirm_observations(state.stable_tracks, state.frame.captured_at)
+            self.tracking = self._tracker.advance(frame, now)
+            if state.frame is not None:
+                self.visual_state = state
             self.visual.submit(
                 frame,
                 self.accepted,
-                self._tracker.visible(frame, now),
+                self.tracking.visible,
                 self.assignments,
-                self._tracker.translation_activity(),
+                self.tracking.activity,
                 candidate,
                 self._tracker.evidence_bounds(),
                 self._tracker.matching_sources(snapshot.result.frame) if snapshot.result else (),
@@ -357,20 +361,24 @@ class LiveSession:
     def scene(
         self, frame: CapturedFrame | None, now: float, *, grouping: bool, stabilize: bool = True
     ) -> Scene:
-        tracks = self._tracker.visible(frame, now) if frame else ()
-        ready = self._tracker.translation_tracks(frame, now) if frame else ()
+        tracking = (
+            self.tracking
+            if frame and frame.geometry.client.size == self.tracking.client_size
+            else TrackingSnapshot()
+        )
+        tracks = tracking.visible
         self._scene_sequence = frame.sequence if frame else 0
         proof = self.visual_state.complete_lines
         self._early_lines = proof if frame is self.visual_state.frame else self._early_lines & proof
         grouped = self._grouper.update(
             tracks,
-            ready,
+            tracking.confirmed,
             now,
             enabled=grouping,
-            activity=self._tracker.translation_activity(),
+            activity=tracking.activity,
             complete_lines=self._early_lines,
-            dash_edges=self._tracker.opening_dash_edges() if grouping else None,
-            lettering=self._tracker.lettering() if grouping else None,
+            dash_edges=dict(tracking.dash_edges) if grouping else None,
+            lettering=dict(tracking.lettering) if grouping else None,
         )
         requests = tuple(
             block
@@ -408,7 +416,7 @@ class LiveSession:
                 (frame.width, frame.height) if frame else (0, 0),
                 now,
                 scores=scores,
-                corrections=self._tracker.display_predecessors(),
+                corrections=tracking.corrections,
                 assisted=not self._history_layout_only,
             )
             if self._classifier and not self._classifier_retiring:
@@ -452,7 +460,7 @@ class LiveSession:
             reset_context=broad_change,
             target=target,
             game=game,
-            corrections=self._tracker.display_predecessors(),
+            corrections=self.tracking.corrections,
         )
         snapshot = session.snapshot()
         published = self._presentation.update(

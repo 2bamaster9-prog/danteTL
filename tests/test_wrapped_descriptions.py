@@ -141,24 +141,23 @@ def test_partial_ocr_discovery_reserves_body_then_keeps_unscanned_group_members(
                 (line.bounds,),
             )
         )
-        current = tracker.visible(frame, frame.captured_at + 0.02)
-        confirmed = tracker.translation_tracks(frame, frame.captured_at + 0.02)
+        tracks = tracker.advance(frame, frame.captured_at + 0.02)
         group = grouper.update(
-            current, confirmed, frame.captured_at + 0.02, activity=tracker.translation_activity()
+            tracks.visible, tracks.confirmed, frame.captured_at + 0.02, activity=tracks.activity
         )
         assert len(group.blocks) == 1 and not group.ready
     # Source-matched visual probes confirm each partial scan without fabricating OCR results.
     tracker.confirm_observations(tuple((i + 1, i + 1, t.text) for i, t in enumerate(lines)), 1)
-    current = tracker.translation_tracks(frame, 1)
-    ready = grouper.update(current, current, 1, activity=tracker.translation_activity()).ready
+    current = tracker.advance(frame, 1).confirmed
+    ready = grouper.update(current, current, 1, activity=tracker.snapshot().activity).ready
     assert len(ready) == 1 and ready[0].text == "".join(t.text for t in lines)
     for sequence in range(5, 10):
         source = replace(frame, sequence=sequence, captured_at=sequence)
         tracker.observe(OcrResult(source, (), 20, sequence + 0.02, (Rect(0, 0, 100, 100),)))
-        current = tracker.translation_tracks(source, sequence + 0.5)
+        current = tracker.advance(source, sequence + 0.5).confirmed
         assert (
             grouper.update(
-                current, current, sequence + 0.5, activity=tracker.translation_activity()
+                current, current, sequence + 0.5, activity=tracker.snapshot().activity
             ).ready
             == ready
         )

@@ -112,7 +112,7 @@ class Replay:
         self.ids = self.tracker.observe(
             first, review=CandidateReview(pixels=prepare_evidence(first))
         )
-        self.tracks = self.tracker.translation_tracks(first.frame, first.completed_at + 0.5)
+        self.tracks = self.tracker.advance(first.frame, first.completed_at + 0.5).confirmed
         self.visual.observe(first.frame, first, self.tracks, self.ids, candidate=first)
 
     def step(self, incoming):
@@ -121,7 +121,7 @@ class Replay:
             self.result,
             self.tracks,
             self.ids,
-            self.tracker.translation_activity(),
+            self.tracker.snapshot().activity,
             incoming,
         )
         self.ids = self.tracker.observe(
@@ -131,14 +131,14 @@ class Replay:
             ),
             presence=state.presence,
         )
-        self.tracks = self.tracker.translation_tracks(incoming.frame, incoming.completed_at + 0.5)
+        self.tracks = self.tracker.advance(incoming.frame, incoming.completed_at + 0.5).confirmed
         self.result = incoming
         self.visual.observe(
             incoming.frame,
             incoming,
             self.tracks,
             self.ids,
-            self.tracker.translation_activity(),
+            self.tracker.snapshot().activity,
             incoming,
         )
         return state
@@ -243,7 +243,7 @@ def test_stationary_labels_keep_exact_identity_layout_and_english_through_noisy_
             replay.tracks,
             replay.tracks,
             incoming.completed_at,
-            activity=replay.tracker.translation_activity(),
+            activity=replay.tracker.snapshot().activity,
         )
         published = presentation.update(grouped.blocks, ())
         assert len(published) == 1 and published[0].translation == english
@@ -390,13 +390,13 @@ def test_stale_visual_evidence_cannot_lock_new_source_or_a_new_revision():
     tracker = TextTracker()
     first = result(1)
     tracker.observe(first)
-    old = tracker.visible(first.frame, 1)[0]
+    old = tracker.advance(first.frame, 1).visible[0]
     edit = result(2, text="防御力", gone=True)
     tracker.observe(
         edit,
         review=CandidateReview(unchanged=frozenset((old,)), checked=frozenset((old,)), sequence=1),
     )
-    assert tracker.visible(edit.frame, 2)[0].text == "防御力"
+    assert tracker.advance(edit.frame, 2).visible[0].text == "防御力"
 
 
 def faint_result(sequence, *, text="HP 3204", gone=False, extension=False, noise=False):
@@ -441,7 +441,7 @@ def test_faint_stationary_text_retains_exact_english_over_moving_light(noise):
             replay.tracks,
             replay.tracks,
             incoming.completed_at,
-            activity=replay.tracker.translation_activity(),
+            activity=replay.tracker.snapshot().activity,
         )
         painted = presentation.update(grouped.blocks, ())
         assert len(painted) == 1 and painted[0].translation == english
@@ -488,7 +488,7 @@ def test_fragment_suppression_needs_current_visual_proof_and_allows_outside_cont
     first = result(1, text="新しい冒険が始まります")
     tracker = TextTracker()
     tracker.observe(first)
-    track = tracker.translation_tracks(first.frame, 1)[0]
+    track = tracker.advance(first.frame, 1).confirmed[0]
     pieces = (
         TextRegion("新しい冒険が", Rect(20, 30, 105, 28)),
         TextRegion("始まります", Rect(130, 30, 110, 28)),

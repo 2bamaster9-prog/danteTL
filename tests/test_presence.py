@@ -75,46 +75,46 @@ def test_unchanged_text_pixels_survive_repeated_completed_ocr_misses() -> None:
         observe(
             tracker, OcrResult(source, (TextRegion("設定の確認", BOX),), 20, source.captured_at)
         )
-    original = tracker.translation_tracks(source, source.captured_at)
+    original = tracker.advance(source, source.captured_at).confirmed
     assert len(original) == 1
     for sequence in range(3, 30):
         source = frame(sequence, outside=sequence)
         observe(tracker, OcrResult(source, (), 20, source.captured_at))
-        assert tracker.visible(source, source.captured_at + 10) == original
-        assert tracker.translation_tracks(source, source.captured_at + 10) == original
+        assert tracker.advance(source, source.captured_at + 10).visible == original
+        assert tracker.advance(source, source.captured_at + 10).confirmed == original
     # Once the crop changes, actual missing observations can retire it.
     for sequence in (30, 31):
         source = frame(sequence, ink=False)
         observe(tracker, OcrResult(source, (), 20, source.captured_at))
-        assert tracker.visible(source, source.captured_at) == original
+        assert tracker.advance(source, source.captured_at).visible == original
     source = frame(32, ink=False)
     observe(tracker, OcrResult(source, (), 20, source.captured_at))
-    assert tracker.visible(source, source.captured_at) == ()
+    assert tracker.advance(source, source.captured_at).visible == ()
 
 
 def test_second_frame_with_identical_pixels_can_confirm_initial_content_despite_ocr_miss() -> None:
     tracker = TextTracker()
     first = frame(1)
     observe(tracker, OcrResult(first, (TextRegion("設定の確認", BOX),), 20, first.captured_at))
-    assert not tracker.translation_tracks(first, first.captured_at)
+    assert not tracker.advance(first, first.captured_at).confirmed
     second = frame(2)
     observe(tracker, OcrResult(second, (), 20, second.captured_at))
-    assert tracker.translation_tracks(second, second.captured_at)[0].text == "設定の確認"
+    assert tracker.advance(second, second.captured_at).confirmed[0].text == "設定の確認"
 
 
 def test_changed_pixels_and_static_negative_result_settle_after_completion() -> None:
     tracker = TextTracker()
     source = frame(1)
     observe(tracker, OcrResult(source, (TextRegion("設定の確認", BOX),), 20, source.captured_at))
-    original = tracker.visible(source, source.captured_at)
+    original = tracker.advance(source, source.captured_at).visible
     gone = frame(2, ink=False)
     completed = gone.captured_at + 1.1
     tracker.observe(
         OcrResult(gone, (), 1100, completed),
         presence=TrackPresence(pattern_loss=frozenset(original), sequence=gone.sequence),
     )
-    assert tracker.visible(gone, completed + 0.2) == original
-    assert tracker.visible(gone, completed + 0.36) == ()
+    assert tracker.advance(gone, completed + 0.2).visible == original
+    assert tracker.advance(gone, completed + 0.36).visible == ()
 
 
 def test_changed_background_pixels_do_not_remove_text_that_ocr_still_recognizes() -> None:
@@ -122,37 +122,37 @@ def test_changed_background_pixels_do_not_remove_text_that_ocr_still_recognizes(
     source = frame(1)
     region = TextRegion("設定の確認", BOX)
     observe(tracker, OcrResult(source, (region,), 20, source.captured_at))
-    original = tracker.visible(source, source.captured_at)
+    original = tracker.advance(source, source.captured_at).visible
     changed = frame(2, ink=False)
     observe(tracker, OcrResult(changed, (region,), 20, changed.captured_at))
-    assert tracker.visible(changed, 100) == original
+    assert tracker.advance(changed, 100).visible == original
 
 
 def test_one_changed_pixel_and_a_static_ocr_miss_cannot_retire_a_label() -> None:
     tracker = TextTracker()
     source = frame(1)
     observe(tracker, OcrResult(source, (TextRegion("設定", BOX),), 20, source.captured_at))
-    locked = tracker.translation_tracks(source, 1)
+    locked = tracker.advance(source, 1).confirmed
     next_frame = frame(2)
     pixels = bytearray(next_frame.bgra)
     pixels[(BOX.y * next_frame.width + BOX.x) * 4] ^= 1
     next_frame = replace(next_frame, bgra=bytes(pixels))
     observe(tracker, OcrResult(next_frame, (), 20, 2))
-    assert locked and tracker.translation_tracks(next_frame, 60) == locked
+    assert locked and tracker.advance(next_frame, 60).confirmed == locked
 
 
 def test_positive_pattern_outvotes_repeated_misses_until_its_source_is_stale():
     tracker = TextTracker()
     first = frame(1)
     observe(tracker, OcrResult(first, (TextRegion("設定", BOX),), 20, first.captured_at))
-    locked = tracker.translation_tracks(first, 1)
+    locked = tracker.advance(first, 1).confirmed
     for seq in range(2, 12):
         source = frame(seq)
         tracker.observe(
             OcrResult(source, (), 20, source.captured_at),
             presence=TrackPresence(present=frozenset(locked), sequence=min(seq, 8)),
         )
-        assert tracker.visible(source, source.captured_at) == (locked if seq < 11 else ())
+        assert tracker.advance(source, source.captured_at).visible == (locked if seq < 11 else ())
 
 
 def test_static_text_commit_cannot_reuse_pixels_from_the_previous_reading() -> None:
@@ -161,12 +161,12 @@ def test_static_text_commit_cannot_reuse_pixels_from_the_previous_reading() -> N
     observe(tracker, OcrResult(original, (TextRegion("猫", BOX),), 20, original.captured_at))
     changed = frame(2, ink=False)
     observe(tracker, OcrResult(changed, (TextRegion("犬", BOX),), 20, changed.captured_at))
-    assert tracker.visible(changed, changed.captured_at + 0.4)[0].text == "犬"
+    assert tracker.advance(changed, changed.captured_at + 0.4).visible[0].text == "犬"
     # Returning old pixels must not falsely prove that the newly committed text remains.
     for sequence in (3, 4, 5):
         source = frame(sequence)
         observe(tracker, OcrResult(source, (), 20, source.captured_at))
-    assert tracker.visible(source, source.captured_at) == ()
+    assert tracker.advance(source, source.captured_at).visible == ()
 
 
 def test_static_geometry_commit_requires_a_reference_for_the_new_crop() -> None:
@@ -176,9 +176,9 @@ def test_static_geometry_commit_requires_a_reference_for_the_new_crop() -> None:
     second = frame(2)
     wider = replace(BOX, width=120)
     observe(tracker, OcrResult(second, (TextRegion("設定", wider),), 20, second.captured_at))
-    assert tracker.visible(second, second.captured_at + 0.4)[0].bounds == wider
+    assert tracker.advance(second, second.captured_at + 0.4).visible[0].bounds == wider
     # The old smaller crop cannot certify the entire newly committed geometry.
     for sequence in (3, 4, 5):
         source = frame(sequence)
         observe(tracker, OcrResult(source, (), 20, source.captured_at))
-    assert tracker.visible(source, source.captured_at) == ()
+    assert tracker.advance(source, source.captured_at).visible == ()
