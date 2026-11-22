@@ -13,6 +13,7 @@ from PySide6.QtGui import QColor, QFont, QImage, QPainter
 from PySide6.QtWidgets import QApplication
 
 from dantetl.domain import Rect
+from dantetl.ocr.regions import intersects
 from dantetl.ui.english_placement import EnglishLabel, EnglishPlacement
 from dantetl.ui.text_layout import EnglishLayout, layout_english
 
@@ -62,7 +63,11 @@ def main() -> None:
         layout_english(item.text, item.source, (800, 600), source_line_height=item.line_height)
         for item in labels
     )
-    after = EnglishPlacement().arrange(labels, (800, 600), tuple(item.source for item in labels))
+    placements = EnglishPlacement().arrange(
+        labels, (800, 600), tuple(item.source for item in labels)
+    )
+    after = tuple(layout for layout in placements if layout is not None)
+    assert len(after) == len(labels)
     image = QImage(1600, 640, QImage.Format.Format_RGB32)
     image.fill(QColor("#45576a"))
     painter = QPainter(image)
@@ -100,8 +105,11 @@ def main() -> None:
         owner = EnglishPlacement()
         sources = tuple(item.source for item in items)
         started = perf_counter()
-        owner.arrange(items, (3840, 2160), sources)
+        placed = owner.arrange(items, (3840, 2160), sources)
         first = (perf_counter() - started) * 1000
+        boxes = [layout.bounds for layout in placed if layout is not None]
+        assert len(boxes) == (1 if crowded else count)
+        assert all(not intersects(a, b) for i, a in enumerate(boxes) for b in boxes[:i])
         repeats = []
         for _ in range(20):
             started = perf_counter()
@@ -116,6 +124,7 @@ def main() -> None:
         results.append(
             dict(
                 labels=count,
+                visible=len(boxes),
                 crowded=crowded,
                 first_ms=first,
                 rebuild_ms=median(rebuilds),

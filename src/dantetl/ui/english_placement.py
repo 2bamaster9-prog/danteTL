@@ -1,16 +1,16 @@
-"""Joint English placement with bounded candidates and deterministic local descent.
+"""Non-overlapping English placement with bounded, source-anchored candidates.
 
-Qt measures text, then a geometric broad phase limits collision scoring to nearby
-candidate envelopes. This presentation-only owner never changes translation demand.
+Qt measures text. Only layouts clear of every higher-priority placement reach
+the paint surface. Translation and OCR retain their own lifetimes.
 """
 
+from collections.abc import Iterator
 from dataclasses import dataclass, replace
 
-import numpy as np
-from numpy.typing import NDArray
-
-from dantetl.domain import MAX_OVERLAY_LABELS, Rect, union_bounds
+from dantetl.domain import MAX_OVERLAY_LABELS, Rect
 from dantetl.i18n import tr
+from dantetl.ocr.regions import intersects
+from dantetl.ocr.text_content import same_label_crop
 from dantetl.ui.text_layout import EnglishLayout, layout_english
 
 
@@ -29,52 +29,50 @@ def _overlap(a: Rect, b: Rect) -> float:
     return width * height / max(1, min(a.width * a.height, b.width * b.height))
 
 
-def _rectangles(boxes: tuple[Rect, ...]) -> NDArray[np.float64]:
-    return np.array(
-        [(b.x, b.y, b.x + b.width, b.y + b.height) for b in boxes], dtype=np.float64
-    ).reshape(-1, 4)
-
-
-def _overlaps(a: NDArray[np.float64], b: NDArray[np.float64]) -> NDArray[np.float64]:
-    # At most 12 candidates x 127 neighbors; dense components stay off Python's
-    # inner loop without allocating an all-candidate scene collision matrix.
-    sizes = np.maximum(
-        0, np.minimum(a[:, None, 2:], b[None, :, 2:]) - np.maximum(a[:, None, :2], b[None, :, :2])
-    )
-    areas_a = np.prod(a[:, 2:] - a[:, :2], axis=1)
-    areas_b = np.prod(b[:, 2:] - b[:, :2], axis=1)
-    return np.prod(sizes, axis=2) / np.maximum(1, np.minimum(areas_a[:, None], areas_b[None, :]))
-
-
 class _Index:
     """Exact rectangle broad phase; oversized boxes have a bounded all-pairs fallback."""
 
-    def __init__(self, boxes: tuple[Rect, ...]) -> None:
-        self.boxes = boxes
+    def __init__(self, boxes: tuple[Rect, ...] = ()) -> None:
+        self.boxes: list[Rect] = []
         self.grid: dict[tuple[int, int], set[int]] = {}
         self.wide: set[int] = set()
-        for i, box in enumerate(boxes):
-            cells = self._cells(box)
-            if cells is None:
-                self.wide.add(i)
-            else:
-                for cell in cells:
-                    self.grid.setdefault(cell, set()).add(i)
+        for box in boxes:
+            self.add(box)
+
+    def add(self, box: Rect) -> None:
+        i = len(self.boxes)
+        self.boxes.append(box)
+        cells = self._cells(box)
+        if cells is None:
+            self.wide.add(i)
+        else:
+            for cell in cells:
+                self.grid.setdefault(cell, set()).add(i)
 
     @staticmethod
     def _cells(box: Rect) -> tuple[tuple[int, int], ...] | None:
+        if box.width <= 0 or box.height <= 0:
+            return ()
         left, top = box.x // 256, box.y // 256
-        right, bottom = (box.x + box.width) // 256, (box.y + box.height) // 256
+        right, bottom = (box.x + box.width - 1) // 256, (box.y + box.height - 1) // 256
         if (right - left + 1) * (bottom - top + 1) > 64:
             return None
         return tuple((x, y) for y in range(top, bottom + 1) for x in range(left, right + 1))
 
     def neighbors(self, box: Rect) -> tuple[int, ...]:
         cells = self._cells(box)
-        candidates = self.wide.copy() if cells is not None else set(range(len(self.boxes)))
-        for cell in cells or ():
+        if cells is None:
+            return tuple(
+                i
+                for i, other in enumerate(self.boxes)
+                if min(other.size) > 0 and intersects(box, other)
+            )
+        if not cells:
+            return ()
+        candidates = self.wide.copy()
+        for cell in cells:
             candidates.update(self.grid.get(cell, ()))
-        return tuple(i for i in sorted(candidates) if _overlap(box, self.boxes[i]))
+        return tuple(i for i in sorted(candidates) if intersects(box, self.boxes[i]))
 
 
 def _candidates(
@@ -105,37 +103,104 @@ def _candidates(
             layouts.append(alternate)
     result = [base]
     for layout in layouts:
-        width, height = layout.bounds.size
-        for y in (label.source.y, label.source.y + label.source.height - height):
-            for x in (label.source.x, label.source.x + label.source.width - width):
-                bounds = Rect(
+        for candidate in _anchors(label.source, viewport, layout):
+            if candidate not in result:
+                result.append(candidate)
+    return tuple(result)
+
+
+def _anchors(
+    source: Rect, viewport: tuple[int, int], layout: EnglishLayout
+) -> Iterator[EnglishLayout]:
+    width, height = layout.bounds.size
+    for y in (source.y, source.y + source.height - height):
+        for x in (source.x, source.x + source.width - width):
+            yield replace(
+                layout,
+                bounds=Rect(
                     max(0, min(x, viewport[0] - width)),
                     max(0, min(y, viewport[1] - height)),
                     width,
                     height,
-                )
-                candidate = replace(layout, bounds=bounds)
-                if candidate not in result:
-                    result.append(candidate)
-    return tuple(result)
+                ),
+            )
+
+
+def _reserved_overlap(box: Rect, label: EnglishLabel, reserved: _Index) -> float:
+    return sum(
+        _overlap(box, reserved.boxes[j])
+        for j in reserved.neighbors(box)
+        if reserved.boxes[j] != label.source
+    )
+
+
+def _best_free_anchor(
+    options: tuple[EnglishLayout, ...], label: EnglishLabel, occupied: _Index, reserved: _Index
+) -> EnglishLayout | None:
+    base = options[0].bounds
+    winner = None
+    lowest = float("inf")
+    for option in options:
+        box = option.bounds
+        if occupied.neighbors(box):
+            continue
+        overlap = _reserved_overlap(box, label, reserved)
+        distance = abs(box.x - base.x) + abs(box.y - base.y)
+        cost = (
+            1000 * overlap
+            + distance / max(12, label.line_height)
+            + abs(box.width - base.width) / max(1, base.width)
+        )
+        if cost == 0:
+            return option
+        if cost < lowest:
+            winner, lowest = option, cost
+    return winner
+
+
+def _relocate_neighbor(
+    options: tuple[EnglishLayout, ...],
+    placed: dict[EnglishLabel, EnglishLayout],
+    occupied: _Index,
+    reserved: _Index,
+    viewport: tuple[int, int],
+) -> EnglishLayout | None:
+    """Try one move with identical text, wrapping and font. Never evict a winner."""
+    labels = tuple(placed)
+    for option in options:
+        blockers = occupied.neighbors(option.bounds)
+        if len(blockers) != 1:
+            continue
+        slot = blockers[0]
+        neighbor = labels[slot]
+        old = placed[neighbor]
+        for move in _anchors(neighbor.source, viewport, old):
+            if intersects(option.bounds, move.bounds) or any(
+                other != slot for other in occupied.neighbors(move.bounds)
+            ):
+                continue
+            if _reserved_overlap(move.bounds, neighbor, reserved) > _reserved_overlap(
+                old.bounds, neighbor, reserved
+            ):
+                continue
+            placed[neighbor] = move
+            return option
+    return None
 
 
 class EnglishPlacement:
     """Cache one live scene and at most 128 placements, scoped to exact published content.
 
-    Every candidate remains anchored over its source, inside the viewport, with the
-    existing readability floor. Four deterministic coordinate-descent sweeps reduce
-    label/label and label/source overlap, displacement and changes to prior placements.
-    Dense impossible layouts retain all labels; this is not a global optimality claim.
+    Each ready label gets the best free anchor in priority order. A label can
+    return when its competitor disappears. Only the exact scene is cached.
     """
 
     def __init__(self) -> None:
         self._scene: tuple[object, ...] = ()
-        self._style: tuple[object, ...] = ()
         self._placed: dict[EnglishLabel, EnglishLayout] = {}
 
     def clear(self) -> None:
-        self._scene, self._style = (), ()
+        self._scene = ()
         self._placed.clear()
 
     def arrange(
@@ -146,19 +211,18 @@ class EnglishPlacement:
         *,
         automatic: bool = True,
         pixels: int = 20,
-    ) -> tuple[EnglishLayout, ...]:
+    ) -> tuple[EnglishLayout | None, ...]:
+        """One slot per input label. None means every readable anchor was occupied."""
         if len(labels) > MAX_OVERLAY_LABELS or len(obstacles) > MAX_OVERLAY_LABELS:
             raise ValueError(tr("Translation placement exceeds the live track bound."))
-        ordered = tuple(sorted(labels, key=lambda label: label.key))
+        ordered = tuple(sorted(dict.fromkeys(labels), key=lambda label: label.key))
         obstacles = tuple(sorted(set(obstacles), key=lambda box: (box.y, box.x, *box.size)))
-        style = (viewport, automatic, pixels)
-        scene = (ordered, obstacles, style)
+        scene = (ordered, obstacles, viewport, automatic, pixels)
         if scene == self._scene:
-            return tuple(self._placed[label] for label in labels)
-        previous = self._placed if style == self._style else {}
+            return tuple(self._placed.get(label) for label in labels)
+
         bases = tuple(
-            previous.get(label)
-            or layout_english(
+            layout_english(
                 label.text,
                 label.source,
                 viewport,
@@ -169,67 +233,76 @@ class EnglishPlacement:
             )
             for label in ordered
         )
-        base_index, sources = _Index(tuple(b.bounds for b in bases)), _Index(obstacles)
-        base_neighbors = [base_index.neighbors(base.bounds) for base in bases]
-        # Isolated labels keep the existing one-box layout without measuring options.
-        # Previously placed labels keep their exact layout while neighbors change.
-        # Extremely crowded sources only try four anchor directions, bounding font
-        # work where extra wrapping cannot make all the overlapping anchors disjoint.
-        choices = [
-            _candidates(label, viewport, automatic, pixels, base, len(base_neighbors[i]) <= 16)
-            if label not in previous
-            and (
-                any(j != i for j in base_neighbors[i])
-                or any(obstacles[j] != label.source for j in sources.neighbors(base.bounds))
-            )
-            else (base,)
-            for i, (label, base) in enumerate(zip(ordered, bases, strict=True))
-        ]
-        selected = [0] * len(choices)
-        envelopes = tuple(union_bounds(tuple(c.bounds for c in options)) for options in choices)
-        index = _Index(envelopes)
-        neighbors = [
-            tuple(j for j in index.neighbors(box) if j != i) for i, box in enumerate(envelopes)
-        ]
-        coordinates = [_rectangles(tuple(c.bounds for c in options)) for options in choices]
-        current = _rectangles(
-            tuple(options[k].bounds for options, k in zip(choices, selected, strict=True))
-        )
-        unary: list[NDArray[np.float64]] = []
-        for label, options, envelope in zip(ordered, choices, envelopes, strict=True):
-            nearby = [
-                obstacles[j] for j in sources.neighbors(envelope) if obstacles[j] != label.source
-            ]
-            base = options[0].bounds
-            costs = []
-            for option in options:
-                box = option.bounds
-                displacement = (abs(box.x - base.x) + abs(box.y - base.y)) / max(
-                    12, label.line_height
+        sources = _Index(tuple(label.source for label in ordered))
+        source_texts = tuple("".join(t for _, _, t in label.key) for label in ordered)
+
+        def priority(i: int):
+            label = ordered[i]
+            text = source_texts[i]
+            # An extra icon can add characters to a short menu read. Prefer the
+            # corroborating text-only crop in exactly the cases tracking recognizes.
+            decorated = (
+                len(label.key) == 1
+                and not label.vertical
+                and len(text) <= 12
+                and any(
+                    len(ordered[j].key) == 1
+                    and not ordered[j].vertical
+                    and ordered[j].source.x - label.source.x >= label.line_height
+                    and same_label_crop(label.source, ordered[j].source, text, source_texts[j])
+                    for j in sources.neighbors(label.source)
                 )
-                costs.append(displacement + abs(box.width - base.width) / max(1, base.width))
-            unary.append(
-                np.array(costs)
-                + 1000
-                * _overlaps(
-                    _rectangles(tuple(c.bounds for c in options)), _rectangles(tuple(nearby))
-                ).sum(axis=1)
             )
-        # Exact scene cache prevents repeat work or progressive movement on repaint.
-        for _ in range(4):
-            changed = False
-            for i in range(len(choices)):
-                if len(choices[i]) == 1:
+            return (
+                label.key[0][0] < 0,
+                decorated,
+                -sum(c.isalnum() for c in text),
+                -len(label.key),
+                label.source.width * label.source.height,
+                label.source.y,
+                label.source.x,
+                text,
+                label.key,
+            )
+
+        base_index = _Index(tuple(base.bounds for base in bases))
+        reserved = _Index(tuple(dict.fromkeys((*obstacles, *sources.boxes))))
+        occupied = _Index()
+        fixed_sources = _Index()
+        relocation_attempts = 16
+        screen = Rect(0, 0, *viewport)
+        placed: dict[EnglishLabel, EnglishLayout] = {}
+        for i in sorted(range(len(ordered)), key=priority):
+            label, base = ordered[i], bases[i]
+            # Every horizontal anchor covers its on-screen source, including
+            # after rewrapping or clamping. A winner there rules out all anchors.
+            if (
+                not label.vertical
+                and screen.contains(label.source)
+                and fixed_sources.neighbors(label.source)
+            ):
+                continue
+            neighbors = base_index.neighbors(base.bounds)
+            best = base
+            if (
+                len(neighbors) > 1
+                or any(reserved.boxes[j] != label.source for j in reserved.neighbors(base.bounds))
+                or occupied.neighbors(base.bounds)
+            ):
+                options = _candidates(
+                    label, viewport, automatic, pixels, base, len(neighbors) <= 16
+                )
+                best = _best_free_anchor(options, label, occupied, reserved)
+                if best is None and relocation_attempts and len(neighbors) <= 16:
+                    relocation_attempts -= 1
+                    best = _relocate_neighbor(options, placed, occupied, reserved, viewport)
+                    if best is not None:
+                        occupied = _Index(tuple(p.bounds for p in placed.values()))
+                if best is None:
                     continue
-                costs = unary[i] + 1000 * _overlaps(
-                    coordinates[i], current[list(neighbors[i])]
-                ).sum(axis=1)
-                best = int(np.argmin(costs))
-                if costs[best] < costs[selected[i]]:
-                    selected[i], changed = best, True
-                    current[i] = coordinates[i][best]
-            if not changed:
-                break
-        self._placed = {label: choices[i][selected[i]] for i, label in enumerate(ordered)}
-        self._scene, self._style = scene, style
-        return tuple(self._placed[label] for label in labels)
+            occupied.add(best.bounds)
+            placed[label] = best
+            if not label.vertical and screen.contains(label.source):
+                fixed_sources.add(label.source)
+        self._scene, self._placed = scene, placed
+        return tuple(placed.get(label) for label in labels)

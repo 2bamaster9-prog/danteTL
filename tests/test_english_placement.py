@@ -37,8 +37,9 @@ def test_neighboring_expansions_avoid_collision_without_losing_english():
     independent = tuple(layout_english(item.text, item.source, (800, 600)) for item in labels)
     assert intersects(*(layout.bounds for layout in independent))
     placed = EnglishPlacement().arrange(labels, (800, 600), tuple(item.source for item in labels))
-    assert not intersects(*(layout.bounds for layout in placed))
+    assert not intersects(*(layout.bounds for layout in placed if layout is not None))
     for item, layout in zip(labels, placed, strict=True):
+        assert layout is not None
         assert layout.bounds.contains(item.source)
         assert not layout.truncated
         assert " ".join(layout.lines) == item.text
@@ -63,7 +64,7 @@ def test_untranslated_sources_are_reserved_and_manual_size_is_preserved():
     (layout,) = EnglishPlacement().arrange(
         (item,), (800, 600), (item.source, obstacle), automatic=False, pixels=24
     )
-    assert not intersects(layout.bounds, obstacle)
+    assert layout is not None and not intersects(layout.bounds, obstacle)
     assert layout.pixel_size == 24
 
 
@@ -71,8 +72,10 @@ def test_crowded_edge_layout_is_bounded_and_revisions_resize_and_reset_are_fresh
     labels = tuple(label(i, x=(i % 4) * 35, y=(i // 4) * 8) for i in range(128))
     owner = EnglishPlacement()
     placed = owner.arrange(labels, (300, 280))
-    assert len(placed) == 128  # Impossible crowding never hides or drops translations.
-    assert all(Rect(0, 0, 300, 280).contains(p.bounds) for p in placed)
+    boxes = [p.bounds for p in placed if p is not None]
+    assert 0 < len(boxes) < len(labels)
+    assert all(Rect(0, 0, 300, 280).contains(box) for box in boxes)
+    assert all(not intersects(a, b) for i, a in enumerate(boxes) for b in boxes[:i])
     changed = (replace(labels[0], key=((0, 2, "新しい文章"),), text="Changed."),)
     assert owner.arrange(changed, (240, 180)) == EnglishPlacement().arrange(changed, (240, 180))
     owner.clear()
@@ -88,7 +91,76 @@ def test_group_and_vertical_use_line_metrics_and_full_overflow_source_is_preserv
     vertical = replace(label(3, x=600), source=Rect(600, 100, 24, 150), vertical=True)
     overflowing = label(4, y=300, text="Long translation " * 100)
     layouts = EnglishPlacement().arrange((group, vertical, overflowing), (900, 600))
-    assert layouts[0].pixel_size == round(32 * 0.72)
-    assert all(Rect(0, 0, 900, 600).contains(p.bounds) for p in layouts)
-    assert layouts[-1].truncated and layouts[-1].lines[-1].endswith("…")
+    assert layouts[0] is not None and layouts[0].pixel_size == round(32 * 0.72)
+    assert all(p and Rect(0, 0, 900, 600).contains(p.bounds) for p in layouts)
+    assert layouts[-1] and layouts[-1].truncated and layouts[-1].lines[-1].endswith("…")
     assert overflowing.text == "Long translation " * 100
+
+
+def test_ready_profile_paragraph_supersedes_fragment_in_any_arrival_order():
+    fragment = EnglishLabel(
+        ((1, 1, "その身をもって"),), "Fushuryū, its body", Rect(3416, 837, 325, 47), 47
+    )
+    paragraph = EnglishLabel(
+        ((4, 1, "伏龍はその身をもって"), (5, 1, "大地を支え、千年の苦しみに耐える。")),
+        "The Crouching Dragon supports the shattered earth with its body, "
+        "enduring pain for a thousand years.",
+        Rect(2979, 837, 764, 176),
+        47,
+    )
+    neighbor = replace(label(8), source=Rect(2975, 1050, 760, 65))
+    viewport = (3840, 2160)
+    owner = EnglishPlacement()
+    (first,) = owner.arrange((fragment,), viewport)
+    assert first is not None
+    full, short, separate = owner.arrange((paragraph, fragment, neighbor), viewport)
+    assert full and short is None and separate
+    assert not intersects(full.bounds, separate.bounds)
+    assert EnglishPlacement().arrange((neighbor, fragment, paragraph), viewport) == (
+        separate,
+        None,
+        full,
+    )
+    assert owner.arrange((fragment,), viewport) == (first,)
+
+
+def test_competing_short_icon_crop_and_menu_preview_yield_to_live_word():
+    clean = EnglishLabel(((6, 1, "詳細"),), "Details", Rect(434, 285, 99, 42), 42)
+    wide = EnglishLabel(((3, 1, "具詳細"),), "Gore Details", Rect(335, 282, 194, 50), 50)
+    preview = replace(clean, key=((-1, 1, "詳細"),))
+    owner = EnglishPlacement()
+    assert owner.arrange((wide,), (3840, 2160))[0] is not None
+    broad, old, word = owner.arrange((wide, preview, clean), (3840, 2160))
+    assert word and broad is None and old is None
+
+
+def test_equal_coverage_uses_reading_order_even_if_track_ids_are_reallocated():
+    for left_id, right_id in ((1, 2), (2, 1)):
+        left = label(left_id, x=100, text="First")
+        right = label(right_id, x=125, text="Second")
+        owner = EnglishPlacement()
+        owner.arrange((right,), (500, 300))
+        hidden, winner = owner.arrange((right, left), (500, 300))
+        assert hidden is None and winner is not None
+
+
+def test_one_alternate_anchor_preserves_three_complete_readable_labels():
+    labels = tuple(
+        EnglishLabel(((i, 1, "設定"),), text, Rect(x, y, 120, 24), 24)
+        for i, (text, x, y) in enumerate(
+            (
+                ("Examine the nearby equipment", 50, 240),
+                ("Open your character inventory", 380, 250),
+                ("Switch to the previous character", 190, 190),
+            ),
+            start=1,
+        )
+    )
+    owner = EnglishPlacement()
+    placed = owner.arrange(labels, (650, 420))
+    assert owner.arrange(labels[::-1], (650, 420)) == placed[::-1]
+    for i, (label, layout) in enumerate(zip(labels, placed, strict=True)):
+        assert layout and not layout.truncated
+        assert " ".join(layout.lines) == label.text
+        assert layout.bounds.contains(label.source)
+        assert all(other and not intersects(layout.bounds, other.bounds) for other in placed[:i])

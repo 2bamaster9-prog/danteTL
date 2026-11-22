@@ -403,10 +403,19 @@ they have stopped growing. Group sizing uses individual line heights, not whole 
 Requests identify combined text and every member's ID/source/revision. Moving a box cannot retranslate;
 geometry is not cache identity. Validate all members at publication/rendering. Splits/edits/removal/reset
 reject stale replies. Keep full English in inspector/clipboard on overlay overflow. `EnglishPlacement`
-uses bounded source-anchored candidates/spatial neighbors to place changed labels around existing
-ones. Unchanged labels keep their placement within the same viewport and font settings. Qt receives
-one scene per update and invalidates the old and new painted rectangles of changed English labels.
-Impossible crowding may still overlap.
+assigns nonintersecting, source-anchored rectangles to ready translations. Live readings precede
+menu previews. A text-only menu reading takes precedence over its icon-inclusive alternative.
+Otherwise the block with more recognized letters and numbers has first choice, with line count,
+compact source bounds, reading order, source text and the stable block key resolving ties.
+Each label can rewrap or shift within its available anchors. A bounded local search can move
+one earlier winner to another anchor with identical wrapping and font, while preserving
+its clearance of reserved source text. Unresolved conflicts omit the lower-priority label for
+this scene. A fragment can remain visible until its paragraph has a translation.
+Spatial grids index source boxes, default layouts and accepted placements. Only intersecting
+rectangles contribute to overlap costs. Edge contact is allowed. A horizontal label whose
+on-screen source intersects another accepted horizontal on-screen source can skip all its anchors.
+The current scene determines placement independently of arrival order. Qt invalidates the old
+and new painted rectangles and retires backdrops for hidden labels.
 
 `TranslationPlan` assigns short and long text independently. Categories are structural/length-based,
 not semantic dialogue. Missing models/connections never switch provider or billing route. Unchanged

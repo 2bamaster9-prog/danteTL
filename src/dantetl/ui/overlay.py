@@ -160,7 +160,11 @@ class OverlayWindow(QWidget):
             automatic=self._automatic_size,
             pixels=self._manual_size,
         )
-        current = {label.key: layout for label, layout in zip(labels, placed, strict=True)}
+        current = {
+            label.key: layout
+            for label, layout in zip(labels, placed, strict=True)
+            if layout is not None
+        }
         dirty = QRegion()
         for key in self._layouts.keys() | current.keys():
             old, new = self._layouts.get(key), current.get(key)
