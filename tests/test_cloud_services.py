@@ -12,7 +12,7 @@ from dantetl.translation.cloud.chatgpt_auth import PLAN_SCOPE, ChatGPTConnection
 from dantetl.translation.cloud.profiles import CloudProfiles
 from dantetl.translation.cloud.protected_store import ProtectedStore
 from dantetl.translation.cloud.state import CloudDraft
-from dantetl.translation.cloud.values import CloudProfile
+from dantetl.translation.cloud.values import CatalogModel, CloudProfile
 
 
 class Secrets:
@@ -73,6 +73,39 @@ def test_save_remove_and_usage_are_application_owned_without_a_view(tmp_path):
     assert not service.available(profile.key)  # revoke before disk completion
     removed = finish(service)
     assert not removed.profiles and secrets.values  # removing does not forget a key
+
+
+def test_model_refresh_publishes_results_and_completion_together(tmp_path, monkeypatch):
+    service, _ = create(tmp_path)
+    fetching, fetched, discovering, release = (threading.Event() for _ in range(4))
+    models = (CatalogModel("fixture", "Fixture model"),)
+
+    def fetch(*_):
+        fetching.set()
+        assert fetched.wait(3)
+        return models
+
+    def accounts(*_):
+        discovering.set()
+        assert release.wait(3)
+        return ()
+
+    monkeypatch.setattr("dantetl.application.cloud_services.fetch_models", fetch)
+    monkeypatch.setattr(service.connections, "accounts", accounts)
+    try:
+        service.refresh_models(CloudDraft(CloudProfile.new("deepseek"), "", "fixture-key"))
+        assert fetching.wait(3)
+        before = service.snapshot()
+        fetched.set()
+        assert discovering.wait(3)
+        assert before.busy and before.discovered is None
+        assert service.snapshot() == before
+    finally:
+        fetched.set()
+        release.set()
+        after = finish(service)
+    assert after.discovered == models and not after.busy
+    assert after.completion == before.completion + 1 and after.version > before.version
 
 
 def test_cancelled_worker_drains_before_new_commands_and_owner_cleanup(tmp_path, monkeypatch):
