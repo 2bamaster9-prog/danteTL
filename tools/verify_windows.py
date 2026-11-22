@@ -35,7 +35,7 @@ def main() -> int:
     started = time.monotonic()
     stage = 0
     sequence = 0
-    failure = ""
+    failure: Exception | None = None
     target_closed = False
     evidence: dict[str, object] = {}
 
@@ -43,7 +43,7 @@ def main() -> int:
         nonlocal stage, sequence, failure, session, target_closed
         try:
             if time.monotonic() - started > 30:
-                failure = "Native verification exceeded its shutdown deadline"
+                failure = TimeoutError("Native verification exceeded its shutdown deadline")
                 session.request_stop()
                 overlay.close()
                 if not target_closed:
@@ -140,8 +140,8 @@ def main() -> int:
                 target_closed = True
                 stage = 7
         except Exception as error:
-            failure = str(error)
-            print(f"FAIL: {failure}", flush=True)
+            failure = error
+            print(f"FAIL: {failure!r}", flush=True)
             session.request_stop()
             stage = 99
 
@@ -153,7 +153,7 @@ def main() -> int:
             evidence["minimize_and_focus_policy"] = True
             evidence["frames_received"] = sequence
         except Exception as error:
-            failure = str(error)
+            failure = error
         finally:
             session.request_stop()
             stage = 99 if failure else 5

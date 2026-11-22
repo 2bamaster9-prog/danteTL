@@ -12,6 +12,10 @@ class WindowUnavailable(RuntimeError):
     """The exact selected window no longer exists or cannot be inspected."""
 
 
+class WindowClosed(WindowUnavailable):
+    """The selected HWND no longer identifies the original process."""
+
+
 def _rect(value: wt.RECT) -> Rect:
     return Rect(value.left, value.top, value.right - value.left, value.bottom - value.top)
 
@@ -127,11 +131,12 @@ class Windows:
             )
         return target
 
-    def geometry(self, target: WindowTarget) -> WindowGeometry:
+    def _require_target(self, target: WindowTarget) -> None:
         if not self.is_target(target):
-            raise WindowUnavailable(
-                tr("The selected window has closed. Refresh and select a window.")
-            )
+            raise WindowClosed(tr("The selected window has closed. Refresh and select a window."))
+
+    def geometry(self, target: WindowTarget) -> WindowGeometry:
+        self._require_target(target)
         client = wt.RECT()
         window = wt.RECT()
         origin = wt.POINT(0, 0)
@@ -140,6 +145,7 @@ class Windows:
             and self.user.ClientToScreen(target.hwnd, ctypes.byref(origin))
             and self.user.GetWindowRect(target.hwnd, ctypes.byref(window))
         ):
+            self._require_target(target)
             raise WindowUnavailable(tr("Could not read the selected window's geometry."))
         visible = wt.RECT()
         result = self.dwm.DwmGetWindowAttribute(

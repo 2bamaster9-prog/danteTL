@@ -106,6 +106,37 @@ def test_border_change_drains_native_capture_keeps_frame_and_increases_sequence(
     assert len(instances) == 2 and instances[-1].stopped
 
 
+@pytest.mark.parametrize("reopening", [False, True], ids=["final-frame", "border-reopen"])
+@pytest.mark.parametrize("closed", [True, False])
+def test_geometry_loss_distinguishes_closure_from_failure(monkeypatch, reopening, closed):
+    from dantetl.capture.windows import WindowClosed, WindowUnavailable
+
+    instances, release = native_fixture(monkeypatch)
+    windows = Windows()
+    session = CaptureSession(WindowTarget(12, 34, "fixture"), windows, fps=0)
+    session.start()
+    try:
+        wait_for(lambda: session.snapshot().frame is not None)
+        if reopening:
+            session.set_border(False)
+            wait_for(lambda: instances[0].stopping.is_set())
+
+        def unavailable(_):
+            raise (WindowClosed if closed else WindowUnavailable)("fixture")
+
+        monkeypatch.setattr(windows, "geometry", unavailable)
+        release.set()
+        if not reopening:
+            instances[0].on_frame_arrived(None, instances[0])
+        wait_for(lambda: session.finished)
+        assert len(instances) == 1 and instances[0].stopped
+        assert session.snapshot().state == (CaptureState.STOPPED if closed else CaptureState.FAILED)
+    finally:
+        release.set()
+        session.request_stop()
+        wait_for(lambda: session.finished)
+
+
 def test_padded_native_rows_publish_only_owned_client_pixels(monkeypatch):
     instances, release = native_fixture(monkeypatch)
     session = CaptureSession(WindowTarget(12, 34, "fixture"), Windows(), fps=0)

@@ -6,6 +6,7 @@ import time
 from collections.abc import Callable
 from typing import Protocol
 
+from dantetl.capture.windows import WindowClosed
 from dantetl.domain import (
     CapturedFrame,
     CaptureSnapshot,
@@ -118,6 +119,8 @@ class CaptureSession:
         try:
             while self._capture():
                 pass  # Reopen only the same HWND after a requested border change.
+        except WindowClosed:
+            return  # The target can disappear before native startup or a border reopen.
         except Exception as error:
             logger.exception("Capture session failed")
             self.mailbox.set_state(CaptureState.FAILED, str(error))
@@ -170,6 +173,9 @@ class CaptureSession:
                 self.mailbox.publish(CapturedFrame(self._sequence, now, geometry, pixels))
                 if period:
                     self._next_sample = max(now, self._next_sample) + period
+            except WindowClosed:
+                closed.set()
+                control.stop()
             except Exception as error:
                 logger.exception("Could not process a captured frame")
                 self.mailbox.set_state(CaptureState.FAILED, str(error))

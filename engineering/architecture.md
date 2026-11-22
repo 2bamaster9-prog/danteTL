@@ -77,7 +77,10 @@ are presentation only: renaming an active model or editing an unrelated model pr
 published results. Consent/preparation and import probes retain their full-drain safety
 boundary. The publication port exposes
 update/invalidate/snapshot, without load/stop/routing operations. A separate import contract keeps
-status projection independent of worker implementations. Capture Stop intent remains authoritative
+status projection independent of worker implementations. Confirmed disappearance of the selected
+HWND ends capture normally during startup, a frame callback or a border change. Other geometry
+failures remain visible.
+Capture Stop intent remains authoritative
 while the native owner is still reporting its last running snapshot.
 Inventory uses one bounded worker, explicit invalidation and a 30-second fallback scheduled from
 completed scan adoption. Invalidation during a scan discards stale results and requests one follow-up.
@@ -119,7 +122,8 @@ percentage or extra polling is introduced.
 Native rectangles use physical pixels, including negative desktop origins; OCR is client-relative.
 Enable per-monitor V2 DPI awareness before windows. Validate/crop only dimension-matched containing
 frames. Position the overlay in physical coordinates; compensate its device pixel ratio when painting.
-Moves may reuse a compatible frame; resize needs a new size-matched source. Capture fixes HWND plus PID
+Moves may reuse a compatible frame. After an observed size mismatch or minimize, wait for a
+newer, size-matched frame even if the window returns to its previous dimensions. Capture fixes HWND plus PID
 until explicit new selection. Never substitute windows/monitors after failure. Copy borrowed native
 pixels before callbacks return; use bounded mailboxes and generations to reject late work.
 Static WGC windows need not deliver repeated frames; frame age alone is not failure evidence.

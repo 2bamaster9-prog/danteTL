@@ -687,7 +687,7 @@ class ApplicationSession:
             return
         assert step.snapshot is not None and step.geometry is not None
         snapshot, geometry, foreground = step.snapshot, step.geometry, step.foreground
-        frame = snapshot.frame
+        frame = snapshot.frame if step.phase == CapturePhase.ACTIVE else None
         if step.phase == CapturePhase.ACTIVE:
             assert frame is not None
             if self.live.accept_size(geometry.client.size, self.translation.lifecycle.publication):
@@ -722,7 +722,7 @@ class ApplicationSession:
         capture = (
             snapshot
             if step.phase == CapturePhase.ACTIVE
-            or (step.phase == CapturePhase.WAITING_FRAME and frame is None)
+            or (step.phase == CapturePhase.WAITING_FRAME and snapshot.frame is None)
             else None
         )
         self.view = replace(self.view, capture=capture, scene=scene, status=message)

@@ -169,6 +169,26 @@ def test_invalid_capture_revokes_scene_and_english(replay, cause):
         assert replay.app.view.capture is replay.capture.current
 
 
+@pytest.mark.parametrize("minimized", [False, True])
+def test_restored_size_waits_for_a_new_capture_sequence(replay, minimized):
+    replay.app.start_capture(replay.capture.target, 0)
+    observe(replay, 7)
+    geometry = frame(7).geometry
+    replay.windows.geometry.return_value = replace(
+        geometry, minimized=minimized, client=Rect(0, 0, 600, 400)
+    )
+    replay.app.advance(8)
+    replay.windows.geometry.return_value = geometry
+    submit = Mock(wraps=replay.visual.submit)
+    replay.visual.submit = submit
+    view = replay.app.advance(9)
+    assert view.frame is None and view.capture is None and view.overlay_bounds is None
+    submit.assert_not_called()
+    observe(replay, 10)
+    assert replay.app.view.frame and replay.app.view.frame.sequence == 10
+    assert submit.called
+
+
 def test_failed_restart_releases_published_source_while_workers_drain(replay, tmp_path):
     replay.app.start_capture(replay.capture.target, 0)
     observe(replay)

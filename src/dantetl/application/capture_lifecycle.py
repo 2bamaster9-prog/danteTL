@@ -59,6 +59,7 @@ class CaptureLifecycle:
         self.ocr_choice: OcrChoice | None = None
         self.rate = 8
         self.started_at = 0.0
+        self._invalid_through = -1
         self.stopping = False
         self.stop_message = CatalogText("Capture stopped.")
 
@@ -82,6 +83,7 @@ class CaptureLifecycle:
         self.rate, self.started_at = values.capture_rate, now
         self.ocr_choice = self.choice_for(values)
         capture = self._create(target, self.rate, values.show_border)
+        self._invalid_through = -1
         self.stop_message = CatalogText("Capture source closed.")
         self.stopping = False
         return capture
@@ -117,14 +119,15 @@ class CaptureLifecycle:
             return CaptureStep(CapturePhase.STOPPING, snapshot)
         geometry = self.windows.geometry(capture.target)
         foreground = self.windows.is_foreground(capture.target)
-        phase = (
-            CapturePhase.MINIMIZED
-            if geometry.minimized
-            else CapturePhase.ACTIVE
-            if snapshot.frame is not None
-            and snapshot.frame.geometry.client.size == geometry.client.size
-            else CapturePhase.WAITING_FRAME
-        )
+        frame = snapshot.frame
+        phase = CapturePhase.WAITING_FRAME
+        if frame is not None:
+            if geometry.minimized or frame.geometry.client.size != geometry.client.size:
+                self._invalid_through = max(self._invalid_through, frame.sequence)
+            elif frame.sequence > self._invalid_through:
+                phase = CapturePhase.ACTIVE
+        if geometry.minimized:
+            phase = CapturePhase.MINIMIZED
         return CaptureStep(phase, snapshot, geometry, foreground)
 
     def drain(self, *, translation_drained: bool, snapshot: CaptureSnapshot) -> str:
