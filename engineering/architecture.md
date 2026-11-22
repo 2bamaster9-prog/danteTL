@@ -229,8 +229,17 @@ the new reading and confidence. Readers without character boxes use this only fo
 fields. A successful read reports just its sampled line as coverage. Uncertain results,
 changed surroundings, growth and subsequent reads after a direct read use the detector.
 
-Tracking is deterministic and bounded (128 tracks, 512 candidate regions). Existing matches precede
-new admission; truncated input cannot vote for absence. Spatially gated bipartite components use optimal
+Tracking is deterministic and bounded (128 tracks, 512 candidate regions). Before assignment,
+the matching worker keeps the highest-confidence short horizontal reading when competing
+detections occupy the same ink bounds. At a common right edge and row center, a wider read
+may include a leading icon or substitute its symbol for the label's first letter. A matching
+ending and space for the icon link these crops. The tighter reading wins when both are present.
+Across scans, a more confident text-only crop can correct a stationary icon-inclusive reading.
+A later, taller crop with a weak or symbolic prefix outside the established word can retain
+that reading through background changes. Confirmed visual loss allows ordinary edits.
+Raw OCR rows retain their original indices and content.
+Existing matches precede new admission; truncated input cannot vote for absence.
+Spatially gated bipartite components use optimal
 assignment with explicit unmatched costs, stable IDs and canonical tie ordering. Distant identical labels
 cannot match on text alone. Candidate scores use normalized bit-parallel LCS/Indel with per-source masks
 reused only within that matching pass. Bounded edit distance identifies nearby spelling variants;

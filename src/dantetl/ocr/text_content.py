@@ -4,7 +4,7 @@ from dataclasses import replace
 from math import isfinite
 from statistics import median
 
-from dantetl.domain import union_bounds
+from dantetl.domain import Rect, union_bounds
 from dantetl.languages.selection import DEFAULT_SOURCE
 from dantetl.languages.source import SourceLanguage
 from dantetl.ocr.values import TextCharacter, TextRegion
@@ -69,4 +69,34 @@ def content_region(region: TextRegion, language: SourceLanguage = DEFAULT_SOURCE
         text="".join(c.text for c in characters),
         characters=characters,
         bounds=union_bounds(tuple(c.bounds for c in characters)),
+    )
+
+
+def same_label_crop(a: Rect, b: Rect, old: str, new: str) -> bool:
+    """Two horizontal reads of the same ink, with optional extra ink on the left."""
+    h = min(a.height, b.height)
+    if (
+        max(a.height, b.height) > 2 * h
+        or abs((a.y + a.height / 2) - (b.y + b.height / 2)) > h * 0.25
+        or abs((a.x + a.width) - (b.x + b.width)) > min(h * 0.5, min(a.width, b.width) * 0.25)
+    ):
+        return False
+    if old == new:
+        return True
+    if a.width > b.width:
+        a, b, old, new = b, a, new, old
+    if not 1.5 * h <= a.x - b.x <= 5 * h or len(old) < 2:
+        return False
+    if 0 < len(new) - len(old) <= 2 and new.endswith(old):
+        return any(c.isalpha() for c in old)
+    # The icon can also displace the first letter in recognition, e.g. *魂
+    # over the pixels of 星魂. Require a symbol in its place and a word ending.
+    ending = old[1:]
+    prefix_size = len(new) - len(ending)
+    return (
+        1 <= prefix_size <= 2
+        and old[0].isalpha()
+        and ending.isalpha()
+        and new.endswith(ending)
+        and not any(c.isalnum() for c in new[:prefix_size])
     )

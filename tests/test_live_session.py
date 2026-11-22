@@ -187,6 +187,82 @@ def test_completion_bursts_do_not_count_as_new_observations_or_change_english():
     assert replay.live._tracker._sequence == 1
 
 
+def test_regional_icon_and_full_menu_reads_publish_one_light_cone_label():
+    replay = Replay()
+    backend = Mock()
+    clean = TextRegion("光円錐", Rect(434, 200, 76, 32))
+    wide = TextRegion("7光円錐", Rect(332, 193, 179, 46))
+    scene = replay.observe(frame(1), (clean,))
+    (block,) = scene.blocks
+    english = TranslatedText(TranslationRequest.from_block(block), "Light Cone")
+    backend.snapshot.return_value = TranslationSnapshot(TranslationState.READY, (english,))
+    for seq, rows in enumerate(((wide, clean), (clean,), (clean, wide)), 2):
+        scene = replay.observe(
+            frame(seq, float(seq)), rows, scanned=(wide.bounds,) if seq % 2 else None
+        )
+        assert replay.live.accepted and replay.live.accepted.regions == rows
+        assert scene.requests == (block,)
+        painted = replay.live.publish(backend, scene.requests, scene.blocks)
+        assert painted.blocks == (block,)
+        assert painted.translations == (english,)
+
+
+def test_full_and_cropped_soul_star_readings_share_one_publication():
+    # Actual character boxes and scores from full and sidebar OCR of the supplied 4K frame.
+    damaged = TextRegion(
+        "*魂",
+        Rect(332, 1028, 202, 58),
+        (
+            TextCharacter("*", Rect(334, 1028, 73, 58), 0.823),
+            TextCharacter("魂", Rect(476, 1028, 55, 58), 0.946),
+        ),
+    )
+    clean = TextRegion(
+        "星魂",
+        Rect(432, 1032, 97, 45),
+        (
+            TextCharacter("星", Rect(434, 1032, 49, 45), 0.979),
+            TextCharacter("魂", Rect(481, 1032, 48, 45), 0.968),
+        ),
+    )
+    screen = Rect(0, 0, 3840, 2160)
+    geometry = WindowGeometry(screen, screen, screen, 168)
+    replay = Replay()
+    scene = replay.observe(CapturedFrame(1, 1, geometry, b""), (damaged,))
+    (old,) = scene.tracks
+    backend = Mock()
+    old_english = TranslatedText(TranslationRequest.from_block(scene.blocks[0]), "Soul")
+    backend.snapshot.return_value = TranslationSnapshot(TranslationState.READY, (old_english,))
+    assert replay.live.publish(backend, scene.requests, scene.blocks).translations == (old_english,)
+    for seq, rows in enumerate(
+        ((clean,), (clean, damaged), (damaged,), (damaged,), (damaged, clean)), 2
+    ):
+        # The clean partial scan cannot cover the old icon. Its pixels can still
+        # be unchanged, the very evidence that used to keep the second track alive.
+        scene = replay.observe(
+            CapturedFrame(seq, seq, geometry, b""),
+            rows,
+            scanned=(Rect(410, 980, 210, 200),) if seq == 2 else None,
+            unchanged=frozenset((old,)) if seq == 2 else frozenset(),
+            checked=frozenset((old,)) if seq == 2 else frozenset(),
+        )
+        (track,) = scene.tracks
+        assert (track.track_id, track.text, track.bounds) == (
+            old.track_id,
+            "星魂",
+            Rect(434, 1032, 95, 45),
+        )
+        (block,) = scene.requests
+        english = TranslatedText(TranslationRequest.from_block(block), "Soul Star")
+        if seq == 2:
+            assert replay.live.publish(backend, scene.requests, scene.blocks).translations == (
+                old_english,
+            )
+        backend.snapshot.return_value = TranslationSnapshot(TranslationState.READY, (english,))
+        painted = replay.live.publish(backend, scene.requests, scene.blocks)
+        assert painted.blocks == (block,) and painted.translations == (english,)
+
+
 def test_exact_menu_reappearance_paints_before_ocr_and_never_supplies_a_translation_job():
     replay = Replay()
     source = frame(1)

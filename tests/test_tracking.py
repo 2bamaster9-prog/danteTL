@@ -182,6 +182,84 @@ def test_reordered_duplicate_labels_and_new_detection_keep_existing_ids() -> Non
     assert len({track.track_id for track in current}) == 3
 
 
+@pytest.mark.parametrize("prefix,label", [("", "軌跡"), ("7", "光円錐"), ("☆", "星魂")])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_icon_and_label_share_one_track_and_keep_the_tight_reading(prefix, label, reverse):
+    replay = Replay()
+    clean = region(label, x=434, y=200, width=76, height=32, confidence=0.91)
+    wide = region(prefix + label, x=332, y=193, width=179, height=46, confidence=0.98)
+    pair = (clean, wide) if reverse else (wide, clean)
+    (original,) = replay.step(*pair)
+    assert (original.text, original.bounds) == (label, clean.bounds)
+    assert replay.ids[pair.index(clean)] == original.track_id
+    assert replay.ids[pair.index(wide)] is None
+    for rows in (pair[::-1], (wide,), (clean,), pair):
+        assert replay.step(*rows) == (original,)
+        assert replay.result is not None
+        assert replay.tracker.translation_tracks(replay.result.frame, replay.now) == (original,)
+
+
+def test_icon_only_scan_then_text_only_scan_confirm_one_correction():
+    replay = Replay()
+    wide = region("7光円錐", x=332, y=193, width=179, height=46)
+    clean = region("光円錐", x=434, y=200, width=76, height=32)
+    (original,) = replay.step(wide)
+    assert replay.step(clean) == (original,)
+    (corrected,) = replay.step(clean)
+    assert (corrected.track_id, corrected.text, corrected.bounds) == (
+        original.track_id,
+        clean.text,
+        clean.bounds,
+    )
+
+
+def test_overlapping_icon_reads_with_a_dropped_glyph_use_one_slot_in_either_order():
+    full = region("*魂", x=334, y=1028, width=197, height=58, confidence=0.82)
+    partial = region("*星魂", x=331, y=1027, width=198, height=58, confidence=0.95)
+    for rows in ((full, partial), (partial, full)):
+        replay = Replay()
+        (original,) = replay.step(*rows)
+        assert original.text == partial.text
+        assert replay.step(*rows[::-1]) == (original,)
+        assert sum(key is not None for key in replay.ids) == 1
+
+
+def test_confident_numeric_prefix_can_change_an_established_label():
+    replay = Replay()
+    clean = region("遺物", x=434, y=845, width=95, height=44, confidence=0.99)
+    wide = TextRegion(
+        "3遺物",
+        Rect(330, 837, 200, 61),
+        (
+            TextCharacter("3", Rect(333, 837, 66, 61), 0.96),
+            TextCharacter("遺", Rect(428, 837, 50, 61), 0.93),
+            TextCharacter("物", Rect(479, 837, 50, 61), 0.95),
+        ),
+    )
+    (original,) = replay.step(clean)
+    assert replay.step(wide) == (original,)
+    (changed,) = replay.step(wide)
+    assert changed.track_id == original.track_id and changed.text == "3遺物"
+
+
+def test_icon_variants_do_not_absorb_nearby_choices_or_edit_numeric_values():
+    replay = Replay()
+    clean = region("星魂", x=434, y=200, width=76, height=32)
+    wide = region("☆星魂", x=332, y=193, width=179, height=46)
+    others = (
+        region("星魂", x=518, y=200, width=76, height=32),
+        region("星魂", x=434, y=225, width=76, height=32),
+        region("10%", x=700, y=200, width=90, height=32),
+    )
+    original = replay.step(clean, wide, *others)
+    assert [t.bounds for t in original] == [r.bounds for r in (clean, *others)]
+    changed = replace(others[-1], text="110%", bounds=Rect(670, 200, 120, 32))
+    assert replay.step(changed, *others[:2], wide, clean) == original
+    current = replay.step(changed, *others[:2], wide, clean)
+    assert current[:3] == original[:3]
+    assert current[-1].text == "110%" and current[-1].track_id == original[-1].track_id
+
+
 @pytest.mark.parametrize("reverse", (False, True))
 def test_competing_nearby_labels_preserve_both_ids_instead_of_greedy_replacement(reverse):
     replay = Replay()
@@ -211,13 +289,15 @@ def test_equal_score_ties_use_geometry_instead_of_detector_order():
     assignments = []
     for reverse in (False, True):
         replay = Replay()
-        replay.step(region("はい", x=200), region("はい", x=200))
-        rows = (region("はい", x=197), region("はい", x=203))
+        # Two separate rows become two separate columns. All four pairings
+        # have the same overlap, edge distance and text.
+        replay.step(region("はい", x=200, y=680, width=40), region("はい", x=200, y=720, width=40))
+        rows = (region("はい", x=180, width=40), region("はい", x=220, width=40))
         if reverse:
             rows = tuple(reversed(rows))
         replay.step(*rows)
         assignments.append({row.bounds.x: key for row, key in zip(rows, replay.ids, strict=True)})
-    assert assignments[0] == assignments[1] == {197: 1, 203: 2}
+    assert assignments[0] == assignments[1] == {180: 1, 220: 2}
 
 
 def test_repetitive_minor_edit_requires_a_better_reading():

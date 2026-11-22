@@ -19,7 +19,7 @@ from dantetl.ocr.lettering import Lettering, sample_lettering
 from dantetl.ocr.presence import EvidenceReader, PixelEvidence
 from dantetl.ocr.quote_dash import opening_dash_edges
 from dantetl.ocr.spatial import SpatialCandidates
-from dantetl.ocr.text_content import content_region
+from dantetl.ocr.text_content import content_region, same_label_crop
 from dantetl.ocr.text_distance import LcsSimilarity, within_edits
 from dantetl.ocr.track_assignment import assign_tracks
 from dantetl.ocr.values import OcrResult, TextRegion
@@ -223,6 +223,109 @@ def _inside_line(fragment: Rect, line: Rect) -> bool:
     return width * height >= fragment.width * fragment.height * 0.9
 
 
+def _distinct_label_regions(
+    regions: list[tuple[int, TextRegion]], normalized: dict[int, str]
+) -> list[tuple[int, TextRegion]]:
+    # Competing short readings can cover effectively identical ink even if
+    # neither transcription is right. Keep the best supported raw observation.
+    labels = [(i, r) for i, r in regions if not r.vertical and len(normalized[i]) <= 12]
+    nearby = SpatialCandidates(labels)
+    retained = set()
+    duplicates = set()
+    for index, region in sorted(
+        labels,
+        key=lambda row: (
+            -(_confidence(row[1]) or 0),
+            row[1].bounds.width,
+            row[1].bounds.height,
+            row[1].bounds.x,
+            row[1].bounds.y,
+            row[1].text,
+        ),
+    ):
+        if any(
+            other in retained
+            and _edge_distance(region.bounds, prior.bounds)
+            <= min(*region.bounds.size, *prior.bounds.size) * 0.22
+            for other, prior in nearby.for_bounds(region.bounds)
+        ):
+            duplicates.add(index)
+        else:
+            retained.add(index)
+    # Visit tight crops first, using confidence to break ties. Compare only with
+    # surviving reads of the same text or suffix, so a chain cannot erase a neighbor.
+    kept: dict[str, list[tuple[str, Rect]]] = {}
+    cells: dict[tuple[str, int, int], list[tuple[str, Rect]]] = {}
+    for index, region in sorted(
+        regions,
+        key=lambda row: (
+            row[1].bounds.width,
+            -(_confidence(row[1]) or 0),
+            row[1].bounds.height,
+            row[1].bounds.y,
+            row[1].bounds.x,
+            row[1].text,
+        ),
+    ):
+        if region.vertical or index in duplicates:
+            continue
+        text = normalized[index]
+        b = region.bounds
+        # same_label_crop bounds both right-edge distance and twice the
+        # center-Y distance by half the smaller height. Index only survivors.
+        suffix = text[-1]
+        right, center = b.x + b.width, 2 * b.y + b.height
+        radius = b.height // 2
+        x0, x1 = (right - radius) // 32, (right + radius) // 32
+        y0, y1 = (center - radius) // 32, (center + radius) // 32
+        nearby_crops = (
+            (
+                entry
+                for x in range(x0, x1 + 1)
+                for y in range(y0, y1 + 1)
+                for entry in cells.get((suffix, x, y), ())
+            )
+            if (x1 - x0 + 1) * (y1 - y0 + 1) <= 64
+            else kept.get(suffix, ())
+        )
+        if any(same_label_crop(bounds, region.bounds, core, text) for core, bounds in nearby_crops):
+            duplicates.add(index)
+        else:
+            entry = text, b
+            kept.setdefault(suffix, []).append(entry)
+            cells.setdefault((suffix, right // 32, center // 32), []).append(entry)
+    return [row for row in regions if row[0] not in duplicates]
+
+
+def _tighter_label(tight: Rect, wide: Rect, clean: str, decorated: str) -> bool:
+    # Positive crop preference is stricter than identity. The icon has to extend
+    # the line vertically as well as to its left. Ordinary numbering can change.
+    return (
+        wide.height >= 1.15 * tight.height
+        and tight.x - wide.x >= 1.5 * tight.height
+        and same_label_crop(tight, wide, clean, decorated)
+    )
+
+
+def _unreliable_prefix(region: TextRegion, label: Rect) -> bool:
+    # A real count or word can precede the same label. Only discount the wider
+    # read when the extra glyph itself is weak or was read as a pictorial symbol.
+    chars = region.characters
+    if not chars or "".join(c.text for c in chars) != region.text:
+        return False
+    prefix = tuple(c for c in chars if c.bounds.x + c.bounds.width <= label.x)
+    return (
+        0 < len(prefix) <= 2
+        and prefix == chars[: len(prefix)]
+        and len(prefix) < len(chars)
+        and all(
+            0 <= c.confidence <= 0.55
+            or (len(c.text) == 1 and (unicodedata.category(c.text) == "So" or c.text in "*＊"))
+            for c in prefix
+        )
+    )
+
+
 def _commit_text(track: _Track) -> None:
     candidate = track.text_candidate
     assert candidate is not None
@@ -267,7 +370,8 @@ def _match_score(
             and max(a.height, b.height) <= min(a.height, b.height) * 2.5
         )  # A first glyph such as 二 can be shorter than the eventual full line.
     # Text alone cannot attach an identical label on the other side of the screen.
-    if overlap < 0.2 and distance > max(24, thickness * 3) and not same_origin:
+    label_crop = not region.vertical and same_label_crop(a, b, old, new)
+    if overlap < 0.2 and distance > max(24, thickness * 3) and not (same_origin or label_crop):
         return None
     if old == new:
         similarity = 1.0
@@ -278,7 +382,7 @@ def _match_score(
         prefix = (min(len(old), len(new)) >= 3 or same_origin) and (
             old.startswith(new) or new.startswith(old)
         )
-        if not (related or prefix or same_origin) and overlap < 0.55:
+        if not (related or prefix or same_origin or label_crop) and overlap < 0.55:
             return None
     # Spatial proximity is essential for repeated menu labels. Exact text helps
     # distinguish neighboring lines when detector order changes.
@@ -329,6 +433,7 @@ def prepare_matching(
         if text and min(region.bounds.size) > 0:
             regions.append((index, region))
             normalized[index] = text
+    regions = _distinct_label_regions(regions, normalized)
     nearby = SpatialCandidates(regions)
     candidates = []
     for track in sources:
@@ -345,7 +450,7 @@ def prepare_matching(
         limit,
         content,
         tuple(regions),
-        tuple(normalized.items()),
+        tuple((index, normalized[index]) for index, _ in regions),
         tuple(candidates),
         tuple(
             opening_dash_edges(
@@ -599,10 +704,21 @@ class TextTracker:
         )
         if eligible:
             track.review_attempts += 1
+        better = _improves(score, track.best_confidence)
+        tighter = (
+            better
+            and not region.vertical
+            and _tighter_label(region.bounds, track.value.bounds, new, old)
+        )
+        if tighter:
+            track.observed = region.bounds
+            track.presence = None
         if old == new:
             track.best_confidence = _best_score(track.best_confidence, score)
-        elif (
-            _improves(score, track.best_confidence)
+            if tighter:
+                track.value = replace(track.value, bounds=region.bounds)
+        elif tighter or (
+            better
             and _same_location(track.value.bounds, region.bounds)
             and (
                 _minor_variant(self._language, old, new)
@@ -618,7 +734,10 @@ class TextTracker:
             # English arrives; the renderer must still validate the explicit lineage.
             track.display_predecessor = track.value
             track.value = replace(
-                track.value, text=region.text, text_revision=track.value.text_revision + 1
+                track.value,
+                text=region.text,
+                bounds=track.observed,
+                text_revision=track.value.text_revision + 1,
             )
             track.best_confidence = score
         track.reading = track.value.text
@@ -641,6 +760,20 @@ class TextTracker:
             self._language.matching_text(track.value.text),
             self._language.matching_text(region.text),
         )
+        score = _confidence(region)
+        if (
+            not lost_pattern
+            and not region.vertical
+            and score is not None
+            and _improves(track.best_confidence, score)
+            and _tighter_label(track.value.bounds, region.bounds, old, new)
+            and _unreliable_prefix(region, track.value.bounds)
+        ):
+            track.discard_candidates()
+            track.observed = track.value.bounds
+            track.reading = track.value.text
+            track.confirmed = True
+            return
         candidate = track.text_candidate
         repeat = (
             candidate is not None
@@ -664,7 +797,6 @@ class TextTracker:
             correction = (
                 minor and _same_location(track.value.bounds, region.bounds) and not reveal_ending
             )
-        score = _confidence(region)
         track.observed = region.bounds
         # A repeat of a better pending spelling can confirm its peak score.
         if correction and not repeat and not _improves(score, track.best_confidence):
