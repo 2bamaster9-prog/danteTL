@@ -86,6 +86,20 @@ def test_centered_padding_maps_line_and_character_coordinates_before_clipping():
     assert rows[0].characters[0].bounds == Rect(12, 22, 26, 21)
 
 
+def test_unique_recovery_is_independent_of_row_order_and_rejects_ambiguous_cycles():
+    _, halves = severed()
+    merged = row("設定", Rect(10, 20, 60, 22), 0.95)
+
+    def label(x):
+        return row("同", Rect(x, 80, 50, 20), 0.95)
+
+    candidate = (merged, label(100), label(120))
+    for others in ((label(110), label(100)), (label(100), label(110))):
+        assert recovery_preserves_lines((*halves, *others), candidate, ((0, 1),))
+        assert recovery_preserves_lines((*halves, *others), candidate[::-1], ((0, 1),))
+    assert not recovery_preserves_lines((*halves, label(110), label(110)), candidate, ((0, 1),))
+
+
 @pytest.mark.parametrize("accepted", [False, True])
 @pytest.mark.parametrize("empty_first", [False, True])
 def test_empty_retry_can_recover_severed_glyphs_once_without_rescaling_source_pixels(

@@ -4,6 +4,7 @@ No dictionary, history or output synthesis: a retry must produce complete model
 observations and preserve every unrelated line. Work is bounded by detector limits.
 """
 
+from collections import deque
 from typing import Any
 
 import cv2
@@ -92,19 +93,18 @@ def recovery_preserves_lines(
     pairs: tuple[tuple[int, int], ...],
 ) -> bool:
     """Accept only complete, stronger glyphs and one-to-one unchanged other lines."""
-    if not pairs or len(candidate) > 64:
+    if not pairs or len(original) > 64 or len(candidate) != len(original) - len(pairs):
         return False
-    used: set[int] = set()
+    eligible: list[set[int]] = []
     repaired: set[int] = set()
     for first, second in pairs:
         a, b = sorted((original[first].bounds, original[second].bounds), key=lambda box: box.y)
         whole = union_bounds((a, b))
         seam = (a.y + a.height + b.y) / 2
-        matches = [
+        matches = {
             i
             for i, row in enumerate(candidate)
-            if i not in used
-            and not row.vertical
+            if not row.vertical
             and row.confidence is not None
             and row.confidence >= 0.9
             and row.confidence
@@ -118,19 +118,16 @@ def recovery_preserves_lines(
                 and c.bounds.y + c.bounds.height > seam + whole.height * 0.15
                 for c in row.characters
             )
-        ]
-        if len(matches) != 1:
-            return False
-        used.add(matches[0])
+        }
+        eligible.append(matches)
         repaired.update((first, second))
     for index, before in enumerate(original):
         if index in repaired:
             continue
-        matches = [
+        matches = {
             i
             for i, after in enumerate(candidate)
-            if i not in used
-            and after.text == before.text
+            if after.text == before.text
             and after.vertical == before.vertical
             and _overlap(before.bounds, after.bounds) >= 0.8
             and _overlap(after.bounds, before.bounds) >= 0.8
@@ -138,8 +135,25 @@ def recovery_preserves_lines(
                 before.confidence is None
                 or (after.confidence is not None and after.confidence >= before.confidence - 0.05)
             )
-        ]
-        if len(matches) != 1:
+        }
+        eligible.append(matches)
+    # A unique perfect matching always has a forced row. Removing its
+    # candidate exposes the next forced rows; an unresolved cycle is ambiguous.
+    owners: list[list[int]] = [[] for _ in candidate]
+    forced = deque(i for i, choices in enumerate(eligible) if len(choices) == 1)
+    for i, choices in enumerate(eligible):
+        for choice in choices:
+            owners[choice].append(i)
+    assigned = 0
+    while forced:
+        row_index = forced.popleft()
+        if not eligible[row_index]:
             return False
-        used.add(matches[0])
-    return len(used) == len(candidate)
+        choice = eligible[row_index].pop()
+        assigned += 1
+        for other in owners[choice]:
+            if other != row_index:
+                eligible[other].discard(choice)
+                if len(eligible[other]) == 1:
+                    forced.append(other)
+    return assigned == len(eligible)

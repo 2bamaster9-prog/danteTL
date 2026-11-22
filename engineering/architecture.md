@@ -211,7 +211,8 @@ stays full. Publish only final raw output/actual coverage; reset hints with gene
 
 Empty small crops may receive one background-padding retry without magnifying glyphs. Severed-glyph
 recovery requires unambiguous adjacent detections and connecting ink; accept only strong complete
-characters and preservation of unrelated lines. Otherwise keep the raw original. At most one extra
+characters and a unique complete assignment preserving unrelated lines, independent of row order.
+Otherwise keep the raw original. At most one extra
 pass; subtract padding from both box types. CUDA recognition pads to batch four then slices actual
 outputs; dummy detections never publish.
 
