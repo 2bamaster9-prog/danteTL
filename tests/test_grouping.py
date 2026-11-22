@@ -39,6 +39,22 @@ def test_incomplete_group_cannot_send_only_its_confirmed_fragment() -> None:
     assert len(grouper.update(tracks, tracks, 1.1).ready) == 1
 
 
+def test_dense_menu_reconsiders_grouping_when_one_row_gains_dialogue_evidence() -> None:
+    rows = tuple(
+        line(
+            i + 1, f"装備設定一覧詳細情報{i:03}", x=i % 4 * 500, y=i // 4 * 36, width=320, height=28
+        )
+        for i in range(128)
+    )
+    grouper = DialogueGrouper()
+    plain = grouper.update(rows, rows, 0)
+    assert len(plain.blocks) == 128 and not any(b.dialogue for b in plain.blocks)
+    revised = (*rows[:-1], replace(rows[-1], text="これで準備ができました。", text_revision=2))
+    changed = grouper.update(revised, revised, 1)
+    assert any(b.dialogue and b.lines[-1] == revised[-1] for b in changed.blocks)
+    assert sum(len(b.lines) for b in changed.blocks) == len(rows)
+
+
 def test_speaker_stays_separate_but_punctuation_does_not_split_tight_prose() -> None:
     tracks = (line(9, "三月なのか", y=655, width=140), *dialogue())
     result = DialogueGrouper().update(tracks, tracks, 0)

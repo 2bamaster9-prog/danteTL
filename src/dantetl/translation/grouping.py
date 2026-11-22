@@ -233,6 +233,9 @@ def _can_follow(
     )
 
 
+_SUBTITLE_TAIL_MAX_WIDTH_RATIO = 0.7
+
+
 def _centered_subtitle_tail(language: SourceLanguage, upper: TextTrack, lower: TextTrack) -> bool:
     """Recognize a short final row from its inset on both sides and a textual continuation."""
     a, b = upper.bounds, lower.bounds
@@ -244,7 +247,7 @@ def _centered_subtitle_tail(language: SourceLanguage, upper: TextTrack, lower: T
         and max(a.height, b.height) <= unit * 1.4
         and -0.25 * unit <= gap <= 0.55 * unit
         and a.width >= 14 * unit
-        and 0 < b.width <= 0.7 * a.width
+        and 0 < b.width <= _SUBTITLE_TAIL_MAX_WIDTH_RATIO * a.width
         and abs((a.x + a.width / 2) - (b.x + b.width / 2)) <= 0.75 * unit
     ):
         return False
@@ -262,17 +265,21 @@ def _centered_subtitle_tail(language: SourceLanguage, upper: TextTrack, lower: T
     )
 
 
+def _can_start_subtitle(language: SourceLanguage, first: TextTrack) -> bool:
+    text = first.text.strip()
+    return (
+        not first.vertical
+        and len(text) >= 14
+        and not text.endswith((*language.endings, "：", ":"))
+        and language.contains_text(text)
+        and not language.starts_item(text)
+    )
+
+
 def _centered_subtitle(
     language: SourceLanguage, first: TextTrack, available: Iterable[TextTrack]
 ) -> tuple[TextTrack, ...]:
-    text = first.text.strip()
-    if (
-        first.vertical
-        or len(text) < 14
-        or text.endswith((*language.endings, "：", ":"))
-        or not language.contains_text(text)
-        or language.starts_item(text)
-    ):
+    if not _can_start_subtitle(language, first):
         return (first,)
     tails = [row for row in available if _centered_subtitle_tail(language, first, row)]
     if len(tails) == 1:
@@ -304,9 +311,7 @@ def _wrapped_prose(language: SourceLanguage, lines: tuple[TextTrack, ...]) -> bo
     if len(lines) < 2:
         return False
     first, second = lines[:2]
-    if first.text.rstrip().endswith(language.endings) or not any(
-        language.internal_prose(line.text.strip()) for line in lines[:-1]
-    ):
+    if first.text.rstrip().endswith(language.endings):
         return False
     return (
         _centered_wrap(language, first, second)
@@ -326,17 +331,24 @@ def _wrapped_prose(language: SourceLanguage, lines: tuple[TextTrack, ...]) -> bo
     )
 
 
-def _dialogue_evidence(language: SourceLanguage, lines: tuple[TextTrack, ...]) -> bool:
+def _percentage_ending(language: SourceLanguage, text: str) -> bool:
+    return _percentage_row(language, text) or _percentage_row(language, text, clause=True)
+
+
+def _dialogue_evidence(
+    language: SourceLanguage,
+    lines: tuple[TextTrack, ...],
+    *,
+    prior_comma: bool = False,
+    prior_prose: bool = False,
+) -> bool:
     first, last = lines[0].text.lstrip(), lines[-1].text.strip()
     return (
         last.endswith(language.endings)
         or bool(language.quote_start.match(first))
-        or (
-            len(lines) > 1
-            and (_percentage_row(language, last) or _percentage_row(language, last, clause=True))
-        )
-        or any(line.text.rstrip().endswith(language.commas) for line in lines[:-1])
-        or _wrapped_prose(language, lines)
+        or (len(lines) > 1 and _percentage_ending(language, last))
+        or prior_comma
+        or (prior_prose and _wrapped_prose(language, lines))
     )
 
 
@@ -453,14 +465,20 @@ def _supported_row(
         return False
     if len(adjacent) == 2:
         return True  # An intact row on either side supports the same column.
-    return any(
-        _dialogue_evidence(language, (row, t) if a.y < t.bounds.y else (t, row))
-        or any(
+    for t in adjacent:
+        pair = (row, t) if a.y < t.bounds.y else (t, row)
+        head = pair[0].text.strip()
+        if _dialogue_evidence(
+            language,
+            pair,
+            prior_comma=head.endswith(language.commas),
+            prior_prose=language.internal_prose(head),
+        ) or any(
             _can_follow(language, t, other) or _can_follow(language, other, t)
             for other in supporting
-        )
-        for t in adjacent
-    )
+        ):
+            return True
+    return False
 
 
 def _physical_rows(
@@ -640,8 +658,34 @@ def _blocks(
     lettering: dict[TextTrack, Lettering],
 ) -> tuple[TextBlock, ...]:
     ordered = sorted(tracks[:128], key=lambda t: (t.bounds.y, t.bounds.x, t.track_id))
-    row_tops = [t.bounds.y for t in ordered] if enabled else []
-    openings = _quote_openings(language, ordered, dash_edges) if enabled else {}
+    if not enabled:
+        return tuple(TextBlock((t,), language=language) for t in ordered)
+    row_tops = [t.bounds.y for t in ordered]
+    openings = _quote_openings(language, ordered, dash_edges)
+    # A rejected chain can be retried starting one row later. Classify each
+    # row once and update evidence only for rows newly preceding the tail.
+    comma_rows = {t.track_id for t in ordered if t.text.rstrip().endswith(language.commas)}
+    prose_rows = {t.track_id for t in ordered if language.internal_prose(t.text.strip())}
+    narrowest = min((t.bounds.width for t in ordered), default=0)
+    # With no textual, visual or subtitle evidence, every attempted chain
+    # would be rejected. A menu can then skip the adjacency search altogether.
+    if not (
+        growing
+        or openings
+        or comma_rows
+        or prose_rows
+        or any(style.panel is not None for style in lettering.values())
+        or any(
+            _dialogue_evidence(language, (t,))
+            or _percentage_ending(language, t.text.strip())
+            or (
+                narrowest <= _SUBTITLE_TAIL_MAX_WIDTH_RATIO * t.bounds.width
+                and _can_start_subtitle(language, t)
+            )
+            for t in ordered
+        )
+    ):
+        return tuple(TextBlock((t,), language=language) for t in ordered)
 
     @lru_cache(maxsize=256)
     def successors(
@@ -681,94 +725,91 @@ def _blocks(
         last_row, continuation = openings.get(first.track_id, (first, None))
         previous_row = None
         centered_pair = False
-        if enabled:
-            while len(lines) < len(ordered):
-                candidates = [
-                    line
-                    for line in successors(last_row, previous_row, revealing, continuation)
-                    if line.track_id not in used and line.track_id not in members
-                ]
-                if len(candidates) != 1:
-                    # Recover only an isolated opening pair. A new terminal join cannot
-                    # extend an existing paragraph or recruit a third row below the pair.
-                    if not candidates and len(lines) == 1 and continuation is None:
-                        lines = _centered_subtitle(
-                            language,
-                            first,
-                            (
-                                t
-                                for t in ordered
-                                if t.track_id not in used and t.track_id not in openings
-                            ),
-                        )
-                        centered_pair = len(lines) == 2
-                    break  # Ambiguous columns/layouts stay separate.
-                if (
-                    len(lines) == 1
-                    and continuation is not None
-                    and candidates[0].track_id != continuation
-                ):
-                    break
-                if _paragraph_boundary(language, lines, last_row, candidates[0]):
-                    break
-                row = (candidates[0],)
-                if len(lines) >= 2 and _dialogue_evidence(language, lines):
-                    row = _row_fragments(
+        prior_comma = prior_prose = False
+        while len(lines) < len(ordered):
+            candidates = [
+                line
+                for line in successors(last_row, previous_row, revealing, continuation)
+                if line.track_id not in used and line.track_id not in members
+            ]
+            if len(candidates) != 1:
+                # Recover only an isolated opening pair. A new terminal join cannot
+                # extend an existing paragraph or recruit a third row below the pair.
+                if not candidates and len(lines) == 1 and continuation is None:
+                    lines = _centered_subtitle(
                         language,
-                        candidates[0],
-                        tuple(
+                        first,
+                        (
                             t
                             for t in ordered
-                            if t.track_id not in used and t.track_id not in members
+                            if t.track_id not in used and t.track_id not in openings
                         ),
-                        union_bounds(tuple(t.bounds for t in lines)),
-                        len(ordered) - len(lines),
                     )
-                row_text = join_lines(row, language)
-                separator = " " if language.needs_space(source[-1:], row_text[:1]) else ""
-                if len(source) + len(separator) + len(row_text) > 512:
-                    break
-                source += separator + row_text
-                lines += row
-                members.update(t.track_id for t in row)
-                revealing = revealing or any(t.track_id in growing for t in row)
-                # Aggregate geometry is private to adjacency; requests retain every raw member.
-                previous_row = last_row.bounds
-                last_row = (
-                    row[0]
-                    if len(row) == 1 and row[0].text == row_text
-                    else replace(
-                        row[0], text=row_text, bounds=union_bounds(tuple(t.bounds for t in row))
-                    )
+                    centered_pair = len(lines) == 2
+                break  # Ambiguous columns/layouts stay separate.
+            if (
+                len(lines) == 1
+                and continuation is not None
+                and candidates[0].track_id != continuation
+            ):
+                break
+            if _paragraph_boundary(language, lines, last_row, candidates[0]):
+                break
+            row = (candidates[0],)
+            if len(lines) >= 2 and _dialogue_evidence(
+                language, lines, prior_comma=prior_comma, prior_prose=prior_prose
+            ):
+                row = _row_fragments(
+                    language,
+                    candidates[0],
+                    tuple(
+                        t for t in ordered if t.track_id not in used and t.track_id not in members
+                    ),
+                    union_bounds(tuple(t.bounds for t in lines)),
+                    len(ordered) - len(lines),
                 )
-                # An unmarked button can share the column width and pitch immediately
-                # below the closing quote. Its proximity adds no continuation evidence.
-                quotes = language.dash_quotes
-                if (
-                    continuation is not None
-                    and quotes
-                    and last_row.text.rstrip().endswith((*quotes.closers, "/"))
-                    and quotes.complete(first.text.strip(), source)
-                ):
-                    break
+            row_text = join_lines(row, language)
+            separator = " " if language.needs_space(source[-1:], row_text[:1]) else ""
+            if len(source) + len(separator) + len(row_text) > 512:
+                break
+            source += separator + row_text
+            for prior in (*lines[-1:], *row[:-1]):
+                prior_comma |= prior.track_id in comma_rows
+                prior_prose |= prior.track_id in prose_rows
+            lines += row
+            members.update(t.track_id for t in row)
+            revealing = revealing or any(t.track_id in growing for t in row)
+            # Aggregate geometry is private to adjacency; requests retain every raw member.
+            previous_row = last_row.bounds
+            last_row = (
+                row[0]
+                if len(row) == 1 and row[0].text == row_text
+                else replace(
+                    row[0], text=row_text, bounds=union_bounds(tuple(t.bounds for t in row))
+                )
+            )
+            # An unmarked button can share the column width and pitch immediately
+            # below the closing quote. Its proximity adds no continuation evidence.
+            quotes = language.dash_quotes
+            if (
+                continuation is not None
+                and quotes
+                and last_row.text.rstrip().endswith((*quotes.closers, "/"))
+                and quotes.complete(first.text.strip(), source)
+            ):
+                break
         if len(lines) > 1 and not (
             centered_pair
             or first.track_id in openings
-            or _dialogue_evidence(language, lines)
+            or _dialogue_evidence(language, lines, prior_comma=prior_comma, prior_prose=prior_prose)
             or any(line.track_id in growing for line in lines)
         ):
             lines = _panel_paragraph(language, lines, lettering)
         used.update(line.track_id for line in lines)
-        dialogue = enabled and (
-            len(lines) > 1
-            or (
-                len(join_lines(lines, language)) >= 10
-                and _dialogue_evidence(language, lines)
-                and (
-                    first.track_id in growing
-                    or bool(language.quote_start.match(first.text.lstrip()))
-                )
-            )
+        dialogue = len(lines) > 1 or (
+            len(join_lines(lines, language)) >= 10
+            and _dialogue_evidence(language, lines)
+            and (first.track_id in growing or bool(language.quote_start.match(first.text.lstrip())))
         )
         blocks.append(TextBlock(lines, dialogue=dialogue, language=language))
     return tuple(blocks)
