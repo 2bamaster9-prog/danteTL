@@ -1303,8 +1303,16 @@ Os detalhes estão em %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>A transferência excedeu o limite de tamanho.</translation>
     </message>
     <message>
+      <source>Download failed: {detail}</source>
+      <translation>Falha na transferência: {detail}</translation>
+    </message>
+    <message>
       <source>Download helper has no output pipe.</source>
       <translation>O helper de transferência não tem pipe de saída.</translation>
+    </message>
+    <message>
+      <source>Download interrupted. Retry setup to resume.</source>
+      <translation>A transferência foi interrompida. Repita a configuração para a retomar.</translation>
     </message>
     <message>
       <source>Download models</source>
@@ -3477,6 +3485,10 @@ Transferências de modelos: até {size:.2f} GB; os ficheiros existentes são ver
       <translation>A janela selecionada fechou. Atualize e selecione uma janela.</translation>
     </message>
     <message>
+      <source>The server returned an invalid byte range.</source>
+      <translation>O servidor devolveu um intervalo de bytes inválido.</translation>
+    </message>
+    <message>
       <source>The signed-in account does not match this registration.</source>
       <translation>A conta com sessão iniciada não corresponde a este registo.</translation>
     </message>
@@ -3687,6 +3699,10 @@ Transferências de modelos: até {size:.2f} GB; os ficheiros existentes são ver
     <message>
       <source>Undo</source>
       <translation>Desfazer</translation>
+    </message>
+    <message>
+      <source>Unexpected HTTP status {status}.</source>
+      <translation>Código de estado HTTP inesperado: {status}.</translation>
     </message>
     <message>
       <source>Unexpected authorization issuer.</source>

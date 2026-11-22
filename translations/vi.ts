@@ -1303,8 +1303,16 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Tải xuống vượt quá giới hạn kích thước.</translation>
     </message>
     <message>
+      <source>Download failed: {detail}</source>
+      <translation>Tải xuống thất bại: {detail}</translation>
+    </message>
+    <message>
       <source>Download helper has no output pipe.</source>
       <translation>Trình trợ giúp tải xuống không có ống đầu ra.</translation>
+    </message>
+    <message>
+      <source>Download interrupted. Retry setup to resume.</source>
+      <translation>Quá trình tải xuống bị gián đoạn. Hãy thử thiết lập lại để tải tiếp.</translation>
     </message>
     <message>
       <source>Download models</source>
@@ -3477,6 +3485,10 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Cửa sổ đã chọn đã đóng. Hãy làm mới và chọn một cửa sổ.</translation>
     </message>
     <message>
+      <source>The server returned an invalid byte range.</source>
+      <translation>Máy chủ trả về dải byte không hợp lệ.</translation>
+    </message>
+    <message>
       <source>The signed-in account does not match this registration.</source>
       <translation>Tài khoản đã đăng nhập không khớp với đăng ký này.</translation>
     </message>
@@ -3687,6 +3699,10 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
     <message>
       <source>Undo</source>
       <translation>Hoàn tác</translation>
+    </message>
+    <message>
+      <source>Unexpected HTTP status {status}.</source>
+      <translation>Mã trạng thái HTTP ngoài dự kiến: {status}.</translation>
     </message>
     <message>
       <source>Unexpected authorization issuer.</source>

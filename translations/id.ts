@@ -1303,8 +1303,16 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Unduhan melebihi batas ukurannya.</translation>
     </message>
     <message>
+      <source>Download failed: {detail}</source>
+      <translation>Unduhan gagal: {detail}</translation>
+    </message>
+    <message>
       <source>Download helper has no output pipe.</source>
       <translation>Helper unduhan tidak memiliki pipa keluaran.</translation>
+    </message>
+    <message>
+      <source>Download interrupted. Retry setup to resume.</source>
+      <translation>Unduhan terputus. Coba lagi penyiapan untuk melanjutkan unduhan.</translation>
     </message>
     <message>
       <source>Download models</source>
@@ -3477,6 +3485,10 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Jendela yang dipilih telah ditutup. Segarkan dan pilih jendela.</translation>
     </message>
     <message>
+      <source>The server returned an invalid byte range.</source>
+      <translation>Server mengembalikan rentang byte yang tidak valid.</translation>
+    </message>
+    <message>
       <source>The signed-in account does not match this registration.</source>
       <translation>Akun yang masuk tidak cocok dengan registrasi ini.</translation>
     </message>
@@ -3687,6 +3699,10 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
     <message>
       <source>Undo</source>
       <translation>Urungkan</translation>
+    </message>
+    <message>
+      <source>Unexpected HTTP status {status}.</source>
+      <translation>Status HTTP tidak terduga: {status}.</translation>
     </message>
     <message>
       <source>Unexpected authorization issuer.</source>

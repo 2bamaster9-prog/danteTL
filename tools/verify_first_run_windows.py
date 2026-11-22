@@ -77,8 +77,11 @@ def main() -> int:
     started = time.monotonic()
 
     def download(url, destination, limit, progress, cancel):
-        with destination.open("wb") as output:
-            for offset in range(0, len(data), 256 * 1024):
+        start = destination.stat().st_size if destination.exists() else 0
+        if start:
+            evidence["resumed_model_bytes"] = start
+        with destination.open("ab") as output:
+            for offset in range(start, len(data), 256 * 1024):
                 if cancel.wait(0.05):
                     raise model_store.Cancelled()
                 chunk = data[offset : offset + 256 * 1024]

@@ -1303,8 +1303,16 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>डाउनलोड अपनी आकार सीमा से अधिक हो गया।</translation>
     </message>
     <message>
+      <source>Download failed: {detail}</source>
+      <translation>डाउनलोड विफल: {detail}</translation>
+    </message>
+    <message>
       <source>Download helper has no output pipe.</source>
       <translation>डाउनलोड हेल्पर में कोई आउटपुट पाइप नहीं है।</translation>
+    </message>
+    <message>
+      <source>Download interrupted. Retry setup to resume.</source>
+      <translation>डाउनलोड रुक गया। इसे वहीं से जारी रखने के लिए सेटअप फिर से आज़माएँ।</translation>
     </message>
     <message>
       <source>Download models</source>
@@ -3477,6 +3485,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>चयनित विंडो बंद हो गई है। रीफ़्रेश करें और एक विंडो चुनें।</translation>
     </message>
     <message>
+      <source>The server returned an invalid byte range.</source>
+      <translation>सर्वर ने अमान्य बाइट रेंज लौटाई।</translation>
+    </message>
+    <message>
       <source>The signed-in account does not match this registration.</source>
       <translation>साइन-इन किया गया खाता इस पंजीकरण से मेल नहीं खाता।</translation>
     </message>
@@ -3687,6 +3699,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Undo</source>
       <translation>पूर्ववत करें</translation>
+    </message>
+    <message>
+      <source>Unexpected HTTP status {status}.</source>
+      <translation>अनपेक्षित HTTP स्थिति {status}।</translation>
     </message>
     <message>
       <source>Unexpected authorization issuer.</source>

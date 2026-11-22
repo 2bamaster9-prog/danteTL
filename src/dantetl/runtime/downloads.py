@@ -1,9 +1,6 @@
 """Verified, byte-counted downloads of uv's locked Windows CPython 3.12 wheel selection."""
 
-import hashlib
-import os
 import re
-import tempfile
 import threading
 import tomllib
 from dataclasses import dataclass
@@ -16,7 +13,8 @@ from packaging.utils import parse_wheel_filename
 
 from dantetl.i18n import tr
 from dantetl.runtime.download_transport import download_file
-from dantetl.runtime.setup_values import Cancelled, DownloadProgress, ModelProgress, Progress
+from dantetl.runtime.setup_values import DownloadProgress, ModelProgress, Progress
+from dantetl.runtime.verified_file import check_cancel, install_file, matches
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,22 +110,6 @@ def locked_wheels(path: Path, *, cpu_wheel: Path | None = None) -> tuple[Runtime
     return tuple(result)
 
 
-def _check(cancel: threading.Event) -> None:
-    if cancel.is_set():
-        raise Cancelled()
-
-
-def _valid(path: Path, wheel: RuntimeArtifact, cancel: threading.Event) -> bool:
-    if not path.is_file() or (wheel.size and path.stat().st_size != wheel.size):
-        return False
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        while chunk := stream.read(1024 * 1024):
-            _check(cancel)
-            digest.update(chunk)
-    return digest.hexdigest() == wheel.sha256
-
-
 def download_artifact(
     wheel: RuntimeArtifact,
     cache: Path,
@@ -136,9 +118,9 @@ def download_artifact(
     *,
     offline: bool = False,
 ) -> Path:
-    _check(cancel)
+    check_cancel(cancel)
     if wheel.local_path is not None:
-        if not _valid(wheel.local_path, wheel, cancel):
+        if not matches(wheel.local_path, wheel.sha256, wheel.size, cancel):
             raise RuntimeError(
                 tr("Bundled CPU wheel checksum mismatch. Extract the complete release.")
             )
@@ -149,17 +131,12 @@ def download_artifact(
     destination = directory / wheel.filename
     if not destination.resolve().is_relative_to(cache.resolve()):
         raise ValueError(tr("Runtime download cache path escaped its directory."))
-    if _valid(destination, wheel, cancel):
-        progress(ModelProgress(tr("Reusing verified {name}.", name=wheel.name)))
-        return destination
-    if offline:
-        raise RuntimeError(
-            tr("Verified runtime asset is not cached: {filename}", filename=wheel.filename)
-        )
-    temporary = None
-    try:
-        with tempfile.NamedTemporaryFile(dir=directory, suffix=".part", delete=False) as output:
-            temporary = Path(output.name)
+
+    def receive(partial: Path) -> None:
+        if offline:
+            raise RuntimeError(
+                tr("Verified runtime asset is not cached: {filename}", filename=wheel.filename)
+            )
 
         def report(received: int, total: int) -> None:
             progress(
@@ -169,18 +146,18 @@ def download_artifact(
                 )
             )
 
-        download_file(wheel.url, temporary, wheel.size or 4 * 2**30, report, cancel)
-        _check(cancel)
-        if not _valid(temporary, wheel, cancel):
-            raise RuntimeError(
-                tr("Checksum/size mismatch for {name}. Retry setup.", name=wheel.name)
-            )
-        _check(cancel)
-        os.replace(temporary, destination)
-        return destination
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
+        download_file(wheel.url, partial, wheel.size, report, cancel)
+
+    if not install_file(
+        destination,
+        wheel.sha256,
+        wheel.size,
+        cancel,
+        receive,
+        tr("Checksum/size mismatch for {name}. Retry setup.", name=wheel.name),
+    ):
+        progress(ModelProgress(tr("Reusing verified {name}.", name=wheel.name)))
+    return destination
 
 
 def prepare_wheels(

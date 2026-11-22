@@ -1303,8 +1303,16 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>ダウンロードがサイズ制限を超えました。</translation>
     </message>
     <message>
+      <source>Download failed: {detail}</source>
+      <translation>ダウンロードに失敗しました：{detail}</translation>
+    </message>
+    <message>
       <source>Download helper has no output pipe.</source>
       <translation>ダウンロードヘルパーに出力パイプがありません。</translation>
+    </message>
+    <message>
+      <source>Download interrupted. Retry setup to resume.</source>
+      <translation>ダウンロードが中断されました。セットアップを再試行すると続きからダウンロードできます。</translation>
     </message>
     <message>
       <source>Download models</source>
@@ -3477,6 +3485,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>選択されたウィンドウが閉じました。更新してウィンドウを選択してください。</translation>
     </message>
     <message>
+      <source>The server returned an invalid byte range.</source>
+      <translation>サーバーから無効なバイト範囲が返されました。</translation>
+    </message>
+    <message>
       <source>The signed-in account does not match this registration.</source>
       <translation>サインインしているアカウントはこの登録と一致しません。</translation>
     </message>
@@ -3687,6 +3699,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Undo</source>
       <translation>元に戻す</translation>
+    </message>
+    <message>
+      <source>Unexpected HTTP status {status}.</source>
+      <translation>予期しない HTTP ステータス：{status}。</translation>
     </message>
     <message>
       <source>Unexpected authorization issuer.</source>

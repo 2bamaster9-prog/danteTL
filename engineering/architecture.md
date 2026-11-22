@@ -590,8 +590,11 @@ are not monetary limits. Automated tests use disposable fake credentials and tra
 Missing models do not stop capture. Inference never downloads; setup is explicit, with pinned hashes/sizes,
 byte progress and atomic publication. Valid files survive retry/cancel; bundled repairs use writable state.
 Both installers share `download_transport`: one contained child per transfer, parent-enforced 30-minute
-deadline across DNS/connection/headers/body and cancellation polling at 100 ms. Terminate/drain before
-partial cleanup. Socket inactivity alone is insufficient. Parent validation precedes atomic replacement.
+deadline across DNS/connection/headers/body and cancellation polling at 100 ms. A worker lock
+protects each digest-named partial through transfer, verification and publication. Transient errors
+get bounded retries. Later attempts resume from the saved byte offset, including after app exit.
+Appending requires a matching HTTP range. A full response replaces the partial. The parent verifies
+the complete file against the pinned SHA-256 before atomic replacement.
 Bundled restoration and verified cache reuse stay offline without a downloader child.
 
 `OwnedProcess` creates suspended, assigns its Windows job, then resumes. Never launch uncontained.

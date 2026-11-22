@@ -1303,8 +1303,16 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>การดาวน์โหลดเกินขีดจำกัดขนาด</translation>
     </message>
     <message>
+      <source>Download failed: {detail}</source>
+      <translation>ดาวน์โหลดไม่สำเร็จ: {detail}</translation>
+    </message>
+    <message>
       <source>Download helper has no output pipe.</source>
       <translation>ตัวช่วยดาวน์โหลดไม่มีท่อส่งออก</translation>
+    </message>
+    <message>
+      <source>Download interrupted. Retry setup to resume.</source>
+      <translation>การดาวน์โหลดหยุดชะงัก ลองตั้งค่าอีกครั้งเพื่อดาวน์โหลดต่อ</translation>
     </message>
     <message>
       <source>Download models</source>
@@ -3477,6 +3485,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>หน้าต่างที่เลือกปิดไปแล้ว โปรดรีเฟรชและเลือกหน้าต่าง</translation>
     </message>
     <message>
+      <source>The server returned an invalid byte range.</source>
+      <translation>เซิร์ฟเวอร์ส่งคืนช่วงไบต์ที่ไม่ถูกต้อง</translation>
+    </message>
+    <message>
       <source>The signed-in account does not match this registration.</source>
       <translation>บัญชีที่ลงชื่อเข้าใช้ไม่ตรงกับการลงทะเบียนนี้</translation>
     </message>
@@ -3687,6 +3699,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Undo</source>
       <translation>เลิกทำ</translation>
+    </message>
+    <message>
+      <source>Unexpected HTTP status {status}.</source>
+      <translation>รหัสสถานะ HTTP ที่ไม่คาดคิด: {status}</translation>
     </message>
     <message>
       <source>Unexpected authorization issuer.</source>

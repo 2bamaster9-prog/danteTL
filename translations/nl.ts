@@ -1303,8 +1303,16 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Download overschreed de groottelimiet.</translation>
     </message>
     <message>
+      <source>Download failed: {detail}</source>
+      <translation>Download mislukt: {detail}</translation>
+    </message>
+    <message>
       <source>Download helper has no output pipe.</source>
       <translation>Downloadhelper heeft geen uitvoerpipe.</translation>
+    </message>
+    <message>
+      <source>Download interrupted. Retry setup to resume.</source>
+      <translation>Download onderbroken. Probeer de installatie opnieuw om de download te hervatten.</translation>
     </message>
     <message>
       <source>Download models</source>
@@ -3477,6 +3485,10 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
       <translation>Het geselecteerde venster is gesloten. Vernieuw en selecteer een venster.</translation>
     </message>
     <message>
+      <source>The server returned an invalid byte range.</source>
+      <translation>De server heeft een ongeldig bytebereik teruggestuurd.</translation>
+    </message>
+    <message>
       <source>The signed-in account does not match this registration.</source>
       <translation>Het aangemelde account komt niet overeen met deze registratie.</translation>
     </message>
@@ -3687,6 +3699,10 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
     <message>
       <source>Undo</source>
       <translation>Ongedaan maken</translation>
+    </message>
+    <message>
+      <source>Unexpected HTTP status {status}.</source>
+      <translation>Onverwachte HTTP-status {status}.</translation>
     </message>
     <message>
       <source>Unexpected authorization issuer.</source>

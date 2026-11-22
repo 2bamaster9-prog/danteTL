@@ -1303,8 +1303,16 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>下载超出其大小限制。</translation>
     </message>
     <message>
+      <source>Download failed: {detail}</source>
+      <translation>下载失败：{detail}</translation>
+    </message>
+    <message>
       <source>Download helper has no output pipe.</source>
       <translation>下载助手没有输出管道。</translation>
+    </message>
+    <message>
+      <source>Download interrupted. Retry setup to resume.</source>
+      <translation>下载已中断。请重试设置以继续下载。</translation>
     </message>
     <message>
       <source>Download models</source>
@@ -3477,6 +3485,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>所选窗口已关闭。请刷新并选择一个窗口。</translation>
     </message>
     <message>
+      <source>The server returned an invalid byte range.</source>
+      <translation>服务器返回的字节范围无效。</translation>
+    </message>
+    <message>
       <source>The signed-in account does not match this registration.</source>
       <translation>已登录的账户与此注册不匹配。</translation>
     </message>
@@ -3687,6 +3699,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Undo</source>
       <translation>撤销</translation>
+    </message>
+    <message>
+      <source>Unexpected HTTP status {status}.</source>
+      <translation>意外的 HTTP 状态码：{status}。</translation>
     </message>
     <message>
       <source>Unexpected authorization issuer.</source>

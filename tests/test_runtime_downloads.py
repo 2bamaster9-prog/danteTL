@@ -147,7 +147,11 @@ def test_failure_never_publishes_partial_wheel_or_removes_other_cached_files(
     with pytest.raises(Cancelled if failure == "cancel" else RuntimeError):
         downloads.download_artifact(wheel, tmp_path, progress, cancel)
     assert kept.read_bytes() == b"kept"
-    assert not list(tmp_path.rglob("*.part"))
+    parts = list(tmp_path.rglob("*.part"))
+    if failure == "cancel":
+        assert len(parts) == 1 and 0 < parts[0].stat().st_size < wheel.size
+    else:
+        assert not parts
     assert not (tmp_path / wheel.sha256 / wheel.filename).exists()
 
 

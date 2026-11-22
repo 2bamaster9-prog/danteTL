@@ -10,7 +10,7 @@ def download_bytes(data: bytes):
                 if cancel.is_set():
                     raise Cancelled()
                 chunk = data[offset : offset + 256 * 1024]
-                if offset + len(chunk) > limit:
+                if limit and offset + len(chunk) > limit:
                     raise RuntimeError("Download exceeded its size limit.")
                 output.write(chunk)
                 progress(offset + len(chunk), 0)

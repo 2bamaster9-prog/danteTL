@@ -31,7 +31,8 @@ view wiring only; source/acknowledgement/retention policy uses the real `LiveSes
 
 Download/runtime loading changes also run `tests/test_download_transport.py` and
 `tests/test_llama_runtime.py`: local trickling headers/body, blocked connection setup, deadlines,
-cancel/partial cleanup, concurrent initialization and failed-load retry. Check the windowed helper
+cancel and retry from a saved prefix, range validation, full-response fallback, concurrent
+initialization and failed-load retry. Check the windowed helper
 in a rebuilt EXE. Model-free tests must not contact real model hosts.
 
 ## Native fixture rules

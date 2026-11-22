@@ -47,16 +47,25 @@ def wait(process: OwnedProcess, seconds: float) -> None:
 def download_helper(exe: Path, output: Path, environment: dict[str, str]) -> None:
     """The windowed EXE must stream progress through its inherited pipe without Python on PATH."""
     payload = b"synthetic download fixture" * 20000
+    split = len(payload) // 3
+    ranges = []
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, format, *args):
             pass
 
         def do_GET(self):
-            self.send_response(200)
-            self.send_header("Content-Length", str(len(payload)))
+            requested = self.headers.get("Range")
+            ranges.append(requested)
+            start = split if requested == f"bytes={split}-" else 0
+            self.send_response(206 if start else 200)
+            if start:
+                self.send_header(
+                    "Content-Range", f"bytes {start}-{len(payload) - 1}/{len(payload)}"
+                )
+            self.send_header("Content-Length", str(len(payload) - start))
             self.end_headers()
-            self.wfile.write(payload)
+            self.wfile.write(payload[start:] if start else payload[:split])
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.05})
@@ -80,6 +89,7 @@ def download_helper(exe: Path, output: Path, environment: dict[str, str]) -> Non
             timeout=15,
         )
         assert temporary.read_bytes() == payload
+        assert ranges == [None, f"bytes={split}-"]
         assert json.loads(progress[-1]) == {"received": len(payload), "total": len(payload)}
     finally:
         server.shutdown()

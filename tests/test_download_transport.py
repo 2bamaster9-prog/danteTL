@@ -3,7 +3,7 @@
 import hashlib
 import threading
 import time
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -80,7 +80,7 @@ def installer(kind, root, url, monkeypatch, data=b"good", size=1000000):
 @pytest.mark.parametrize("kind", ["model", "runtime"])
 @pytest.mark.parametrize("phase", ["headers", "body"])
 @pytest.mark.parametrize("interrupt", ["cancel", "deadline"])
-def test_trickling_download_stops_before_peer_finishes_and_cleans_partial(
+def test_trickling_download_stops_before_peer_finishes_and_preserves_destination(
     tmp_path, monkeypatch, kind, phase, interrupt
 ):
     monkeypatch.setattr(
@@ -115,7 +115,8 @@ def test_trickling_download_stops_before_peer_finishes_and_cleans_partial(
                 assert "timed out" in str(errors[0])
             assert disconnected.wait(2), "The child must release its network connection"
             assert destination.read_bytes() == b"previous"
-            assert not list(tmp_path.rglob("*.part"))
+            for partial in tmp_path.rglob("*.part"):
+                assert phase == "body" and 0 < partial.stat().st_size < 1000000
         finally:
             cancel.set()
             thread.join(3)
@@ -132,6 +133,90 @@ def test_real_transfer_verifies_publishes_and_reports_exact_bytes(tmp_path, monk
         assert destination.read_bytes() == data
         assert any(p.download and p.download.received == len(data) for p in progress)
         assert not list(tmp_path.rglob("*.part"))
+
+
+@pytest.mark.parametrize(
+    ("kind", "recovery"),
+    [
+        ("model", "retry"),
+        ("runtime", "retry"),
+        ("model", "reopen"),
+        ("runtime", "ignores-range"),
+        ("runtime", "bad-range"),
+        ("runtime", "short-range"),
+        ("model", "corrupt"),
+    ],
+)
+def test_resume_interrupted_transfer(tmp_path, monkeypatch, kind, recovery):
+    data = bytes(range(256)) * 400
+    split = 15439
+    requests = []
+    offline = threading.Event()
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, format, *args):
+            pass
+
+        def do_GET(self):
+            requested = self.headers.get("Range")
+            requests.append(requested)
+            if offline.is_set():
+                self.send_error(403)
+                return
+            first = len(requests) == 1
+            partial = bool(requested and recovery != "ignores-range")
+            self.send_response(206 if partial else 200)
+            offset = split if partial else 0
+            if requested and recovery == "short-range":
+                offset = int(requested.removeprefix("bytes=").removesuffix("-"))
+            stop = split * 2 if recovery == "short-range" and offset == split else len(data)
+            body = data[offset:stop]
+            self.send_header("Content-Length", str(len(body)))
+            if partial:
+                start = offset - 1 if recovery == "bad-range" else offset
+                self.send_header("Content-Range", f"bytes {start}-{stop - 1}/{len(data)}")
+            self.end_headers()
+            if first and recovery == "reopen":
+                offline.set()
+            if partial and recovery == "corrupt":
+                body = b"x" * len(body)
+            with suppress(ConnectionError):
+                self.wfile.write(body[:split] if first else body)
+
+    with ThreadingHTTPServer(("127.0.0.1", 0), Handler) as http:
+        thread = threading.Thread(target=http.serve_forever, kwargs={"poll_interval": 0.02})
+        thread.start()
+        try:
+            url = f"http://127.0.0.1:{http.server_port}/fixture"
+            run, destination = installer(kind, tmp_path, url, monkeypatch, data, len(data))
+            destination.write_bytes(b"previous")
+            updates = []
+            if recovery == "reopen":
+                with pytest.raises(RuntimeError):
+                    run(updates.append, threading.Event())
+                assert destination.read_bytes() == b"previous"
+                assert next(tmp_path.rglob("*.part")).read_bytes() == data[:split]
+                offline.clear()
+            if recovery == "corrupt":
+                with pytest.raises(RuntimeError, match="mismatch"):
+                    run(updates.append, threading.Event())
+                assert destination.read_bytes() == b"previous"
+            else:
+                run(updates.append, threading.Event())
+                assert destination.read_bytes() == data
+            ranged = f"bytes={split}-"
+            expected = [None, ranged]
+            if recovery == "reopen":
+                expected.append(ranged)
+            if recovery == "bad-range":
+                expected.append(None)
+            if recovery == "short-range":
+                expected.append(f"bytes={split * 2}-")
+            assert requests == expected
+            assert not list(tmp_path.rglob("*.part"))
+        finally:
+            http.shutdown()
+            thread.join(3)
 
 
 @pytest.mark.parametrize("phase", ["dns", "connect"])
@@ -202,3 +287,20 @@ def test_windowed_helper_keeps_progress_pipe(tmp_path, monkeypatch):
         )
         assert destination.read_bytes() == b"good"
         assert progress[-1] == (4, 0)
+
+
+def test_download_helper_error_uses_the_app_language(app, tmp_path):
+    from dantetl.i18n import tr
+    from dantetl.ui.localization import install_language
+
+    install_language(app, "pt-PT")
+    try:
+        expected = tr("Download exceeded its size limit.")
+        assert expected != "Download exceeded its size limit."
+        with server("complete") as (url, _, _), pytest.raises(RuntimeError) as error:
+            download_transport.download_file(
+                url, tmp_path / "fixture.part", 2, lambda *_: None, threading.Event()
+            )
+        assert str(error.value) == expected
+    finally:
+        install_language(app, "en")

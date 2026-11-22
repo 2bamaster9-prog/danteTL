@@ -1303,8 +1303,16 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>تجاوز التنزيل حد الحجم الخاص به.</translation>
     </message>
     <message>
+      <source>Download failed: {detail}</source>
+      <translation>تعذّر التنزيل: {detail}</translation>
+    </message>
+    <message>
       <source>Download helper has no output pipe.</source>
       <translation>أداة تنزيل المساعدة ليس لها أنبوب إخراج.</translation>
+    </message>
+    <message>
+      <source>Download interrupted. Retry setup to resume.</source>
+      <translation>توقّف التنزيل. أعد محاولة الإعداد لاستئنافه.</translation>
     </message>
     <message>
       <source>Download models</source>
@@ -3477,6 +3485,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>أُغلقت النافذة المحددة. حدّث واختر نافذة.</translation>
     </message>
     <message>
+      <source>The server returned an invalid byte range.</source>
+      <translation>أعاد الخادم نطاق بايتات غير صالح.</translation>
+    </message>
+    <message>
       <source>The signed-in account does not match this registration.</source>
       <translation>الحساب المسجَّل الدخول لا يطابق هذا التسجيل.</translation>
     </message>
@@ -3687,6 +3699,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Undo</source>
       <translation>تراجع</translation>
+    </message>
+    <message>
+      <source>Unexpected HTTP status {status}.</source>
+      <translation>رمز حالة HTTP غير متوقّع: {status}.</translation>
     </message>
     <message>
       <source>Unexpected authorization issuer.</source>

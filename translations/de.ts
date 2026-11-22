@@ -1303,8 +1303,16 @@ Details finden Sie in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Download hat sein Größenlimit überschritten.</translation>
     </message>
     <message>
+      <source>Download failed: {detail}</source>
+      <translation>Download fehlgeschlagen: {detail}</translation>
+    </message>
+    <message>
       <source>Download helper has no output pipe.</source>
       <translation>Download-Helper hat keine Ausgabepipe.</translation>
+    </message>
+    <message>
+      <source>Download interrupted. Retry setup to resume.</source>
+      <translation>Download unterbrochen. Starte die Einrichtung erneut, um ihn fortzusetzen.</translation>
     </message>
     <message>
       <source>Download models</source>
@@ -3477,6 +3485,10 @@ Modell-Downloads: bis zu {size:.2f} GB; vorhandene Dateien werden geprüft und w
       <translation>Das ausgewählte Fenster wurde geschlossen. Aktualisiere und wähle ein Fenster.</translation>
     </message>
     <message>
+      <source>The server returned an invalid byte range.</source>
+      <translation>Der Server hat einen ungültigen Bytebereich zurückgegeben.</translation>
+    </message>
+    <message>
       <source>The signed-in account does not match this registration.</source>
       <translation>Das angemeldete Konto stimmt nicht mit dieser Registrierung überein.</translation>
     </message>
@@ -3687,6 +3699,10 @@ Modell-Downloads: bis zu {size:.2f} GB; vorhandene Dateien werden geprüft und w
     <message>
       <source>Undo</source>
       <translation>Rückgängig</translation>
+    </message>
+    <message>
+      <source>Unexpected HTTP status {status}.</source>
+      <translation>Unerwarteter HTTP-Status {status}.</translation>
     </message>
     <message>
       <source>Unexpected authorization issuer.</source>

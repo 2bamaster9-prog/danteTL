@@ -1303,8 +1303,16 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>Загрузка превысила свой лимит размера.</translation>
     </message>
     <message>
+      <source>Download failed: {detail}</source>
+      <translation>Не удалось скачать файл: {detail}</translation>
+    </message>
+    <message>
       <source>Download helper has no output pipe.</source>
       <translation>У помощника загрузки нет выходного канала.</translation>
+    </message>
+    <message>
+      <source>Download interrupted. Retry setup to resume.</source>
+      <translation>Загрузка прервана. Повторите настройку, чтобы продолжить загрузку.</translation>
     </message>
     <message>
       <source>Download models</source>
@@ -3477,6 +3485,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>Выбранное окно закрылось. Обновите и выберите окно.</translation>
     </message>
     <message>
+      <source>The server returned an invalid byte range.</source>
+      <translation>Сервер вернул недопустимый диапазон байтов.</translation>
+    </message>
+    <message>
       <source>The signed-in account does not match this registration.</source>
       <translation>Учётная запись, в которую выполнен вход, не соответствует этой регистрации.</translation>
     </message>
@@ -3687,6 +3699,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Undo</source>
       <translation>Отменить</translation>
+    </message>
+    <message>
+      <source>Unexpected HTTP status {status}.</source>
+      <translation>Неожиданный код состояния HTTP: {status}.</translation>
     </message>
     <message>
       <source>Unexpected authorization issuer.</source>

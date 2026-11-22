@@ -1303,8 +1303,16 @@ Os detalhes estão em %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>O download excedeu o limite de tamanho.</translation>
     </message>
     <message>
+      <source>Download failed: {detail}</source>
+      <translation>Falha no download: {detail}</translation>
+    </message>
+    <message>
       <source>Download helper has no output pipe.</source>
       <translation>O auxiliar de download não tem pipe de saída.</translation>
+    </message>
+    <message>
+      <source>Download interrupted. Retry setup to resume.</source>
+      <translation>Download interrompido. Tente a configuração novamente para retomá-lo.</translation>
     </message>
     <message>
       <source>Download models</source>
@@ -3477,6 +3485,10 @@ Downloads de modelos: até {size:.2f} GB; arquivos existentes são verificados e
       <translation>A janela selecionada foi fechada. Atualize e selecione uma janela.</translation>
     </message>
     <message>
+      <source>The server returned an invalid byte range.</source>
+      <translation>O servidor retornou um intervalo de bytes inválido.</translation>
+    </message>
+    <message>
       <source>The signed-in account does not match this registration.</source>
       <translation>A conta conectada não corresponde a este registro.</translation>
     </message>
@@ -3687,6 +3699,10 @@ Downloads de modelos: até {size:.2f} GB; arquivos existentes são verificados e
     <message>
       <source>Undo</source>
       <translation>Desfazer</translation>
+    </message>
+    <message>
+      <source>Unexpected HTTP status {status}.</source>
+      <translation>Status HTTP inesperado: {status}.</translation>
     </message>
     <message>
       <source>Unexpected authorization issuer.</source>

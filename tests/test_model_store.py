@@ -38,10 +38,12 @@ def test_bad_download_does_not_replace_existing_file(tmp_path, monkeypatch, payl
     with pytest.raises(RuntimeError):
         store.install_model(model, lambda p: None, threading.Event())
     assert (tmp_path / "weights").read_bytes() == b"old"
-    assert not tuple(tmp_path.glob("*.part"))
+    assert [p.read_bytes() for p in tmp_path.glob("*.part")] == (
+        [payload] if len(payload) < 4 else []
+    )
 
 
-def test_cancelled_download_removes_partial_without_publishing(tmp_path, monkeypatch):
+def test_cancel_after_last_byte_reuses_verified_partial_on_retry(tmp_path, monkeypatch):
     cancel = threading.Event()
     monkeypatch.setattr(store, "download_file", download_bytes(b"good"))
 
@@ -51,7 +53,10 @@ def test_cancelled_download_removes_partial_without_publishing(tmp_path, monkeyp
 
     with pytest.raises(store.Cancelled):
         store.install_model(bundle(tmp_path), progress, cancel)
-    assert not tuple(tmp_path.iterdir())
+    assert not bundle(tmp_path).present()
+    monkeypatch.setattr(store, "download_file", lambda *a: pytest.fail("Already downloaded"))
+    store.install_model(bundle(tmp_path), lambda _: None, threading.Event())
+    assert bundle(tmp_path).present()
 
 
 def test_ocr_repair_uses_bundled_files_offline_and_preserves_app_resources(tmp_path, monkeypatch):
@@ -104,7 +109,8 @@ def test_cancelled_local_repair_never_publishes_a_partial_file(tmp_path, monkeyp
         store.install_model(model, lambda p: cancel.set() if p.received else None, cancel)
     assert (primary / "weights").read_bytes() == b"evil"
     assert (bundled / "weights").read_bytes() == b"good"
-    assert not tuple(primary.glob("*.part"))
+    store.install_model(model, lambda _: None, threading.Event())
+    assert (primary / "weights").read_bytes() == b"good"
 
 
 def test_worker_reports_failure_and_cancellation():

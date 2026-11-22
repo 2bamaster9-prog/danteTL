@@ -4,7 +4,6 @@ import hashlib
 import json
 import os
 import platform
-import tempfile
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, replace
@@ -20,6 +19,7 @@ from dantetl.paths import is_standalone, state_root
 from dantetl.runtime.assets import ModelAsset, asset_directory, assets_present
 from dantetl.runtime.download_transport import download_file
 from dantetl.runtime.setup_values import Cancelled, DownloadProgress, ModelProgress, Progress
+from dantetl.runtime.verified_file import check_cancel, install_file, matches
 
 LANGUAGE_RUNTIME_SETUP = mark(
     "The model is downloaded, but its language-model engine is not installed in this environment. "
@@ -123,28 +123,15 @@ def model_catalog(language: SourceLanguage = DEFAULT_SOURCE) -> tuple[ModelBundl
     )
 
 
-def _check_cancel(cancel: threading.Event) -> None:
-    if cancel.is_set():
-        raise Cancelled()
-
-
-def _valid(path: Path, asset: ModelAsset, cancel: threading.Event) -> bool:
-    if not path.is_file() or path.stat().st_size != asset.size:
-        return False
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        while chunk := stream.read(1024 * 1024):
-            _check_cancel(cancel)
-            digest.update(chunk)
-    return digest.hexdigest() == asset.sha256
-
-
 def install_model(bundle: ModelBundle, progress: Progress, cancel: threading.Event) -> None:
     """Called only by an explicit UI/CLI download action. Atomic verified files."""
-    _check_cancel(cancel)
+    check_cancel(cancel)
     if bundle.bundled_directory and bundle.local_directory == bundle.bundled_directory:
         progress(ModelProgress(tr("Checking included OCR files…"), 0, bundle.size))
-        if all(_valid(bundle.bundled_directory / a.filename, a, cancel) for a in bundle.assets):
+        if all(
+            matches(bundle.bundled_directory / a.filename, a.sha256, a.size, cancel)
+            for a in bundle.assets
+        ):
             progress(ModelProgress(tr("Included OCR files verified."), bundle.size, bundle.size))
             return
     if is_standalone() and bundle.directory.resolve().is_relative_to(
@@ -156,73 +143,62 @@ def install_model(bundle: ModelBundle, progress: Progress, cancel: threading.Eve
     bundle.directory.mkdir(parents=True, exist_ok=True)
     completed = 0
     for asset in bundle.assets:
-        _check_cancel(cancel)
+        check_cancel(cancel)
         destination = bundle.directory / asset.filename
         progress(
             ModelProgress(
                 tr("Checking {filename}…", filename=asset.filename), completed, bundle.size
             )
         )
-        if _valid(destination, asset, cancel):
-            completed += asset.size
-            continue
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        temporary: Path | None = None
-        try:
-            with tempfile.NamedTemporaryFile(
-                dir=destination.parent, suffix=".part", delete=False
-            ) as out:
-                temporary = Path(out.name)
-                received = 0
-                local = (
-                    bundle.bundled_directory / asset.filename if bundle.bundled_directory else None
-                )
-                if local and not _valid(local, asset, cancel):
-                    local = None
-
-                def report(
-                    received: int,
-                    _total: int,
-                    *,
-                    asset: ModelAsset = asset,
-                    local: Path | None = local,
-                    completed: int = completed,
-                ) -> None:
-                    progress(
-                        ModelProgress(
-                            tr("Restoring {filename}", filename=asset.filename)
-                            if local
-                            else tr("Downloading {filename}", filename=asset.filename),
-                            completed + received,
-                            bundle.size,
-                            download=DownloadProgress(asset.filename, received, asset.size),
-                        )
-                    )
-
-                if local:
-                    with local.open("rb") as response:
-                        while chunk := response.read(1024 * 1024):
-                            _check_cancel(cancel)
-                            received += len(chunk)
-                            out.write(chunk)
-                            report(received, asset.size)
-            if not local:
-                download_file(asset.url, temporary, asset.size, report, cancel)
-            _check_cancel(cancel)
-            if not _valid(temporary, asset, cancel):
-                raise RuntimeError(
-                    tr(
-                        "Checksum/size mismatch for {filename}. Retry the download.",
-                        filename=asset.filename,
-                    )
-                )
-            _check_cancel(cancel)
-            os.replace(temporary, destination)
-            completed += asset.size
-        finally:
-            if temporary is not None:
-                temporary.unlink(missing_ok=True)
+        _install_asset(bundle, asset, destination, completed, progress, cancel)
+        completed += asset.size
     progress(ModelProgress(tr("Model files ready and verified."), bundle.size, bundle.size))
+
+
+def _install_asset(
+    bundle: ModelBundle,
+    asset: ModelAsset,
+    destination: Path,
+    completed: int,
+    progress: Progress,
+    cancel: threading.Event,
+) -> None:
+    def receive(partial: Path) -> None:
+        local = bundle.bundled_directory / asset.filename if bundle.bundled_directory else None
+        restore = local is not None and matches(local, asset.sha256, asset.size, cancel)
+        message = (
+            tr("Restoring {filename}", filename=asset.filename)
+            if restore
+            else tr("Downloading {filename}", filename=asset.filename)
+        )
+
+        def report(received: int, _total: int) -> None:
+            progress(
+                ModelProgress(
+                    message,
+                    completed + received,
+                    bundle.size,
+                    download=DownloadProgress(asset.filename, received, asset.size),
+                )
+            )
+
+        if restore and local is not None:
+            with local.open("rb") as source, partial.open("wb") as output:
+                while chunk := source.read(1024 * 1024):
+                    check_cancel(cancel)
+                    output.write(chunk)
+                    report(output.tell(), asset.size)
+        else:
+            download_file(asset.url, partial, asset.size, report, cancel)
+
+    install_file(
+        destination,
+        asset.sha256,
+        asset.size,
+        cancel,
+        receive,
+        tr("Checksum/size mismatch for {filename}. Retry the download.", filename=asset.filename),
+    )
 
 
 class ModelOperation:
@@ -252,7 +228,7 @@ class ModelOperation:
 
     def _run(self, action: Callable[[Progress, threading.Event], None]) -> None:
         try:
-            _check_cancel(self._cancel)
+            check_cancel(self._cancel)
             action(self._progress, self._cancel)
             value = self.snapshot()
             self._progress(replace(value, done=True))

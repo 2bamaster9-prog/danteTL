@@ -1303,8 +1303,16 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>다운로드가 크기 한도를 초과했습니다.</translation>
     </message>
     <message>
+      <source>Download failed: {detail}</source>
+      <translation>다운로드 실패: {detail}</translation>
+    </message>
+    <message>
       <source>Download helper has no output pipe.</source>
       <translation>다운로드 도우미에 출력 파이프가 없습니다.</translation>
+    </message>
+    <message>
+      <source>Download interrupted. Retry setup to resume.</source>
+      <translation>다운로드가 중단되었습니다. 설정을 다시 시도하면 이어서 다운로드합니다.</translation>
     </message>
     <message>
       <source>Download models</source>
@@ -3477,6 +3485,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>선택한 창이 닫혔습니다. 새로 고친 후 창을 선택하세요.</translation>
     </message>
     <message>
+      <source>The server returned an invalid byte range.</source>
+      <translation>서버에서 잘못된 바이트 범위를 반환했습니다.</translation>
+    </message>
+    <message>
       <source>The signed-in account does not match this registration.</source>
       <translation>로그인한 계정이 이 등록과 일치하지 않습니다.</translation>
     </message>
@@ -3687,6 +3699,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Undo</source>
       <translation>실행 취소</translation>
+    </message>
+    <message>
+      <source>Unexpected HTTP status {status}.</source>
+      <translation>예상치 못한 HTTP 상태 코드: {status}.</translation>
     </message>
     <message>
       <source>Unexpected authorization issuer.</source>

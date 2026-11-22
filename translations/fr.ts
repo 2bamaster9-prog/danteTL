@@ -1303,8 +1303,16 @@ Les détails se trouvent dans %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Le téléchargement a dépassé sa limite de taille.</translation>
     </message>
     <message>
+      <source>Download failed: {detail}</source>
+      <translation>Échec du téléchargement : {detail}</translation>
+    </message>
+    <message>
       <source>Download helper has no output pipe.</source>
       <translation>L'outil de téléchargement n'a pas de pipe de sortie.</translation>
+    </message>
+    <message>
+      <source>Download interrupted. Retry setup to resume.</source>
+      <translation>Téléchargement interrompu. Relancez la configuration pour le reprendre.</translation>
     </message>
     <message>
       <source>Download models</source>
@@ -3477,6 +3485,10 @@ Téléchargements de modèles : jusqu'à {size:.2f} Go ; les fichiers existants 
       <translation>La fenêtre sélectionnée s'est fermée. Actualisez et sélectionnez une fenêtre.</translation>
     </message>
     <message>
+      <source>The server returned an invalid byte range.</source>
+      <translation>Le serveur a renvoyé une plage d’octets non valide.</translation>
+    </message>
+    <message>
       <source>The signed-in account does not match this registration.</source>
       <translation>Le compte connecté ne correspond pas à cette inscription.</translation>
     </message>
@@ -3687,6 +3699,10 @@ Téléchargements de modèles : jusqu'à {size:.2f} Go ; les fichiers existants 
     <message>
       <source>Undo</source>
       <translation>Annuler</translation>
+    </message>
+    <message>
+      <source>Unexpected HTTP status {status}.</source>
+      <translation>Code d’état HTTP inattendu : {status}.</translation>
     </message>
     <message>
       <source>Unexpected authorization issuer.</source>
