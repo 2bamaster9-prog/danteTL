@@ -20,6 +20,7 @@ from dantetl.translation.backend import (
 )
 from dantetl.translation.cache import TranslationCache, translation_key
 from dantetl.translation.dialogue.context import DialogueTurn
+from dantetl.translation.plan import SHORT_TEXT_LIMIT
 
 if TYPE_CHECKING:
     from dantetl.translation.values import TranslationRequest
@@ -50,6 +51,7 @@ class Batch:
     measured: float = 0.0
     queue_ms: float = 0.0
     started: float = 0.0
+    parallel_label: bool = False
 
     def activate(
         self,
@@ -144,7 +146,11 @@ class TranslationSchedule:
         return cancelled
 
     def plan(
-        self, demand: Demand, engine: TranslationBackend, cache: TranslationCache
+        self,
+        demand: Demand,
+        engine: TranslationBackend,
+        cache: TranslationCache,
+        label_width: int = 0,
     ) -> Batch | None:
         # Demand order is screen order, not waiting age. Preserve surviving requests
         # ahead of new revisions so a changing early box cannot starve later text.
@@ -185,7 +191,9 @@ class TranslationSchedule:
             inputs[key] for key in demand.jobs if demand.contexts[key] or key in demand.dialogue
         }
         capacity = (
-            max(1, min(2, engine.max_in_flight)) if isinstance(engine, ConcurrentBackend) else 1
+            max(1, min(2, engine.max_in_flight))
+            if isinstance(engine, ConcurrentBackend)
+            else max(1, label_width)
         )
         eligible = (
             tuple(
@@ -197,11 +205,28 @@ class TranslationSchedule:
             if len(self._flights) < capacity
             else ()
         )
+        parallel_label = False
+        if label_width and eligible and not cached:
+            # Keep the oldest waiting source first. Drain existing lanes when a
+            # dialogue reaches the head, so a busy menu cannot starve it.
+            labels = {
+                s
+                for s in eligible
+                if s not in serial
+                and 0 < len(s[0]) <= SHORT_TEXT_LIMIT
+                and s[0].strip()
+                and "\n" not in s[0]
+            }
+            parallel_label = eligible[0] in labels and (
+                bool(active) or len(labels) >= max(4, label_width // 2)
+            )
+            if active and not parallel_label:
+                eligible = ()
         if not cached and not eligible:
             self._blocked = set(wanted)
             return None
         self._blocked = None
-        chosen = cached or eligible[: max(1, min(4, engine.batch_size))]
+        chosen = cached or eligible[: 1 if parallel_label else max(1, min(4, engine.batch_size))]
         missing = tuple(source for source in chosen if answers[source] is None)
         return Batch(
             demand.generation,
@@ -214,4 +239,5 @@ class TranslationSchedule:
             missing,
             any(source in serial for source in missing),
             target=demand.target,
+            parallel_label=parallel_label,
         )

@@ -137,6 +137,11 @@ retain their prompts/identities and reject incomplete/reasoning output. Verify e
 CPU/CUDA/Vulkan path; label unavailable hardware as untested. Compare download size and working
 memory separately. Recheck exact imported content on load; never delete user-owned GGUF files.
 
+For parallel menu decoding, compare a page of distinct uncached labels with individual calls
+on the same model and target. Report preparation separately from page time, count exact wording
+matches, and repeat with the labels reordered. Include a seeded sampler and a hybrid or recurrent
+model when verifying slot reuse, alongside a greedy transformer.
+
 `tools/verify_category_models.py` accepts `--short` and `--long` model IDs (defaults: Gemma E2B/E4B).
 It uses two local owners, temporary SQLite, no network, and repeated unchanged requests. Require
 actual offload in the CUDA log; an installed GPU wheel alone is insufficient. These fixture timings

@@ -435,6 +435,16 @@ through readiness changes. Only ready boxes initiate inference or receive newly 
 Diagnostics report the age of the oldest active translation (including cloud admission waits) and
 count obsolete calls cancelled within the active workers. Futures only wake the owner.
 Revalidate after cache I/O and before dispatch/publication.
+Local llama.cpp translators, including imported GGUF profiles, can prepare a second, bounded
+context over the same weights on the first qualifying backlog of distinct short-label misses. It starts independent
+sequences. Each label uses the model's normal prompt, sampling settings, stop rules and answer
+validation. Slots reset their own sampler for each request. The owner evaluates the common
+tokenized prefix once in bounded chunks and copies its sequence state to the independent
+slots. Each submission validates its own token prefix. The owner checks for demand changes and publishes completions between decode
+steps. Padding uses disposable per-slot history to keep GPU kernel shapes stable. Wider
+decoders require more ready work. The active runtime adapter determines capacity.
+Sparse work, dialogue and prompts that need more context use the primary decoder. If the optional
+context cannot run, the owner releases it and retries outstanding work on the same model.
 Known `RequestRejected` failures are bounded to exact request/revision/context; fatal failures stop that
 translator while capture/OCR continue. Backend generation also scopes retained English.
 

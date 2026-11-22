@@ -5,10 +5,14 @@ from dataclasses import dataclass
 from dantetl.ocr.tracking import TextTrack
 from dantetl.translation.grouping import TextBlock
 
+SHORT_TEXT_LIMIT = 40
+
 
 def is_long_text(item: TextTrack | TextBlock) -> bool:
     """Layout groups are longer text, not proof that a character is speaking."""
-    return (isinstance(item, TextBlock) and item.dialogue) or len(item.text.strip()) > 40
+    return (isinstance(item, TextBlock) and item.dialogue) or len(
+        item.text.strip()
+    ) > SHORT_TEXT_LIMIT
 
 
 @dataclass(frozen=True, slots=True)

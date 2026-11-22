@@ -17,7 +17,9 @@ from dantetl.translation.backend import (
     BatchResult,
     ContextualBackend,
     DeferredBackend,
+    LabelDecoder,
     MultilingualBackend,
+    ParallelLabelBackend,
     RequestRejected,
     Source,
     TranslationBackend,
@@ -35,6 +37,7 @@ from dantetl.translation.values import (
 )
 
 logger = logging.getLogger(__name__)
+_LABEL_RUNTIME_ERRORS = (AttributeError, RuntimeError, ValueError, OSError, MemoryError)
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,7 +67,7 @@ class BackendChoice:
 
 
 class TranslationSession:
-    """One local call or two independent cloud calls; at most 128 current requests.
+    """One model owner or two independent cloud calls; at most 128 current requests.
 
     The UI replaces the desired set, never appends a job queue. Models and SQLite
     belong to this worker. A swap drains the active call, closes the old backend,
@@ -285,8 +288,19 @@ class TranslationSession:
         with self._condition:
             self._condition.notify()
 
+    def _retry_labels_individually(
+        self, labels: LabelDecoder, schedule: TranslationSchedule
+    ) -> None:
+        logger.warning("Menu decoding unavailable; resuming individual calls", exc_info=True)
+        labels.close()
+        schedule.reset()
+        with self._condition:
+            self._processing_since = None
+
     def _run(self) -> None:
         engine: TranslationBackend | None = None
+        labels: LabelDecoder | None = None
+        label_width = 0
         cache: TranslationCache | None = None
         active_backend = -1
         schedule = TranslationSchedule()
@@ -298,6 +312,11 @@ class TranslationSession:
                     stale = self._stop or schedule.stale(self._generation)
                 if stale and isinstance(engine, DeferredBackend):
                     engine.cancel_pending()
+                    schedule.reset()
+                    with self._condition:
+                        self._processing_since = None
+                elif stale and labels is not None:
+                    labels.reset()
                     schedule.reset()
                     with self._condition:
                         self._processing_since = None
@@ -365,14 +384,26 @@ class TranslationSession:
                     and active_language != demand.language
                     and isinstance(engine, MultilingualBackend)
                 ):
+                    if labels is not None:
+                        labels.close()
+                        labels = None
                     engine.set_source(demand.language)
+                    label_width = (
+                        engine.label_width if isinstance(engine, ParallelLabelBackend) else 0
+                    )
                     active_language = demand.language
                 if active_backend != backend_generation or active_language != demand.language:
+                    if labels is not None:
+                        labels.close()
+                        labels = None
                     if engine is not None:
                         engine.close()
                         engine = None
                     started = time.perf_counter()
                     engine = factory()
+                    label_width = (
+                        engine.label_width if isinstance(engine, ParallelLabelBackend) else 0
+                    )
                     active_backend, active_language = backend_generation, demand.language
                     schedule.reset()
                     with self._condition:
@@ -385,8 +416,32 @@ class TranslationSession:
                         self._notify()
                     continue
                 assert engine is not None
-                batch = schedule.plan(demand, engine, cache)
+                batch = schedule.plan(demand, engine, cache, label_width)
                 if batch is None:
+                    # Decode one token per occupied lane. Re-enter scheduling as soon
+                    # as a result, cache lookup, revision, switch or stop needs attention.
+                    while labels is not None and schedule.processing_since is not None:
+                        with self._condition:
+                            if (
+                                self._stop
+                                or self._demand_changed
+                                or demand.generation != self._generation
+                            ):
+                                break
+                        try:
+                            labels.step()
+                        except _LABEL_RUNTIME_ERRORS:
+                            self._retry_labels_individually(labels, schedule)
+                            labels = None
+                            label_width = 0
+                            break
+                        if schedule.has_completion():
+                            break
+                    continue
+                if batch.parallel_label and labels is None:
+                    labels = _prepare_labels(engine, demand.target)
+                    label_width = labels.width if labels else 0
+                    # New demand may have arrived during native context allocation.
                     continue
                 with self._condition:
                     if self._stop or batch.generation != self._generation:
@@ -404,6 +459,17 @@ class TranslationSession:
                         self._processing_since = (
                             min(batch.started, since) if since is not None else batch.started
                         )
+                if batch.parallel_label and labels is not None:
+                    try:
+                        future = labels.submit(batch.missing[0], batch.target)
+                    except _LABEL_RUNTIME_ERRORS:
+                        self._retry_labels_individually(labels, schedule)
+                        labels = None
+                        label_width = 0
+                        continue
+                    if future is not None:
+                        schedule.submitted(batch, future)
+                        continue
                 if batch.missing and isinstance(engine, DeferredBackend):
                     future = engine.submit_translation(batch.missing, target=batch.target)
                     schedule.submitted(batch, future)
@@ -414,7 +480,13 @@ class TranslationSession:
                         if batch.missing
                         else ({}, {})
                     )
-                    self._publish_batch(batch, outcome, cache, inference=bool(batch.missing))
+                    self._publish_batch(
+                        batch,
+                        outcome,
+                        cache,
+                        inference=bool(batch.missing),
+                        remaining_since=schedule.processing_since,
+                    )
         except Exception as error:
             logger.exception("Translation failed")
             with self._condition:
@@ -423,6 +495,11 @@ class TranslationSession:
                 self._message = str(error)
             self._notify()
         finally:
+            if labels is not None:
+                try:
+                    labels.close()
+                except Exception:
+                    logger.exception("Menu context cleanup failed")
             if engine is not None:
                 try:
                     engine.close()
@@ -450,6 +527,18 @@ class TranslationSession:
         remaining_since: float | None = None,
     ) -> None:
         translated, rejected_sources = outcome
+        if batch.parallel_label:
+            with self._condition:
+                if (
+                    self._stop
+                    or batch.generation != self._generation
+                    or not any(
+                        (key.source, self._contexts.get(key, ())) == batch.missing[0]
+                        for key in (*self._desired, *self._retained)
+                    )
+                ):
+                    self._processing_since = remaining_since
+                    return
         for source, english in translated.items():
             cache.put(batch.keys[source], english)
             batch.answers[source] = english
@@ -484,6 +573,17 @@ class TranslationSession:
                 self._message = cache.warning
         if published:
             self._notify()
+
+
+def _prepare_labels(engine: TranslationBackend, target: TargetLanguage) -> LabelDecoder | None:
+    if isinstance(engine, ParallelLabelBackend):
+        try:
+            return engine.prepare_labels(target)
+        except _LABEL_RUNTIME_ERRORS:
+            # Older native wheels or memory-constrained PCs can still run the
+            # same model, prompts and sampling settings in its primary context.
+            logger.warning("Could not prepare parallel menu translation", exc_info=True)
+    return None
 
 
 def translate_batch(
