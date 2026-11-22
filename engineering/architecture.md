@@ -131,8 +131,9 @@ Raw game capture must exclude our overlay. Affinity is not a universal recording
 English labels have lightly rounded borders, measured text padding and a translucent text shadow.
 Windows rounds each native backdrop where the compositor supports the small-corner preference.
 Experimental backdrop blur uses one click-through native surface per placed English label, up to
-the live placement limit. English paints immediately with its regular background while new native
-surfaces appear over successive event-loop turns. Retired surfaces hide and can be reused until
+the live placement limit. Each new label paints with its regular background before a later event-loop
+turn starts its native blur. Only boxes whose blur coverage changes need a follow-up repaint.
+Retired surfaces hide immediately and can be reused until
 the overlay hides or blur is disabled. Surfaces share the overlay's recording preference.
 Native setup failures use the configured background opacity.
 

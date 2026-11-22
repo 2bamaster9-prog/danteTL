@@ -54,6 +54,7 @@ class OverlayWindow(QWidget):
         self._layouts: dict[tuple[tuple[int, int, str], ...], EnglishLayout] = {}
         self._backdrops: LabelBackdrops | None = None
         self._backed: frozenset[Rect] = frozenset()
+        self._painted_boxes: set[Rect] = set()
         self._backdrop_update = QTimer(self)
         self._backdrop_update.setSingleShot(True)
         self._backdrop_update.timeout.connect(self._sync_backdrops)
@@ -64,13 +65,13 @@ class OverlayWindow(QWidget):
         if enabled:
             self._backdrops = LabelBackdrops(self._windows)
             self.destroyed.connect(self._backdrops.clear)
-            self._sync_backdrops()
         elif self._backdrops is not None:
             self._backdrop_update.stop()
             self.destroyed.disconnect(self._backdrops.clear)
             self._backdrops.clear()
             self._backdrops = None
             self._backed = frozenset()
+            self._painted_boxes.clear()
         self.update()
 
     def hideEvent(self, event: QHideEvent) -> None:
@@ -78,12 +79,25 @@ class OverlayWindow(QWidget):
         if self._backdrops is not None:
             self._backdrops.clear()
         self._backed = frozenset()
+        self._painted_boxes.clear()
         super().hideEvent(event)
 
     def _sync_backdrops(self) -> None:
+        self._place_backdrops(
+            tuple(
+                layout.bounds
+                for layout in self._layouts.values()
+                if layout.bounds in self._painted_boxes
+            )
+        )
+
+    def _retire_backdrops(self) -> None:
+        if not self._backed.issubset(self._painted_boxes):
+            self._place_backdrops(tuple(self._backed & self._painted_boxes))
+
+    def _place_backdrops(self, boxes: tuple[Rect, ...]) -> None:
         if self._backdrops is None or not self._configured or not self.isVisible():
             return
-        boxes = tuple(layout.bounds for layout in self._layouts.values())
         ready = self._backdrops.place(
             int(self.winId()), self._bounds, boxes, included=self._include_in_capture
         )
@@ -122,7 +136,8 @@ class OverlayWindow(QWidget):
         if not english:
             self._placement.clear()
             self._layouts.clear()
-            self._sync_backdrops()
+            self._painted_boxes.clear()
+            self._retire_backdrops()
             self.update()
         elif mode_changed or sources_changed or results_changed:
             self._layout_english()
@@ -172,10 +187,15 @@ class OverlayWindow(QWidget):
                 for layout in (old, new):
                     if layout is not None:
                         dirty |= QRegion(self._widget_box(layout.bounds))
-        self._layouts = current
-        self._sync_backdrops()
         if not dirty.isEmpty():
+            self._painted_boxes.intersection_update(
+                layout.bounds
+                for key, layout in current.items()
+                if self._layouts.get(key) == layout or layout.bounds in self._backed
+            )
+            self._retire_backdrops()
             self.update(dirty)
+        self._layouts = current
 
     def set_text_style(self, automatic: bool, pixels: int) -> None:
         if (automatic, pixels) != (self._automatic_size, self._manual_size):
@@ -198,6 +218,9 @@ class OverlayWindow(QWidget):
             self._configured = True
         changed = self._bounds != bounds
         resized = self._bounds.size != bounds.size
+        if changed:
+            self._painted_boxes.clear()
+            self._retire_backdrops()
         self._bounds = bounds
         if resized and self._english_mode:
             self._layout_english()
@@ -210,7 +233,6 @@ class OverlayWindow(QWidget):
         elif changed:
             self._windows.place_overlay(hwnd, bounds)
         if changed or showing:
-            self._sync_backdrops()
             self.update()
 
     def set_capture_included(self, included: bool) -> None:
@@ -218,11 +240,12 @@ class OverlayWindow(QWidget):
         if included != self._include_in_capture:
             if self._backdrops is not None:
                 self._backdrops.clear()
+                self._backed = frozenset()
+                self._painted_boxes.clear()
                 self.update()
             if self._configured:
                 self._windows.set_overlay_capture(int(self.winId()), included)
             self._include_in_capture = included
-            self._sync_backdrops()
 
     def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
@@ -232,9 +255,14 @@ class OverlayWindow(QWidget):
         width, height = self._bounds.size
         if self._tracks is not None:
             if self._english_mode:
+                painted = len(self._painted_boxes)
                 for layout in self._layouts.values():
                     if event.region().intersects(self._widget_box(layout.bounds)):
                         self._paint_english(painter, layout, blurred=layout.bounds in self._backed)
+                        if self._backdrops is not None:
+                            self._painted_boxes.add(layout.bounds)
+                if len(self._painted_boxes) > painted and not self._backdrop_update.isActive():
+                    self._backdrop_update.start(1)
                 self._paint_debug(painter, ratio)
                 return  # Pending regions leave the original game text visible.
             font = QFont("Segoe UI")
