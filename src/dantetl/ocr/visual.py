@@ -750,7 +750,7 @@ class VisualAnalyzer:
         self._checked: frozenset[TextTrack] = frozenset()
         self._unchanged: frozenset[TextTrack] = frozenset()
 
-    def _references(self, job: _Job, pixels: Bytes) -> None:
+    def _references(self, job: _Job, pixels: Bytes, matching: MatchingEvidence | None) -> None:
         key = (job.result.frame.sequence if job.result else 0, job.tracks)
         if key == self._reference_key:
             return
@@ -766,7 +766,11 @@ class VisualAnalyzer:
             or result.frame.geometry.dpi != job.frame.geometry.dpi
         ):
             return
-        cleaned = [content_region(r, self._language) for r in result.regions[:512]]
+        cleaned = (
+            matching.content
+            if matching is not None and matching.describes(result, self._language)
+            else tuple(content_region(r, self._language) for r in result.regions[:512])
+        )
         by_id = {
             key: region
             for key, region in zip(job.assignments, cleaned, strict=False)
@@ -901,6 +905,7 @@ class VisualAnalyzer:
         assignments: tuple[int | None, ...] = (),
         activity: tuple[TextActivity, ...] = (),
         candidate: OcrResult | None = None,
+        matching: MatchingEvidence | None = None,
     ) -> VisualState:
         started = time.perf_counter()
         pixels = _pixels(frame)
@@ -912,7 +917,7 @@ class VisualAnalyzer:
             self._dpi = frame.geometry.dpi
         size = frame.geometry.client.size
         fresh = frame.sequence > self._sequence
-        self._references(_Job(frame, result, tracks, assignments, activity), pixels)
+        self._references(_Job(frame, result, tracks, assignments, activity), pixels, matching)
         checked_key = (candidate.frame.sequence if candidate else 0, tracks)
         if checked_key != self._checked_key:
             self._checked_key = checked_key
@@ -1090,6 +1095,8 @@ class _ObservationReview:
             self.matching is None
             or not self.matching.matches(candidate, job.matching_sources, language=self.language)
         ):
+            if self.matching is None or not self.matching.describes(candidate, self.language):
+                self.pixel_key = None
             try:
                 self.matching = prepare_matching(
                     candidate, job.matching_sources, language=self.language
@@ -1113,7 +1120,7 @@ class _ObservationReview:
             self.pixel_key = key
             try:
                 self.pixels = prepare_evidence(
-                    candidate, job.evidence_bounds, language=self.language
+                    candidate, job.evidence_bounds, language=self.language, matching=self.matching
                 )
                 self.message = ""
             except Exception:
@@ -1257,6 +1264,7 @@ class VisualSession:
                             job.assignments,
                             job.activity,
                             job.candidate,
+                            review.matching,
                         )
                     )
                 except Exception:

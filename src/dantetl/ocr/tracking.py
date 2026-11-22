@@ -9,8 +9,9 @@ import re
 import unicodedata
 from dataclasses import dataclass, field, replace
 from math import isfinite
+from weakref import ref
 
-from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.domain import CapturedFrame, Rect
 from dantetl.i18n import tr
 from dantetl.languages.selection import DEFAULT_SOURCE
 from dantetl.languages.source import SourceLanguage
@@ -288,11 +289,10 @@ def _match_score(
 class MatchingEvidence:
     """Pure scoring output for one exact OCR source and immutable prior track state."""
 
-    sequence: int
-    captured_at: float
-    geometry: WindowGeometry
+    observation: ref[OcrResult] = field(compare=False, repr=False)
     sources: tuple[TextTrack, ...]
     limit: int
+    content: tuple[TextRegion, ...]
     regions: tuple[tuple[int, TextRegion], ...]
     normalized: tuple[tuple[int, str], ...]
     candidates: tuple[tuple[float, int, int], ...]
@@ -308,20 +308,10 @@ class MatchingEvidence:
         *,
         language: SourceLanguage = DEFAULT_SOURCE,
     ) -> bool:
-        frame = result.frame
-        return self.language == language and (
-            self.sequence,
-            self.captured_at,
-            self.geometry,
-            self.sources,
-            self.limit,
-        ) == (
-            frame.sequence,
-            frame.captured_at,
-            frame.geometry,
-            sources,
-            limit,
-        )
+        return self.sources == sources and self.describes(result, language, limit)
+
+    def describes(self, result: OcrResult, language: SourceLanguage, limit: int = 512) -> bool:
+        return self.observation() is result and self.language == language and self.limit == limit
 
 
 def prepare_matching(
@@ -333,8 +323,8 @@ def prepare_matching(
 ) -> MatchingEvidence:
     """Worker-side geometry gating and text scoring; does not own or mutate tracks."""
     regions, normalized = [], {}
-    for index, raw in enumerate(result.regions[:limit]):
-        region = content_region(raw, language)
+    content = tuple(content_region(raw, language) for raw in result.regions[:limit])
+    for index, region in enumerate(content):
         text = language.matching_text(region.text)
         if text and min(region.bounds.size) > 0:
             regions.append((index, region))
@@ -350,11 +340,10 @@ def prepare_matching(
                 candidates.append((score, track.track_id, index))
     frame = result.frame
     return MatchingEvidence(
-        frame.sequence,
-        frame.captured_at,
-        frame.geometry,
+        ref(result),
         sources,
         limit,
+        content,
         tuple(regions),
         tuple(normalized.items()),
         tuple(candidates),

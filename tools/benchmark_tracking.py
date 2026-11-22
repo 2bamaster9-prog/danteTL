@@ -58,8 +58,8 @@ def replay(length, repeats, baseline):
     tracking, evidence_times, before, before_evidence = [], [], [], []
     for result in observations(length, repeats):
         started = time.perf_counter()
-        evidence = prepare_evidence(result, tracker.evidence_bounds())
         matching = prepare_matching(result, tracker.matching_sources(result.frame))
+        evidence = prepare_evidence(result, tracker.evidence_bounds(), matching=matching)
         evidence_times.append((time.perf_counter() - started) * 1000)
         started = time.perf_counter()
         ids = tracker.observe(result, pixel_evidence=evidence, matching=matching)

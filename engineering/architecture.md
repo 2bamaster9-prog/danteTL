@@ -271,6 +271,9 @@ a preview after retirement. The latest capture must match the patch at its origi
 and DPI. A preview is a display-only block within the same source, target and backend generation.
 Normal OCR discovery continues and the preview never contributes a track, request or history turn.
 
+Tracking, crop hashing and visual references share the cleaned detector rows for an exact OCR
+observation. The row cache keeps detector order for track assignments and releases the source
+frame independently of the derived evidence.
 Tracker evidence has independent optional records for pending text, pending geometry, crop presence
 and completed absence. Each record owns its associated counts, time or source bounds; clearing a
 candidate clears that evidence together. Accepted display and confidence review state survive pending

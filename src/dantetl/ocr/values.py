@@ -40,7 +40,7 @@ class TextRegion:
         return sum(char.confidence for char in self.characters) / len(self.characters)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, weakref_slot=True)
 class OcrResult:
     frame: CapturedFrame
     regions: tuple[TextRegion, ...]

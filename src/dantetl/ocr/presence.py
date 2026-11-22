@@ -1,13 +1,19 @@
 """Bounded exact-pixel evidence for missed text; no image history or model calls."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from hashlib import blake2b
+from typing import TYPE_CHECKING
 
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
 from dantetl.languages.selection import DEFAULT_SOURCE
 from dantetl.languages.source import SourceLanguage
 from dantetl.ocr.text_content import content_region
 from dantetl.ocr.values import OcrResult
+
+if TYPE_CHECKING:
+    from dantetl.ocr.tracking import MatchingEvidence
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,7 +34,11 @@ class PixelEvidence:
 
 
 def prepare_evidence(
-    result: OcrResult, bounds: tuple[Rect, ...] = (), *, language: SourceLanguage = DEFAULT_SOURCE
+    result: OcrResult,
+    bounds: tuple[Rect, ...] = (),
+    *,
+    language: SourceLanguage = DEFAULT_SOURCE,
+    matching: MatchingEvidence | None = None,
 ) -> PixelEvidence:
     """Worker-only preparation of the bounded superset tracking may inspect.
 
@@ -37,9 +47,12 @@ def prepare_evidence(
     one-million-pixel budget in *tracking's* query order, so unused proposals cannot
     consume retention evidence ahead of missed tracks.
     """
-    queries = dict.fromkeys(
-        (*bounds[:512], *(content_region(r, language).bounds for r in result.regions[:512]))
+    rows = (
+        matching.content
+        if matching is not None and matching.describes(result, language)
+        else (content_region(r, language) for r in result.regions[:512])
     )
+    queries = dict.fromkeys((*bounds[:512], *(row.bounds for row in rows)))
     reader = FrameEvidence(result.frame, pixel_budget=1024 * 65_536)
     crops = tuple(
         (box, digest) for box in queries if (digest := reader.fingerprint(box)) is not None

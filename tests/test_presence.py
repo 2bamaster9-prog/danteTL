@@ -2,7 +2,7 @@ from dataclasses import replace
 
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
 from dantetl.ocr.presence import EvidenceReader, FrameEvidence, prepare_evidence
-from dantetl.ocr.tracking import TextTracker
+from dantetl.ocr.tracking import TextTracker, prepare_matching
 from dantetl.ocr.values import OcrResult, TextRegion
 
 BOX = Rect(10, 10, 80, 20)
@@ -55,6 +55,16 @@ def test_precomputed_evidence_preserves_query_budget_and_rejects_another_source(
         replace(source, geometry=replace(source.geometry, dpi=144)),
     ):
         assert EvidenceReader(changed, prepared).fingerprint(BOX) is None
+
+
+def test_prepared_rows_belong_to_one_reading_even_on_the_same_frame() -> None:
+    original = OcrResult(frame(1), (TextRegion("設定", BOX),), 20, 0.5)
+    matching = prepare_matching(original, ())
+    reread = replace(original, regions=(TextRegion("保存", Rect(70, 10, 70, 20)),))
+    assert matching.matches(original, ()) and not matching.matches(reread, ())
+    assert prepare_evidence(original, matching=matching) == prepare_evidence(original)
+    assert prepare_evidence(reread, matching=matching) == prepare_evidence(reread)
+    assert prepare_evidence(original) != prepare_evidence(reread)
 
 
 def test_unchanged_text_pixels_survive_repeated_completed_ocr_misses() -> None:
