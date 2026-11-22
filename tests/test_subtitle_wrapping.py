@@ -5,7 +5,8 @@ from dataclasses import replace
 import pytest
 
 from dantetl.domain import Rect
-from dantetl.ocr.tracking import TextActivity, TextTrack
+from dantetl.ocr.observation import TextTrack
+from dantetl.ocr.tracking import TextActivity
 from dantetl.translation.dialogue.history import DialogueHistory
 from dantetl.translation.grouping import DialogueGrouper, TextBlock
 from dantetl.translation.values import TranslatedText, TranslationRequest

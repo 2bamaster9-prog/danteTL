@@ -5,8 +5,8 @@ from numpy.typing import NDArray
 
 from dantetl.domain import Rect
 from dantetl.languages.source import SourceLanguage
+from dantetl.ocr.observation import TextTrack
 from dantetl.ocr.regions import padded
-from dantetl.ocr.tracking import TextTrack
 from dantetl.ocr.values import OcrResult, TextRegion
 from dantetl.ocr.visual_values import MenuSample
 

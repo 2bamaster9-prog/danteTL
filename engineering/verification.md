@@ -92,8 +92,8 @@ coverage. It reports worker preparation separately from serialized tracking. Opt
 loads a trusted local copy of the preceding `tracking.py` and asserts identical assignments, visible
 tracks and translation readiness. This complements the Qt regression that blocks worker scoring after
 OCR completion while checking event processing, retained English and delayed acknowledgement.
-The long/repetitive cases contain the stated number of characters, up to 512. The baseline must support
-the same worker-evidence input contract so both sides receive identical presence evidence.
+The long/repetitive cases contain the stated number of characters, up to 512. The baseline adapter supports the previous keyword evidence interface and the typed review interface.
+Both sides receive evidence for the same source frames.
 
 Small-crop preprocessing changes run `tools/verify_ocr_crops.py --device cpu --output
 artifacts/<slice>/crops-cpu.json` and strict CUDA with the GPU interpreter. Preserve its accuracy

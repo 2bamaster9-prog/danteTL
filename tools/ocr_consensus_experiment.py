@@ -11,7 +11,7 @@ from math import ceil
 from typing import Literal
 
 from dantetl.domain import Rect
-from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.observation import TextTrack
 
 Edit = tuple[int, int, str]
 

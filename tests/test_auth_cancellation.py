@@ -6,7 +6,7 @@ import httpx2
 import pytest
 
 from dantetl.domain import Rect
-from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.observation import TextTrack
 from dantetl.translation.cloud.auth_work import AuthInterrupted, AuthWork
 from dantetl.translation.cloud.backend import CloudBackend
 from dantetl.translation.cloud.chatgpt_auth import PLAN_SCOPE, ChatGPTConnections

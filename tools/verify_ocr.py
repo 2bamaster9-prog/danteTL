@@ -23,6 +23,7 @@ from PySide6.QtWidgets import QApplication
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
 from dantetl.ocr.meiki import MeikiRecognizer
 from dantetl.ocr.models import model_directory
+from dantetl.ocr.observation import CandidateReview
 from dantetl.ocr.presence import prepare_evidence
 from dantetl.ocr.tracking import TextTracker, prepare_matching
 from dantetl.ocr.values import OcrResult
@@ -114,7 +115,7 @@ def main() -> None:
         matching = prepare_matching(result, tracker.matching_sources(source))
         preparation_timings.append((time.perf_counter() - started) * 1000)
         started = time.perf_counter()
-        tracker.observe(result, pixel_evidence=pixels, matching=matching)
+        tracker.observe(result, review=CandidateReview(pixels=pixels, matching=matching))
         tracker.visible(source, result.completed_at)
         tracking_timings.append((time.perf_counter() - started) * 1000)
     evidence = {
@@ -155,7 +156,10 @@ def main() -> None:
     reference = replace(frame, sequence=1, captured_at=0)
     result = OcrResult(reference, regions, timings[-1], 0.05)
     assignments = tracker.observe(
-        result, pixel_evidence=prepare_evidence(result), matching=prepare_matching(result, ())
+        result,
+        review=CandidateReview(
+            pixels=prepare_evidence(result), matching=prepare_matching(result, ())
+        ),
     )
     tracks = tracker.visible(reference, 0.05)
     visual_times, requests = [], 0
@@ -195,7 +199,7 @@ def main() -> None:
         candidate = replace(result, frame=source)
         state = visual.observe(source, result, tracks, assignments, candidate=candidate)
         review_times.append(state.duration_ms)
-        assert len(state.unchanged) == len(tracks)
+        assert len(state.review.unchanged) == len(tracks)
     evidence.update(
         source_review_median_ms=round(statistics.median(review_times), 2),
         source_review_max_ms=round(max(review_times), 2),

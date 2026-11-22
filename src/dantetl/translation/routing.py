@@ -7,7 +7,7 @@ from dantetl.i18n import tr
 from dantetl.languages.selection import DEFAULT_SOURCE
 from dantetl.languages.source import SourceLanguage
 from dantetl.languages.target import ENGLISH, TargetLanguage
-from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.observation import TextTrack
 from dantetl.translation.backend import TranslationBackend
 from dantetl.translation.grouping import TextBlock
 from dantetl.translation.plan import TranslationPlan

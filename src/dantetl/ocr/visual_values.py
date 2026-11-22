@@ -3,8 +3,7 @@
 from dataclasses import dataclass
 
 from dantetl.domain import CapturedFrame, Rect
-from dantetl.ocr.presence import PixelEvidence
-from dantetl.ocr.tracking import MatchingEvidence, TextTrack
+from dantetl.ocr.observation import CandidateReview, TextTrack, TrackPresence
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,17 +30,11 @@ class VisualState:
     duration_ms: float = 0
     avoided: int = 0
     message: str = ""
-    absent: frozenset[TextTrack] = frozenset()
-    checked_sequence: int = 0
-    unchanged: frozenset[TextTrack] = frozenset()
-    checked: frozenset[TextTrack] = frozenset()
+    review: CandidateReview = CandidateReview()
+    presence: TrackPresence = TrackPresence()
     scan_areas: tuple[Rect, ...] | None = None
     stable_tracks: tuple[tuple[int, int, str], ...] = ()
     changed_areas: tuple[Rect, ...] = ()
-    pixel_evidence: PixelEvidence | None = None
-    matching: MatchingEvidence | None = None
-    pattern_loss: frozenset[TextTrack] = frozenset()
-    present: frozenset[TextTrack] = frozenset()
     cleared: frozenset[TextTrack] = frozenset()
     rejected_sequence: int = 0
     review_message: str = ""

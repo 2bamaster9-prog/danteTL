@@ -14,10 +14,11 @@ from dantetl.domain import CapturedFrame, Rect
 from dantetl.i18n import tr
 from dantetl.languages.selection import DEFAULT_SOURCE
 from dantetl.languages.source import SourceLanguage
+from dantetl.ocr.observation import CandidateReview, MatchingEvidence, TextTrack, TrackPresence
 from dantetl.ocr.presence import PixelEvidence, prepare_evidence
 from dantetl.ocr.regions import padded, scan_regions
 from dantetl.ocr.text_content import content_region
-from dantetl.ocr.tracking import MatchingEvidence, TextActivity, TextTrack, prepare_matching
+from dantetl.ocr.tracking import TextActivity, prepare_matching
 from dantetl.ocr.values import OcrResult, TextRegion
 from dantetl.ocr.visual_values import SettledScan, VisualState
 
@@ -1026,13 +1027,16 @@ class VisualAnalyzer:
             self._ocr_sequence,
             (time.perf_counter() - started) * 1000,
             self._cadence.avoided,
-            absent=frozenset(t for t, a in self._anchors.items() if a.hidden and a.misses >= 2),
-            pattern_loss=frozenset(t for t, a in self._anchors.items() if a.misses),
-            present=frozenset(t for t, a in self._anchors.items() if a.present),
+            presence=TrackPresence(
+                sequence=frame.sequence,
+                absent=frozenset(t for t, a in self._anchors.items() if a.hidden and a.misses >= 2),
+                pattern_loss=frozenset(t for t, a in self._anchors.items() if a.misses),
+                present=frozenset(t for t, a in self._anchors.items() if a.present),
+            ),
             cleared=frozenset(t for t, a in self._anchors.items() if a.cleared),
-            checked_sequence=candidate.frame.sequence if candidate else 0,
-            unchanged=self._unchanged,
-            checked=self._checked,
+            review=CandidateReview(
+                candidate.frame.sequence if candidate else 0, self._checked, self._unchanged
+            ),
             scan_areas=coverage,
             stable_tracks=tuple(stable_tracks),
             complete_lines=frozenset(complete_lines),
@@ -1105,9 +1109,9 @@ class _ObservationReview:
                 self.message = tr("Visual evidence unavailable; using OCR.")
         return replace(
             state,
-            matching=self.matching,
-            pixel_evidence=self.pixels,
-            checked_sequence=sequence,
+            review=replace(
+                state.review, sequence=sequence, matching=self.matching, pixels=self.pixels
+            ),
             review_message=self.message,
         )
 

@@ -13,7 +13,7 @@ from dantetl.ocr.text_content import content_region
 from dantetl.ocr.values import OcrResult
 
 if TYPE_CHECKING:
-    from dantetl.ocr.tracking import MatchingEvidence
+    from dantetl.ocr.observation import MatchingEvidence
 
 
 @dataclass(frozen=True, slots=True)

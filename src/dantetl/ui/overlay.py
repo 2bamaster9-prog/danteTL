@@ -16,7 +16,7 @@ from PySide6.QtWidgets import QWidget
 from dantetl.capture.backdrop import LabelBackdrops
 from dantetl.capture.windows import Windows
 from dantetl.domain import Rect, sample_box
-from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.observation import TextTrack
 from dantetl.translation.grouping import TextBlock
 from dantetl.translation.values import TranslatedText, TranslationRequest
 from dantetl.ui.diagnostics import DebugDisplay

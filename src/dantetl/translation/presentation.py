@@ -2,8 +2,8 @@
 
 from dataclasses import dataclass, replace
 
+from dantetl.ocr.observation import TextTrack
 from dantetl.ocr.regions import intersects
-from dantetl.ocr.tracking import TextTrack
 from dantetl.ocr.visual_values import MenuSample
 from dantetl.translation.grouping import TextBlock
 from dantetl.translation.values import TranslatedText, TranslationRequest

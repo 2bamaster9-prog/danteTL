@@ -6,7 +6,7 @@ from enum import StrEnum
 from dantetl.application.translation_activity import TranslationMode
 from dantetl.domain import CapturedFrame, CaptureSnapshot, Rect
 from dantetl.i18n import mark
-from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.observation import TextTrack
 from dantetl.ocr.values import OcrResult, OcrSnapshot
 from dantetl.ocr.visual_values import VisualState
 from dantetl.translation.grouping import TextBlock

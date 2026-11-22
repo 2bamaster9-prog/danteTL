@@ -15,7 +15,7 @@ from PySide6.QtWidgets import QApplication, QWidget
 from dantetl.capture.windows import Windows
 from dantetl.capture.worker import CaptureSession
 from dantetl.domain import CaptureState, Rect, WindowTarget, sample_box
-from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.observation import TextTrack
 from dantetl.translation.values import TranslatedText, TranslationRequest
 from dantetl.ui.demo import DemoWindow
 from dantetl.ui.inspection import frame_image

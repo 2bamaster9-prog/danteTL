@@ -5,7 +5,7 @@ from collections.abc import Iterator, Mapping, Sequence
 
 from dantetl.languages.source import SourceLanguage
 from dantetl.ocr.lettering import Lettering
-from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.observation import TextTrack
 
 _NUMERIC = re.compile(r"[*+＋]?\d+(\.\d+)?[%％]")
 

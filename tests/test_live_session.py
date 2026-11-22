@@ -17,6 +17,7 @@ from dantetl.domain import (
     WindowTarget,
 )
 from dantetl.languages.selection import DEFAULT_SOURCE
+from dantetl.ocr.observation import CandidateReview, TrackPresence
 from dantetl.ocr.tracking import prepare_matching
 from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState, TextCharacter, TextRegion
 from dantetl.ocr.visual import VisualSession
@@ -98,11 +99,14 @@ class Visual(Worker):
         if (
             self.ocr
             and (result := self.ocr.current.result)
-            and self.current.checked_sequence == result.frame.sequence
+            and self.current.review.sequence == result.frame.sequence
         ):
             self.current = replace(
                 self.current,
-                matching=prepare_matching(result, self.sources, language=self.language),
+                review=replace(
+                    self.current.review,
+                    matching=prepare_matching(result, self.sources, language=self.language),
+                ),
             )
         return self.current
 
@@ -130,12 +134,26 @@ class Replay:
         )
         self.live.start(self.capture, Mock())
 
-    def observe(self, source, regions, *, scanned=None, **evidence):
+    def observe(
+        self,
+        source,
+        regions,
+        *,
+        scanned=None,
+        checked=frozenset(),
+        unchanged=frozenset(),
+        absent=frozenset(),
+        **evidence,
+    ):
         self.ocr.current = OcrSnapshot(
             OcrState.READY, OcrResult(source, regions, 25, source.captured_at, scanned)
         )
         self.visual.current = VisualState(
-            frame=source, checked_sequence=source.sequence, ocr_sequence=source.sequence, **evidence
+            frame=source,
+            review=CandidateReview(source.sequence, checked, unchanged),
+            presence=TrackPresence(source.sequence, absent),
+            ocr_sequence=source.sequence,
+            **evidence,
         )
         self.live.reconcile(source, source.captured_at)
         if self.live.accepted != self.ocr.current.result:
@@ -150,7 +168,7 @@ def test_reconcile_waits_for_source_evidence_then_preserves_unscanned_tracks():
     first = frame(1)
     label = TextRegion("設定", Rect(50, 40, 100, 30))
     replay.ocr.current = OcrSnapshot(OcrState.READY, OcrResult(first, (label,), 25, 1.0))
-    replay.visual.current = VisualState(frame=first, checked_sequence=0)
+    replay.visual.current = VisualState(review=CandidateReview(sequence=0), frame=first)
     replay.live.reconcile(first, 1.0)
     assert replay.live.accepted is None and not replay.ocr.acknowledged
     scene = replay.observe(first, (label,))

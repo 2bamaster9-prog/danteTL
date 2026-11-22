@@ -3,7 +3,7 @@ from concurrent.futures import Future
 
 from dantetl.domain import Rect
 from dantetl.languages.target import ENGLISH
-from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.observation import TextTrack
 from dantetl.translation.cache import TranslationCache, translation_key
 from dantetl.translation.grouping import TextBlock
 from dantetl.translation.worker import TranslationSession

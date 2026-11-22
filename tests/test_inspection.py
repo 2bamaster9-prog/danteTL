@@ -16,6 +16,7 @@ from ui_fixtures import (
 )
 
 from dantetl.languages.target import ENGLISH
+from dantetl.ocr.observation import CandidateReview
 from dantetl.runtime.setup_values import SetupLane
 from dantetl.ui.setup_assistant import SetupAssistant
 
@@ -29,7 +30,7 @@ from ui_fixtures import find_model
 
 from dantetl.application.translation_coordinator import model_reference
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry  # noqa: E402
-from dantetl.ocr.tracking import TextTrack  # noqa: E402
+from dantetl.ocr.observation import TextTrack  # noqa: E402
 from dantetl.ocr.values import OcrResult, TextCharacter, TextRegion  # noqa: E402
 from dantetl.translation.grouping import TextBlock  # noqa: E402
 from dantetl.translation.values import (  # noqa: E402
@@ -1699,10 +1700,9 @@ def test_inspector_disclosure_and_pause_do_not_change_the_injected_live_session(
 
         sources = visual.submit.call_args.args[-1] if visual.submit.called else ()
         visual.poll.return_value = VisualState(
+            review=CandidateReview(sequence=sequence, matching=prepare_matching(result, sources)),
             frame=frame,
             request_ocr=True,
-            checked_sequence=sequence,
-            matching=prepare_matching(result, sources),
         )
         from dantetl.domain import CaptureSnapshot, CaptureState
 

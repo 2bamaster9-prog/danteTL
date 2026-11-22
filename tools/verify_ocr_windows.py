@@ -541,7 +541,9 @@ def main() -> int:
                 ), "A brief loss of the panel pattern blinked the locked translation"
                 if stage == 12:
                     assert now - stage_started < 2, "Transient loss never reached the visual worker"
-                    if any(t.track_id == phrase_id for t in application.view.visual.absent):
+                    if any(
+                        t.track_id == phrase_id for t in application.view.visual.presence.absent
+                    ):
                         evidence["transient_pattern_loss_kept_english"] = True
                         if locked_pixels is not None:
                             b = phrase_bounds

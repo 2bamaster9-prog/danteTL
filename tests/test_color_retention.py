@@ -156,7 +156,7 @@ def test_colored_reference_does_not_freeze_real_numeric_edits_or_mixed_color_dig
             paragraph(sequence, digit=digit, digit_color=color, score=score, subpixel=subpixel)
         )
         if sequence == 2:
-            assert not state.unchanged
+            assert not state.review.unchanged
     assert all(t.text == SOURCE.replace("5", digit) for t in replay.tracks)
     assert [t.track_id for t in replay.tracks] == [t.track_id for t in old]
 
@@ -170,7 +170,7 @@ def test_real_extension_of_a_colored_line_still_unlocks_ocr(color):
         regions=tuple(replace(r, text=r.text + "8", characters=()) for r in incoming.regions),
     )
     state = replay.step(incoming)
-    assert not state.unchanged
+    assert not state.review.unchanged
 
 
 def test_colored_paragraph_removal_still_retires_after_negative_ocr():
@@ -192,7 +192,7 @@ def test_dense_color_candidates_leave_basic_evidence_for_later_lines():
         regions=tuple(replace(r, text="違った観測", characters=()) for r in incoming.regions),
     )
     state = replay.step(incoming)
-    assert len(old) == 40 and state.unchanged == set(old) and replay.tracks == old
+    assert len(old) == 40 and state.review.unchanged == set(old) and replay.tracks == old
 
 
 def test_same_pixel_correction_keeps_color_evidence_despite_character_box_jitter():
@@ -222,4 +222,4 @@ def test_same_pixel_correction_keeps_color_evidence_despite_character_box_jitter
     assert [t.bounds for t in settled] == [t.bounds for t in original]
     for sequence in range(3, 25):
         state = replay.step(paragraph(sequence))
-        assert state.unchanged == set(settled) and replay.tracks == settled
+        assert state.review.unchanged == set(settled) and replay.tracks == settled

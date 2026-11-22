@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.observation import TextTrack
 from dantetl.translation.grouping import TextBlock
 
 SHORT_TEXT_LIMIT = 40

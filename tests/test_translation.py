@@ -8,7 +8,8 @@ from dantetl.application.live_session import LiveSession
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
 from dantetl.languages.selection import source_language
 from dantetl.languages.target import ENGLISH, TARGET_LANGUAGES
-from dantetl.ocr.tracking import TextTrack, TextTracker
+from dantetl.ocr.observation import TextTrack
+from dantetl.ocr.tracking import TextTracker
 from dantetl.ocr.values import OcrResult, TextCharacter, TextRegion
 from dantetl.translation.backend import RequestRejected
 from dantetl.translation.cache import TranslationCache, translation_key

@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from dantetl.application.model_factories import translation_backends
 from dantetl.domain import Rect
-from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.observation import TextTrack
 from dantetl.runtime.llama import installed_device, load_runtime
 from dantetl.translation.backend import RequestRejected
 from dantetl.translation.dialogue.classifier import ClassificationInput, ClassifierBackend

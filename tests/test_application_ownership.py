@@ -18,6 +18,7 @@ from dantetl.application.model_inventory import InventoryData
 from dantetl.application.preference_values import Preferences
 from dantetl.application.values import ShutdownPhase
 from dantetl.domain import CapturedFrame, CaptureSnapshot, CaptureState, Rect
+from dantetl.ocr.observation import CandidateReview
 from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState, TextRegion
 from dantetl.ocr.visual_values import VisualState
 from dantetl.runtime.restart import RestartSnapshot
@@ -156,10 +157,12 @@ def test_application_preserves_source_acknowledgement_and_partial_coverage(repla
     label = TextRegion("設定", Rect(50, 40, 100, 30))
     replay.capture.current = CaptureSnapshot(CaptureState.RUNNING, frame=first)
     replay.ocr.current = OcrSnapshot(OcrState.READY, OcrResult(first, (label,), 25, 1))
-    replay.visual.current = VisualState(frame=first, checked_sequence=0)
+    replay.visual.current = VisualState(review=CandidateReview(sequence=0), frame=first)
     replay.app.advance(1)
     assert replay.app.view.observation is None and not replay.ocr.acknowledged
-    replay.visual.current = VisualState(frame=first, checked_sequence=1, ocr_sequence=1)
+    replay.visual.current = VisualState(
+        review=CandidateReview(sequence=1), frame=first, ocr_sequence=1
+    )
     replay.app.advance(1.6)
     original = replay.app.view.scene.tracks
     assert len(original) == 1 and replay.ocr.acknowledged == [1]
@@ -168,7 +171,9 @@ def test_application_preserves_source_acknowledgement_and_partial_coverage(repla
     region = TextRegion("戻る", Rect(600, 40, 100, 30))
     replay.capture.current = replace(replay.capture.current, frame=second)
     replay.ocr.current = OcrSnapshot(OcrState.READY, OcrResult(second, (region,), 25, 2, (crop,)))
-    replay.visual.current = VisualState(frame=second, checked_sequence=2, ocr_sequence=2)
+    replay.visual.current = VisualState(
+        review=CandidateReview(sequence=2), frame=second, ocr_sequence=2
+    )
     replay.app.advance(2.6)
     assert original[0] in replay.app.view.scene.tracks
     assert len(replay.app.view.scene.tracks) == 2
@@ -211,7 +216,7 @@ def test_completed_observations_share_pixels_and_release_superseded_frames(repla
         replay.capture.current = CaptureSnapshot(CaptureState.RUNNING, frame=source)
         replay.ocr.current = OcrSnapshot(OcrState.READY, result)
         replay.visual.current = VisualState(
-            frame=source, checked_sequence=sequence, ocr_sequence=sequence
+            review=CandidateReview(sequence=sequence), frame=source, ocr_sequence=sequence
         )
         replay.app.advance(sequence + 0.1)
         view = replay.app.view

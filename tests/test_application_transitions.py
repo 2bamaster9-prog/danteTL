@@ -11,6 +11,7 @@ from test_live_session import Capture, Ocr, Visual, frame
 from dantetl.application.model_inventory import InventoryData
 from dantetl.application.preference_values import Preferences
 from dantetl.domain import CaptureSnapshot, CaptureState, Rect
+from dantetl.ocr.observation import CandidateReview
 from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState, TextRegion
 from dantetl.ocr.visual_values import VisualState
 from dantetl.ocr.worker import OcrChoice
@@ -36,9 +37,7 @@ def observe(replay, sequence=1):
     replay.capture.current = CaptureSnapshot(CaptureState.RUNNING, source)
     replay.ocr.current = OcrSnapshot(OcrState.READY, result)
     replay.visual.current = VisualState(
-        frame=source,
-        checked_sequence=sequence,
-        ocr_sequence=sequence,
+        review=CandidateReview(sequence=sequence), frame=source, ocr_sequence=sequence
     )
     replay.app.advance(sequence + 0.1)
     replay.app.advance(sequence + 0.7)

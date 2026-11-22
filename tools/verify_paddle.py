@@ -9,7 +9,7 @@ from verification_isolation import run_isolated
 from dantetl.application.model_factories import create_recognizer
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
 from dantetl.languages.selection import LATIN_SOURCES, source_language
-from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.observation import TextTrack
 from dantetl.ocr.worker import Recognizer, recognize_regions
 from dantetl.runtime.ocr import CPU, CUDA
 from dantetl.translation.grouping import DialogueGrouper

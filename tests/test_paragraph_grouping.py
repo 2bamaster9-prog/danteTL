@@ -8,7 +8,8 @@ from test_live_session import Replay
 
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
 from dantetl.languages.selection import source_language
-from dantetl.ocr.tracking import TextActivity, TextTrack
+from dantetl.ocr.observation import TextTrack
+from dantetl.ocr.tracking import TextActivity
 from dantetl.ocr.values import TextRegion
 from dantetl.translation.grouping import DialogueGrouper
 from dantetl.translation.values import (

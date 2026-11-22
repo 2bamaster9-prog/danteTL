@@ -7,8 +7,9 @@ import numpy as np
 import pytest
 
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.observation import CandidateReview, TextTrack
 from dantetl.ocr.presence import prepare_evidence
-from dantetl.ocr.tracking import TextTrack, TextTracker
+from dantetl.ocr.tracking import TextTracker
 from dantetl.ocr.values import OcrResult, TextCharacter, TextRegion
 from dantetl.ocr.visual import VisualAnalyzer
 from dantetl.translation.grouping import DialogueGrouper, TextBlock
@@ -108,7 +109,9 @@ class Replay:
         self.visual = VisualAnalyzer()
         self.tracker = TextTracker()
         self.result = first
-        self.ids = self.tracker.observe(first, pixel_evidence=prepare_evidence(first))
+        self.ids = self.tracker.observe(
+            first, review=CandidateReview(pixels=prepare_evidence(first))
+        )
         self.tracks = self.tracker.translation_tracks(first.frame, first.completed_at + 0.5)
         self.visual.observe(first.frame, first, self.tracks, self.ids, candidate=first)
 
@@ -123,12 +126,10 @@ class Replay:
         )
         self.ids = self.tracker.observe(
             incoming,
-            unchanged=state.unchanged,
-            visual_checked=state.checked,
-            checked_sequence=state.checked_sequence,
-            visually_absent=state.absent,
-            visual_sequence=incoming.frame.sequence,
-            pixel_evidence=prepare_evidence(incoming, self.tracker.evidence_bounds()),
+            review=replace(
+                state.review, pixels=prepare_evidence(incoming, self.tracker.evidence_bounds())
+            ),
+            presence=state.presence,
         )
         self.tracks = self.tracker.translation_tracks(incoming.frame, incoming.completed_at + 0.5)
         self.result = incoming
@@ -187,13 +188,13 @@ def test_fine_evidence_retains_long_lines_but_unlocks_one_changed_digit(width, v
     state = replay.step(
         long_line(2, width, vertical=vertical, font=font, reading="体力3205", brightness=10)
     )
-    assert state.unchanged == set(original) and replay.tracks == original
+    assert state.review.unchanged == set(original) and replay.tracks == original
     for sequence in (3, 4, 5):
         state = replay.step(
             long_line(sequence, width, vertical=vertical, font=font, reading="体力3205", digit="5")
         )
         if sequence == 3:
-            assert not state.unchanged
+            assert not state.review.unchanged
     assert replay.tracks[0].track_id == original[0].track_id
     assert (
         replay.tracks[0].text == "体力3205"
@@ -208,7 +209,7 @@ def test_exhausted_fine_evidence_budget_allows_ordinary_ocr_confirmation():
     original = replay.tracks[0]
     for sequence in (2, 3, 4):
         state = replay.step(long_line(sequence, 10000, reading="体力3205", digit="5"))
-        assert not state.unchanged
+        assert not state.review.unchanged
     assert replay.tracks[0].track_id == original.track_id and replay.tracks[0].text == "体力3205"
 
 
@@ -235,7 +236,7 @@ def test_stationary_labels_keep_exact_identity_layout_and_english_through_noisy_
                 ),
             )
         state = replay.step(incoming)
-        assert state.unchanged == set(original)
+        assert state.review.unchanged == set(original)
         assert not state.hidden
         assert replay.tracks == original
         grouped = grouper.update(
@@ -272,15 +273,15 @@ def test_one_changed_digit_unlocks_a_long_otherwise_unchanged_label(text):
     incoming = result(2, text="体力3205")
     incoming = replace(incoming, frame=picture(2, text=text))
     state = replay.step(incoming)
-    assert not state.unchanged
-    assert state.checked
+    assert not state.review.unchanged
+    assert state.review.checked
     assert replay.tracks[0].text == "体力3205"
 
 
 def test_extension_outside_old_box_unlocks_typewriter_growth():
     replay = Replay(result(1, text="冒険の始まり"))
     state = replay.step(result(2, text="冒険の始まりです", extension=True))
-    assert not state.unchanged
+    assert not state.review.unchanged
     assert replay.tracks[0].text == "冒険の始まりです"
 
 
@@ -292,7 +293,7 @@ def test_dim_stars_appearing_beside_text_are_not_a_typewriter_extension():
         cv2.rectangle(pixels, (x, 34), (x + 3, 42), (100, 100, 100, 255), 1)
     incoming = replace(incoming, frame=replace(incoming.frame, bgra=pixels.tobytes()))
     state = replay.step(incoming)
-    assert state.unchanged
+    assert state.review.unchanged
     assert replay.tracks[0].text == "攻撃力"
 
 
@@ -306,7 +307,7 @@ def test_large_reveal_after_one_glyph_is_not_mistaken_for_unchanged_content():
     full = result(2, text="新しい文章です", stars=False)
     full = replace(full, frame=picture(2, text="HMMMMMMMMM", stars=False))
     state = replay.step(full)
-    assert state.checked and not state.unchanged
+    assert state.review.checked and not state.review.unchanged
 
 
 def test_real_removal_still_hides_and_retires_after_visual_and_ocr_evidence():
@@ -392,7 +393,8 @@ def test_stale_visual_evidence_cannot_lock_new_source_or_a_new_revision():
     old = tracker.visible(first.frame, 1)[0]
     edit = result(2, text="防御力", gone=True)
     tracker.observe(
-        edit, unchanged=frozenset((old,)), visual_checked=frozenset((old,)), checked_sequence=1
+        edit,
+        review=CandidateReview(unchanged=frozenset((old,)), checked=frozenset((old,)), sequence=1),
     )
     assert tracker.visible(edit.frame, 2)[0].text == "防御力"
 
@@ -432,7 +434,7 @@ def test_faint_stationary_text_retains_exact_english_over_moving_light(noise):
             incoming, regions=(replace(raw, text="誤った観測"),) if sequence % 4 else ()
         )
         state = replay.step(incoming)
-        assert state.unchanged == set(original)
+        assert state.review.unchanged == set(original)
         assert not state.hidden
         assert replay.tracks == original
         grouped = grouper.update(
@@ -450,7 +452,7 @@ def test_faint_real_digit_changes_are_not_frozen(text):
     replay = Replay(faint_result(1))
     incoming = faint_result(2, text=text)
     incoming = replace(incoming, regions=(replace(incoming.regions[0], text="防御力"),))
-    assert not replay.step(incoming).unchanged
+    assert not replay.step(incoming).review.unchanged
     assert replay.tracks[0].text == "防御力"
 
 
@@ -458,11 +460,11 @@ def test_faint_extension_unlocks_and_real_removal_retires():
     replay = Replay(faint_result(1))
     incoming = faint_result(2, extension=True)
     incoming = replace(incoming, regions=(replace(incoming.regions[0], text="攻撃力を強化"),))
-    assert not replay.step(incoming).unchanged
+    assert not replay.step(incoming).review.unchanged
     assert replay.tracks[0].text == "攻撃力を強化"
     for sequence in range(3, 7):
         state = replay.step(replace(faint_result(sequence, gone=True), regions=()))
-        assert not state.unchanged
+        assert not state.review.unchanged
     assert not replay.tracks
 
 
@@ -477,7 +479,7 @@ def test_detector_splits_cannot_duplicate_or_truncate_visually_unchanged_line(sc
             TextRegion("始まります", last, (TextCharacter("始まります", last, 0.99),)),
         )
         incoming = replace(result(sequence), regions=pieces if sequence % 2 else pieces[::-1])
-        assert replay.step(incoming).unchanged == set(original)
+        assert replay.step(incoming).review.unchanged == set(original)
         assert replay.tracks == original
         assert sum(key is not None for key in replay.ids) == 1
 
@@ -496,9 +498,9 @@ def test_fragment_suppression_needs_current_visual_proof_and_allows_outside_cont
     # Evidence from another source cannot suppress new text tracks.
     assignments = tracker.observe(
         incoming,
-        unchanged=frozenset((track,)),
-        visual_checked=frozenset((track,)),
-        checked_sequence=1,
+        review=CandidateReview(
+            unchanged=frozenset((track,)), checked=frozenset((track,)), sequence=1
+        ),
     )
     assert all(key is not None for key in assignments)
     replay = Replay(first)

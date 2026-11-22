@@ -3,7 +3,8 @@
 from dataclasses import replace
 
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
-from dantetl.ocr.tracking import TextTrack, TextTracker
+from dantetl.ocr.observation import TextTrack
+from dantetl.ocr.tracking import TextTracker
 from dantetl.ocr.values import OcrResult, TextCharacter, TextRegion
 from tools.ocr_consensus_experiment import EvidenceWindow, Reading
 

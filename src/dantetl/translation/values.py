@@ -5,7 +5,7 @@ from enum import StrEnum
 from typing import Protocol
 
 from dantetl.languages.target import ENGLISH, TargetLanguage
-from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.observation import TextTrack
 from dantetl.translation.grouping import TextBlock
 
 

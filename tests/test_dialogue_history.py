@@ -6,7 +6,7 @@ import pytest
 
 from dantetl.domain import Rect
 from dantetl.languages.target import TARGET_LANGUAGES
-from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.observation import TextTrack
 from dantetl.translation.dialogue.history import DialogueHistory
 from dantetl.translation.grouping import TextBlock
 from dantetl.translation.values import TranslatedText, TranslationRequest

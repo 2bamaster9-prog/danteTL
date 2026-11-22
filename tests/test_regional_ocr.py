@@ -7,8 +7,9 @@ import numpy as np
 import pytest
 
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.observation import TextTrack
 from dantetl.ocr.regions import padded, scan_regions
-from dantetl.ocr.tracking import TextTrack, TextTracker
+from dantetl.ocr.tracking import TextTracker
 from dantetl.ocr.values import OcrResult, TextCharacter, TextRegion
 from dantetl.ocr.visual import VisualAnalyzer, VisualSession
 from dantetl.ocr.visual_values import VisualState

@@ -14,6 +14,7 @@ from dataclasses import asdict, replace
 from pathlib import Path
 
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.observation import CandidateReview
 from dantetl.ocr.presence import prepare_evidence
 from dantetl.ocr.tracking import TextTracker, prepare_matching
 from dantetl.ocr.values import OcrResult, TextRegion
@@ -62,7 +63,7 @@ def replay(length, repeats, baseline):
         evidence = prepare_evidence(result, tracker.evidence_bounds(), matching=matching)
         evidence_times.append((time.perf_counter() - started) * 1000)
         started = time.perf_counter()
-        ids = tracker.observe(result, pixel_evidence=evidence, matching=matching)
+        ids = tracker.observe(result, review=CandidateReview(pixels=evidence, matching=matching))
         visible = tracker.visible(result.frame, result.completed_at)
         ready = tracker.translation_tracks(result.frame, result.completed_at)
         tracking.append((time.perf_counter() - started) * 1000)
@@ -72,7 +73,15 @@ def replay(length, repeats, baseline):
             old_matching = baseline.prepare_matching(result, old.matching_sources(result.frame))
             before_evidence.append((time.perf_counter() - started) * 1000)
             started = time.perf_counter()
-            old_ids = old.observe(result, pixel_evidence=old_evidence, matching=old_matching)
+            if hasattr(baseline, "CandidateReview"):
+                old_ids = old.observe(
+                    result,
+                    review=baseline.CandidateReview(
+                        sequence=result.frame.sequence, pixels=old_evidence, matching=old_matching
+                    ),
+                )
+            else:
+                old_ids = old.observe(result, pixel_evidence=old_evidence, matching=old_matching)
             old_visible = old.visible(result.frame, result.completed_at)
             old_ready = old.translation_tracks(result.frame, result.completed_at)
             before.append((time.perf_counter() - started) * 1000)

@@ -8,7 +8,7 @@ from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from dantetl.domain import Rect  # noqa: E402
-from dantetl.ocr.tracking import TextTrack  # noqa: E402
+from dantetl.ocr.observation import TextTrack  # noqa: E402
 from dantetl.translation.grouping import TextBlock  # noqa: E402
 from dantetl.translation.values import TranslatedText, TranslationRequest  # noqa: E402
 from dantetl.ui import overlay  # noqa: E402

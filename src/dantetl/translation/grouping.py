@@ -13,7 +13,8 @@ from dantetl.i18n import tr
 from dantetl.languages.selection import DEFAULT_SOURCE
 from dantetl.languages.source import SourceLanguage
 from dantetl.ocr.lettering import Lettering
-from dantetl.ocr.tracking import TextActivity, TextTrack
+from dantetl.ocr.observation import TextTrack
+from dantetl.ocr.tracking import TextActivity
 from dantetl.translation.dialogue_paths import dialogue_segments
 
 _MAX_ROW_OVERLAP = 0.1

@@ -11,7 +11,7 @@ from dantetl.application.live_session import LiveSession
 from dantetl.application.preference_values import Preferences
 from dantetl.application.preferences import decode_preferences
 from dantetl.domain import Rect
-from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.observation import TextTrack
 from dantetl.translation.backend import RequestRejected
 from dantetl.translation.cloud.backend import CloudAllowance, CloudBackend
 from dantetl.translation.cloud.values import CloudProfile

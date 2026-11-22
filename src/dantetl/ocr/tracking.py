@@ -16,22 +16,14 @@ from dantetl.i18n import tr
 from dantetl.languages.selection import DEFAULT_SOURCE
 from dantetl.languages.source import SourceLanguage
 from dantetl.ocr.lettering import Lettering, sample_lettering
-from dantetl.ocr.presence import EvidenceReader, PixelEvidence
+from dantetl.ocr.observation import CandidateReview, MatchingEvidence, TextTrack, TrackPresence
+from dantetl.ocr.presence import EvidenceReader
 from dantetl.ocr.quote_dash import opening_dash_edges
 from dantetl.ocr.spatial import SpatialCandidates
 from dantetl.ocr.text_content import content_region, same_label_crop
 from dantetl.ocr.text_distance import LcsSimilarity, within_edits
 from dantetl.ocr.track_assignment import assign_tracks
 from dantetl.ocr.values import OcrResult, TextRegion
-
-
-@dataclass(frozen=True, slots=True)
-class TextTrack:
-    track_id: int
-    text: str
-    bounds: Rect
-    vertical: bool = False
-    text_revision: int = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -389,35 +381,6 @@ def _match_score(
     return overlap * 3 + similarity * 2 - min(distance / thickness, 3) * 0.15
 
 
-@dataclass(frozen=True, slots=True)
-class MatchingEvidence:
-    """Pure scoring output for one exact OCR source and immutable prior track state."""
-
-    observation: ref[OcrResult] = field(compare=False, repr=False)
-    sources: tuple[TextTrack, ...]
-    limit: int
-    content: tuple[TextRegion, ...]
-    regions: tuple[tuple[int, TextRegion], ...]
-    normalized: tuple[tuple[int, str], ...]
-    candidates: tuple[tuple[float, int, int], ...]
-    dash_edges: tuple[tuple[int, int], ...]
-    lettering: tuple[tuple[int, Lettering], ...]
-    language: SourceLanguage
-
-    def matches(
-        self,
-        result: OcrResult,
-        sources: tuple[TextTrack, ...],
-        limit: int = 512,
-        *,
-        language: SourceLanguage = DEFAULT_SOURCE,
-    ) -> bool:
-        return self.sources == sources and self.describes(result, language, limit)
-
-    def describes(self, result: OcrResult, language: SourceLanguage, limit: int = 512) -> bool:
-        return self.observation() is result and self.language == language and self.limit == limit
-
-
 def prepare_matching(
     result: OcrResult,
     sources: tuple[TextTrack, ...],
@@ -464,6 +427,10 @@ def prepare_matching(
         sample_lettering(frame, regions, language),
         language,
     )
+
+
+_NO_REVIEW = CandidateReview()
+_NO_PRESENCE = TrackPresence()
 
 
 class TextTracker:
@@ -516,34 +483,53 @@ class TextTracker:
             )
         )
 
+    def observe_reviewed(
+        self, result: OcrResult, review: CandidateReview, presence: TrackPresence
+    ) -> tuple[int | None, ...] | None:
+        """Live publication requires current worker scores. None asks for a fresh review."""
+        matching = review.matching
+        if (
+            review.sequence != result.frame.sequence
+            or matching is None
+            or not matching.matches(
+                result,
+                self.matching_sources(result.frame),
+                self._policy.max_tracks * 4,
+                language=self._language,
+            )
+        ):
+            return None
+        return self._apply(result, review, presence, matching)
+
     def observe(
         self,
         result: OcrResult,
         *,
-        visually_absent: frozenset[TextTrack] = frozenset(),
-        pattern_loss: frozenset[TextTrack] = frozenset(),
-        visually_present: frozenset[TextTrack] = frozenset(),
-        visual_sequence: int = 0,
-        unchanged: frozenset[TextTrack] = frozenset(),
-        visual_checked: frozenset[TextTrack] = frozenset(),
-        checked_sequence: int = 0,
-        pixel_evidence: PixelEvidence | None = None,
-        matching: MatchingEvidence | None = None,
+        review: CandidateReview = _NO_REVIEW,
+        presence: TrackPresence = _NO_PRESENCE,
     ) -> tuple[int | None, ...]:
-        """Return IDs in raw OCR row order. Repeated/late frames cannot confirm changes."""
+        """Synchronous observation for deterministic replays and offline readers."""
+        if result.frame.sequence <= self._sequence or result.frame.captured_at < self._captured_at:
+            return self._assignments
+        sources = self.matching_sources(result.frame)
+        limit = self._policy.max_tracks * 4
+        matching = review.matching
+        if matching is None:
+            matching = prepare_matching(result, sources, limit, language=self._language)
+        elif not matching.matches(result, sources, limit, language=self._language):
+            raise ValueError(tr("Tracking evidence does not match the current source/state."))
+        return self._apply(result, review, presence, matching)
+
+    def _apply(
+        self,
+        result: OcrResult,
+        review: CandidateReview,
+        presence: TrackPresence,
+        matching: MatchingEvidence,
+    ) -> tuple[int | None, ...]:
         frame = result.frame
         if frame.sequence <= self._sequence or frame.captured_at < self._captured_at:
             return self._assignments
-        sources = self.matching_sources(frame)
-        if matching is not None and not matching.matches(
-            result, sources, self._policy.max_tracks * 4, language=self._language
-        ):
-            raise ValueError(tr("Tracking evidence does not match the current source/state."))
-        # Direct deterministic replays may score inline. LiveSession always supplies
-        # source/state-checked worker evidence and never performs scoring on Qt.
-        matching = matching or prepare_matching(
-            result, sources, self._policy.max_tracks * 4, language=self._language
-        )
         if self._size != frame.geometry.client.size:
             self.reset()
             self._size = frame.geometry.client.size
@@ -554,15 +540,15 @@ class TextTracker:
         raw_regions = result.regions[: self._policy.max_tracks * 4]
         complete = len(raw_regions) == len(result.regions)
         self._complete_observation = complete
-        evidence = EvidenceReader(frame, pixel_evidence)
+        evidence = EvidenceReader(frame, review.pixels)
         regions = matching.regions
         normalized = dict(matching.normalized)
         candidates = list(matching.candidates)
         observations = dict(regions)
         # Evidence must describe the exact source being reconciled and the current
         # accepted revision. Evidence from a newer/older capture is not interchangeable.
-        checked = visual_checked if checked_sequence == frame.sequence else frozenset()
-        unchanged = unchanged & checked
+        checked = review.checked if review.sequence == frame.sequence else frozenset()
+        unchanged = review.unchanged & checked
         for track in self._tracks.values():
             track.visual_same = track.value in unchanged
             if track.value in checked and not track.visual_same:
@@ -594,7 +580,9 @@ class TextTracker:
             if track.visual_same:
                 self._review_unchanged(track, observations[index], frame)
             else:
-                lost_pattern = track.value in visually_absent and visual_sequence == frame.sequence
+                lost_pattern = (
+                    track.value in presence.absent and presence.sequence == frame.sequence
+                )
                 self._update(track, observations[index], frame, lost_pattern=lost_pattern)
         for key in list(self._tracks):
             track = self._tracks[key]
@@ -604,7 +592,7 @@ class TextTracker:
                 if (
                     track.visual_same
                     or (reference and current == reference.digest)
-                    or (visual_sequence >= frame.sequence and track.value in visually_present)
+                    or (presence.sequence >= frame.sequence and track.value in presence.present)
                 ):
                     # Presence vetoes a miss. Only exact unchanged glyph evidence
                     # may override a positive OCR reading on the edit path above.
@@ -612,7 +600,7 @@ class TextTracker:
                     track.confirmed = True
                     track.discard_candidates()
                     continue
-                lost = visual_sequence == frame.sequence and track.value in pattern_loss
+                lost = presence.sequence == frame.sequence and track.value in presence.pattern_loss
                 if track.absence is None:
                     track.absence = _Absence(frame.captured_at, frame.sequence, lost)
                 else:
@@ -623,7 +611,7 @@ class TextTracker:
                 if (
                     track.absence.misses >= self._policy.missing_frames
                     and frame.captured_at - track.absence.since >= self._policy.missing_seconds
-                ) or (track.value in visually_absent and visual_sequence >= frame.sequence):
+                ) or (track.value in presence.absent and presence.sequence >= frame.sequence):
                     del self._tracks[key]
         for index, region in regions:
             # Matches and retirements are final for this observation. No later row

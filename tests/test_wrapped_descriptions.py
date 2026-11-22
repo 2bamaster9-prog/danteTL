@@ -5,7 +5,8 @@ from dataclasses import replace
 import pytest
 
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
-from dantetl.ocr.tracking import TextActivity, TextTrack, TextTracker
+from dantetl.ocr.observation import TextTrack
+from dantetl.ocr.tracking import TextActivity, TextTracker
 from dantetl.ocr.values import OcrResult, TextRegion
 from dantetl.translation.grouping import DialogueGrouper
 from dantetl.translation.values import TranslationRequest

@@ -14,7 +14,8 @@ from dantetl.i18n import tr
 from dantetl.languages.selection import DEFAULT_SOURCE
 from dantetl.languages.source import SourceLanguage
 from dantetl.languages.target import ENGLISH, TargetLanguage
-from dantetl.ocr.tracking import TextActivity, TextTrack, TextTracker
+from dantetl.ocr.observation import TextTrack
+from dantetl.ocr.tracking import TextActivity, TextTracker
 from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState
 from dantetl.ocr.visual import VisualSession
 from dantetl.ocr.visual_values import VisualState
@@ -320,27 +321,16 @@ class LiveSession:
                 self._consumed_sequence = candidate.frame.sequence
                 self.ocr.acknowledge(self._consumed_sequence)
                 candidate = None
-            elif candidate and (
-                state.checked_sequence == candidate.frame.sequence
-                and state.matching is not None
-                and state.matching.matches(
-                    candidate,
-                    self._tracker.matching_sources(candidate.frame),
-                    language=self._language,
+            elif (
+                candidate
+                and (
+                    assignments := self._tracker.observe_reviewed(
+                        candidate, state.review, state.presence
+                    )
                 )
+                is not None
             ):
-                self.assignments = self._tracker.observe(
-                    candidate,
-                    visually_absent=state.absent,
-                    pattern_loss=state.pattern_loss,
-                    visually_present=state.present,
-                    visual_sequence=state.frame.sequence if state.frame else 0,
-                    unchanged=state.unchanged,
-                    visual_checked=state.checked,
-                    checked_sequence=state.checked_sequence,
-                    pixel_evidence=state.pixel_evidence,
-                    matching=state.matching,
-                )
+                self.assignments = assignments
                 self.accepted = candidate
                 self._consumed_sequence = candidate.frame.sequence
                 self.ocr.acknowledge(self._consumed_sequence)

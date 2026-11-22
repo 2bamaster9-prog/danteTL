@@ -7,7 +7,8 @@ import pytest
 from test_live_session import Replay
 
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
-from dantetl.ocr.tracking import TextActivity, TextTrack
+from dantetl.ocr.observation import CandidateReview, TextTrack
+from dantetl.ocr.tracking import TextActivity
 from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState, TextRegion
 from dantetl.ocr.visual_values import VisualState
 from dantetl.translation.grouping import DialogueGrouper
@@ -264,7 +265,9 @@ def test_uncommitted_ordinary_scan_does_not_revoke_published_paragraph():
         OcrState.READY,
         OcrResult(source, (changed,), 25, source.captured_at, (changed.bounds,)),
     )
-    replay.visual.current = VisualState(frame=source, checked_sequence=3, ocr_sequence=3)
+    replay.visual.current = VisualState(
+        review=CandidateReview(sequence=3), frame=source, ocr_sequence=3
+    )
     replay.live.reconcile(source, source.captured_at)
     # Capture keeps advancing, so one noisy observation cannot settle as a static frame.
     pending = replay.live.scene(source_frame(4), source.captured_at + 0.1, grouping=True)

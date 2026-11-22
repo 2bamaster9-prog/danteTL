@@ -1,6 +1,7 @@
 from dataclasses import replace
 
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
+from dantetl.ocr.observation import CandidateReview, TrackPresence
 from dantetl.ocr.presence import EvidenceReader, FrameEvidence, prepare_evidence
 from dantetl.ocr.tracking import TextTracker, prepare_matching
 from dantetl.ocr.values import OcrResult, TextRegion
@@ -23,7 +24,7 @@ def frame(sequence: int, *, ink: bool = True, outside: int = 0) -> CapturedFrame
 
 def observe(tracker, result):
     return tracker.observe(
-        result, pixel_evidence=prepare_evidence(result, tracker.evidence_bounds())
+        result, review=CandidateReview(pixels=prepare_evidence(result, tracker.evidence_bounds()))
     )
 
 
@@ -110,8 +111,7 @@ def test_changed_pixels_and_static_negative_result_settle_after_completion() -> 
     completed = gone.captured_at + 1.1
     tracker.observe(
         OcrResult(gone, (), 1100, completed),
-        pattern_loss=frozenset(original),
-        visual_sequence=gone.sequence,
+        presence=TrackPresence(pattern_loss=frozenset(original), sequence=gone.sequence),
     )
     assert tracker.visible(gone, completed + 0.2) == original
     assert tracker.visible(gone, completed + 0.36) == ()
@@ -150,8 +150,7 @@ def test_positive_pattern_outvotes_repeated_misses_until_its_source_is_stale():
         source = frame(seq)
         tracker.observe(
             OcrResult(source, (), 20, source.captured_at),
-            visually_present=frozenset(locked),
-            visual_sequence=min(seq, 8),
+            presence=TrackPresence(present=frozenset(locked), sequence=min(seq, 8)),
         )
         assert tracker.visible(source, source.captured_at) == (locked if seq < 11 else ())
 

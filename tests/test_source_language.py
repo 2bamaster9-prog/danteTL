@@ -9,7 +9,8 @@ from dantetl.languages.paddle import PaddleOCRLanguage
 from dantetl.languages.selection import DEFAULT_SOURCE, source_language
 from dantetl.languages.source import SourceLanguage
 from dantetl.languages.target import TARGET_LANGUAGES
-from dantetl.ocr.tracking import TextTrack, TextTracker, prepare_matching
+from dantetl.ocr.observation import CandidateReview, TextTrack
+from dantetl.ocr.tracking import TextTracker, prepare_matching
 from dantetl.ocr.values import OcrResult, TextRegion
 from dantetl.ocr.visual import VisualSession
 from dantetl.translation.backend import RequestRejected
@@ -219,10 +220,10 @@ def test_matching_evidence_is_scoped_to_its_source_language():
     result = OcrResult(source, (TextRegion("por que", Rect(10, 10, 100, 25)),), 25, 1.0)
     tracker = TextTracker(language=PORTUGUESE)
     with pytest.raises(ValueError, match="evidence"):
-        tracker.observe(result, matching=prepare_matching(result, ()))
-    assert tracker.observe(result, matching=prepare_matching(result, (), language=PORTUGUESE)) == (
-        1,
-    )
+        tracker.observe(result, review=CandidateReview(matching=prepare_matching(result, ())))
+    assert tracker.observe(
+        result, review=CandidateReview(matching=prepare_matching(result, (), language=PORTUGUESE))
+    ) == (1,)
 
 
 def test_matching_worker_reuses_pending_source_until_language_invalidation():
@@ -234,7 +235,7 @@ def test_matching_worker_reuses_pending_source_until_language_invalidation():
         published.clear()
         worker.submit(frame(sequence), None, (), (), (), candidate=result)
         assert published.wait(3)
-        evidence = worker.poll().matching
+        evidence = worker.poll().review.matching
         assert evidence is not None
         return evidence
 

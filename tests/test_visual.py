@@ -7,7 +7,8 @@ import numpy as np
 import pytest
 
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
-from dantetl.ocr.tracking import TextTrack, TextTracker, TrackingPolicy
+from dantetl.ocr.observation import TextTrack, TrackPresence
+from dantetl.ocr.tracking import TextTracker, TrackingPolicy
 from dantetl.ocr.values import OcrResult, TextRegion
 from dantetl.ocr.visual import VisualAnalyzer, VisualSession
 from dantetl.ocr.visual_values import VisualState
@@ -236,7 +237,7 @@ def test_textured_screen_replacement_hides_on_its_first_capture_and_stays_hidden
     for seq in range(2, 10):
         state = analyzer.observe(noisy_picture(seq, ink=False), result, (track,), (1,))
         assert state.cleared == {track}
-    assert state.absent == {track}
+    assert state.presence.absent == {track}
     assert not analyzer.observe(picture(10), result, (track,), (1,)).cleared
 
 
@@ -423,13 +424,13 @@ def test_visual_absence_needs_a_fresh_negative_ocr_and_frees_capacity_for_the_ne
     analyzer.observe(picture(1), result, (track,), (1,))
     analyzer.observe(picture(2, ink=False), result, (track,), (1,))
     state = analyzer.observe(picture(3, ink=False), result, (track,), (1,))
-    assert state.absent == {track}
+    assert state.presence.absent == {track}
     assert tracker.visible(picture(3, ink=False), 0.3) == (track,)
     changed = OcrResult(
         picture(3, ink=False), (TextRegion("次の画面", Rect(250, 150, 90, 24)),), 300, 0.55
     )
     assigned = tracker.observe(
-        changed, visually_absent=state.absent, visual_sequence=3 if fresh else 2
+        changed, presence=TrackPresence(absent=state.presence.absent, sequence=3 if fresh else 2)
     )
     assert assigned == ((2,) if fresh else (None,))
 
@@ -465,8 +466,8 @@ def test_visual_initialization_failure_falls_back_and_still_finishes_shutdown(mo
             assert time.monotonic() < deadline
             time.sleep(0.005)
         assert state.request_ocr and state.message
-        assert state.matching and state.matching.matches(first, ())
-        assert state.pixel_evidence and state.pixel_evidence.matches(first.frame)
+        assert state.review.matching and state.review.matching.matches(first, ())
+        assert state.review.pixels and state.review.pixels.matches(first.frame)
         session.submit(picture(2), None, (), (), ())
         while True:
             state = session.poll()

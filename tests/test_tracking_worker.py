@@ -12,6 +12,7 @@ from test_live_session import Capture, Ocr
 from dantetl.application.live_session import LiveSession
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
 from dantetl.ocr import presence, visual
+from dantetl.ocr.observation import CandidateReview
 from dantetl.ocr.tracking import TextTracker, prepare_matching
 from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState, TextRegion
 from dantetl.ocr.visual import VisualSession
@@ -49,14 +50,16 @@ def test_stale_matching_cannot_mutate_tracks_or_consume_the_observation():
     tracker.observe(first)
     previous = tracker.visible(first.frame, 2)
     with pytest.raises(ValueError, match="current source/state"):
-        tracker.observe(second, matching=stale)
+        tracker.observe(second, review=CandidateReview(matching=stale))
     assert tracker.visible(first.frame, 2) == previous
     fresh = prepare_matching(second, tracker.matching_sources(second.frame))
-    assert tracker.observe(second, matching=fresh) == tuple(t.track_id for t in previous)
+    assert tracker.observe(second, review=CandidateReview(matching=fresh)) == tuple(
+        t.track_id for t in previous
+    )
     # A reset also invalidates a previously prepared state, even with the same frame.
     tracker.reset()
     with pytest.raises(ValueError, match="current source/state"):
-        tracker.observe(second, matching=fresh)
+        tracker.observe(second, review=CandidateReview(matching=fresh))
 
 
 def test_completed_dense_ocr_waits_off_qt_and_retains_english(monkeypatch):

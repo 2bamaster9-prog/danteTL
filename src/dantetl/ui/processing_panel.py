@@ -201,7 +201,7 @@ class ProcessingPanel(QWidget):
                 ),
                 tr("{duration_ms:.1f} ms", duration_ms=visual.duration_ms),
                 str(self.waiting_blocks),
-                str(len(visual.unchanged)),
+                str(len(visual.review.unchanged)),
             )
             if frame
             else ("—",) * 5

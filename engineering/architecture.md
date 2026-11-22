@@ -157,6 +157,11 @@ lives outside inspection. Hidden inspection keeps the latest exact pair without 
 pause freezes both displayed languages only. Resume shows the newest pair. Model changes revoke frozen
 English; resize/minimize/stop also clear frozen source presentation.
 
+Tracking accepts a live observation through `observe_reviewed`. A `CandidateReview` carries
+checks and matching scores for the completed OCR source. `TrackPresence` carries the capture
+sequence on which anchors were observed. The tracker validates the candidate and its prior track
+state before mutation. Missing or stale scores leave the observation pending for a fresh review.
+
 `ScanCadence` owns follow-up deadlines, periodic full scans and consumption of dirty tiles.
 Probe analysis supplies growing, ready and settling regions. The OCR scan planner chooses how
 to execute the resulting coverage on the selected provider.

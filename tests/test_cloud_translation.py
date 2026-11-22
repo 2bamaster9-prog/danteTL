@@ -9,7 +9,7 @@ import pytest
 
 from dantetl.domain import Rect
 from dantetl.languages.target import ENGLISH, TARGET_LANGUAGES
-from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.observation import TextTrack
 from dantetl.translation.backend import RequestRejected
 from dantetl.translation.cache import TranslationCache, translation_key
 from dantetl.translation.cloud.backend import CloudAllowance, CloudBackend

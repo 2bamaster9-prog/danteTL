@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from dantetl.domain import Rect
-from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.observation import TextTrack
 from dantetl.translation.dialogue.classifier import Classification, ClassificationInput
 from dantetl.translation.dialogue.layout import PanelLayout
 from dantetl.translation.dialogue.values import HistoryTurn
