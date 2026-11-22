@@ -19,6 +19,24 @@ from dantetl.ui.runtime_dialog import RuntimeSetupDialog  # noqa: E402
 from dantetl.ui.setup_assistant import SetupAssistant  # noqa: E402
 
 
+def test_local_download_cancel_only_signals_the_model_lane(app, tmp_path, monkeypatch):
+    from dantetl.ui.model_manager import ModelManager
+
+    replay = configured(tmp_path)
+    cloud_cancel = Mock()
+    monkeypatch.setattr(replay.cloud, "cancel", cloud_cancel)
+    view = ModelManager(replay.setup, cloud=replay.cloud)
+    try:
+        view.download.click()
+        assert replay.setup.job(SetupLane.MODELS).busy
+        view.cancel_button.click()
+        assert replay.operations[-1].cancelled
+        cloud_cancel.assert_not_called()
+    finally:
+        replay.close()
+        shiboken6.delete(view)
+
+
 def test_recreated_runtime_view_keeps_active_install_and_cancels_explicitly(app, tmp_path):
     replay = configured(tmp_path)
     try:

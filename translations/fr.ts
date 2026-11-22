@@ -491,10 +491,6 @@ Les détails se trouvent dans %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Annulé. Les fichiers vérifiés ont été conservés pour réessayer.</translation>
     </message>
     <message>
-      <source>Cancelled. Verified files were kept.</source>
-      <translation>Annulé. Les fichiers vérifiés ont été conservés.</translation>
-    </message>
-    <message>
       <source>Cancelling setup…</source>
       <translation>Annulation de la configuration…</translation>
     </message>

@@ -491,10 +491,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>취소됨. 재시도를 위해 검증된 파일을 보관했습니다.</translation>
     </message>
     <message>
-      <source>Cancelled. Verified files were kept.</source>
-      <translation>취소됨. 검증된 파일을 보관했습니다.</translation>
-    </message>
-    <message>
       <source>Cancelling setup…</source>
       <translation>설정 취소 중…</translation>
     </message>

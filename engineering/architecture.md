@@ -100,7 +100,15 @@ The complete candidate catalog must pass the reader’s schema and byte limits b
 Consent/review replies carry monotonic tokens. Decline/failure preserves committed assignments;
 stale replies cannot adopt new proposals. Setup has three bounded lanes: models/imports, runtime,
 and guide. Import probes wait for both translator and classifier cleanup. The skippable guide offers
-downloadable bundles, not imported GGUF registrations; pending selection survives delayed discovery.
+downloadable bundles, not imported GGUF registrations. Its saved choice survives delayed discovery
+and goes through the ordinary assignment and consent flow even if the picker already displays it.
+The application acknowledges the choice on assignment or when the user answers the preparation prompt.
+A cancellation request leaves the lane busy until its worker reports an outcome. Committed changes
+refresh inventory even when cancellation arrives before the application observes completion. Discovery
+also reconciles verified files kept by a partially completed setup.
+The first-run offer stays pending until setup is available. A recreated guide can observe the same
+operation and recover its result. Finishing or closing a successful guide acknowledges its exact
+review token once, then a subsequent guide opens at the welcome page.
 Hiding Settings never cancels an operation implicitly; app close cancels/drains all owners.
 Shutdown waits for actual resource release and owner exit, not just a published result/failure.
 Preferences and hardware work drain and hotkeys release before restart; failed restart resumes services.

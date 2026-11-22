@@ -491,10 +491,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>تم الإلغاء. تم الاحتفاظ بالملفات التي تم التحقق منها لإعادة المحاولة.</translation>
     </message>
     <message>
-      <source>Cancelled. Verified files were kept.</source>
-      <translation>تم الإلغاء. تم الاحتفاظ بالملفات التي تم التحقق منها.</translation>
-    </message>
-    <message>
       <source>Cancelling setup…</source>
       <translation>جارٍ إلغاء الإعداد…</translation>
     </message>

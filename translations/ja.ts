@@ -491,10 +491,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>キャンセルされました。検証済みのファイルは再試行のために保持されました。</translation>
     </message>
     <message>
-      <source>Cancelled. Verified files were kept.</source>
-      <translation>キャンセルされました。検証済みのファイルは保持されました。</translation>
-    </message>
-    <message>
       <source>Cancelling setup…</source>
       <translation>セットアップをキャンセル中…</translation>
     </message>

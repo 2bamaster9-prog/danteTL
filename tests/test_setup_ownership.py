@@ -65,7 +65,7 @@ def test_setup_lanes_are_bounded_and_cancel_waits_for_owner_cleanup(tmp_path):
         setup.close()
         assert all(op.cancelled for op in replay.operations)
         assert setup.busy and not setup.download("model")
-        replay.operations[0].finish()  # Completion raced cancellation; do not adopt its result.
+        replay.operations[0].finish()  # A committed download survives the cancellation request.
         setup.advance()
         assert setup.busy
         replay.operations[1].finish(cancelled=True)
@@ -73,6 +73,48 @@ def test_setup_lanes_are_bounded_and_cancel_waits_for_owner_cleanup(tmp_path):
         assert not setup.busy
         setup.resume()
         assert setup.download("model")
+    finally:
+        replay.close()
+
+
+def test_cancel_after_commit_reports_success_and_refreshes_inventory(tmp_path):
+    replay = configured(tmp_path)
+    try:
+        setup = replay.setup
+        assert setup.download("model")
+        # The worker has committed; discovery can now see the installed file.
+        data = replay.source.data
+        replay.source.data = replace(
+            data,
+            files=tuple(replace(f, present=True) if f.key == "model" else f for f in data.files),
+        )
+        replay.operations[-1].finish()
+        setup.cancel(SetupLane.MODELS)
+        setup.advance()
+        job = setup.job(SetupLane.MODELS)
+        assert job.progress.done and not (job.cancelling or job.progress.cancelled or job.busy)
+        replay.settle_inventory()
+        assert any(f.key == "model" and f.present for f in setup.files)
+    finally:
+        replay.close()
+
+
+@pytest.mark.parametrize("outcome", [{"cancelled": True}, {"error": "next download failed"}])
+def test_partial_guide_refreshes_verified_files_without_accepting_the_review(tmp_path, outcome):
+    replay = configured(tmp_path)
+    try:
+        setup = replay.setup
+        review = setup.review("model", "cpu", HardwareStatus(llama_device="cpu"))
+        assert setup.start_review(review.token)
+        data = replay.source.data
+        replay.source.data = replace(
+            data, files=tuple(replace(f, present=True) if f.key == "ocr" else f for f in data.files)
+        )
+        replay.operations[-1].finish(**outcome)
+        setup.advance()
+        replay.settle_inventory()
+        assert setup.acknowledge_review(review.token) is None
+        assert any(f.key == "ocr" and f.present for f in setup.files)
     finally:
         replay.close()
 

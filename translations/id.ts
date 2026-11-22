@@ -491,10 +491,6 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Dibatalkan. File terverifikasi dipertahankan untuk percobaan ulang.</translation>
     </message>
     <message>
-      <source>Cancelled. Verified files were kept.</source>
-      <translation>Dibatalkan. File terverifikasi dipertahankan.</translation>
-    </message>
-    <message>
       <source>Cancelling setup…</source>
       <translation>Membatalkan penyiapan…</translation>
     </message>

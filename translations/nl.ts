@@ -491,10 +491,6 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Geannuleerd. Geverifieerde bestanden zijn bewaard voor een nieuwe poging.</translation>
     </message>
     <message>
-      <source>Cancelled. Verified files were kept.</source>
-      <translation>Geannuleerd. Geverifieerde bestanden zijn bewaard.</translation>
-    </message>
-    <message>
       <source>Cancelling setup…</source>
       <translation>Installatie wordt geannuleerd…</translation>
     </message>

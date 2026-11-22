@@ -56,7 +56,6 @@ class ModelManager(QDialog):
         self._inventory_revision = -1
         self.import_dialog: ModelImportDialog | None = None
         self._closing = False
-        self._cancelling = False
         root = QVBoxLayout(self)
         root.setContentsMargins(12, 12, 12, 12)
         category_row = QHBoxLayout()
@@ -359,7 +358,7 @@ class ModelManager(QDialog):
     def _start_download(self, bundle: ModelFile) -> None:
         if not isinstance(bundle, ModelFile) or not self.service.download(bundle.key):
             return
-        self._closing = self._cancelling = False
+        self._closing = False
         self.error_message = ""
         self.choice.setEnabled(False)
         self.ocr.set_busy(True)
@@ -372,9 +371,7 @@ class ModelManager(QDialog):
         self.operation_started.emit()
 
     def _cancel(self) -> None:
-        self.cloud.cancel()
         if self.busy:
-            self._cancelling = True
             self.service.cancel(SetupLane.MODELS)
             self.cancel_button.setEnabled(False)
             self.operation_status.setText(tr("Cancelling… finishing the current network read."))
@@ -427,6 +424,7 @@ class ModelManager(QDialog):
     def closeEvent(self, event: QCloseEvent) -> None:
         if self.busy or self.cloud.busy:
             self._closing = True
+            self.cloud.cancel()
             self._cancel()
             event.ignore()
         else:

@@ -491,10 +491,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>已取消。已保留驗證過的檔案以供重試。</translation>
     </message>
     <message>
-      <source>Cancelled. Verified files were kept.</source>
-      <translation>已取消。已保留驗證過的檔案。</translation>
-    </message>
-    <message>
       <source>Cancelling setup…</source>
       <translation>正在取消設定…</translation>
     </message>

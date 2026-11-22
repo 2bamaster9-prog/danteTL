@@ -252,6 +252,7 @@ class ModelOperation:
 
     def _run(self, action: Callable[[Progress, threading.Event], None]) -> None:
         try:
+            _check_cancel(self._cancel)
             action(self._progress, self._cancel)
             value = self.snapshot()
             self._progress(replace(value, done=True))

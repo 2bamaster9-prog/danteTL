@@ -491,10 +491,6 @@ Details finden Sie in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Abgebrochen. Überprüfte Dateien wurden für einen erneuten Versuch behalten.</translation>
     </message>
     <message>
-      <source>Cancelled. Verified files were kept.</source>
-      <translation>Abgebrochen. Überprüfte Dateien wurden behalten.</translation>
-    </message>
-    <message>
       <source>Cancelling setup…</source>
       <translation>Einrichtung wird abgebrochen…</translation>
     </message>

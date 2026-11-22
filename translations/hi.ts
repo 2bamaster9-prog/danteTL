@@ -491,10 +491,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>रद्द किया गया। पुनः प्रयास के लिए सत्यापित फ़ाइलें रखी गईं।</translation>
     </message>
     <message>
-      <source>Cancelled. Verified files were kept.</source>
-      <translation>रद्द किया गया। सत्यापित फ़ाइलें रखी गईं।</translation>
-    </message>
-    <message>
       <source>Cancelling setup…</source>
       <translation>सेटअप रद्द किया जा रहा है…</translation>
     </message>

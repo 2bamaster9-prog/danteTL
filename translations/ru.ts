@@ -491,10 +491,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>Отменено. Проверенные файлы сохранены для повторной попытки.</translation>
     </message>
     <message>
-      <source>Cancelled. Verified files were kept.</source>
-      <translation>Отменено. Проверенные файлы сохранены.</translation>
-    </message>
-    <message>
       <source>Cancelling setup…</source>
       <translation>Отмена установки…</translation>
     </message>

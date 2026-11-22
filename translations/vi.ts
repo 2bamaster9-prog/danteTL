@@ -491,10 +491,6 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Đã hủy. Các tệp đã xác minh được giữ lại để thử lại.</translation>
     </message>
     <message>
-      <source>Cancelled. Verified files were kept.</source>
-      <translation>Đã hủy. Các tệp đã xác minh được giữ lại.</translation>
-    </message>
-    <message>
       <source>Cancelling setup…</source>
       <translation>Đang hủy thiết lập…</translation>
     </message>

@@ -491,10 +491,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>বাতিল হয়েছে। পুনরায় চেষ্টার জন্য যাচাইকৃত ফাইলগুলো রাখা হয়েছে।</translation>
     </message>
     <message>
-      <source>Cancelled. Verified files were kept.</source>
-      <translation>বাতিল হয়েছে। যাচাইকৃত ফাইলগুলো রাখা হয়েছে।</translation>
-    </message>
-    <message>
       <source>Cancelling setup…</source>
       <translation>সেটআপ বাতিল করা হচ্ছে…</translation>
     </message>

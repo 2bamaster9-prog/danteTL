@@ -332,10 +332,6 @@ class SetupCoordinator:
             if not value.done:
                 continue
             job = self._jobs[lane]
-            if job.cancelling and not (value.cancelled or value.error):
-                value = replace(
-                    value, cancelled=True, message=tr("Cancelled. Verified files were kept.")
-                )
             succeeded = not (value.error or value.cancelled)
             if lane == SetupLane.MODELS and job.action == "probe":
                 result = self._probe.result if self._probe and succeeded else None
@@ -353,11 +349,13 @@ class SetupCoordinator:
                 if succeeded:
                     self._runtime = self._runtime_result
                 self._runtime_result = None
-            self._jobs[lane] = replace(job, busy=False, progress=value)
+            self._jobs[lane] = replace(job, busy=False, cancelling=False, progress=value)
             del self._operations[lane]
             if succeeded and lane == SetupLane.GUIDE and self._review is not None:
                 self._completed_review = self._review.token
             if succeeded and lane == SetupLane.MODELS and job.action == "register":
                 self._probe_result = None
-            if succeeded and job.action in {"download", "remove", "register", "install", "setup"}:
+            # Multi-file downloads and setup can commit verified files before a later
+            # step fails or is cancelled. Discovery reports what actually reached disk.
+            if job.action in {"download", "remove", "register", "install", "setup"}:
                 self.inventory.invalidate()
