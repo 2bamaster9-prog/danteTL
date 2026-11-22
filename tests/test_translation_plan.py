@@ -2,11 +2,13 @@
 
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import replace
 from unittest.mock import Mock
 
 import pytest
 
+from dantetl.application.live_session import LiveSession
 from dantetl.application.model_inventory import ModelInventory
 from dantetl.application.model_lifecycle import ModelLifecycle, RouteModel, RouteSelection
 from dantetl.application.preference_values import Preferences
@@ -14,7 +16,7 @@ from dantetl.application.preferences import decode_preferences
 from dantetl.domain import Rect
 from dantetl.languages.target import ENGLISH
 from dantetl.ocr.observation import TextTrack
-from dantetl.translation.backend import BackendChoice
+from dantetl.translation.backend import BackendChoice, TranslationBackend
 from dantetl.translation.grouping import TextBlock
 from dantetl.translation.plan import TranslationPlan
 from dantetl.translation.routing import RoutedTranslationSession
@@ -107,6 +109,36 @@ def test_same_model_uses_one_prepared_owner_and_disabled_text_is_never_requested
         assert session.snapshot().results[0].request.source == long.text
         assert not plan.two_local_models
     finally:
+        session.request_stop()
+        until(lambda: session.finished)
+
+
+def test_growing_published_label_retires_only_when_its_successor_has_no_route(tmp_path):
+    release = threading.Event()
+    short, long = Engine("short"), Engine("long", release)
+    factories: dict[str, Callable[[], TranslationBackend]] = {
+        "local:a": lambda: short,
+        "local:b": lambda: long,
+    }
+    plan = TranslationPlan("local:a", "local:b")
+    live = LiveSession()
+    session = RoutedTranslationSession(plan, factories, tmp_path / "cache")
+    label = block(1, "設定")
+    grown = TextBlock((replace(label.lines[0], text=label.text * 21, text_revision=2),))
+    try:
+        session.start()
+        for long_enabled in (True, False):
+            session.reconfigure(replace(plan, long_enabled=long_enabled), factories)
+            until(lambda: bool(live.publish(session, (label,), (label,)).translations))
+            scene = live.publish(session, (grown,), (grown,))
+            if long_enabled:
+                assert long.entered.wait(2)
+                assert scene.blocks == (label,)
+            else:
+                assert not scene.blocks and not scene.translations
+                assert scene.snapshot.pending == 0
+    finally:
+        release.set()
         session.request_stop()
         until(lambda: session.finished)
 

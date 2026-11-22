@@ -33,7 +33,13 @@ class EnglishPresentation:
         self._scope: object = None
         self._menus: dict[MenuSample, Publication] = {}
         self._inputs: (
-            tuple[tuple[TextBlock, ...], tuple[TranslatedText, ...], frozenset[TextTrack]] | None
+            tuple[
+                tuple[TextBlock, ...],
+                tuple[TranslatedText, ...],
+                frozenset[TextTrack],
+                frozenset[TranslationRequest] | None,
+            ]
+            | None
         ) = None
 
     def reset(self) -> None:
@@ -108,17 +114,25 @@ class EnglishPresentation:
         *,
         scope: object = None,
         cleared: frozenset[TextTrack] = frozenset(),
+        eligible: frozenset[TranslationRequest] | None = None,
     ) -> tuple[Publication, ...]:
         if scope != self._scope:
             self.reset()
             self._scope = scope
-        inputs = (blocks[:128], translations[:128], cleared)
+        inputs = (blocks[:128], translations[:128], cleared, eligible)
         if inputs == self._inputs:
             return self._visible
         self._inputs = inputs
-        blocks = tuple(b for b in inputs[0] if b.language.contains_text(b.text))
         results = {t.request: t for t in inputs[1]}
-        requests = tuple(TranslationRequest.from_block(b) for b in blocks)
+        current: list[TextBlock] = []
+        requests: list[TranslationRequest] = []
+        for block in inputs[0]:
+            if block.language.contains_text(block.text):
+                request = TranslationRequest.from_block(block)
+                if eligible is None or request in eligible:
+                    current.append(block)
+                    requests.append(request)
+        blocks = tuple(current)
         self._ready = {
             key: value
             for key in requests

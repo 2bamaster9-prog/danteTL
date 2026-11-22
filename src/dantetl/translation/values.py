@@ -78,6 +78,8 @@ class TranslationSnapshot:
     rejected: tuple[TranslationRejection, ...] = ()
     lanes: tuple[TranslationLaneSnapshot, ...] = ()
     cancelled_obsolete: int = 0
+    # A single backend accepts every retained request. A router pins an explicit subset.
+    routed_requests: frozenset[TranslationRequest] | None = None
 
 
 class TranslationWorker(Protocol):

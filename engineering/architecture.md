@@ -458,6 +458,7 @@ and new painted rectangles and retires backdrops for hidden labels.
 `TranslationPlan` assigns short and long text independently. Categories are structural/length-based,
 not semantic dialogue. Missing models/connections never switch provider or billing route. Unchanged
 requests stay pinned to their route. Switches revoke live/frozen English and drain before loading.
+Only retained blocks with a configured route may hold old English while awaiting a successor.
 Adopt the exact prepared worker; same model in both categories shares one owner. Different local models
 may coexist and consume additional RAM/VRAM.
 

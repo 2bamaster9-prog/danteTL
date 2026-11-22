@@ -466,6 +466,7 @@ class LiveSession:
         published = self._presentation.update(
             retained,
             snapshot.results,
+            eligible=snapshot.routed_requests,
             scope=(session, snapshot.backend_generation, target),
             cleared=state.cleared,
         )
