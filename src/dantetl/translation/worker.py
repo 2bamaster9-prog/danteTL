@@ -84,6 +84,7 @@ class TranslationSession:
     ) -> None:
         self._language = language
         self._target = ENGLISH
+        self._game = ""
         self._factory, self._cache_path = factory, cache_path
         self._notify = on_change or (lambda: None)
         self._condition = threading.Condition()
@@ -123,6 +124,7 @@ class TranslationSession:
         *,
         retain: tuple[TextBlock, ...] = (),
         target: TargetLanguage = ENGLISH,
+        game: str = "",
         reset_context: bool = False,
         corrections: tuple[tuple[TextTrack, TextTrack], ...] = (),
     ) -> None:
@@ -140,8 +142,9 @@ class TranslationSession:
             if (key := TranslationRequest.from_block(block)) not in desired_set
         )[: 128 - len(desired)]
         with self._condition:
-            if target != self._target:
+            if target != self._target or game != self._game:
                 self._target = target
+                self._game = game
                 self._invalidate_locked()
             now = time.monotonic()
             blocks = tuple(t for t in tracks[:128] if isinstance(t, TextBlock))
@@ -378,6 +381,7 @@ class TranslationSession:
                         ),
                         target=self._target,
                         language=self._language,
+                        game=self._game,
                     )
                 if (
                     active_backend == backend_generation
@@ -540,7 +544,7 @@ class TranslationSession:
                     self._processing_since = remaining_since
                     return
         for source, english in translated.items():
-            cache.put(batch.keys[source], english)
+            cache.put(batch.keys[source], english, scope=batch.cache_scope)
             batch.answers[source] = english
         duration = (time.perf_counter() - batch.measured) * 1000
         with self._condition:

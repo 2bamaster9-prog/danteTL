@@ -50,7 +50,7 @@ def application_session(
     language: SourceLanguage = DEFAULT_SOURCE,
 ) -> ApplicationSession:
     preferences = preferences or PreferenceStore(preferences_path)
-    cache = cache_path or state_root() / "data/translations.sqlite3"
+    cache = cache_path or state_root() / "data/game-translations.sqlite3"
     initial_choices = ocr_backends or (OcrChoice("CPU", recognizer_factory, key="cpu"),)
 
     live = live_session or LiveSession(

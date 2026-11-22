@@ -34,6 +34,7 @@ class Demand:
     dialogue: frozenset[TranslationRequest]
     target: TargetLanguage = ENGLISH
     language: SourceLanguage = DEFAULT_SOURCE
+    game: str = ""
 
 
 @dataclass(slots=True)
@@ -52,6 +53,7 @@ class Batch:
     queue_ms: float = 0.0
     started: float = 0.0
     parallel_label: bool = False
+    cache_scope: int | None = None
 
     def activate(
         self,
@@ -183,7 +185,7 @@ class TranslationSchedule:
                     target=demand.target,
                 )
         self._keys = keys
-        hits = cache.lookup_pending(keys.values(), reset=reset)
+        hits = cache.lookup_pending(keys.values(), reset=reset, game=demand.game)
         answers = {source: hits[key] for source, key in keys.items()}
         cached = tuple(source for source in sources if answers[source] is not None)
         active = {source for batch, _ in self._flights for source in batch.missing}
@@ -240,4 +242,5 @@ class TranslationSchedule:
             any(source in serial for source in missing),
             target=demand.target,
             parallel_label=parallel_label,
+            cache_scope=cache.scope,
         )

@@ -865,6 +865,26 @@ def test_backend_swap_closes_old_before_loading_new_and_uses_separate_cache(tmp_
     assert new.closed
 
 
+def test_switching_game_credits_cached_labels_without_another_model_call(tmp_path):
+    path = tmp_path / "cache.sqlite3"
+    backend = Backend()
+    worker = TranslationSession(lambda: backend, path)
+    worker.start()
+    try:
+        for game in ("First", "Second"):
+            worker.update((track("設定"),), game=game)
+            until(lambda: worker.snapshot().results)
+        assert worker.snapshot().cache_hits == 1
+        assert len(backend.calls) == 1
+    finally:
+        stop(worker)
+    cache = TranslationCache(path)
+    try:
+        assert cache.inventory().games == (("First", 1), ("Second", 1))
+    finally:
+        cache.close()
+
+
 def test_cache_reuses_text_after_session_restart_and_track_id_changes(tmp_path) -> None:
     path = tmp_path / "cache.sqlite3"
     for key in (1, 99):

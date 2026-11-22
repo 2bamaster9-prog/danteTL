@@ -439,6 +439,7 @@ class LiveSession:
         retained: tuple[TextBlock, ...],
         *,
         target: TargetLanguage = ENGLISH,
+        game: str = "",
     ) -> EnglishScene:
         state = self.visual_state
         broad_change = bool(
@@ -454,6 +455,7 @@ class LiveSession:
             retain=retained,
             reset_context=broad_change,
             target=target,
+            game=game,
             corrections=self._tracker.display_predecessors(),
         )
         snapshot = session.snapshot()

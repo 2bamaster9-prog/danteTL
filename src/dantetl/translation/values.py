@@ -87,6 +87,7 @@ class TranslationWorker(Protocol):
         *,
         retain: tuple[TextBlock, ...] = (),
         target: TargetLanguage = ENGLISH,
+        game: str = "",
         reset_context: bool = False,
         corrections: tuple[tuple[TextTrack, TextTrack], ...] = (),
     ) -> None: ...

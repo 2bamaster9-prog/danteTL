@@ -561,6 +561,7 @@ class ApplicationSession:
                 scene.requests,
                 scene.blocks,
                 target=TARGET_LANGUAGES[self.values.output_language],
+                game=self.translation.game or self.translation.window_title,
             )
             snapshot = published.snapshot
             self.view = replace(

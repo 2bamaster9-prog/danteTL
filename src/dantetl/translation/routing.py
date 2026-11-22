@@ -143,6 +143,7 @@ class RoutedTranslationSession:
         *,
         retain: tuple[TextBlock, ...] = (),
         target: TargetLanguage = ENGLISH,
+        game: str = "",
         reset_context: bool = False,
         corrections: tuple[tuple[TextTrack, TextTrack], ...] = (),
     ) -> None:
@@ -168,6 +169,7 @@ class RoutedTranslationSession:
                 ),
                 reset_context=reset_context,
                 target=target,
+                game=game,
                 corrections=corrections,
             )
 
