@@ -435,9 +435,12 @@ requests stay pinned to their route. Switches revoke live/frozen English and dra
 Adopt the exact prepared worker; same model in both categories shares one owner. Different local models
 may coexist and consume additional RAM/VRAM.
 
-`TranslationSession` owns backend loading/inference/unloading and SQLite. `TranslationSchedule` owns
-bounded desired/retained work, exact source/context deduplication, cache-first lookup, serial dialogue
-and fair waiting order. Outstanding sources reuse their hashed keys and cache answers. Newly admitted
+`TranslationSession` owns the inference thread, SQLite and publication. `BackendExecution` owns the
+loaded backend from the moment its factory returns, including cleanup if capability discovery fails.
+It owns the optional menu decoder, cancellation, source switching and recovery to individual calls
+on the same model. `TranslationSchedule` owns bounded desired/retained work, exact source/context
+deduplication, cache-first lookup, serial dialogue and fair waiting order. Outstanding sources
+reuse their hashed keys and cache answers. Newly admitted
 sources are checked even at deferred inference capacity. On a scheduling pass, another SQLite
 connection's commit invalidates remembered misses; the owner's own writes update them directly.
 Revisions join the tail. The owner cancels an active cloud call when its exact source and frozen

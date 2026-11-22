@@ -14,17 +14,11 @@ from dantetl.languages.target import ENGLISH, TargetLanguage
 from dantetl.ocr.observation import TextTrack
 from dantetl.translation.backend import (
     BatchResult,
-    ContextualBackend,
-    DeferredBackend,
-    LabelDecoder,
-    MultilingualBackend,
-    ParallelLabelBackend,
-    RequestRejected,
-    Source,
     TranslationBackend,
 )
 from dantetl.translation.cache import TranslationCache
 from dantetl.translation.dialogue.context import DialogueMemory, DialogueTurn
+from dantetl.translation.execution import BackendExecution
 from dantetl.translation.grouping import TextBlock
 from dantetl.translation.schedule import Batch, Demand, TranslationSchedule
 from dantetl.translation.values import (
@@ -36,7 +30,6 @@ from dantetl.translation.values import (
 )
 
 logger = logging.getLogger(__name__)
-_LABEL_RUNTIME_ERRORS = (AttributeError, RuntimeError, ValueError, OSError, MemoryError)
 
 
 class TranslationSession:
@@ -264,19 +257,12 @@ class TranslationSession:
         with self._condition:
             self._condition.notify()
 
-    def _retry_labels_individually(
-        self, labels: LabelDecoder, schedule: TranslationSchedule
-    ) -> None:
-        logger.warning("Menu decoding unavailable; resuming individual calls", exc_info=True)
-        labels.close()
-        schedule.reset()
+    def _interrupted(self, generation: int) -> bool:
         with self._condition:
-            self._processing_since = None
+            return self._stop or self._demand_changed or generation != self._generation
 
     def _run(self) -> None:
-        engine: TranslationBackend | None = None
-        labels: LabelDecoder | None = None
-        label_width = 0
+        execution: BackendExecution | None = None
         cache: TranslationCache | None = None
         active_backend = -1
         schedule = TranslationSchedule()
@@ -286,14 +272,8 @@ class TranslationSession:
             while True:
                 with self._condition:
                     stale = self._stop or schedule.stale(self._generation)
-                if stale and isinstance(engine, DeferredBackend):
-                    engine.cancel_pending()
-                    schedule.reset()
-                    with self._condition:
-                        self._processing_since = None
-                elif stale and labels is not None:
-                    labels.reset()
-                    schedule.reset()
+                if stale and execution is not None:
+                    execution.cancel_pending()
                     with self._condition:
                         self._processing_since = None
                 completed = schedule.completed()
@@ -359,28 +339,16 @@ class TranslationSession:
                 if (
                     active_backend == backend_generation
                     and active_language != demand.language
-                    and isinstance(engine, MultilingualBackend)
+                    and execution is not None
+                    and execution.switch_source(demand.language)
                 ):
-                    if labels is not None:
-                        labels.close()
-                        labels = None
-                    engine.set_source(demand.language)
-                    label_width = (
-                        engine.label_width if isinstance(engine, ParallelLabelBackend) else 0
-                    )
                     active_language = demand.language
                 if active_backend != backend_generation or active_language != demand.language:
-                    if labels is not None:
-                        labels.close()
-                        labels = None
-                    if engine is not None:
-                        engine.close()
-                        engine = None
+                    if execution is not None:
+                        previous, execution = execution, None
+                        previous.close()
                     started = time.perf_counter()
-                    engine = factory()
-                    label_width = (
-                        engine.label_width if isinstance(engine, ParallelLabelBackend) else 0
-                    )
+                    execution = BackendExecution(factory(), schedule)
                     active_backend, active_language = backend_generation, demand.language
                     schedule.reset()
                     with self._condition:
@@ -392,33 +360,12 @@ class TranslationSession:
                     if published:
                         self._notify()
                     continue
-                assert engine is not None
-                batch = schedule.plan(demand, engine, cache, label_width)
+                assert execution is not None
+                batch = execution.plan(demand, cache)
                 if batch is None:
-                    # Decode one token per occupied lane. Re-enter scheduling as soon
-                    # as a result, cache lookup, revision, switch or stop needs attention.
-                    while labels is not None and schedule.processing_since is not None:
-                        with self._condition:
-                            if (
-                                self._stop
-                                or self._demand_changed
-                                or demand.generation != self._generation
-                            ):
-                                break
-                        try:
-                            labels.step()
-                        except _LABEL_RUNTIME_ERRORS:
-                            self._retry_labels_individually(labels, schedule)
-                            labels = None
-                            label_width = 0
-                            break
-                        if schedule.has_completion():
-                            break
-                    continue
-                if batch.parallel_label and labels is None:
-                    labels = _prepare_labels(engine, demand.target)
-                    label_width = labels.width if labels else 0
-                    # New demand may have arrived during native context allocation.
+                    execution.advance(lambda gen=demand.generation: self._interrupted(gen))
+                    with self._condition:
+                        self._processing_since = schedule.processing_since
                     continue
                 with self._condition:
                     if self._stop or batch.generation != self._generation:
@@ -436,27 +383,11 @@ class TranslationSession:
                         self._processing_since = (
                             min(batch.started, since) if since is not None else batch.started
                         )
-                if batch.parallel_label and labels is not None:
-                    try:
-                        future = labels.submit(batch.missing[0], batch.target)
-                    except _LABEL_RUNTIME_ERRORS:
-                        self._retry_labels_individually(labels, schedule)
-                        labels = None
-                        label_width = 0
-                        continue
-                    if future is not None:
-                        schedule.submitted(batch, future)
-                        continue
-                if batch.missing and isinstance(engine, DeferredBackend):
-                    future = engine.submit_translation(batch.missing, target=batch.target)
-                    schedule.submitted(batch, future)
-                    future.add_done_callback(self._wake)
+                outcome = execution.dispatch(batch, self._wake)
+                if outcome is None:
+                    with self._condition:
+                        self._processing_since = schedule.processing_since
                 else:
-                    outcome = (
-                        translate_batch(engine, batch.missing, target=batch.target)
-                        if batch.missing
-                        else ({}, {})
-                    )
                     self._publish_batch(
                         batch,
                         outcome,
@@ -472,14 +403,9 @@ class TranslationSession:
                 self._message = str(error)
             self._notify()
         finally:
-            if labels is not None:
+            if execution is not None:
                 try:
-                    labels.close()
-                except Exception:
-                    logger.exception("Menu context cleanup failed")
-            if engine is not None:
-                try:
-                    engine.close()
+                    execution.close()
                 except Exception:
                     logger.exception("Translation backend cleanup failed")
             if cache is not None:
@@ -550,55 +476,3 @@ class TranslationSession:
                 self._message = cache.warning
         if published:
             self._notify()
-
-
-def _prepare_labels(engine: TranslationBackend, target: TargetLanguage) -> LabelDecoder | None:
-    if isinstance(engine, ParallelLabelBackend):
-        try:
-            return engine.prepare_labels(target)
-        except _LABEL_RUNTIME_ERRORS:
-            # Older native wheels or memory-constrained PCs can still run the
-            # same model, prompts and sampling settings in its primary context.
-            logger.warning("Could not prepare parallel menu translation", exc_info=True)
-    return None
-
-
-def translate_batch(
-    engine: TranslationBackend, sources: tuple[Source, ...], *, target: TargetLanguage = ENGLISH
-) -> tuple[dict[Source, str], dict[Source, str]]:
-    """Isolate known rejections. Split a rejected batch once; native failures stay fatal."""
-    answers: dict[Source, str] = {}
-    rejected = {
-        source: tr("Source text exceeds the 512-character translation limit.")
-        for source in sources
-        if len(source[0]) > 512
-    }
-    valid = tuple(source for source in sources if source not in rejected)
-
-    def accept(source: Source, english: str) -> None:
-        if not english.strip() or len(english) > 4096:
-            rejected[source] = tr("Translation backend returned empty or oversized text.")
-        else:
-            answers[source] = english
-
-    if isinstance(engine, ContextualBackend):
-        for source in valid:
-            try:
-                accept(source, engine.translate_with_context(*source, target=target))
-            except RequestRejected as error:
-                rejected[source] = str(error) or tr("Model rejected this request.")
-    elif valid:
-        try:
-            translated = engine.translate(tuple(source[0] for source in valid), target=target)
-        except RequestRejected as error:
-            if len(valid) == 1:
-                rejected[valid[0]] = str(error) or tr("Model rejected this request.")
-            else:
-                for source in valid:
-                    good, bad = translate_batch(engine, (source,), target=target)
-                    answers.update(good)
-                    rejected.update(bad)
-        else:
-            for source, english in zip(valid, translated, strict=True):
-                accept(source, english)
-    return answers, rejected

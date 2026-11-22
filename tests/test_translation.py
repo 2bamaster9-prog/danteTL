@@ -929,6 +929,33 @@ def test_load_failure_is_visible_and_capture_can_continue_independently(tmp_path
     assert session.snapshot().message == "Missing model"
 
 
+@pytest.mark.parametrize("cleanup_fails", [False, True])
+def test_label_capability_failure_closes_loaded_backend(tmp_path, cleanup_fails):
+    class BrokenLabels(Backend):
+        @property
+        def label_width(self):
+            raise RuntimeError("Cannot inspect menu support")
+
+        def prepare_labels(self, target):
+            raise AssertionError("No decoder should be created")
+
+        def close(self):
+            super().close()
+            if cleanup_fails:
+                raise RuntimeError("Cleanup failed")
+
+    backend = BrokenLabels()
+    session = TranslationSession(lambda: backend, tmp_path / "cache.sqlite3")
+    session.start()
+    try:
+        until(lambda: session.finished)
+        assert backend.closed
+        assert session.snapshot().state == TranslationState.FAILED
+        assert session.snapshot().message == "Cannot inspect menu support"
+    finally:
+        stop(session)
+
+
 def test_desired_work_and_batch_size_are_bounded(tmp_path) -> None:
     backend = Backend()
     backend.release.clear()
