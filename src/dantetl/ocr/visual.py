@@ -729,6 +729,7 @@ class VisualAnalyzer:
 
         from dantetl.ocr.discovery import DiscoveryTiles
         from dantetl.ocr.menu_appearance import MenuAppearance
+        from dantetl.ocr.scan_cadence import ScanCadence
 
         cv2.setNumThreads(1)
         self._tiles = DiscoveryTiles()
@@ -741,10 +742,7 @@ class VisualAnalyzer:
         self._before: dict[int, Bytes] = {}
         self._size: tuple[int, int] | None = None
         self._dpi = 0
-        self._last_full = float("-inf")
-        self._followup: float | None = None
-        self._followup_areas: tuple[Rect, ...] | None = None
-        self._avoided = 0
+        self._cadence = ScanCadence()
         self._reference_key: tuple[int, tuple[TextTrack, ...]] | None = None
         self._checked_key: tuple[int, tuple[TextTrack, ...]] | None = None
         self._checked: frozenset[TextTrack] = frozenset()
@@ -951,10 +949,9 @@ class VisualAnalyzer:
         stable, blocked = [], set()
         stable_tracks = []
         complete_lines = set()
-        growing_areas = []
-        local_areas = []
-        settling = []
-        deadline = now
+        from dantetl.ocr.scan_cadence import ScanChanges
+
+        changes = ScanChanges(now)
         for probe in self._probes:
             if not probe.checked or _touches(changed_tiles, probe.bounds, size):
                 current = _crop(pixels, probe.bounds, wide=True)
@@ -993,50 +990,18 @@ class VisualAnalyzer:
                 if result and probe.source_sequence == result.frame.sequence:
                     stable.append(probe.index)
             if probe.dialogue and growth and not quiet:
-                growing_areas.append(probe.bounds)
+                changes.growing.append(probe.bounds)
             if (dirty or growth) and probe.changed_at > probe.requested_at:
                 if quiet:
-                    local_areas.append(padded(probe.bounds, size))
+                    changes.ready.append(padded(probe.bounds, size))
                 else:
-                    settling.append(padded(probe.bounds, size))
-                    deadline = max(deadline, probe.changed_at + 0.16)
-        due = self._followup is not None and now >= self._followup
-        refresh = now - self._last_full >= 3.0
-        # Delay only the revealing area, not unrelated newly opened UI. Dirty tiles
-        # accumulate until requested so rate limiting never loses a one-frame change.
-        eligible = self._tiles.dirty.copy()
-        for b in growing_areas:
-            x1, y1 = max(0, b.x * 32 // size[0]), max(0, b.y * 18 // size[1])
-            x2, y2 = (
-                min(32, ceil((b.x + b.width) * 32 / size[0])),
-                min(18, ceil((b.y + b.height) * 18 / size[1])),
-            )
-            eligible[y1:y2, x1:x2] = False
-        count, _, stats, _ = cv2.connectedComponentsWithStats(eligible.astype(np.uint8), 8)
-        areas = list(local_areas)
-        for x, y, w, h, _ in stats[1:count]:
-            left, top = int(x) * size[0] // 32, int(y) * size[1] // 18
-            right, bottom = ceil(int(x + w) * size[0] / 32), ceil(int(y + h) * size[1] / 18)
-            areas.append(padded(Rect(left, top, right - left, bottom - top), size, 48))
-        if due and not growing_areas:
-            proposed = None if self._followup_areas is None else (*areas, *self._followup_areas)
-        else:
-            proposed = tuple(areas)
-        coverage = (
-            None if refresh else scan_regions(proposed, size, tuple(t.bounds for t in tracks))
+                    changes.settling.append(padded(probe.bounds, size))
+                    changes.deadline = max(changes.deadline, probe.changed_at + 0.16)
+        decision = self._cadence.decide(
+            self._tiles, changes, size, tuple(t.bounds for t in tracks), now=now, fresh=fresh
         )
-        request = fresh and coverage != ()
-        settled_scan = None
-        if (
-            settling
-            and coverage is not None
-            and any(not any(area.contains(box) for area in coverage) for box in settling)
-        ):
-            settled_scan = SettledScan(
-                deadline,
-                scan_regions((*coverage, *settling), size, tuple(t.bounds for t in tracks)),
-            )
-        if request:
+        coverage = decision.areas
+        if decision.request:
             if (
                 previous is not None
                 and frame.sequence == self._sequence + 1
@@ -1049,25 +1014,18 @@ class VisualAnalyzer:
             for probe in self._probes:
                 if coverage is None or any(area.contains(probe.bounds) for area in coverage):
                     probe.requested_at = now
-            if coverage is None:
-                self._last_full = now
-            self._tiles.requested(None if coverage is None else eligible, now)
-            self._followup = None if due or (refresh and self._sequence > 0) else now + 0.3
-            self._followup_areas = coverage
-        elif fresh:
-            self._avoided += 1
         if fresh:
             self._sequence = frame.sequence
             self._captured_at = now
         return VisualState(
             frame,
-            request,
+            decision.request,
             hidden,
             frozenset(blocked),
             tuple(stable),
             self._ocr_sequence,
             (time.perf_counter() - started) * 1000,
-            self._avoided,
+            self._cadence.avoided,
             absent=frozenset(t for t, a in self._anchors.items() if a.hidden and a.misses >= 2),
             pattern_loss=frozenset(t for t, a in self._anchors.items() if a.misses),
             present=frozenset(t for t, a in self._anchors.items() if a.present),
@@ -1079,7 +1037,7 @@ class VisualAnalyzer:
             stable_tracks=tuple(stable_tracks),
             complete_lines=frozenset(complete_lines),
             matching_menus=self._menus.matching(pixels),
-            settled_scan=settled_scan,
+            settled_scan=decision.settled,
             changed_areas=tuple(
                 Rect(
                     int(x) * size[0] // 32,

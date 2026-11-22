@@ -157,6 +157,10 @@ lives outside inspection. Hidden inspection keeps the latest exact pair without 
 pause freezes both displayed languages only. Resume shows the newest pair. Model changes revoke frozen
 English; resize/minimize/stop also clear frozen source presentation.
 
+`ScanCadence` owns follow-up deadlines, periodic full scans and consumption of dirty tiles.
+Probe analysis supplies growing, ready and settling regions. The OCR scan planner chooses how
+to execute the resulting coverage on the selected provider.
+
 `VisualSession` owns bounded thumbnails, tiles, templates/probes and one pending job, never frame history.
 Discovery compares adjacent luminance thumbnails and localized clusters of changing color edges.
 Each tile also keeps stroke detail from its last requested scan so slowly fading text can trigger
