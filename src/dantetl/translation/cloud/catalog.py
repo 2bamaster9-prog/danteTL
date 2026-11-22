@@ -1,5 +1,6 @@
 """Explicit, bounded provider discovery and non-secret per-connection catalog caching."""
 
+import asyncio
 import json
 import os
 import re
@@ -13,6 +14,7 @@ import httpx2
 
 from dantetl.i18n import tr
 from dantetl.translation.cloud.credentials import valid_credential
+from dantetl.translation.cloud.http_request import ResponseTooLarge, read_response
 from dantetl.translation.cloud.protocol import request_headers
 from dantetl.translation.cloud.values import CatalogModel, CloudProfile, recommended
 
@@ -107,7 +109,7 @@ def fetch_models(
     secret: str,
     cancel: threading.Event,
     *,
-    transport: httpx2.BaseTransport | None = None,
+    transport: httpx2.AsyncBaseTransport | None = None,
 ) -> tuple[CatalogModel, ...]:
     """Metadata only. Never test inference, follow provider URLs, or switch credentials."""
     if provider not in URLS or not valid_credential(secret):
@@ -120,71 +122,68 @@ def fetch_models(
     tokens: set[str] = set()
     deadline = time.monotonic() + 25
     try:
-        with httpx2.Client(
-            timeout=8, follow_redirects=False, trust_env=False, transport=transport
-        ) as client:
-            for _ in range(8):
-                if cancel.is_set() or time.monotonic() > deadline:
-                    raise _DiscoveryError(
-                        tr("Model refresh cancelled or timed out; the previous list is kept.")
+        for _ in range(8):
+            status, content = asyncio.run(
+                read_response(
+                    "GET",
+                    URLS[provider],
+                    cancel=cancel,
+                    deadline=deadline,
+                    max_bytes=262_144,
+                    transport=transport,
+                    skip_error_body=True,
+                    headers=headers,
+                    params=params,
+                )
+            )
+            if status != 200:
+                raise _DiscoveryError(
+                    tr(
+                        "Model refresh failed (HTTP {status_code}). Check the "
+                        "connection; the previous list is kept.",
+                        status_code=status,
                     )
-                with client.stream(
-                    "GET", URLS[provider], headers=headers, params=params
-                ) as response:
-                    if response.status_code != 200:
-                        raise _DiscoveryError(
-                            tr(
-                                "Model refresh failed (HTTP {status_code}). Check the "
-                                "connection; the previous list is kept.",
-                                status_code=response.status_code,
-                            )
-                        )
-                    content = bytearray()
-                    for chunk in response.iter_bytes():
-                        if cancel.is_set() or time.monotonic() > deadline:
-                            raise _DiscoveryError(
-                                tr(
-                                    "Model refresh cancelled or timed out; the previous "
-                                    "list is kept."
-                                )
-                            )
-                        content.extend(chunk)
-                        if len(content) > 262_144:
-                            raise _DiscoveryError(
-                                tr("Provider model catalog exceeded the size limit.")
-                            )
-                value = json.loads(content)
-                page = (
-                    value.get("models" if provider == "gemini" else "data")
-                    if isinstance(value, dict)
-                    else None
                 )
-                if not isinstance(page, list) or len(page) > 1024:
-                    raise _DiscoveryError(tr("Provider returned an unsupported model catalog."))
-                for raw in page:
-                    model = _model(provider, raw)
-                    if model:
-                        rows[model.model] = model
-                    if len(rows) > 512:
-                        raise _DiscoveryError(
-                            tr("Provider model catalog exceeded the model limit.")
-                        )
-                token = (
-                    value.get("nextPageToken", "")
-                    if provider == "gemini"
-                    else value.get("last_id", "")
-                    if value.get("has_more")
-                    else ""
-                )
-                if not token:
-                    if cancel.is_set():
-                        raise _DiscoveryError(tr("Model refresh cancelled."))
-                    return tuple(rows.values())
-                if not isinstance(token, str) or len(token) > 2048 or token in tokens:
-                    raise _DiscoveryError(tr("Provider returned invalid catalog pagination."))
-                tokens.add(token)
-                params = {"pageToken" if provider == "gemini" else "after_id": token}
-            raise _DiscoveryError(tr("Provider catalog exceeded the pagination limit."))
+            value = json.loads(content)
+            page = (
+                value.get("models" if provider == "gemini" else "data")
+                if isinstance(value, dict)
+                else None
+            )
+            if not isinstance(page, list) or len(page) > 1024:
+                raise _DiscoveryError(tr("Provider returned an unsupported model catalog."))
+            for raw in page:
+                model = _model(provider, raw)
+                if model:
+                    rows[model.model] = model
+                if len(rows) > 512:
+                    raise _DiscoveryError(tr("Provider model catalog exceeded the model limit."))
+            token = (
+                value.get("nextPageToken", "")
+                if provider == "gemini"
+                else value.get("last_id", "")
+                if value.get("has_more")
+                else ""
+            )
+            if not token:
+                if cancel.is_set():
+                    raise InterruptedError
+                if time.monotonic() >= deadline:
+                    raise TimeoutError
+                return tuple(rows.values())
+            if not isinstance(token, str) or len(token) > 2048 or token in tokens:
+                raise _DiscoveryError(tr("Provider returned invalid catalog pagination."))
+            tokens.add(token)
+            params = {"pageToken" if provider == "gemini" else "after_id": token}
+        raise _DiscoveryError(tr("Provider catalog exceeded the pagination limit."))
+    except InterruptedError:
+        raise _DiscoveryError(tr("Model refresh cancelled.")) from None
+    except TimeoutError:
+        raise _DiscoveryError(
+            tr("Model refresh cancelled or timed out; the previous list is kept.")
+        ) from None
+    except ResponseTooLarge:
+        raise _DiscoveryError(tr("Provider model catalog exceeded the size limit.")) from None
     except (httpx2.HTTPError, json.JSONDecodeError, UnicodeError):
         raise _DiscoveryError(
             tr(

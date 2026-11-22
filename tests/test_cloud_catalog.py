@@ -1,3 +1,4 @@
+import asyncio
 import json
 import threading
 from dataclasses import replace
@@ -192,3 +193,44 @@ def test_catalog_and_saved_profile_survive_offline_without_leaking_or_crossing_a
     # Existing saved presets keep their decoding contract and cache identity.
     preset = CloudProfile.new("openai")
     assert request_body(preset, "", ("設定", ()))["reasoning_effort"] == "none"
+
+
+@pytest.mark.parametrize("waiting_for", ["headers", "body"])
+def test_cancel_interrupts_catalog_request_before_another_byte_arrives(waiting_for):
+    entered, cancel, closed = threading.Event(), threading.Event(), threading.Event()
+
+    async def wait():
+        entered.set()
+        try:
+            await asyncio.sleep(5)
+        finally:
+            closed.set()
+
+    class Body(httpx2.AsyncByteStream):
+        async def __aiter__(self):
+            await wait()
+            yield b'{"data":[]}'
+
+    async def handle(request):
+        if waiting_for == "headers":
+            await wait()
+        return httpx2.Response(200, stream=Body())
+
+    errors = []
+
+    def refresh():
+        try:
+            fetch_models("openai", "fixture", cancel, transport=httpx2.MockTransport(handle))
+        except ValueError as error:
+            errors.append(str(error))
+
+    thread = threading.Thread(target=refresh)
+    thread.start()
+    try:
+        assert entered.wait(2)
+        cancel.set()
+        assert closed.wait(1)
+    finally:
+        cancel.set()
+        thread.join(2)
+    assert not thread.is_alive() and len(errors) == 1 and "cancelled" in errors[0]

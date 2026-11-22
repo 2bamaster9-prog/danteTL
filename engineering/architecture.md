@@ -532,8 +532,10 @@ accommodate full version-1 catalogs with JSON-escaped Unicode names and model re
 Cloud use needs explicit configuration/route selection. Send bounded recognized text/context and optional
 game hint, never frames. Editing/testing does not commit routing. Validate complete answers and bounded
 streams; preserve per-backend concurrency/attempt/request budgets/deadlines without billing fallback.
-Auth exchange/refresh/discovery/rotation waits carry cancellation; successful rotation persists even if
-later discovery fails. `CloudServices` owns this work independently of widgets. Model removal retains
+API catalog refresh shares one deadline across all pages and can cancel while waiting for headers or
+body bytes. Auth exchange/refresh/discovery/rotation waits carry cancellation; successful rotation persists even if
+later discovery fails. `CloudServices` publishes discovered models and new accounts together with
+the operation's completion on the application thread. Model removal retains
 connections; Forget/sign-out are explicit. Catalog failure preserves saved data and never selects a model.
 Draft Save commits; Cancel discards edits. Credentials never enter prompts, ordinary JSON, logs or fixtures.
 Usage is per saved model for the current app run, shared across backend recreation, translation and
