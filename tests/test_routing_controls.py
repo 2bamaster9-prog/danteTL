@@ -1,23 +1,15 @@
 import os
 from dataclasses import replace
 
-import pytest
-
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
-from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from dantetl.application.preference_values import Preferences  # noqa: E402
 from dantetl.translation.cloud.values import CloudProfile  # noqa: E402
 from dantetl.translation.plan import TranslationPlan  # noqa: E402
 from dantetl.translation.selection import ModelOption  # noqa: E402
 from dantetl.ui.routing_controls import RoutingControls  # noqa: E402
-
-
-@pytest.fixture
-def app():
-    return QApplication.instance() or QApplication([])
 
 
 def test_independent_pickers_disclosure_scope_and_memory_warning(app):

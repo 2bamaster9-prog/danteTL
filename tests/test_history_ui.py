@@ -4,7 +4,6 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-import pytest  # noqa: E402
 import shiboken6  # noqa: E402
 from PySide6.QtCore import QPoint, Qt  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
@@ -20,13 +19,6 @@ from dantetl.ui.controls import (  # noqa: E402
 )
 from dantetl.ui.history_panel import HistoryPanel  # noqa: E402
 from dantetl.ui.theme import STYLE  # noqa: E402
-
-
-@pytest.fixture(scope="module")
-def app():
-    application = QApplication.instance() or QApplication([])
-    yield application
-    shiboken6.delete(application)
 
 
 def test_overlay_controls_wrap_and_capture_state_keeps_icons_and_labels_consistent(app):

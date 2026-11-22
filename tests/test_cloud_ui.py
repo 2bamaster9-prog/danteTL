@@ -12,7 +12,7 @@ from ui_fixtures import settings as window_settings
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
+from PySide6.QtWidgets import QMessageBox  # noqa: E402
 from ui_fixtures import cloud_panel as CloudSettings  # noqa: E402
 from ui_fixtures import (
     cloud_service,  # noqa: E402
@@ -54,11 +54,6 @@ class MemorySecrets:
 
     def delete(self, key):
         self.values.pop(key, None)
-
-
-@pytest.fixture
-def app():
-    return QApplication.instance() or QApplication([])
 
 
 def drain(app, predicate):

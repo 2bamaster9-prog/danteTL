@@ -4,28 +4,17 @@ import time
 from dataclasses import replace
 from unittest.mock import Mock
 
-import pytest
 from ui_fixtures import app_owner
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import shiboken6  # noqa: E402
-from PySide6.QtCore import QCoreApplication, QEvent  # noqa: E402
-from PySide6.QtWidgets import QApplication  # noqa: E402
 from ui_fixtures import create_window as MainWindow  # noqa: E402
 
 from dantetl.completion_wakeup import CompletionWakeup  # noqa: E402
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry  # noqa: E402
 from dantetl.ocr.values import OcrResult, TextRegion  # noqa: E402
 from dantetl.translation.values import TranslatedText, TranslationRequest  # noqa: E402
-
-
-@pytest.fixture(scope="module")
-def app():
-    application = QApplication.instance() or QApplication([])
-    yield application
-    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-    shiboken6.delete(application)
 
 
 def pump(app, predicate):

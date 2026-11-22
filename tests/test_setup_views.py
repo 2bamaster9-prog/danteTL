@@ -8,7 +8,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest  # noqa: E402
 import shiboken6  # noqa: E402
-from PySide6.QtWidgets import QApplication, QWidget  # noqa: E402
+from PySide6.QtWidgets import QWidget  # noqa: E402
 from test_setup_ownership import configured  # noqa: E402
 
 from dantetl.runtime.hardware_values import HardwareStatus  # noqa: E402
@@ -17,13 +17,6 @@ from dantetl.translation.models.values import ImportedModel, ProbeResult  # noqa
 from dantetl.ui.model_import_dialog import ModelImportDialog  # noqa: E402
 from dantetl.ui.runtime_dialog import RuntimeSetupDialog  # noqa: E402
 from dantetl.ui.setup_assistant import SetupAssistant  # noqa: E402
-
-
-@pytest.fixture(scope="module")
-def app():
-    application = QApplication.instance() or QApplication([])
-    yield application
-    shiboken6.delete(application)
 
 
 def test_recreated_runtime_view_keeps_active_install_and_cancels_explicitly(app, tmp_path):

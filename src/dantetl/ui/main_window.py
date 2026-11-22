@@ -91,6 +91,7 @@ class MainWindow(QMainWindow):
         self._compact_size = QSize(min(1160, area.width() - 60), min(680, area.height() - 80))
         self._progress_dialog: QProgressDialog | None = None
         self._overlay = OverlayWindow(windows)
+        self.destroyed.connect(self._overlay.deleteLater)  # Keep its native window independent.
         self._overlay.set_scene(())
         self._demo_processes: list[subprocess.Popen[bytes]] = []
         self.setWindowTitle("DanteTL")

@@ -6,7 +6,6 @@ from unittest.mock import Mock
 
 import pytest
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication
 from test_live_session import Capture, Ocr
 
 from dantetl.application.live_session import LiveSession
@@ -62,8 +61,7 @@ def test_stale_matching_cannot_mutate_tracks_or_consume_the_observation():
         tracker.observe(second, review=CandidateReview(matching=fresh))
 
 
-def test_completed_dense_ocr_waits_off_qt_and_retains_english(monkeypatch):
-    app = QApplication.instance() or QApplication([])
+def test_completed_dense_ocr_waits_off_qt_and_retains_english(app, monkeypatch):
     owner = threading.get_ident()
     entered, release, block = threading.Event(), threading.Event(), threading.Event()
     scored, hashed = [], []

@@ -23,8 +23,8 @@ from dantetl.ui.setup_assistant import SetupAssistant
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import shiboken6  # noqa: E402
-from PySide6.QtCore import QCoreApplication, QEvent, QPoint  # noqa: E402
-from PySide6.QtWidgets import QApplication, QMessageBox, QProgressDialog  # noqa: E402
+from PySide6.QtCore import QPoint  # noqa: E402
+from PySide6.QtWidgets import QMessageBox, QProgressDialog  # noqa: E402
 from ui_fixtures import create_window as MainWindow  # noqa: E402
 from ui_fixtures import find_model
 
@@ -45,15 +45,6 @@ from dantetl.ui.diagnostics import DebugDisplay  # noqa: E402
 from dantetl.ui.inspection import OcrInspector, image_target  # noqa: E402
 from dantetl.ui.overlay import OverlayWindow  # noqa: E402
 from dantetl.ui.text_layout import layout_english  # noqa: E402
-
-
-@pytest.fixture(scope="module")
-def app():
-    application = QApplication.instance() or QApplication([])
-    yield application
-    # Destroy widgets while their application and native modules are still alive.
-    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-    shiboken6.delete(application)
 
 
 @pytest.mark.parametrize("code", ["pt-PT", "ar", "ja"])
@@ -1386,6 +1377,21 @@ def test_nested_consent_event_loop_does_not_unload_previous_model(app, tmp_path,
     session.finish()
     window.close()
     window.deleteLater()
+
+
+def test_main_window_destruction_releases_its_independent_overlay(app):
+    from PySide6.QtCore import QCoreApplication, QEvent
+
+    windows = Mock()
+    windows.list_targets.return_value = []
+    window = MainWindow(windows, Mock())
+    overlay = window._overlay
+    assert overlay.parentWidget() is None
+    window.close()
+    drain(window, lambda: not window.driver.timer.isActive())
+    shiboken6.delete(window)
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    assert not shiboken6.isValid(overlay)
 
 
 def test_closing_during_download_waits_for_cancellation_before_destroying_gui(

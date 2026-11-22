@@ -11,6 +11,8 @@ have strict Pyright checks. Dependencies must already be installed; no models or
 required. It also checks the bundled UI catalogs against the English source and verifies
 format placeholders and native dialog labels. Tests use temporary SQLite and disposable
 fake credentials/local HTTP transports.
+Qt tests share one session-owned QApplication. Tests stop their workers, and the app fixture releases
+remaining test-created top-level widgets and flushes deferred deletes after each Qt test.
 Windows CI runs this entry point; interactive capture/GPU acceptance is separate.
 Release builds use [the standard build entry point](building.md). The distribution workflow also
 runs `verify_standalone_windows.py --headless` against the relocated EXE with offline Japanese OCR.

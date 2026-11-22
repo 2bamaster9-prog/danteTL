@@ -12,8 +12,7 @@ from dantetl.translation.cache import TranslationCache  # noqa: E402
 from dantetl.ui.cache_settings import CacheSettings  # noqa: E402
 
 
-def test_cache_controls_confirm_named_game_and_full_clear(tmp_path):
-    app = QApplication.instance() or QApplication([])
+def test_cache_controls_confirm_named_game_and_full_clear(app, tmp_path):
     path = tmp_path / "disposable.sqlite3"
     cache = TranslationCache(path)
     for game in ("First", "Second"):

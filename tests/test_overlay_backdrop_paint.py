@@ -5,7 +5,6 @@ from unittest.mock import Mock
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtTest import QTest  # noqa: E402
-from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from dantetl.domain import Rect  # noqa: E402
 from dantetl.ocr.observation import TextTrack  # noqa: E402
@@ -14,8 +13,7 @@ from dantetl.translation.values import TranslatedText, TranslationRequest  # noq
 from dantetl.ui import overlay  # noqa: E402
 
 
-def test_native_blur_follows_painted_labels_and_retires_before_replacements(monkeypatch):
-    app = QApplication.instance() or QApplication([])
+def test_native_blur_follows_painted_labels_and_retires_before_replacements(app, monkeypatch):
     native = Mock()
     events = []
 
@@ -67,8 +65,7 @@ def test_native_blur_follows_painted_labels_and_retires_before_replacements(monk
         surface.close()
 
 
-def test_fragment_stays_painted_until_paragraph_is_ready_then_loses_its_backdrop(monkeypatch):
-    app = QApplication.instance() or QApplication([])
+def test_fragment_stays_painted_until_paragraph_is_ready_then_loses_its_backdrop(app, monkeypatch):
     native = Mock()
     active = set()
 
