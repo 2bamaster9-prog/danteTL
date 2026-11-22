@@ -42,6 +42,7 @@ class OverlayWindow(QWidget):
         self._bounds = Rect(0, 0, 1, 1)
         self._opacity = 0.85
         self._configured = False
+        self._configuration_failed = False
         self._include_in_capture = True
         self._tracks: tuple[TextTrack, ...] | None = None
         self._translations: tuple[TranslatedText, ...] = ()
@@ -209,13 +210,27 @@ class OverlayWindow(QWidget):
             self._opacity = opacity
             self.update()
 
-    def align(self, bounds: Rect) -> None:
-        """Place the native window without activating it, then draw in physical pixels."""
+    def retry_configuration(self) -> None:
+        self._configuration_failed = False
+
+    def _configure(self, hwnd: int, included: bool) -> None:
+        self._windows.configure_overlay(hwnd)
+        self._windows.set_overlay_capture(hwnd, included)
+        self._configured = True
+        self._configuration_failed = False
+
+    def align(self, bounds: Rect) -> str | None:
+        """Place the surface, reporting a first-show failure once per explicit attempt."""
+        if self._configuration_failed:
+            return None
         hwnd = int(self.winId())
         if not self._configured:
-            self._windows.configure_overlay(hwnd)
-            self._windows.set_overlay_capture(hwnd, self._include_in_capture)
-            self._configured = True
+            try:
+                self._configure(hwnd, self._include_in_capture)
+            except (OSError, RuntimeError) as error:
+                self._configuration_failed = True
+                self.hide()
+                return str(error)
         changed = self._bounds != bounds
         resized = self._bounds.size != bounds.size
         if changed:
@@ -234,6 +249,7 @@ class OverlayWindow(QWidget):
             self._windows.place_overlay(hwnd, bounds)
         if changed or showing:
             self.update()
+        return None
 
     def set_capture_included(self, included: bool) -> None:
         """Change recording visibility without hiding/repainting or resetting live work."""
@@ -245,6 +261,8 @@ class OverlayWindow(QWidget):
                 self.update()
             if self._configured:
                 self._windows.set_overlay_capture(int(self.winId()), included)
+            elif self._configuration_failed:
+                self._configure(int(self.winId()), included)
             self._include_in_capture = included
 
     def paintEvent(self, event: QPaintEvent) -> None:

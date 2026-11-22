@@ -120,6 +120,63 @@ def test_capture_visibility_applies_before_show_and_live_failure_preserves_state
         shiboken6.delete(overlay)
 
 
+@pytest.mark.parametrize("change_preference", [False, True])
+def test_first_show_failure_is_hidden_until_retry_or_preference_change(app, change_preference):
+    windows = Mock()
+    overlay = OverlayWindow(windows)
+    bounds = Rect(10, 20, 600, 400)
+    try:
+        overlay.set_capture_included(False)
+        windows.set_overlay_capture.side_effect = OSError("Fixture affinity error")
+        assert overlay.align(bounds) == "Fixture affinity error"
+        assert overlay.align(bounds) is None and not overlay.isVisible()
+        windows.set_overlay_capture.assert_called_once_with(int(overlay.winId()), False)
+        windows.place_overlay.assert_not_called()
+        windows.set_overlay_capture.side_effect = None
+        if change_preference:
+            overlay.set_capture_included(True)
+        else:
+            overlay.retry_configuration()
+        assert overlay.align(bounds) is None and overlay.isVisible()
+        windows.set_overlay_capture.assert_called_with(int(overlay.winId()), change_preference)
+    finally:
+        overlay.close()
+        shiboken6.delete(overlay)
+
+
+def test_first_show_failure_offers_one_working_retry_while_capture_continues(app, tmp_path):
+    from ownership_fixtures import Replay
+    from test_application_transitions import observe
+
+    from dantetl.ui.desktop_driver import DesktopDriver
+    from dantetl.ui.main_window import MainWindow as View
+
+    replay = Replay(tmp_path)
+    replay.windows.list_targets.return_value = []
+    replay.windows.set_overlay_capture.side_effect = OSError("Fixture affinity error")
+    driver = DesktopDriver()
+    window = View(replay.app, replay.windows, driver)
+    try:
+        window.show()
+        replay.app.start_capture(replay.capture.target, 0)
+        replay.app.set_diagnostics(boxes=False, debug=True)
+        observe(replay)
+        driver.refresh(inspect=False)
+        driver.refresh(inspect=False)
+        dialogs = window.findChildren(QMessageBox)
+        assert len(dialogs) == 1 and dialogs[0].text() == "Fixture affinity error"
+        assert not window._overlay.isVisible() and replay.app.controls.capture_active
+        replay.windows.set_overlay_capture.assert_called_once()
+        replay.windows.set_overlay_capture.side_effect = None
+        next(button for button in dialogs[0].buttons() if button.text() == "Retry setup").click()
+        driver.refresh(inspect=False)
+        assert window._overlay.isVisible()
+    finally:
+        driver.close()
+        replay.close()
+        window.close()
+
+
 def test_capture_status_and_loading_stay_inside_game_panel_without_inspection(app, tmp_path):
     from ownership_fixtures import Replay
     from PySide6.QtWidgets import QLabel

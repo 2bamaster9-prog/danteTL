@@ -350,7 +350,7 @@ class MainWindow(QMainWindow):
         self._compact_space = QWidget()
         body.addWidget(self._compact_space, 1)
         self.advanced.toggled.connect(self._advanced_changed)
-        self.overlay_check.toggled.connect(lambda value: self._edit_settings(show_overlay=value))
+        self.overlay_check.toggled.connect(self._overlay_visibility_changed)
         self.border_check.toggled.connect(self._border_changed)
         self.capture_overlay_check.toggled.connect(self._capture_visibility_changed)
         self.translate_check.toggled.connect(lambda value: self._edit_settings(translation=value))
@@ -500,6 +500,11 @@ class MainWindow(QMainWindow):
 
     def _border_changed(self, enabled: bool) -> None:
         self.application.configure(show_border=enabled)
+
+    def _overlay_visibility_changed(self, enabled: bool) -> None:
+        if enabled:
+            self._overlay.retry_configuration()
+        self._edit_settings(show_overlay=enabled)
 
     def _capture_visibility_changed(self, included: bool) -> None:
         try:
@@ -960,9 +965,23 @@ class MainWindow(QMainWindow):
             else None
         )
         if value.overlay_bounds is not None and not self.application.original:
-            self._overlay.align(value.overlay_bounds)
+            if error := self._overlay.align(value.overlay_bounds):
+                self._show_overlay_error(error)
         else:
             self._overlay.hide()
+
+    def _show_overlay_error(self, error: str) -> None:
+        dialog = QMessageBox(
+            QMessageBox.Icon.Warning,
+            tr("Screen capture setting"),
+            error,
+            QMessageBox.StandardButton.Close,
+            self,
+        )
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        retry = dialog.addButton(tr("Retry setup"), QMessageBox.ButtonRole.ActionRole)
+        retry.clicked.connect(self._overlay.retry_configuration)
+        dialog.open()
 
     def _handle_desktop_action(self) -> None:
         self._settings.models.cloud.handle_desktop_actions()

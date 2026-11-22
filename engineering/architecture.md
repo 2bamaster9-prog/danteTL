@@ -151,6 +151,8 @@ padding and window chrome and remains valid after the native callback returns.
 The overlay is nonactivating/input-transparent; hide on focus loss, minimize, stop, source failure or
 size mismatch. Border edits reopen only the same native source while retaining processing owners and
 sequence. Screen-capture inclusion changes overlay affinity only; report failure and restore settings.
+If first-show native configuration fails, keep the surface hidden and report the failure once.
+Retry on request, when the overlay is re-enabled, or when the recording preference changes.
 Raw game capture must exclude our overlay. Affinity is not a universal recording/security guarantee.
 
 English labels have lightly rounded borders, measured text padding and a translucent text shadow.
