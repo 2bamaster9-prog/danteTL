@@ -10,7 +10,8 @@ from dantetl.application.cloud_services import CloudServices
 from dantetl.application.hotkeys import Hotkeys
 from dantetl.application.live_session import LiveSession
 from dantetl.application.model_discovery import inspect_models
-from dantetl.application.model_inventory import ModelInventory
+from dantetl.application.model_factories import ocr_backends as source_ocr_backends
+from dantetl.application.model_inventory import ModelInventory, SourceModels
 from dantetl.application.preferences import PreferenceStore
 from dantetl.application.session import ApplicationSession
 from dantetl.application.setup_coordinator import SetupCoordinator
@@ -24,13 +25,20 @@ from dantetl.ocr.visual import VisualSession
 from dantetl.ocr.worker import OcrChoice, OcrSession, Recognizer
 from dantetl.paths import state_root
 from dantetl.runtime.hardware import HardwareCheck
-from dantetl.runtime.model_store import ModelBundle, mark_prepared
+from dantetl.runtime.model_store import ModelBundle, mark_prepared, model_catalog
 from dantetl.runtime.restart import RestartOperation, RuntimeRestart
 from dantetl.translation.cloud.chatgpt_auth import ChatGPTConnections
 from dantetl.translation.cloud.credentials import WindowsSecrets
 from dantetl.translation.cloud.profiles import CloudProfiles
 from dantetl.translation.routing import RoutedTranslationSession
 from dantetl.translation.worker import TranslationSession
+
+
+def source_models_for(language: SourceLanguage) -> SourceModels:
+    bundles = model_catalog(language)
+    return SourceModels(
+        bundles, source_ocr_backends(language), partial(inspect_models, bundles, language=language)
+    )
 
 
 def application_session(
@@ -45,7 +53,7 @@ def application_session(
     preferences: PreferenceStore | None = None,
     cache_path: Path | None = None,
     ocr_backends: tuple[OcrChoice, ...] = (),
-    source_models: Callable[[SourceLanguage], tuple[OcrChoice, ...]] | None = None,
+    source_models: Callable[[SourceLanguage], SourceModels],
     hardware: HardwareCheck | None = None,
     hotkeys: Hotkeys | None = None,
     live_session: LiveSession | None = None,
@@ -93,7 +101,7 @@ def application_session(
         live=live,
         translation=translation,
         ocr_choices=initial_choices,
-        source_models=source_models or (lambda _: initial_choices),
+        source_models=source_models,
         inventory=inventory,
         cloud=cloud,
         setup=setup,
@@ -157,10 +165,7 @@ def cloud_services(*, language: SourceLanguage = DEFAULT_SOURCE) -> CloudService
     return service
 
 
-def model_inventory(
-    models: tuple[ModelBundle, ...],
-    language: SourceLanguage,
-) -> ModelInventory:
-    inventory = ModelInventory(partial(inspect_models, models, language=language), mark_prepared)
+def model_inventory(models: SourceModels) -> ModelInventory:
+    inventory = ModelInventory(models.inspect, mark_prepared)
     inventory.advance(0)
     return inventory

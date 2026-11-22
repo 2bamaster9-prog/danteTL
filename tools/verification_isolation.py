@@ -47,13 +47,14 @@ def create_window(*args, **kwargs):
     root = Path(temporary.name)
     kwargs.setdefault("preferences_path", root / "preferences.json")
     kwargs.setdefault("cache_path", root / "cache.sqlite3")
-    inventory = create_inventory(args, kwargs)
+    inventory, source_models = create_inventory(args, kwargs)
     driver = DesktopDriver()
     options = {
         k: v
         for k, v in kwargs.items()
         if k not in {"models", "backends", "backend_provider", "include_imports"}
     }
+    options.setdefault("source_models", source_models)
     application = application_session(
         *args[:2],
         cloud=create_cloud(),
@@ -72,17 +73,24 @@ def create_inventory(args, kwargs):
     from functools import partial
 
     from dantetl.application.model_discovery import inspect_models
-    from dantetl.application.model_inventory import ModelInventory
+    from dantetl.application.model_inventory import ModelInventory, SourceModels
+    from dantetl.ocr.worker import OcrChoice
 
+    bundles = kwargs.get("models", ())
     backends = args[2] if len(args) > 2 else kwargs.get("backends", ())
+    choices = kwargs.get("ocr_backends") or (OcrChoice("CPU", args[1], key="cpu"),)
     probe = partial(
         inspect_models,
-        kwargs.get("models", ()),
+        bundles,
         kwargs.get("backend_provider") or (lambda: backends),
         include_imports=kwargs.get("include_imports", False),
     )
-    initial = inspect_models(kwargs.get("models", ()), lambda: backends, include_imports=False)
-    return ModelInventory(probe, lambda key: None, initial=initial)
+    initial = inspect_models(bundles, lambda: backends, include_imports=False)
+
+    def source_models(language):
+        return SourceModels(bundles, choices, partial(probe, language=language))
+
+    return ModelInventory(probe, lambda key: None, initial=initial), source_models
 
 
 def run_isolated(main: Callable[[], int | None]) -> None:

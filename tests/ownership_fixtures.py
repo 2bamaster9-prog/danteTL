@@ -9,7 +9,7 @@ from test_model_lifecycle import Worker
 from dantetl.application.cache_management import CacheManagement
 from dantetl.application.cloud_services import CloudServices
 from dantetl.application.live_session import LiveSession
-from dantetl.application.model_inventory import InventoryData, ModelInventory
+from dantetl.application.model_inventory import InventoryData, ModelInventory, SourceModels
 from dantetl.application.preference_values import Preferences
 from dantetl.application.preferences import PreferenceStore
 from dantetl.application.session import ApplicationSession
@@ -117,7 +117,16 @@ class Replay:
     capture: Capture
     visual: Visual
 
-    def __init__(self, root, *, preferences=None, data=None, loaded=True, ocr_choices=None):
+    def __init__(
+        self,
+        root,
+        *,
+        preferences=None,
+        data=None,
+        loaded=True,
+        ocr_choices=None,
+        source_models=None,
+    ):
         preferences = preferences or Preferences()
         data = data or InventoryData()
         self.preferences = PreferenceStore(root / "preferences.json")
@@ -216,7 +225,7 @@ class Replay:
             live=self.live,
             translation=self.translation,
             ocr_choices=choices,
-            source_models=lambda _: choices,
+            source_models=source_models or (lambda _: SourceModels((), choices, self.source)),
             inventory=self.inventory,
             cloud=self.cloud,
             setup=self.setup,

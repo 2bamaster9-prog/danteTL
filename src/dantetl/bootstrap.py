@@ -8,7 +8,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from types import TracebackType
 
-from dantetl.application.model_factories import create_recognizer, ocr_backends
+from dantetl.application.model_factories import create_recognizer
 from dantetl.application.preferences import PreferenceStore
 from dantetl.i18n import tr
 from dantetl.languages.selection import source_language
@@ -49,18 +49,15 @@ def main() -> None:
     from PySide6.QtWidgets import QApplication, QMessageBox
 
     from dantetl.application.hotkeys import Hotkeys
-    from dantetl.application.model_discovery import inspect_models
     from dantetl.capture.windows import Windows
     from dantetl.composition import (
         application_session,
         cloud_services,
         model_inventory,
         setup_coordinator,
+        source_models_for,
     )
-    from dantetl.languages.source import SourceLanguage
-    from dantetl.ocr.worker import OcrChoice
     from dantetl.runtime.hardware import HardwareCheck
-    from dantetl.runtime.model_store import model_catalog
     from dantetl.runtime.restart import acknowledge_startup
     from dantetl.runtime.setup import project_root
     from dantetl.ui.desktop_driver import DesktopDriver
@@ -102,15 +99,9 @@ def main() -> None:
 
     driver = DesktopDriver()
     language = source_language(preferences.current.source_language)
-    models = model_catalog(language)
-    inventory = model_inventory(models, language)
-    setup = setup_coordinator(inventory, models, project_root())
-
-    def source_models(selected: SourceLanguage) -> tuple[OcrChoice, ...]:
-        bundles = model_catalog(selected)
-        setup.set_models(bundles)
-        inventory.set_inspector(partial(inspect_models, bundles, language=selected))
-        return ocr_backends(selected)
+    models = source_models_for(language)
+    inventory = model_inventory(models)
+    setup = setup_coordinator(inventory, models.bundles, project_root())
 
     application = application_session(
         windows,
@@ -119,8 +110,8 @@ def main() -> None:
         language=language,
         inventory=inventory,
         setup=setup,
-        ocr_backends=ocr_backends(language),
-        source_models=source_models,
+        ocr_backends=models.ocr,
+        source_models=source_models_for,
         notify=driver.notify,
         preferences=preferences,
         hardware=hardware,

@@ -329,6 +329,32 @@ def test_every_published_latin_source_shares_one_install_and_ocr_factory(monkeyp
     assert jp.assets == models.ASSETS
 
 
+def test_source_change_applies_the_catalog_to_setup_ocr_and_discovery(tmp_path):
+    from unittest.mock import Mock
+
+    from ownership_fixtures import Replay
+
+    from dantetl.application.model_inventory import InventoryData, SourceModels
+    from dantetl.ocr.worker import OcrChoice
+    from dantetl.runtime.model_store import ModelBundle
+
+    bundle = ModelBundle("reader", "Local reader", tmp_path / "reader", (), "")
+    discover = Mock(return_value=InventoryData(device="fixture"))
+    models = SourceModels((bundle,), (OcrChoice("Test reader", Mock(), key="reader"),), discover)
+    replay = Replay(tmp_path, source_models=lambda _: models)
+    try:
+        assert replay.app.change_source("pt")
+        assert not replay.inventory.snapshot().loaded
+        replay.settle_inventory()
+        replay.app.advance(2)
+        assert replay.inventory.snapshot().data.device == "fixture"
+        assert tuple(option.key for option in replay.app.ocr_options) == ("reader",)
+        assert replay.setup.download(bundle.key)
+        discover.assert_called_once()
+    finally:
+        replay.close()
+
+
 def test_source_change_drains_active_capture_and_keeps_output_language(tmp_path):
 
     from ownership_fixtures import Replay
@@ -384,6 +410,8 @@ def test_source_switch_resumes_exact_game_and_reuses_only_compatible_ocr(
     assert not replay.app.start_capture(target, 2)
     replay.app.advance(2)
     if reuse:
+        replay.settle_inventory()
+        replay.app.advance(2)
         assert not replay.app.controls.changing_source
         assert replay.app.controls.started_at == 1 and not replay.capture.stop_requested
     else:

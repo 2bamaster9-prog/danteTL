@@ -208,20 +208,22 @@ def main() -> int:
     from verification_isolation import create_cloud, create_inventory
 
     driver = DesktopDriver()
+    ocr = (OcrChoice(args.device, factory, args.capture_rate),)
+    inventory, source_models = create_inventory(
+        (windows, factory, (replace(backend, preparation_id="", create=TimedBackend),)),
+        {"ocr_backends": ocr},
+    )
     application = application_session(
         windows,
         factory,
         cloud=create_cloud(),
         notify=driver.notify,
-        inventory=(
-            inventory := create_inventory(
-                (windows, factory, (replace(backend, preparation_id="", create=TimedBackend),)), {}
-            )
-        ),
+        inventory=inventory,
+        source_models=source_models,
         setup=setup_coordinator(inventory, (), state_root()),
         cache_path=args.output / f"cache-{unique}.sqlite3",
         preferences_path=args.output / f"preferences-{unique}.json",
-        ocr_backends=(OcrChoice(args.device, factory, args.capture_rate),),
+        ocr_backends=ocr,
     )
     window = ProfileWindow(application, windows, driver)
     application = app_owner(window)

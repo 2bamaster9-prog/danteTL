@@ -69,12 +69,15 @@ def main() -> None:
         service = CloudServices(catalog, lambda: secrets, connections)
         service.start()
         driver = DesktopDriver()
+        recognizer = Mock()
+        inventory, source_models = create_inventory((windows, recognizer), {})
         application = application_session(
             windows,
-            Mock(),
+            recognizer,
             cloud=service,
             notify=driver.notify,
-            inventory=(inventory := create_inventory((), {})),
+            inventory=inventory,
+            source_models=source_models,
             setup=setup_coordinator(inventory, (), state_root()),
             preferences_path=root / "preferences.json",
             cache_path=root / "cache",

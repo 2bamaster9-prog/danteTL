@@ -95,7 +95,8 @@ def create_window(windows, recognizer, *backends_args, cloud=None, **kwargs):
     from functools import partial
 
     from dantetl.application.model_discovery import inspect_models
-    from dantetl.application.model_inventory import ModelInventory
+    from dantetl.application.model_inventory import ModelInventory, SourceModels
+    from dantetl.ocr.worker import OcrChoice
     from dantetl.runtime.model_store import mark_prepared
 
     backends = args[2] if len(args) > 2 else kwargs.get("backends", ())
@@ -117,6 +118,8 @@ def create_window(windows, recognizer, *backends_args, cloud=None, **kwargs):
     options = {
         k: v for k, v in kwargs.items() if k not in {"models", "backends", "backend_provider"}
     }
+    choices = options.get("ocr_backends") or (OcrChoice("CPU", recognizer, key="cpu"),)
+    options.setdefault("source_models", lambda _: SourceModels(bundles, choices, source))
     application = application_session(
         *args[:2], cloud=cloud, inventory=inventory, setup=setup, notify=driver.notify, **options
     )

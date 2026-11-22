@@ -9,7 +9,7 @@ from dantetl.application.cache_management import CacheManagement
 from dantetl.application.capture_lifecycle import CaptureLifecycle, CapturePhase, WindowAccess
 from dantetl.application.cloud_services import CloudServices
 from dantetl.application.live_session import CaptureWorker, LiveSession
-from dantetl.application.model_inventory import ModelInventory
+from dantetl.application.model_inventory import ModelInventory, SourceModels
 from dantetl.application.notice import NoticeInput, Notices, project_notices
 from dantetl.application.preference_values import SettingsEdit
 from dantetl.application.preferences import PreferenceStore
@@ -64,7 +64,7 @@ class ApplicationSession:
         live: LiveSession,
         translation: TranslationCoordinator,
         ocr_choices: tuple[OcrChoice, ...],
-        source_models: Callable[[SourceLanguage], tuple[OcrChoice, ...]],
+        source_models: Callable[[SourceLanguage], SourceModels],
         inventory: ModelInventory,
         cloud: CloudServices,
         setup: SetupCoordinator,
@@ -138,6 +138,7 @@ class ApplicationSession:
         language = source_language(code)
         if not self.can_change_source or code == self.values.source_language:
             return False
+        models = self._source_models(language)
         restart = self.source_requires_restart(code)
         target = self.live.capture.target if restart and self.live.capture else None
         self._source_change = SourceChange(target, restart or self.capture.stopping)
@@ -149,7 +150,9 @@ class ApplicationSession:
         self.original = False
         self.cloud.language = language
         self.translation.language = language
-        self.capture.set_choices(self._source_models(language))
+        self.capture.set_choices(models.ocr)
+        self.setup.set_models(models.bundles)
+        self.inventory.set_inspector(models.inspect)
         self._ocr_model = ocr_model_for(language)
         self.view = ApplicationView(
             status=tr("Switching to {name}…", name=tr(language.name)), reset=self.view.reset + 1

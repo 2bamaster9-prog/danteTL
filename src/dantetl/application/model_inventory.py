@@ -13,6 +13,8 @@ from dataclasses import dataclass
 
 from dantetl.application.model_values import ModelFile
 from dantetl.i18n import tr
+from dantetl.ocr.worker import OcrChoice
+from dantetl.runtime.model_store import ModelBundle
 from dantetl.translation.backend import BackendChoice
 
 logger = logging.getLogger(__name__)
@@ -29,6 +31,13 @@ class InventoryData:
     @property
     def ocr_ready(self) -> bool:
         return all(item.present for item in self.files if item.key == "ocr")
+
+
+@dataclass(frozen=True, slots=True)
+class SourceModels:
+    bundles: tuple[ModelBundle, ...]
+    ocr: tuple[OcrChoice, ...]
+    inspect: Callable[[], InventoryData]
 
 
 @dataclass(frozen=True)
