@@ -396,8 +396,9 @@ support independent instructions, including in a two-row crop. The OCR matching 
 lettering on the source image. Tracking retains compact samples for the corresponding reading
 and location across partial scans. Grouping also works with geometry and text alone.
 Ordinary pending OCR cannot repartition committed blocks. Pending growth can reserve a continuation
-but cannot become translation source before commitment. Readiness uses source time; short labels
-avoid dialogue delays. Group sizing uses individual line heights, not whole paragraph height.
+but cannot become translation source before commitment. Readiness uses source time. Short labels and
+confirmed single-line status counters such as `マイレージ425/79710` skip the dialogue delay when
+they have stopped growing. Group sizing uses individual line heights, not whole paragraph height.
 
 Requests identify combined text and every member's ID/source/revision. Moving a box cannot retranslate;
 geometry is not cache identity. Validate all members at publication/rendering. Splits/edits/removal/reset

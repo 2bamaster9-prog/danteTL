@@ -39,6 +39,7 @@ class Japanese(SourceLanguage):
     ellipsis_clause_mark = "、"
     quote_start = re.compile(r"^(?:[―—–−]{1,3}|-{1,3}\s*[「『]|[「『])")
     dash_quotes = _DASH_QUOTES
+    compact_counter_label = re.compile(r"[ァ-ヺー一-鿿々A-ZＡ-Ｚ]+")
     menu_labels = frozenset(
         [
             "詳細",

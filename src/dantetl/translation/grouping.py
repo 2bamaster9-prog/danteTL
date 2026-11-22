@@ -979,21 +979,24 @@ class DialogueGrouper:
         if len(members) != len(block.lines) or any(t.pending for t in members):
             return False
         revealing = any(t.growing for t in members)
+        text = block.text
         dialogue = enabled and (
             len(block.lines) > 1
-            or (len(block.text) >= 10 and not self._language.is_choice(block.text))
+            or (
+                len(text) >= 10
+                and not self._language.is_choice(text)
+                and not self._language.is_status_counter(text)
+            )
         )
         if not revealing and not dialogue:
             return True  # Ordinary short menu labels need no extra debounce.
-        complete = block.text.rstrip().endswith(self._language.endings)
-        unfinished_prose = (
-            revealing or len(block.lines) > 1 or self._language.internal_prose(block.text)
-        )
+        complete = text.rstrip().endswith(self._language.endings)
+        unfinished_prose = revealing or len(block.lines) > 1 or self._language.internal_prose(text)
         quiet = 0.18 if complete else 0.55 if unfinished_prose else 0.35
         if (
             enabled
             and (revealing or len(block.lines) == 1)
-            and block.text.rstrip().endswith(self._language.commas)
+            and text.rstrip().endswith(self._language.commas)
         ):
             # Allow a clause pause before the continuation. OCR sometimes mistakes
             # a final period for a comma, so even this wait must be bounded.

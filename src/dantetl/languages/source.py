@@ -5,6 +5,10 @@ import unicodedata
 from dataclasses import dataclass
 from typing import ClassVar
 
+_STATUS_COUNTER = re.compile(
+    r"([^\W\d_]{1,12})[ 　]*(?:([:：])[ 　]*)?[0-9０-９]{1,9}[ 　]*[/／][ 　]*[0-9０-９]{1,9}"
+)
+
 
 @dataclass(frozen=True, slots=True)
 class ListSyntax:
@@ -102,6 +106,7 @@ class SourceLanguage:
     quote_start: ClassVar = re.compile(r"""^["“‘]""")
     dash_quotes: ClassVar[DashQuotes | None] = None
     menu_labels: ClassVar[frozenset[str]] = frozenset()
+    compact_counter_label: ClassVar = re.compile(r"[A-ZＡ-Ｚ]+")
     value_introductions: ClassVar[tuple[str, ...]] = ()
     percentage_lead: ClassVar[re.Pattern[str] | None] = None
     percentage_label_terms: ClassVar[tuple[str, ...]] = ()
@@ -121,6 +126,11 @@ class SourceLanguage:
 
     def is_choice(self, text: str) -> bool:
         return bool(self.lists.line_marker.match(text)) and not self.quote_start.match(text)
+
+    def is_status_counter(self, text: str) -> bool:
+        """A short label and current/maximum value. A colon makes the label explicit."""
+        match = _STATUS_COUNTER.fullmatch(text)
+        return bool(match and (match[2] or self.compact_counter_label.fullmatch(match[1])))
 
     def explicit_sentence_end(self, text: str) -> bool:
         """Unambiguous endings for accelerated dispatch. Periods can be abbreviations."""

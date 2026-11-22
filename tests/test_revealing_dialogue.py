@@ -1,5 +1,7 @@
 from dataclasses import replace
 
+import pytest
+
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry
 from dantetl.languages.selection import source_language
 from dantetl.ocr.tracking import TextActivity, TextTrack, TextTracker
@@ -76,6 +78,42 @@ def test_static_ocr_comma_cannot_strand_a_finished_turn():
     replay = Reveal()
     replay.step(FIRST)
     assert any(b.text == FIRST for b in replay.step(FIRST, dt=1.6).ready)
+
+
+@pytest.mark.parametrize(
+    ("code", "text"),
+    [
+        ("ja", "マイレージ425/79710"),
+        ("ja", "体力　４２５ ／ ７９７１０"),
+        ("en", "Energy: 425/79710"),
+    ],
+)
+def test_confirmed_status_counters_skip_dialogue_wait_only_when_static(code, text):
+    grouper = DialogueGrouper(language=source_language(code))
+    line = TextTrack(1, text, Rect(50, 100, 300, 20))
+    observed = TextActivity(line, 1, False, False)
+
+    def ready(confirmed, activity):
+        return grouper.update((line,), confirmed, 1.01, activity=(activity,)).ready
+
+    assert not ready((), observed)
+    assert not ready((line,), replace(observed, pending=True))
+    assert not ready((line,), replace(observed, growing=True))
+    assert ready((line,), observed)[0].text == text
+
+
+def test_prose_dates_and_incomplete_counters_keep_the_dialogue_wait():
+    for text in (
+        "残っているのは425/79710",
+        "Collected 425/79710 today",
+        "次の更新2026/11/21",
+        "マイレージ12345/",
+    ):
+        line = TextTrack(1, text, Rect(50, 100, 300, 20))
+        grouper = DialogueGrouper()
+        activity = (TextActivity(line, 1, False, False),)
+        assert not grouper.update((line,), (line,), 1.01, activity=activity).ready
+        assert grouper.update((line,), (line,), 1.6, activity=activity).ready
 
 
 def test_visual_readiness_only_accelerates_a_whole_isolated_sentence():
