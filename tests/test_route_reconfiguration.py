@@ -12,12 +12,13 @@ from dantetl.application.model_inventory import InventoryData, InventorySnapshot
 from dantetl.application.preference_values import Preferences
 from dantetl.application.translation_coordinator import TranslationCoordinator
 from dantetl.languages.selection import source_language
+from dantetl.translation.backend import BackendChoice
 from dantetl.translation.cloud.values import CloudProfile
 from dantetl.translation.plan import TranslationPlan
 from dantetl.translation.routing import RoutedTranslationSession
 from dantetl.translation.selection import AssignmentChange
 from dantetl.translation.values import TranslationState
-from dantetl.translation.worker import BackendChoice, TranslationSession
+from dantetl.translation.worker import TranslationSession
 
 
 def remote_ref(key):

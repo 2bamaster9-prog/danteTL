@@ -21,7 +21,8 @@ from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent
 from PySide6.QtWidgets import QApplication, QWidget
 from verification_isolation import app_owner
 
-from dantetl.application.model_factories import create_recognizer, translation_backends
+from dantetl.application.model_discovery import translation_backends
+from dantetl.application.model_factories import create_recognizer
 from dantetl.application.preference_values import MAX_CAPTURE_RATE
 from dantetl.capture.windows import Windows
 from dantetl.composition import application_session, setup_coordinator

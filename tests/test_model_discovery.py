@@ -4,6 +4,7 @@ import pytest
 
 from dantetl.application import model_factories as app
 from dantetl.application.model_advice import RECOMMENDED_TRANSLATION
+from dantetl.application.model_discovery import inspect_models, translation_backends
 from dantetl.runtime import llama as llama_runtime
 from dantetl.runtime import model_store
 from dantetl.runtime import ocr as ocr_runtime
@@ -22,7 +23,7 @@ def test_recommended_catalog_and_backend_order_do_not_mix_recognition(tmp_path, 
     monkeypatch.setattr(model_store, "model_catalog", lambda: bundles)
     monkeypatch.setattr(llama_runtime, "installed_device", lambda: "cpu")
     monkeypatch.setattr(llama_runtime, "supports_plamo", lambda: True)
-    choices = app.translation_backends()
+    choices = translation_backends()
     assert choices[0].preference_key == "gemma" and "Recommended" in choices[0].name
     assert all(c.preference_key != "ocr" for c in choices)
     assert {"gemma", "gemma-e4b", "qwen35-4b", "plamo-0.8b"} <= {c.preference_key for c in choices}
@@ -45,15 +46,18 @@ def catalog(tmp_path, monkeypatch):
 
 def test_missing_engine_keeps_downloaded_gemma_visible_with_setup_reason(catalog, monkeypatch):
     monkeypatch.setattr(llama_runtime, "installed_device", lambda: None)
-    assert not app.translation_backends()
+    assert not translation_backends()
     for key in ("ocr", "gemma"):
         catalog[key].directory.mkdir()
         (catalog[key].directory / "weights").write_bytes(b"good")
-    choices = app.translation_backends()
+    choices = translation_backends()
     assert len(choices) == 1 and "Gemma" in choices[0].name
     assert "runtime setup needed" in choices[0].name
     assert "Acceleration" in choices[0].unavailable_reason
-    assert "not installed" in model_store.model_status(catalog["gemma"])
+    assert (
+        "not installed"
+        in inspect_models((catalog["gemma"],), include_imports=False).files[0].status
+    )
     assert not choices[0].preparation_id
 
 
@@ -64,20 +68,42 @@ def test_available_runtime_makes_existing_weights_usable_without_download(
     catalog["gemma"].directory.mkdir()
     (catalog["gemma"].directory / "weights").write_bytes(b"good")
     monkeypatch.setattr(llama_runtime, "installed_device", lambda: device)
-    choice = app.translation_backends()[0]
+    choice = translation_backends()[0]
     assert choice.key == f"gemma-{device}" and choice.preparation_id
     assert not choice.unavailable_reason
     assert bool(choice.performance_notice) == (device == "cpu")
     if device == "cpu":
         assert "CPU" in choice.name and "GPU" not in choice.name
-    assert "Runtime available" in model_store.model_status(catalog["gemma"])
+    assert (
+        "Runtime available"
+        in inspect_models((catalog["gemma"],), include_imports=False).files[0].status
+    )
+
+
+def test_picker_and_manager_share_one_runtime_and_registry_inspection(catalog, monkeypatch):
+    from unittest.mock import Mock
+
+    from dantetl.translation.models import gguf
+
+    device = Mock(side_effect=["cpu", None])
+    registry = Mock(side_effect=[(), ValueError("second read")])
+    monkeypatch.setattr(llama_runtime, "installed_device", device)
+    monkeypatch.setattr(gguf, "read_registry", registry)
+    catalog["gemma"].directory.mkdir()
+    (catalog["gemma"].directory / "weights").write_bytes(b"good")
+    data = inspect_models(tuple(catalog.values()))
+    assert data.device == "cpu" and data.backends[0].key == "gemma-cpu"
+    assert next(f for f in data.files if f.key == "gemma").device == "cpu"
+    assert not data.import_problem
+    device.assert_called_once()
+    registry.assert_called_once()
 
 
 def test_incomplete_models_stay_absent(catalog, monkeypatch):
     monkeypatch.setattr(llama_runtime, "installed_device", lambda: None)
     catalog["gemma"].directory.mkdir()
     (catalog["gemma"].directory / "weights").write_bytes(b"bad")
-    assert not app.translation_backends()
+    assert not translation_backends()
 
 
 def test_broken_optional_registry_keeps_healthy_inventory_and_recovers(
@@ -85,7 +111,8 @@ def test_broken_optional_registry_keeps_healthy_inventory_and_recovers(
 ):
     from test_model_inventory import settle
 
-    from dantetl.application.model_inventory import ModelInventory, inspect_models
+    from dantetl.application.model_discovery import inspect_models
+    from dantetl.application.model_inventory import ModelInventory
     from dantetl.translation.models import gguf
 
     registry = tmp_path / "imported-models.json"
@@ -97,9 +124,7 @@ def test_broken_optional_registry_keeps_healthy_inventory_and_recovers(
     for key in ("ocr", "gemma"):
         catalog[key].directory.mkdir()
         (catalog[key].directory / "weights").write_bytes(b"good")
-    owner = ModelInventory(
-        lambda: inspect_models(tuple(catalog.values()), app.translation_backends), lambda _: None
-    )
+    owner = ModelInventory(lambda: inspect_models(tuple(catalog.values())), lambda _: None)
     try:
         owner.advance(0)
         settle(owner, lambda: owner.finished)
@@ -125,7 +150,9 @@ def test_automatic_ocr_depends_on_runtime_not_downloaded_meiki(catalog, monkeypa
     monkeypatch.setattr(app, "gpu_runtime_installed", lambda name="onnxruntime-gpu": False)
     monkeypatch.setattr(ocr_runtime, "gpu_runtime_installed", lambda name="onnxruntime-gpu": False)
     assert len(app.ocr_backends()) == 1 and app.ocr_backends()[0].name.startswith("CPU")
-    assert "Acceleration" in model_store.model_status(catalog["ocr"])
+    assert (
+        "Acceleration" in inspect_models((catalog["ocr"],), include_imports=False).files[0].status
+    )
     monkeypatch.setattr(
         app, "gpu_runtime_installed", lambda name="onnxruntime-gpu": name == "onnxruntime-gpu"
     )
@@ -140,7 +167,7 @@ def test_curated_choices_keep_identity_across_runtime_changes(catalog, monkeypat
     for key in ("gemma", "gemma-e4b", "qwen35-4b"):
         catalog[key].directory.mkdir()
         (catalog[key].directory / "weights").write_bytes(b"good")
-    choices = app.translation_backends()
+    choices = translation_backends()
     assert {b.preference_key for b in choices} == {"gemma", "gemma-e4b", "qwen35-4b"}
     for choice in choices:
         assert bool(choice.unavailable_reason) == (device is None)
@@ -178,7 +205,7 @@ def test_downloaded_plamo_stays_visible_but_old_engine_needs_update(
     monkeypatch.setattr(model_store, "model_catalog", lambda: tuple(models))
     monkeypatch.setattr(llama_runtime, "installed_device", lambda: "cpu")
     monkeypatch.setattr(llama_runtime, "supports_plamo", lambda: supported)
-    choices = app.translation_backends()
+    choices = translation_backends()
     assert {c.selection_id for c in choices} == {"plamo-2b", "plamo-0.8b"}
     for choice in choices:
         assert bool(choice.preparation_id) is supported
@@ -190,4 +217,6 @@ def test_downloaded_plamo_stays_visible_but_old_engine_needs_update(
         )
         assert saved.model == saved.setup_model == choice.preference_key
     for bundle in models:
-        assert ("predates" in model_store.model_status(bundle)) is not supported
+        assert (
+            "predates" in inspect_models((bundle,), include_imports=False).files[0].status
+        ) is not supported

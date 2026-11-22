@@ -1,6 +1,8 @@
 """Typed translation capabilities and request-local rejection, independent of scheduling."""
 
+from collections.abc import Callable
 from concurrent.futures import Future
+from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
 from dantetl.languages.source import SourceLanguage
@@ -73,3 +75,29 @@ class ConcurrentBackend(DeferredBackend, Protocol):
     """Independent completed answers, with a small explicit transport concurrency limit."""
 
     max_in_flight: int
+
+
+@dataclass(frozen=True, slots=True)
+class BackendChoice:
+    name: str
+    # Discovery may recreate a lazy recipe. Its identity is the pinned model/runtime
+    # metadata below, never the identity of a newly allocated Python closure.
+    create: Callable[[], TranslationBackend] = field(compare=False)
+    key: str = ""
+    preparation_id: str = ""
+    unavailable_reason: str = ""
+    performance_notice: str = ""
+    selection_id: str = ""
+    classifies: bool = False
+    output_codes: frozenset[str] | None = None
+
+    @property
+    def preference_key(self) -> str:
+        if self.selection_id:
+            return self.selection_id
+        # Retain legacy E2B preferences without conflating larger Gemma models.
+        return (
+            "gemma"
+            if self.key in ("gemma", "gemma-cpu", "gemma-cuda", "gemma-vulkan", "gemma-unavailable")
+            else self.key
+        )

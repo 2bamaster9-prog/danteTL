@@ -71,7 +71,8 @@ def create_window(*args, **kwargs):
 def create_inventory(args, kwargs):
     from functools import partial
 
-    from dantetl.application.model_inventory import ModelInventory, inspect_models
+    from dantetl.application.model_discovery import inspect_models
+    from dantetl.application.model_inventory import ModelInventory
 
     backends = args[2] if len(args) > 2 else kwargs.get("backends", ())
     probe = partial(

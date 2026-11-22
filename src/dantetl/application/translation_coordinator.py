@@ -22,7 +22,7 @@ from dantetl.application.translation_activity import (
 )
 from dantetl.languages.selection import source_language
 from dantetl.languages.source import SourceLanguage
-from dantetl.translation.backend import TranslationBackend
+from dantetl.translation.backend import BackendChoice, TranslationBackend
 from dantetl.translation.cloud.values import CloudProfile
 from dantetl.translation.plan import TranslationPlan
 from dantetl.translation.routing import ModelIdentity, RoutedTranslationSession
@@ -33,7 +33,7 @@ from dantetl.translation.selection import (
     LocalIdentity,
     ModelOption,
 )
-from dantetl.translation.worker import BackendChoice, TranslationSession
+from dantetl.translation.worker import TranslationSession
 
 
 def model_reference(choice: BackendChoice | CloudProfile | None) -> str:

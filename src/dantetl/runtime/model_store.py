@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Literal
 
 from dantetl import paths
-from dantetl.application.model_advice import MODEL_ORDER
 from dantetl.i18n import CatalogText, mark, tr
 from dantetl.languages.selection import DEFAULT_SOURCE
 from dantetl.languages.source import SourceLanguage
@@ -32,6 +31,13 @@ PLAMO_RUNTIME_SETUP = mark(
     "Open Settings → Acceleration, install an updated CPU or GPU runtime, then restart. "
     "Your downloaded models are kept."
 )
+
+
+@dataclass(frozen=True, slots=True)
+class ModelLocation:
+    directory: Path
+    present: bool
+    included: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,8 +60,16 @@ class ModelBundle:
     def size(self) -> int:
         return sum(a.size for a in self.assets)
 
+    def inspect_location(self) -> ModelLocation:
+        primary = assets_present(self.directory, self.assets)
+        included = self.included
+        directory = self.directory
+        if not primary and included and self.bundled_directory is not None:
+            directory = self.bundled_directory
+        return ModelLocation(directory, primary or included, included)
+
     def present(self) -> bool:
-        return assets_present(self.local_directory, self.assets)
+        return self.inspect_location().present
 
     @property
     def local_directory(self) -> Path:
@@ -71,7 +85,16 @@ def model_catalog(language: SourceLanguage = DEFAULT_SOURCE) -> tuple[ModelBundl
     from dantetl.translation.backends import gemma
     from dantetl.translation.models.curated import MODELS
 
-    bundles = (
+    return (
+        ModelBundle(
+            "gemma",
+            CatalogText("Gemma 4 E2B · Recommended"),
+            gemma.model_directory(),
+            gemma.ASSETS,
+            CatalogText("Recommended balance of game terminology, quality and speed."),
+            language_model=True,
+        ),
+        *(model.bundle() for model in MODELS),
         ModelBundle(
             "ocr",
             CatalogText("MeikiOCR · Japanese text recognition"),
@@ -97,48 +120,6 @@ def model_catalog(language: SourceLanguage = DEFAULT_SOURCE) -> tuple[ModelBundl
             models.bundled_paddle_directory(),
             category="recognition",
         ),
-        ModelBundle(
-            "gemma",
-            CatalogText("Gemma 4 E2B · Recommended"),
-            gemma.model_directory(),
-            gemma.ASSETS,
-            CatalogText("Recommended balance of game terminology, quality and speed."),
-            language_model=True,
-        ),
-        *(model.bundle() for model in MODELS),
-    )
-    return tuple(sorted(bundles, key=lambda bundle: MODEL_ORDER.index(bundle.key)))
-
-
-def model_status(bundle: ModelBundle) -> str:
-    """Distinguish downloaded weights from the runtime available to this process."""
-    if not bundle.present():
-        return CatalogText("Not downloaded. Choose Download to install this model's files.")
-    origin = CatalogText("Included with app.") if bundle.included else CatalogText("Downloaded.")
-    if bundle.language_model:
-        from dantetl.runtime.llama import installed_device, supports_plamo
-
-        if installed_device() is None:
-            return CatalogText(LANGUAGE_RUNTIME_SETUP)
-        if bundle.needs_plamo and not supports_plamo():
-            return CatalogText(PLAMO_RUNTIME_SETUP)
-        if installed_device() == "cpu":
-            return CatalogText(
-                "Downloaded. Runtime available on CPU; translations may be slower. "
-                "GPU acceleration is optional. Integrity is checked before use."
-            )
-    if bundle.key == "ocr":
-        from dantetl.runtime.ocr import gpu_runtime_installed
-
-        if not (gpu_runtime_installed() or gpu_runtime_installed("onnxruntime-directml")):
-            return CatalogText(
-                "{origin} CPU OCR is ready. The Automatic NVIDIA OCR option needs a "
-                "separate runtime: open Acceleration, install NVIDIA support, then "
-                "restart. OCR model files do not install GPU support.",
-                origin=origin,
-            )
-    return CatalogText(
-        "{origin} Runtime available; integrity is checked before use.", origin=origin
     )
 
 

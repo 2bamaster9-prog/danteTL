@@ -1,8 +1,9 @@
 from unittest.mock import Mock
 
 from dantetl.application.model_lifecycle import ModelPhase
+from dantetl.translation.backend import BackendChoice
 from dantetl.translation.values import TranslationSnapshot, TranslationState
-from dantetl.translation.worker import BackendChoice, TranslationSession
+from dantetl.translation.worker import TranslationSession
 
 
 class Worker(TranslationSession):

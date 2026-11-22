@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from dantetl import paths
+from dantetl.application.model_discovery import inspect_models
 from dantetl.languages.selection import source_language
 from dantetl.ocr import models
 from dantetl.runtime import application as runtime_application
@@ -107,7 +108,7 @@ def test_bundled_ocr_is_available_offline_without_installing_or_copying(package,
     assert models.local_model_paths(models.model_directory()) == (bundled / asset.filename,)
     model_store.install_model(catalog, lambda p: None, threading.Event())
     assert not paths.state_root().exists()
-    assert "Included" in model_store.model_status(catalog)
+    assert "Included" in inspect_models((catalog,), include_imports=False).files[0].status
 
     # Relocation follows the current package, not the old install folder.
     moved = package.with_name("relocated 日本語")

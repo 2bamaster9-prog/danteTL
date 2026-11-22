@@ -76,6 +76,8 @@ status projection independent of worker implementations. Capture Stop intent rem
 while the native owner is still reporting its last running snapshot.
 Inventory uses one bounded worker, explicit invalidation and a 30-second fallback scheduled from
 completed scan adoption. Invalidation during a scan discards stale results and requests one follow-up.
+A discovery pass samples bundle locations, runtime capabilities and the imported registry once.
+The picker and setup view derive their choices and status from those same observations.
 Unchanged revisions do not rebuild routes/options. Cached badges never authorize native model loading.
 Imported-registry discovery has its own failure boundary. A malformed/unreadable registry is preserved
 and reported while healthy built-in choices and OCR assets remain available; a later refresh can recover.

@@ -17,11 +17,8 @@ from verification_isolation import create_window as MainWindow
 
 from dantetl import composition
 from dantetl.application.hotkeys import HotkeyAction, Hotkeys
-from dantetl.application.model_factories import (
-    create_recognizer,
-    ocr_backends,
-    translation_backends,
-)
+from dantetl.application.model_discovery import translation_backends
+from dantetl.application.model_factories import create_recognizer, ocr_backends
 from dantetl.application.preference_values import Preferences
 from dantetl.application.preferences import PreferenceStore
 from dantetl.capture.windows import Windows

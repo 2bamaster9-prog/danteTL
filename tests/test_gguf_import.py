@@ -10,7 +10,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from dantetl import bootstrap as app
+from dantetl.application.model_discovery import translation_backends
 from dantetl.application.preferences import decode_preferences
 from dantetl.runtime import llama as llama_runtime
 from dantetl.runtime.setup_values import Cancelled
@@ -386,14 +386,14 @@ def test_imported_discovery_missing_runtime_and_file_keep_recovery_options(tmp_p
     model = registration(tmp_path)
     monkeypatch.setattr(gguf_models, "read_registry", lambda: (model,))
     monkeypatch.setattr(llama_runtime, "installed_device", lambda: "cpu")
-    choices = app.translation_backends()
+    choices = translation_backends()
     choice = next(b for b in choices if b.key == model.key)
     assert not choice.unavailable_reason and choice.preparation_id
     monkeypatch.setattr(llama_runtime, "installed_device", lambda: None)
-    choice = next(b for b in app.translation_backends() if b.key == model.key)
+    choice = next(b for b in translation_backends() if b.key == model.key)
     assert "Acceleration" in choice.unavailable_reason
     gguf_models.Path(model.path).unlink()
-    choice = next(b for b in app.translation_backends() if b.key == model.key)
+    choice = next(b for b in translation_backends() if b.key == model.key)
     assert "Locate file" in choice.unavailable_reason
 
 

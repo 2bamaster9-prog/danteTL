@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from dantetl.i18n import mark
 
 RECOMMENDED_TRANSLATION = "gemma"
-MODEL_ORDER = ("gemma", "gemma-e4b", "plamo-2b", "plamo-0.8b", "qwen35-4b", "ocr")
 COMPARISON_NOTE = mark("Practical ratings from tests and player feedback; results vary by game.")
 
 

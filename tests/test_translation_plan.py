@@ -12,12 +12,13 @@ from dantetl.application.preference_values import Preferences
 from dantetl.application.preferences import decode_preferences
 from dantetl.domain import Rect
 from dantetl.languages.target import ENGLISH
-from dantetl.ocr.tracking import TextTrack
+from dantetl.ocr.observation import TextTrack
+from dantetl.translation.backend import BackendChoice
 from dantetl.translation.grouping import TextBlock
 from dantetl.translation.plan import TranslationPlan
 from dantetl.translation.routing import RoutedTranslationSession
 from dantetl.translation.values import TranslationState
-from dantetl.translation.worker import BackendChoice, TranslationSession
+from dantetl.translation.worker import TranslationSession
 
 
 def until(predicate):

@@ -13,12 +13,13 @@ from dantetl.application.translation_activity import (
 from dantetl.i18n import tr
 from dantetl.languages.selection import DEFAULT_SOURCE
 from dantetl.languages.source import SourceLanguage
+from dantetl.translation.backend import BackendChoice
 from dantetl.translation.cloud.values import CloudProfile
 from dantetl.translation.plan import TranslationPlan
 from dantetl.translation.routing import RoutedTranslationSession
 from dantetl.translation.selection import CloudIdentity, LocalIdentity
 from dantetl.translation.values import TranslationSnapshot, TranslationState, TranslationWorker
-from dantetl.translation.worker import BackendChoice, TranslationSession
+from dantetl.translation.worker import TranslationSession
 
 Worker = TranslationSession | RoutedTranslationSession
 logger = logging.getLogger(__name__)

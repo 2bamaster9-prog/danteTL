@@ -13,9 +13,7 @@ from dataclasses import dataclass
 
 from dantetl.application.model_values import ModelFile
 from dantetl.i18n import tr
-from dantetl.runtime.model_store import ModelBundle
-from dantetl.translation.models.gguf import available
-from dantetl.translation.worker import BackendChoice
+from dantetl.translation.backend import BackendChoice
 
 logger = logging.getLogger(__name__)
 
@@ -39,88 +37,6 @@ class InventorySnapshot:
     data: InventoryData = InventoryData()
     loaded: bool = False
     problem: str = ""
-
-
-def inspect_models(
-    bundles: tuple[ModelBundle, ...],
-    backends: Callable[[], tuple[BackendChoice, ...]],
-    *,
-    include_imports: bool = True,
-) -> InventoryData:
-    """Worker-side filesystem/runtime boundary, shared by startup and explicit refresh."""
-    from dantetl.runtime.llama import installed_device, supports_plamo
-    from dantetl.runtime.model_store import is_prepared, model_status
-    from dantetl.translation.models.gguf import read_registry
-
-    choices = backends()
-    device = installed_device()
-    plamo = supports_plamo()
-    files = tuple(
-        ModelFile(
-            b.key,
-            b.name,
-            b.description,
-            b.category,
-            b.size,
-            b.present(),
-            b.included,
-            b.language_model,
-            b.needs_plamo,
-            str(b.directory),
-            str(b.bundled_directory or ""),
-            str(b.local_directory),
-            model_status(b),
-            device,
-            b.needs_plamo and not plamo,
-        )
-        for b in bundles
-    )
-    import_problem = ""
-    try:
-        imported = read_registry() if include_imports else ()
-    except (OSError, ValueError) as error:
-        imported = ()
-        import_problem = tr("Cannot read imported models: {error}", error=error)
-    for model in imported:
-        present = available(model)
-        files += (
-            ModelFile(
-                model.key,
-                model.name,
-                tr(
-                    "Imported · {architecture} · {value:.2f} GiB on disk. Local "
-                    "translation. Quality depends on the model.",
-                    architecture=model.architecture,
-                    value=model.size / 2**30,
-                ),
-                "translation",
-                model.size,
-                present,
-                False,
-                True,
-                model.profile == "plamo3",
-                model.path,
-                "",
-                model.path,
-                tr("File is missing or changed size. Use Locate file to check its new location.")
-                if not present
-                else tr("Language-model engine missing. Open Acceleration to set up CPU or GPU.")
-                if device is None
-                else tr(
-                    "Local model registered. Select it on the main screen to prepare and use it."
-                ),
-                device,
-                model.profile == "plamo3" and not plamo,
-                model,
-            ),
-        )
-    return InventoryData(
-        choices,
-        files,
-        frozenset(c.preparation_id for c in choices if is_prepared(c.preparation_id)),
-        device,
-        import_problem,
-    )
 
 
 class ModelInventory:

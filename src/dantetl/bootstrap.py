@@ -8,11 +8,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from types import TracebackType
 
-from dantetl.application.model_factories import (
-    create_recognizer,
-    ocr_backends,
-    translation_backends,
-)
+from dantetl.application.model_factories import create_recognizer, ocr_backends
 from dantetl.application.preferences import PreferenceStore
 from dantetl.i18n import tr
 from dantetl.languages.selection import source_language
@@ -53,7 +49,7 @@ def main() -> None:
     from PySide6.QtWidgets import QApplication, QMessageBox
 
     from dantetl.application.hotkeys import Hotkeys
-    from dantetl.application.model_inventory import inspect_models
+    from dantetl.application.model_discovery import inspect_models
     from dantetl.capture.windows import Windows
     from dantetl.composition import (
         application_session,
@@ -107,15 +103,13 @@ def main() -> None:
     driver = DesktopDriver()
     language = source_language(preferences.current.source_language)
     models = model_catalog(language)
-    inventory = model_inventory(models, partial(translation_backends, language=language))
+    inventory = model_inventory(models, language)
     setup = setup_coordinator(inventory, models, project_root())
 
     def source_models(selected: SourceLanguage) -> tuple[OcrChoice, ...]:
         bundles = model_catalog(selected)
         setup.set_models(bundles)
-        inventory.set_inspector(
-            partial(inspect_models, bundles, partial(translation_backends, language=selected))
-        )
+        inventory.set_inspector(partial(inspect_models, bundles, language=selected))
         return ocr_backends(selected)
 
     application = application_session(

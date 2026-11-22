@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 from unittest.mock import patch
 
-from dantetl.application.model_factories import translation_backends
+from dantetl.application.model_discovery import translation_backends
 from dantetl.domain import Rect
 from dantetl.languages.target import ENGLISH
 from dantetl.ocr.observation import TextTrack

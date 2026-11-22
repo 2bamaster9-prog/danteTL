@@ -25,7 +25,8 @@ from dantetl.application.preferences import PreferenceStore  # noqa: E402
 from dantetl.application.translation_coordinator import model_reference
 from dantetl.domain import Rect  # noqa: E402
 from dantetl.languages.target import TARGET_LANGUAGES  # noqa: E402
-from dantetl.ocr.tracking import TextTrack  # noqa: E402
+from dantetl.ocr.observation import TextTrack  # noqa: E402
+from dantetl.translation.backend import BackendChoice  # noqa: E402
 from dantetl.translation.cloud.backend import CloudBackend  # noqa: E402
 from dantetl.translation.cloud.chatgpt_auth import PLAN_SCOPE, ChatGPTConnections  # noqa: E402
 from dantetl.translation.cloud.profiles import CloudProfiles  # noqa: E402
@@ -37,7 +38,6 @@ from dantetl.translation.cloud.values import (
 from dantetl.translation.grouping import TextBlock  # noqa: E402
 from dantetl.translation.plan import TranslationPlan  # noqa: E402
 from dantetl.translation.routing import RoutedTranslationSession  # noqa: E402
-from dantetl.translation.worker import BackendChoice  # noqa: E402
 
 
 class MemorySecrets:

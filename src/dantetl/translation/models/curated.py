@@ -60,6 +60,29 @@ class CuratedModel:
 
 MODELS = (
     CuratedModel(
+        "gemma-e4b",
+        mark("Gemma 4 E4B · Higher-resource recommendation"),
+        mark("Recommended when more memory is available; good game terminology."),
+        "gemma4",
+        "gemma4",
+        (
+            ModelAsset(
+                "google/gemma-4-E4B-it-qat-q4_0-gguf",
+                "4b4a2c1d584be7264f87aac328a1bc739ce81b6c",
+                "gemma-4-E4B_q4_0-it.gguf",
+                "676c35070db6dbe52f93e9c864ee0fba4eddea94b9c875d9cb10daff453fbaee",
+                5154941280,
+            ),
+            ModelAsset(
+                "google/gemma-4-E4B-it-qat-q4_0-gguf",
+                "4b4a2c1d584be7264f87aac328a1bc739ce81b6c",
+                "README.md",
+                "6c8dbc23d482d76d6a02e6804941fae6dccdcd20e6372c26e4dec35e21348607",
+                29233,
+            ),
+        ),
+    ),
+    CuratedModel(
         "plamo-2b",
         mark("PLaMo 3 Translate 2B · Dialogue alternative"),
         mark("Fast dialogue translation; unreliable for game stats and terminology."),
@@ -125,29 +148,6 @@ MODELS = (
                 "README.md",
                 "28546f5fc4f22ee1b3f17b908957f17fcfa66174032136265bdb27f404bc1e6c",
                 78906,
-            ),
-        ),
-    ),
-    CuratedModel(
-        "gemma-e4b",
-        mark("Gemma 4 E4B · Higher-resource recommendation"),
-        mark("Recommended when more memory is available; good game terminology."),
-        "gemma4",
-        "gemma4",
-        (
-            ModelAsset(
-                "google/gemma-4-E4B-it-qat-q4_0-gguf",
-                "4b4a2c1d584be7264f87aac328a1bc739ce81b6c",
-                "gemma-4-E4B_q4_0-it.gguf",
-                "676c35070db6dbe52f93e9c864ee0fba4eddea94b9c875d9cb10daff453fbaee",
-                5154941280,
-            ),
-            ModelAsset(
-                "google/gemma-4-E4B-it-qat-q4_0-gguf",
-                "4b4a2c1d584be7264f87aac328a1bc739ce81b6c",
-                "README.md",
-                "6c8dbc23d482d76d6a02e6804941fae6dccdcd20e6372c26e4dec35e21348607",
-                29233,
             ),
         ),
     ),

@@ -8,10 +8,10 @@ from ownership_fixtures import Replay
 
 from dantetl.application.model_inventory import InventoryData
 from dantetl.application.preference_values import Preferences
+from dantetl.translation.backend import BackendChoice
 from dantetl.translation.cloud.values import CloudProfile
 from dantetl.translation.plan import TranslationPlan
 from dantetl.translation.selection import AssignmentChange
-from dantetl.translation.worker import BackendChoice
 
 
 def test_prepared_worker_adoption_uses_loaded_identity_after_other_category_changes(tmp_path):

@@ -5,7 +5,6 @@ import threading
 import time
 from collections import OrderedDict
 from collections.abc import Callable
-from dataclasses import dataclass, field
 from pathlib import Path
 
 from dantetl.i18n import tr
@@ -38,32 +37,6 @@ from dantetl.translation.values import (
 
 logger = logging.getLogger(__name__)
 _LABEL_RUNTIME_ERRORS = (AttributeError, RuntimeError, ValueError, OSError, MemoryError)
-
-
-@dataclass(frozen=True, slots=True)
-class BackendChoice:
-    name: str
-    # Discovery may recreate a lazy recipe. Its identity is the pinned model/runtime
-    # metadata below, never the identity of a newly allocated Python closure.
-    create: Callable[[], TranslationBackend] = field(compare=False)
-    key: str = ""
-    preparation_id: str = ""
-    unavailable_reason: str = ""
-    performance_notice: str = ""
-    selection_id: str = ""
-    classifies: bool = False
-    output_codes: frozenset[str] | None = None
-
-    @property
-    def preference_key(self) -> str:
-        if self.selection_id:
-            return self.selection_id
-        # Retain legacy E2B preferences without conflating larger Gemma models.
-        return (
-            "gemma"
-            if self.key in ("gemma", "gemma-cpu", "gemma-cuda", "gemma-vulkan", "gemma-unavailable")
-            else self.key
-        )
 
 
 class TranslationSession:

@@ -20,7 +20,8 @@ from PySide6.QtWidgets import QApplication, QWidget
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
-from dantetl.application.model_factories import create_recognizer, translation_backends
+from dantetl.application.model_discovery import translation_backends
+from dantetl.application.model_factories import create_recognizer
 from dantetl.capture.windows import Windows
 from dantetl.domain import CapturedFrame, Rect, WindowTarget
 from dantetl.languages.selection import DEFAULT_SOURCE

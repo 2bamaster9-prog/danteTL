@@ -134,7 +134,7 @@ def main() -> int:
     application = app_owner(window)
     from dataclasses import replace
 
-    from dantetl.application.model_inventory import inspect_models
+    from dantetl.application.model_discovery import inspect_models
     from dantetl.runtime.model_store import model_catalog
 
     missing = tuple(

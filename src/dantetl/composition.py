@@ -9,7 +9,8 @@ from dantetl.application.cache_management import CacheManagement
 from dantetl.application.cloud_services import CloudServices
 from dantetl.application.hotkeys import Hotkeys
 from dantetl.application.live_session import LiveSession
-from dantetl.application.model_inventory import ModelInventory, inspect_models
+from dantetl.application.model_discovery import inspect_models
+from dantetl.application.model_inventory import ModelInventory
 from dantetl.application.preferences import PreferenceStore
 from dantetl.application.session import ApplicationSession
 from dantetl.application.setup_coordinator import SetupCoordinator
@@ -29,7 +30,7 @@ from dantetl.translation.cloud.chatgpt_auth import ChatGPTConnections
 from dantetl.translation.cloud.credentials import WindowsSecrets
 from dantetl.translation.cloud.profiles import CloudProfiles
 from dantetl.translation.routing import RoutedTranslationSession
-from dantetl.translation.worker import BackendChoice, TranslationSession
+from dantetl.translation.worker import TranslationSession
 
 
 def application_session(
@@ -158,8 +159,8 @@ def cloud_services(*, language: SourceLanguage = DEFAULT_SOURCE) -> CloudService
 
 def model_inventory(
     models: tuple[ModelBundle, ...],
-    provider: Callable[[], tuple[BackendChoice, ...]],
+    language: SourceLanguage,
 ) -> ModelInventory:
-    inventory = ModelInventory(partial(inspect_models, models, provider), mark_prepared)
+    inventory = ModelInventory(partial(inspect_models, models, language=language), mark_prepared)
     inventory.advance(0)
     return inventory

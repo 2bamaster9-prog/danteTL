@@ -32,6 +32,7 @@ from dantetl.application.translation_coordinator import model_reference
 from dantetl.domain import CapturedFrame, Rect, WindowGeometry  # noqa: E402
 from dantetl.ocr.observation import TextTrack  # noqa: E402
 from dantetl.ocr.values import OcrResult, TextCharacter, TextRegion  # noqa: E402
+from dantetl.translation.backend import BackendChoice  # noqa: E402
 from dantetl.translation.grouping import TextBlock  # noqa: E402
 from dantetl.translation.values import (  # noqa: E402
     TranslatedText,
@@ -39,7 +40,7 @@ from dantetl.translation.values import (  # noqa: E402
     TranslationSnapshot,
     TranslationState,
 )
-from dantetl.translation.worker import BackendChoice, TranslationSession  # noqa: E402
+from dantetl.translation.worker import TranslationSession  # noqa: E402
 from dantetl.ui.diagnostics import DebugDisplay  # noqa: E402
 from dantetl.ui.inspection import OcrInspector, image_target  # noqa: E402
 from dantetl.ui.overlay import OverlayWindow  # noqa: E402

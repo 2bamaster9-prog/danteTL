@@ -19,8 +19,8 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
-from dantetl.application.model_factories import create_recognizer, translation_backends
-from dantetl.application.model_inventory import inspect_models
+from dantetl.application.model_discovery import inspect_models, translation_backends
+from dantetl.application.model_factories import create_recognizer
 from dantetl.capture.windows import Windows
 from dantetl.domain import WindowTarget
 from dantetl.runtime.model_store import model_catalog
@@ -98,10 +98,8 @@ def main() -> int:
                 # The fixture changes its catalog paths to simulate files arriving.
                 # Settings is now persistent, so update its test catalog too.
                 assert window._model_manager
-                application.inventory._inspect = lambda: inspect_models(
-                    bundles, translation_backends
-                )
-                application.setup._models = {b.key: b for b in bundles}
+                application.inventory.set_inspector(lambda: inspect_models(bundles))
+                application.setup.set_models(bundles)
                 window._model_manager.refresh()
                 window._refresh_models()
                 assert window.backend_combo.currentData() is None

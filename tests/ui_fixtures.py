@@ -94,7 +94,8 @@ def create_window(windows, recognizer, *backends_args, cloud=None, **kwargs):
     )
     from functools import partial
 
-    from dantetl.application.model_inventory import ModelInventory, inspect_models
+    from dantetl.application.model_discovery import inspect_models
+    from dantetl.application.model_inventory import ModelInventory
     from dantetl.runtime.model_store import mark_prepared
 
     backends = args[2] if len(args) > 2 else kwargs.get("backends", ())
@@ -149,7 +150,8 @@ def model_manager(*args, **kwargs):
         secrets=NoCredentials,
         connections=ChatGPTConnections(ProtectedStore(root / "accounts")),
     )
-    from dantetl.application.model_inventory import ModelInventory, inspect_models
+    from dantetl.application.model_discovery import inspect_models
+    from dantetl.application.model_inventory import ModelInventory
     from dantetl.composition import setup_coordinator
 
     inventory = ModelInventory(

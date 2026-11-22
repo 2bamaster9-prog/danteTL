@@ -149,7 +149,7 @@ def test_import_capability_does_not_depend_on_downloaded_model_rows(tmp_path):
 
 
 def test_probe_permit_requires_both_translation_and_classifier_cleanup(tmp_path):
-    from dantetl.translation.worker import BackendChoice
+    from dantetl.translation.backend import BackendChoice
 
     replay = Replay(
         tmp_path, data=InventoryData((BackendChoice("Fixture", Mock(), "fixture"),), device="cpu")

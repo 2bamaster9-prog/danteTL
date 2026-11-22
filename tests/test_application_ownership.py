@@ -22,10 +22,10 @@ from dantetl.ocr.observation import CandidateReview
 from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState, TextRegion
 from dantetl.ocr.visual_values import VisualState
 from dantetl.runtime.restart import RestartSnapshot
+from dantetl.translation.backend import BackendChoice
 from dantetl.translation.plan import TranslationPlan
 from dantetl.translation.selection import AssignmentChange
 from dantetl.translation.values import TranslationState
-from dantetl.translation.worker import BackendChoice
 
 
 @pytest.fixture
