@@ -18,6 +18,59 @@ from dantetl.translation.values import TranslatedText, TranslationRequest
 BOX = Rect(20, 30, 220, 28)
 
 
+def test_quest_paragraph_clears_over_its_original_gradient_while_ocr_is_delayed():
+    viewport = Rect(0, 0, 2480, 220)
+    rows = (Rect(30, 40, 2398, 46), Rect(30, 100, 1165, 46))
+    gradient = np.linspace(20, 150, viewport.width, dtype=np.uint8)
+    backing = np.tile(gradient, (viewport.height, 1))
+    cv2.putText(backing, "Menu", (35, 202), cv2.FONT_HERSHEY_SIMPLEX, 1, 225, 2)
+    original = backing.copy()
+    for row in rows:
+        cv2.putText(
+            original[:, row.x : row.x + row.width],
+            "QUEST DETAILS " * 12,
+            (0, row.y + 36),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1.1,
+            210,
+            2,
+            cv2.LINE_AA,
+        )
+    tracks = (
+        TextTrack(1, "物語の始まり", rows[0]),
+        TextTrack(2, "次の行です。", rows[1]),
+        TextTrack(3, "設定", Rect(30, 172, 100, 36)),
+    )
+    visible = CapturedFrame(
+        1,
+        0.0,
+        WindowGeometry(viewport, viewport, viewport, 96),
+        cv2.cvtColor(original, cv2.COLOR_GRAY2BGRA).tobytes(),
+    )
+    bare = replace(visible, bgra=cv2.cvtColor(backing, cv2.COLOR_GRAY2BGRA).tobytes())
+    result = OcrResult(visible, tuple(TextRegion(t.text, t.bounds) for t in tracks), 10, 0.01)
+    blocks = (TextBlock(tracks[:2]), TextBlock(tracks[2:]))
+    replies = tuple(
+        TranslatedText(TranslationRequest.from_block(block), text)
+        for block, text in zip(blocks, ("Quest description", "Menu"), strict=True)
+    )
+    visual, presentation = VisualAnalyzer(), EnglishPresentation()
+    visual.observe(visible, result, tracks, (1, 2, 3))
+    initial = presentation.update(blocks, replies)
+    assert len(initial) == 2
+    for seq in (2, 2, 3, 4, 5):
+        state = visual.observe(
+            replace(bare, sequence=seq, captured_at=(seq - 1) / 8), result, tracks, (1, 2, 3)
+        )
+        assert presentation.update(blocks, (), cleared=state.cleared) == (
+            initial if seq < 4 else initial[1:]
+        )
+    restored = visual.observe(
+        replace(visible, sequence=6, captured_at=0.625), result, tracks, (1, 2, 3)
+    )
+    assert presentation.update(blocks, (), cleared=restored.cleared) == initial
+
+
 def picture(sequence, text="HP 3204", *, stars=True, gone=False, extension=False):
     rng = np.random.default_rng(sequence)
     gray = (

@@ -205,6 +205,9 @@ splits, faint digit edits/typing/removal, stale generations,
 static WGC frames, small continuation growth, polarity/brightness changes, failures and resets.
 Long horizontal/vertical digit-change replays must both retain unchanged text through lighting/OCR noise
 and accept genuine edits after ordinary confirmation. Include exhausted fine-reference budgets.
+For quest switches, replay a two-line paragraph disappearing against its original gradient while
+OCR is delayed. Check when the whole English paragraph hides, continuity of other labels and
+restoration on the first returning capture. Repeated polls of one capture count once.
 Colored-paragraph replays cover partial scans/misses, appended false detections, mixed-color digits,
 real growth/removal and preservation of raw OCR. Keep supplied frame pairs with their actual OCR in
 ignored artifacts when diagnosing background-dependent disagreement.

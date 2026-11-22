@@ -602,27 +602,12 @@ class _Anchor:
         # Unrelated textured backgrounds can accidentally match many individual
         # edges. Require the spatial pattern too, with brightness/shift tolerance.
         lost = (coverage < 0.12 and correlation < 0.4) or correlation < 0.1
-        if lost:
-            self.hits = 0
-            self.misses += 1
-            if self.misses >= 2:
-                self.hidden = True
-        elif coverage >= 0.4 or correlation >= 0.6:
-            # The line can still be present despite a glyph or background change.
-            # Only corroborated edge and spatial agreement can veto an OCR miss.
-            self.present = coverage >= 0.4 and correlation >= 0.7
-            self.misses = 0
-            self.hits += 1
-            if self.hits >= 2:
-                self.hidden = False
-        else:
-            self.misses = 0  # Ambiguous evidence cannot accumulate disappearance votes.
-        # A cleared patch and a different occupied patch provide different evidence.
-        # In the latter case, look for surviving parts of the original lettering.
+        # A stationary gradient can correlate even after every letter is gone.
+        # Require the original stroke patches to disappear across the line too.
         vacant = (
-            lost
-            and glyph_match is False
+            glyph_match is False
             and np.count_nonzero(np.maximum(np.abs(x), np.abs(y)) >= 35) < self.stroke_count * 0.15
+            and (lost or (coverage < 0.12 and self._strokes_replaced(current)))
         )
         replaced = (
             not vacant
@@ -639,6 +624,21 @@ class _Anchor:
             and (self.fine is None or self.fine.matches(pixels, self.value) is not False)
         ):
             vacant = replaced = False
+        if lost or vacant:
+            self.hits = 0
+            self.misses += 1
+            if self.misses >= 2:
+                self.hidden = True
+        elif coverage >= 0.4 or correlation >= 0.6:
+            # The line can still be present despite a glyph or background change.
+            # Only corroborated edge and spatial agreement can veto an OCR miss.
+            self.present = coverage >= 0.4 and correlation >= 0.7
+            self.misses = 0
+            self.hits += 1
+            if self.hits >= 2:
+                self.hidden = False
+        else:
+            self.misses = 0  # Ambiguous evidence cannot accumulate disappearance votes.
         previous_replacement, self.replacement = self.replacement, None
         if replaced:
             # Outside change corroborates a menu transition immediately. An isolated

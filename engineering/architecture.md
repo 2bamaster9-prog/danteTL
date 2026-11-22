@@ -165,8 +165,11 @@ The presence and tracking policies decide whether to hide or retire a translatio
 Between OCR passes, a painted block can hide when every current member loses its glyph pattern.
 A vacant line can hide on the first detailed capture if its backing or surrounding area changes
 and native color edges confirm the space is clear. Other vacant lines require three distinct captures
-spanning at least 160 ms. For a textured replacement, compare separate stroke patches across the old
-line with positional tolerance. Strong surrounding change corroborates the loss immediately.
+spanning at least 160 ms. A shared background gradient can correlate across a switch even
+when all lettering has vanished. Very low surviving edge coverage and loss of separate
+stroke patches across the line can corroborate vacancy in that case. For a textured replacement,
+compare separate stroke patches across the old line with positional tolerance. Strong surrounding
+change corroborates the loss immediately.
 An isolated replacement needs a second capture with the same new pattern. Weak or surviving glyph
 evidence defers to OCR. The publication and track survive so returning glyphs can
 restore the same English on the next capture. Retirement requires a covered OCR miss
