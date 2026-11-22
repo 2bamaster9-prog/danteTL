@@ -19,6 +19,7 @@ from dantetl.translation.backend import (
     TranslationBackend,
 )
 from dantetl.translation.cache import TranslationCache, translation_key
+from dantetl.translation.cache_ownership import CacheScope
 from dantetl.translation.dialogue.context import DialogueTurn
 from dantetl.translation.plan import SHORT_TEXT_LIMIT
 
@@ -53,7 +54,7 @@ class Batch:
     queue_ms: float = 0.0
     started: float = 0.0
     parallel_label: bool = False
-    cache_scope: int | None = None
+    cache_scope: CacheScope | None = None
 
     def activate(
         self,

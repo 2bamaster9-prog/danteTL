@@ -1,6 +1,8 @@
 import sqlite3
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 
 from dantetl.translation.cache import TranslationCache, translation_key
 from dantetl.translation.cache_values import CacheInventory
@@ -81,6 +83,43 @@ def test_shared_game_entries_survive_clearing_the_other_game_and_reopening(tmp_p
         reopened.close()
 
 
+def test_misses_and_eviction_leave_no_unowned_game_titles_on_disk(tmp_path):
+    path = tmp_path / "cache"
+    cache = TranslationCache(path, disk_limit=1)
+    try:
+        for i in range(20):
+            cache.lookup_pending(("miss",), reset=True, game=f"untranslated-{i}")
+        for game in ("old", "current"):
+            cache.lookup_pending((game,), reset=True, game=game)
+            cache.put(game, game, scope=cache.scope)
+    finally:
+        cache.close()
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT name FROM cache_games").fetchall() == [("current",)]
+    db.close()
+
+
+def test_reappearing_owned_hit_does_not_invalidate_other_connections(tmp_path, monkeypatch):
+    # Keep the separate, periodic recency flush outside this replay.
+    monkeypatch.setattr(time, "monotonic", lambda: 0.0)
+    path = tmp_path / "cache"
+    cache = TranslationCache(path)
+    try:
+        cache.lookup_pending(("key",), reset=False, game="A")
+        cache.put("key", "Settings", scope=cache.scope)
+        with closing(sqlite3.connect(path)) as other:
+            version = other.execute("PRAGMA data_version").fetchone()
+            for _ in range(20):
+                cache.lookup_pending((), reset=False, game="A")
+                assert cache.lookup_pending(("key",), reset=False, game="A")["key"] == "Settings"
+            assert other.execute("PRAGMA data_version").fetchone() == version
+            assert cache.lookup_pending(("key",), reset=False, game="B")["key"] == "Settings"
+            assert other.execute("PRAGMA data_version").fetchone() != version
+        assert cache.inventory() == CacheInventory(1, (("A", 1), ("B", 1)))
+    finally:
+        cache.close()
+
+
 def test_unnamed_capture_uses_the_same_ownership_and_clear_rules(tmp_path):
     cache = TranslationCache(tmp_path / "cache")
     try:
@@ -121,6 +160,42 @@ def test_clear_excludes_old_inflight_writes_and_invalidates_memory_and_pending_h
         worker.close()
         other.close()
         manager.close()
+
+
+def test_migration_removes_old_miss_only_names_and_preserves_linked_entries(tmp_path):
+    path = tmp_path / "cache"
+    cache = TranslationCache(path)
+    cache.lookup_pending(("saved",), reset=True, game="played")
+    cache.put("saved", "Settings", scope=cache.scope)
+    cache.close()
+    with sqlite3.connect(path) as db:
+        db.execute("INSERT INTO cache_games(name) VALUES ('miss only')")
+        db.execute("PRAGMA user_version=1")
+    db.close()
+    reopened = TranslationCache(path)
+    try:
+        assert reopened.get("saved") == "Settings"
+        assert reopened.inventory() == CacheInventory(1, (("played", 1),))
+    finally:
+        reopened.close()
+    with sqlite3.connect(path) as db:
+        assert db.execute("SELECT name FROM cache_games").fetchall() == [("played",)]
+    db.close()
+
+
+def test_new_work_on_the_clearing_connection_obtains_a_fresh_scope(tmp_path):
+    cache = TranslationCache(tmp_path / "cache")
+    try:
+        cache.lookup_pending(("before",), reset=True, game="A")
+        old = cache.scope
+        cache.inventory(clear=True)
+        cache.lookup_pending(("after",), reset=True, game="A")
+        cache.put("before", "Late", scope=old)
+        cache.put("after", "Current", scope=cache.scope)
+        assert cache.inventory() == CacheInventory(1, (("A", 1),))
+        assert cache.get("before") is None
+    finally:
+        cache.close()
 
 
 def test_eviction_removes_game_membership(tmp_path):

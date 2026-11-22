@@ -474,8 +474,12 @@ Settings → Cache shows unique translations and counts by game. A separate inde
 the normalized game hint (or capture title) on successful lookup and insertion. A capture with
 no name appears as Unassigned. Game names are local metadata. Clearing a game removes its ownership
 and exclusive translations. Clearing the entire cache also removes shared and unassigned entries.
-Both actions require confirmation. SQLite transactions retire game IDs on deletion, so an older
-in-flight completion cannot refill the cleared scope. Maintenance runs off the UI thread.
+Both actions require confirmation. A miss takes an in-memory scope at the current clear revision.
+Hits and writes establish ownership transactionally. Repeated hits for the same game reuse its
+membership without a disk change apart from batched recency updates. Eviction retires empty game
+names. A bounded journal of clear revisions and game-name digests rejects writes that predate a
+relevant clear. A scope older than the journal cannot authorize a disk write. Clearing the entire
+cache retires all prior scopes and digests. Maintenance runs off the UI thread.
 `DialogueMemory` is two turns/512 characters for one unambiguous panel, separate from the reader. Freeze
 and hash context per request; only valid published English seeds it. Menus remain independent; reset on
 scene/session/layout/age. Turn identity follows exact members/growth/correction lineage, not similar words

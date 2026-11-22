@@ -14,6 +14,7 @@ from dantetl.i18n import tr
 from dantetl.languages.selection import DEFAULT_SOURCE
 from dantetl.languages.source import SourceLanguage
 from dantetl.languages.target import ENGLISH, TargetLanguage
+from dantetl.translation.cache_ownership import CacheOwnership, CacheScope
 from dantetl.translation.cache_values import CacheInventory
 
 logger = logging.getLogger(__name__)
@@ -36,11 +37,6 @@ def translation_key(
     return hashlib.sha256(payload).hexdigest()
 
 
-def _game_id(db: sqlite3.Connection, game: str) -> int:
-    db.execute("INSERT OR IGNORE INTO cache_games(name) VALUES (?)", (game,))
-    return db.execute("SELECT id FROM cache_games WHERE name=?", (game,)).fetchone()[0]
-
-
 class TranslationCache:
     def __init__(
         self, path: Path, *, memory_limit: int = 512, disk_limit: int = DISK_LIMIT
@@ -56,8 +52,7 @@ class TranslationCache:
         self._pending: dict[str, str | None] = {}
         self._data_version: int | None = None
         self._revision = 0
-        self._game = ""
-        self.scope: int | None = None
+        self.scope: CacheScope | None = None
         self.warning = ""
         try:
             with _schema_lock:
@@ -94,27 +89,8 @@ class TranslationCache:
                     "CREATE TRIGGER IF NOT EXISTS translation_delete AFTER DELETE ON translations "
                     "BEGIN UPDATE cache_size SET rows=rows-1 WHERE id=1; END"
                 )
-                self._db.execute(
-                    "CREATE TABLE IF NOT EXISTS cache_games "
-                    "(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE)"
-                )
-                self._db.execute(
-                    "CREATE TABLE IF NOT EXISTS game_entries "
-                    "(game INTEGER NOT NULL REFERENCES cache_games ON DELETE CASCADE, "
-                    "key TEXT NOT NULL REFERENCES translations ON DELETE CASCADE, "
-                    "PRIMARY KEY(game,key)) WITHOUT ROWID"
-                )
-                self._db.execute("CREATE INDEX IF NOT EXISTS entries_by_key ON game_entries(key)")
-                self._db.execute(
-                    "CREATE TABLE IF NOT EXISTS cache_changes (revision INTEGER NOT NULL)"
-                )
-                self._db.execute(
-                    "INSERT INTO cache_changes SELECT 0 "
-                    "WHERE NOT EXISTS (SELECT 1 FROM cache_changes)"
-                )
-                self._revision = self._db.execute("SELECT revision FROM cache_changes").fetchone()[
-                    0
-                ]
+                self._ownership = CacheOwnership(self._db)
+                self._revision = self._ownership.revision()
                 self._db.commit()
         except (OSError, sqlite3.Error) as error:
             self._disable_disk(error)
@@ -133,19 +109,14 @@ class TranslationCache:
         if self._touches >= 64 or time.monotonic() - self._flushed_at >= 1:
             self._flush()
 
-    def _flush(self, entry: tuple[str, str] | None = None, scope: int | None = None) -> bool:
+    def _flush(self, entry: tuple[str, str] | None = None, scope: CacheScope | None = None) -> bool:
         if self._db is None or (not self._touched and entry is None):
             return True
         try:
             with self._db:
                 self._db.execute("BEGIN IMMEDIATE")
-                if (
-                    scope is not None
-                    and not self._db.execute(
-                        "SELECT 1 FROM cache_games WHERE id=?", (scope,)
-                    ).fetchone()
-                ):
-                    return False  # A clear retired the game while inference was running.
+                if scope is not None and not self._ownership.permits(scope):
+                    return False
                 # Windows wall-clock reads can tie across many accesses. Allocate
                 # strictly ordered recency within this transaction, using the
                 # indexed maximum so independently owned connections agree.
@@ -162,10 +133,7 @@ class TranslationCache:
                         "used=MAX(translations.used, excluded.used)",
                         (*entry, used + len(self._touched) + 1),
                     )
-                    self._db.execute(
-                        "INSERT OR IGNORE INTO game_entries(game,key) VALUES (?,?)",
-                        (scope if scope is not None else _game_id(self._db, ""), entry[0]),
-                    )
+                    self._ownership.associate(scope.game if scope else "", (entry[0],))
                 count = self._db.execute("SELECT rows FROM cache_size WHERE id=1").fetchone()[0]
                 if count > self._disk_limit:
                     self._db.execute(
@@ -189,10 +157,7 @@ class TranslationCache:
     def get(self, key: str) -> str | None:
         if key in self._memory and self._db is not None:
             try:
-                if (
-                    self._db.execute("SELECT revision FROM cache_changes").fetchone()[0]
-                    != self._revision
-                ):
+                if self._ownership.revision() != self._revision:
                     self._memory.clear()
             except sqlite3.Error as error:
                 self._disable_disk(error)
@@ -213,7 +178,7 @@ class TranslationCache:
                 self._disable_disk(error)
         return None
 
-    def put(self, key: str, english: str, *, scope: int | None = None) -> None:
+    def put(self, key: str, english: str, *, scope: CacheScope | None = None) -> None:
         if not self._flush((key, english), scope):
             return
         self._remember(key, english)
@@ -232,17 +197,15 @@ class TranslationCache:
                 # the sweep so a concurrent writer cannot leave a remembered miss stale.
                 version = self._db.execute("PRAGMA data_version").fetchone()[0]
                 if self._data_version != version:
-                    revision = self._db.execute("SELECT revision FROM cache_changes").fetchone()[0]
+                    revision = self._ownership.revision()
                     if revision != self._revision:
                         self._revision = revision
                         self._memory.clear()
                         self._pending = {}
                         self._touched.clear()
                         self.scope = None
-                if keys and (self.scope is None or self._game != game):
-                    with self._db:
-                        self.scope = _game_id(self._db, game)
-                    self._game = game
+                if keys and (self.scope is None or self.scope.game != game):
+                    self.scope = CacheScope(game, self._revision)
                     reset = True
             except sqlite3.Error as error:
                 self._disable_disk(error)
@@ -256,19 +219,17 @@ class TranslationCache:
         }
         self._data_version = version
         if self._db is not None and self.scope is not None:
-            hits = [
-                (self.scope, key)
+            hits = tuple(
+                key
                 for key, value in self._pending.items()
                 if value is not None and previous.get(key) is None
-            ]
+            )
             if hits:
                 try:
                     with self._db:
-                        self._db.executemany(
-                            "INSERT OR IGNORE INTO game_entries SELECT g.id,t.key FROM "
-                            "cache_games g,translations t WHERE g.id=? AND t.key=?",
-                            hits,
-                        )
+                        self._db.execute("BEGIN IMMEDIATE")
+                        if self._ownership.permits(self.scope):
+                            self._ownership.associate(self.scope.game, hits)
                 except sqlite3.Error as error:
                     self._disable_disk(error)
         return self._pending
@@ -281,31 +242,13 @@ class TranslationCache:
         with db:
             db.execute("BEGIN IMMEDIATE" if clear else "BEGIN")
             if clear:
-                if game is None:
-                    db.execute("DELETE FROM translations")
-                    db.execute("DELETE FROM cache_games")
-                else:
-                    db.execute(
-                        "DELETE FROM translations WHERE key IN (SELECT e.key FROM game_entries e "
-                        "JOIN cache_games g ON e.game=g.id WHERE g.name=? AND NOT EXISTS "
-                        "(SELECT 1 FROM game_entries other "
-                        "WHERE other.key=e.key AND other.game<>e.game))",
-                        (game,),
-                    )
-                    db.execute("DELETE FROM cache_games WHERE name=?", (game,))
-                db.execute("UPDATE cache_changes SET revision=revision+1")
+                self._ownership.clear(game)
+                self._revision = self._ownership.revision()
                 self._memory.clear()
                 self._pending = {}
                 self._touched.clear()
                 self.scope = None
-            total = db.execute("SELECT rows FROM cache_size WHERE id=1").fetchone()[0]
-            games = tuple(
-                db.execute(
-                    "SELECT g.name,COUNT(*) FROM cache_games g JOIN game_entries e "
-                    "ON e.game=g.id GROUP BY g.id ORDER BY g.name COLLATE NOCASE,g.name"
-                )
-            )
-        return CacheInventory(total, games)
+            return self._ownership.inventory()
 
     def close(self) -> None:
         self._flush()
