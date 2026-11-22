@@ -16,7 +16,7 @@ def _numeric_row(language: SourceLanguage, text: str) -> bool:
     return bool(_NUMERIC.fullmatch(text))
 
 
-def _paths(language: SourceLanguage, rows: Sequence[TextTrack]) -> Iterator[list[TextTrack]]:
+def reading_paths(language: SourceLanguage, rows: Sequence[TextTrack]) -> Iterator[list[TextTrack]]:
     # Sort once, skip distant rows before scoring, and keep only each direction's best edge.
     eligible = sorted(
         (
@@ -205,32 +205,28 @@ def _boundary(
     )
 
 
-def dialogue_segments(
+def prose_segments(
     rows: Sequence[TextTrack],
-    owners: Mapping[TextTrack, tuple[TextTrack, ...]],
+    path: Sequence[TextTrack],
     styles: Mapping[TextTrack, Lettering],
     language: SourceLanguage,
 ) -> Iterator[tuple[TextTrack, ...]]:
-    """Yield disjoint overrides only when a proposal covers the existing blocks it touches."""
-    for path in _paths(language, rows):
-        members = set(path)
-        if any(not members.issuperset(block) for block in {owners[r] for r in path}):
-            continue
-        part: list[TextTrack] = []
-        widest = length = 0
-        for row in path:
-            text = row.text.strip()
-            space = bool(part) and language.needs_space(part[-1].text.rstrip()[-1:], text[:1])
-            if part and (
-                length + len(text) + space > 512 or _boundary(part, row, widest, styles, language)
-            ):
-                if _admit(rows, part, styles, language):
-                    yield tuple(part)
-                part = []
-                widest = length = 0
-                space = False
-            part.append(row)
-            widest = max(widest, row.bounds.width)
-            length += len(text) + space
-        if _admit(rows, part, styles, language):
-            yield tuple(part)
+    """Yield the stretches of a reading path supported by prose and style evidence."""
+    part: list[TextTrack] = []
+    widest = length = 0
+    for row in path:
+        text = row.text.strip()
+        space = bool(part) and language.needs_space(part[-1].text.rstrip()[-1:], text[:1])
+        if part and (
+            length + len(text) + space > 512 or _boundary(part, row, widest, styles, language)
+        ):
+            if _admit(rows, part, styles, language):
+                yield tuple(part)
+            part = []
+            widest = length = 0
+            space = False
+        part.append(row)
+        widest = max(widest, row.bounds.width)
+        length += len(text) + space
+    if _admit(rows, part, styles, language):
+        yield tuple(part)

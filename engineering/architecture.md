@@ -424,7 +424,8 @@ row with matching text, position and a surviving track ID. Recurring column marg
 markers separate neighbors. Use reconstructed geometry for layout and retain the original fragments
 for readiness, request identity and publication.
 The dialogue graph links mutually nearest rows by pitch, overlap, alignment and relative width.
-It can replace blocks fully covered by a path when Japanese prose supports the new grouping.
+Row ownership defaults to adjacency. A reading path can override those groups only when it covers
+every group it touches. Admitted prose segments claim their rows. Unclaimed runs keep their adjacency.
 Item markers, short endings and changes in lettering can stop a passage before a button.
 A short second row can complete a prose passage when it contains a Japanese comma (`、`)
 and ends in an ellipsis (`…`).

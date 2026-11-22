@@ -15,7 +15,7 @@ from dantetl.languages.source import SourceLanguage
 from dantetl.ocr.lettering import Lettering
 from dantetl.ocr.observation import TextTrack
 from dantetl.ocr.tracking import TextActivity
-from dantetl.translation.dialogue_paths import dialogue_segments
+from dantetl.translation.dialogue_paths import prose_segments, reading_paths
 
 _MAX_ROW_OVERLAP = 0.1
 _MAX_ROW_GAP = 0.95
@@ -109,31 +109,36 @@ def _on_column_pitch(previous: Rect, current: Rect, following: Rect) -> bool:
     )
 
 
-def _can_follow(
+@dataclass(frozen=True, slots=True)
+class _WrapLimits:
+    height_ratio: float
+    max_width: float
+    quoted: bool
+    item: bool
+    ends_sentence: bool
+
+
+def _wrap_limits(
     language: SourceLanguage,
     upper: TextTrack,
     lower: TextTrack,
     *,
-    revealing: bool = False,
-    previous_row: Rect | None = None,
-    opening_quote: bool = False,
-    lettering: dict[TextTrack, Lettering] | None = None,
-) -> bool:
+    revealing: bool,
+    paragraph: bool,
+    opening_quote: bool,
+    on_pitch: bool,
+) -> _WrapLimits | None:
+    """Reject independent items, or derive the geometry allowed by their text."""
     a, b = upper.bounds, lower.bounds
-    height = max(1, min(a.height, b.height))
-    gap = b.y - a.y - a.height
-    if not -height * _MAX_ROW_OVERLAP <= gap <= height * _MAX_ROW_GAP:
-        return False  # Distant rows need no text/quote analysis in dense layouts.
     first, second = upper.text.strip(), lower.text.strip()
     introduces_value = first.endswith(language.value_introductions)
-    paragraph = previous_row is not None
+    ends_sentence = first.endswith(language.endings)
     percentage = (
         (paragraph or introduces_value) and len(second) <= 16 and _percentage_row(language, second)
     )
-    on_pitch = previous_row is not None and _on_column_pitch(previous_row, a, b)
     numeric_tail = (
         percentage
-        and not first.endswith(language.endings)
+        and not ends_sentence
         and (not second.startswith(("*", "＊")) or on_pitch)
         and b.width <= min(a.width * 0.35, a.height * 4)
     )
@@ -143,35 +148,31 @@ def _can_follow(
         or not language.contains_text(first)
         or not (language.contains_text(second) or numeric_tail)
     ):
-        return False
+        return None
     labelled = language.lists.has_inline_label(first)
     if (
         (len(first) < 10 and not (introduces_value and numeric_tail))
         or not second
         or (first.endswith((":", "：")) and not labelled)
     ):
-        return False
+        return None
     quoted = opening_quote or bool(language.quote_start.match(first))
     if language.is_choice(first) and not (labelled or opening_quote):
-        return False  # Bare menu choices stay independent; labelled descriptions can wrap.
+        return None  # Bare menu choices stay independent; labelled descriptions can wrap.
     inline_quote = False
     if not numeric_tail and language.quote_start.match(second):
-        inline_quote = (
-            on_pitch
-            and not first.endswith(language.endings)
-            and language.quoted_term_with_suffix(second)
-        )
+        inline_quote = on_pitch and not ends_sentence and language.quoted_term_with_suffix(second)
         if not inline_quote:
-            return False
+            return None
     if (
         not numeric_tail
         and language.starts_item(second)
         and (
-            first.endswith(language.endings)
+            ends_sentence
             or not _continues_percentage(language, second, in_paragraph=paragraph or labelled)
         )
     ):
-        return False
+        return None
     item = not opening_quote and language.starts_item(first)
     # A few final glyphs can have shorter ink bounds than a full line.
     short_ending = numeric_tail or (
@@ -190,10 +191,44 @@ def _can_follow(
     height_ratio = 1.45 if short_ending or inline_quote else 1.3
     if numeric_tail and on_pitch:
         height_ratio = 1.65  # Digits may occupy much less of the same physical row.
-    elif (
-        previous_row
+    height = max(1, min(a.height, b.height))
+    max_width = max(a.width * 1.5, a.width + height * 4) if width_growth else a.width * 1.25
+    return _WrapLimits(height_ratio, max_width, quoted, item, ends_sentence)
+
+
+def _can_follow(
+    language: SourceLanguage,
+    upper: TextTrack,
+    lower: TextTrack,
+    *,
+    revealing: bool = False,
+    previous_row: Rect | None = None,
+    opening_quote: bool = False,
+    lettering: dict[TextTrack, Lettering] | None = None,
+) -> bool:
+    a, b = upper.bounds, lower.bounds
+    height = max(1, min(a.height, b.height))
+    gap = b.y - a.y - a.height
+    if not -height * _MAX_ROW_OVERLAP <= gap <= height * _MAX_ROW_GAP:
+        return False  # Distant rows need no text/quote analysis in dense layouts.
+    on_pitch = previous_row is not None and _on_column_pitch(previous_row, a, b)
+    limits = _wrap_limits(
+        language,
+        upper,
+        lower,
+        revealing=revealing,
+        paragraph=previous_row is not None,
+        opening_quote=opening_quote,
+        on_pitch=on_pitch,
+    )
+    if limits is None:
+        return False
+    height_ratio = limits.height_ratio
+    if (
+        height_ratio < 1.45
+        and previous_row
         and on_pitch
-        and not first.endswith(language.endings)
+        and not limits.ends_sentence
         and abs(previous_row.x - a.x) <= height * 0.5
         and min(a.width, b.width) >= 8 * height
         and max(a.height, b.height) / 1.3 <= previous_row.height <= height * 1.3
@@ -212,23 +247,22 @@ def _can_follow(
         max(a.height, b.height) <= height * height_ratio
         # Wrapped rows can widen. A heading/name is substantially narrower than body
         # prose; measure that distinction in font units as well as relative width.
-        and b.width
-        <= (max(a.width * 1.5, a.width + height * 4) if width_growth else a.width * 1.25)
+        and b.width <= limits.max_width
         and (
             abs(a.x - b.x) <= max(6, height * 0.75)
-            or (not item and _centered_wrap(language, upper, lower))
+            or (not limits.item and _centered_wrap(language, upper, lower))
             # Ink extents include or omit the leading dash/bracket depending on the
             # scan. Allow a hanging mark or indent; overlap/gap/font checks still apply.
-            or (quoted and abs(a.x - b.x) <= height * 2)
+            or (limits.quoted and abs(a.x - b.x) <= height * 2)
             # A list marker/inline label may hang to the left of wrapped body text.
-            or (item and 0 <= b.x - a.x <= height * 2)
+            or (limits.item and 0 <= b.x - a.x <= height * 2)
         )
         and min(a.x + a.width, b.x + b.width) - max(a.x, b.x) >= min(a.width, b.width) * 0.8
         # A sentence boundary is weaker evidence of continuity, not a hard stop.
         # Require tightly spaced full prose rows; marked choices remain excluded.
         and (
             revealing
-            or not first.endswith(language.endings)
+            or not limits.ends_sentence
             or (gap <= height * 0.55 and min(a.width, b.width) >= height * 8)
         )
     )
@@ -650,17 +684,14 @@ def _panel_paragraph(
     return (first,)
 
 
-def _blocks(
+def _adjacent_blocks(
     language: SourceLanguage,
     tracks: tuple[TextTrack, ...],
-    enabled: bool,
     growing: frozenset[int],
     dash_edges: dict[TextTrack, int],
     lettering: dict[TextTrack, Lettering],
 ) -> tuple[TextBlock, ...]:
     ordered = sorted(tracks[:128], key=lambda t: (t.bounds.y, t.bounds.x, t.track_id))
-    if not enabled:
-        return tuple(TextBlock((t,), language=language) for t in ordered)
     row_tops = [t.bounds.y for t in ordered]
     openings = _quote_openings(language, ordered, dash_edges)
     # A rejected chain can be retried starting one row later. Classify each
@@ -816,6 +847,50 @@ def _blocks(
     return tuple(blocks)
 
 
+def _group_rows(
+    language: SourceLanguage,
+    rows: tuple[TextTrack, ...],
+    enabled: bool,
+    growing: frozenset[int],
+    dash_edges: dict[TextTrack, int],
+    lettering: dict[TextTrack, Lettering],
+) -> tuple[TextBlock, ...]:
+    """Assign each physical row once, in reading order.
+
+    Adjacency is the default. A prose path can supersede those groups only when
+    it covers every group it touches. Unclaimed runs retain their adjacency.
+    """
+    if not enabled:
+        ordered = sorted(rows, key=lambda t: (t.bounds.y, t.bounds.x, t.track_id))
+        return tuple(TextBlock((row,), language=language) for row in ordered)
+
+    adjacent = _adjacent_blocks(language, rows, growing, dash_edges, lettering)
+    owners = {row: block.lines for block in adjacent for row in block.lines}
+    paragraphs = []
+    for path in reading_paths(language, rows):
+        members = set(path)
+        if all(members.issuperset(group) for group in {owners[row] for row in path}):
+            paragraphs.extend(prose_segments(rows, path, lettering, language))
+    if not paragraphs:
+        return adjacent
+
+    claimed = {row for paragraph in paragraphs for row in paragraph}
+    result = [TextBlock(paragraph, dialogue=True, language=language) for paragraph in paragraphs]
+    for block in adjacent:
+        if claimed.isdisjoint(block.lines):
+            result.append(block)
+            continue
+        for taken, run in groupby(block.lines, claimed.__contains__):
+            if not taken:
+                lines = tuple(run)
+                result.append(TextBlock(lines, dialogue=len(lines) > 1, language=language))
+    return tuple(
+        sorted(
+            result, key=lambda b: (b.lines[0].bounds.y, b.lines[0].bounds.x, b.lines[0].track_id)
+        )
+    )
+
+
 class DialogueGrouper:
     """Wait briefly for a whole group to settle; never queue partial old paragraphs."""
 
@@ -866,38 +941,7 @@ class DialogueGrouper:
         row_growth = growing | {
             row.track_id for row, parts in rows.items() if any(t.track_id in growing for t in parts)
         }
-        blocks = _blocks(self._language, physical, enabled, row_growth, dash_edges, lettering)
-        if enabled:
-            owners = {row: block.lines for block in blocks for row in block.lines}
-            segments = list(dialogue_segments(physical, owners, lettering, self._language))
-            if segments:
-                claimed = {row for segment in segments for row in segment}
-                result = [
-                    TextBlock(segment, dialogue=True, language=self._language)
-                    for segment in segments
-                ]
-                for block in blocks:
-                    if not claimed.intersection(block.lines):
-                        result.append(block)
-                        continue
-                    for taken, run in groupby(block.lines, claimed.__contains__):
-                        if not taken:
-                            retained = tuple(run)
-                            result.append(
-                                TextBlock(
-                                    retained, dialogue=len(retained) > 1, language=self._language
-                                )
-                            )
-                blocks = tuple(
-                    sorted(
-                        result,
-                        key=lambda b: (
-                            b.lines[0].bounds.y,
-                            b.lines[0].bounds.x,
-                            b.lines[0].track_id,
-                        ),
-                    )
-                )
+        blocks = _group_rows(self._language, physical, enabled, row_growth, dash_edges, lettering)
         if not rows:
             return blocks
         return tuple(
