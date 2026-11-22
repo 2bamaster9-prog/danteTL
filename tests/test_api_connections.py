@@ -1,7 +1,7 @@
 import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import replace
+from dataclasses import asdict, replace
 from uuid import uuid4
 
 import pytest
@@ -24,6 +24,45 @@ class SecretsFixture:
 
     def delete(self, key):
         self.values.pop(key, None)
+
+
+def test_full_unicode_catalog_reopens_in_current_and_legacy_encoding(tmp_path):
+    catalog = CloudProfiles(tmp_path / "models.json")
+    connections, secrets = ApiConnections(catalog), SecretsFixture()
+    for index in range(MAX_CLOUD_PROFILES):
+        profile = replace(
+            CloudProfile.new("gemini"), name="🎮" * 78 + f"{index:02}", model_revision="🌐" * 120
+        )
+        connections.save_model(profile, "", "fixture-key", secrets)
+
+    def reopen():
+        return ApiConnections(CloudProfiles(catalog.path)).discover(lambda: secrets, pytest.fail)
+
+    saved = reopen()
+    assert len(saved.profiles) == len(saved.connections) == len(saved.ready) == MAX_CLOUD_PROFILES
+    for path, key, rows in (
+        (catalog.path, "profiles", saved.profiles),
+        (connections.path, "connections", saved.connections),
+    ):
+        path.write_text(
+            json.dumps({"version": 1, key: [asdict(r) for r in rows]}, indent=2), "utf-8"
+        )
+    assert connections.path.stat().st_size > 16_384 and catalog.path.stat().st_size > 32_768
+    assert reopen() == saved
+
+
+def test_oversized_edit_preserves_saved_models_connections_and_key(tmp_path):
+    catalog = CloudProfiles(tmp_path / "models.json")
+    connections, secrets = ApiConnections(catalog), SecretsFixture()
+    first, _ = connections.save_model(CloudProfile.new("openai"), "", "original", secrets)
+    originals = {path: path.read_bytes() for path in (catalog.path, connections.path)}
+    with pytest.raises(ValueError, match="too large"):
+        connections.save_model(
+            replace(first, account="a" * 70_000), first.credential, "new", secrets
+        )
+    assert {path: path.read_bytes() for path in originals} == originals
+    assert secrets.values == {first.credential: "original"}
+    assert connections.discover(lambda: secrets, pytest.fail).profiles == (first,)
 
 
 def test_mixed_catalog_can_edit_at_full_capacity_without_mutating_keys_on_overflow(tmp_path):

@@ -90,6 +90,7 @@ Unchanged revisions do not rebuild routes/options. Cached badges never authorize
 Imported-registry discovery has its own failure boundary. A malformed/unreadable registry is preserved
 and reported while healthy built-in choices and OCR assets remain available; a later refresh can recover.
 Registration, relocation and removal hold the registry lock from the initial read through replacement.
+The complete candidate catalog must pass the reader’s schema and byte limits before replacement.
 
 Consent/review replies carry monotonic tokens. Decline/failure preserves committed assignments;
 stale replies cannot adopt new proposals. Setup has three bounded lanes: models/imports, runtime,
@@ -525,6 +526,8 @@ turns; growth/corrections update a turn, new capture clears history. Reader hist
 Cloud discovery reports unreadable account records and API credentials and disables their dependent
 profiles. Healthy connections remain usable. Cloud model, connection and API credential changes
 share a per-catalog interprocess lock from the initial read through commit or rollback.
+Each JSON catalog applies the same byte limit on read and before atomic replacement. These limits
+accommodate full version-1 catalogs with JSON-escaped Unicode names and model revisions.
 
 Cloud use needs explicit configuration/route selection. Send bounded recognized text/context and optional
 game hint, never frames. Editing/testing does not commit routing. Validate complete answers and bounded

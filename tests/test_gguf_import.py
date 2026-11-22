@@ -98,6 +98,35 @@ def test_registration_relocation_removal_and_profiles_never_modify_model(tmp_pat
     assert gguf_models.read_registry(path) == () and moved.is_file()
 
 
+def test_oversized_registration_preserves_last_readable_catalog(tmp_path):
+    original = registration(tmp_path)
+    path = tmp_path / "registry.json"
+    saved = []
+    for index in range(32):
+        # Realistic component lengths, including non-ASCII directory names.
+        long_path = tmp_path.joinpath(*(["図" * 150] * 24), f"model-{index}.gguf")
+        model = replace(original, key=f"imported-{index:064x}", path=str(long_path))
+        try:
+            gguf_models.save_registration(model, path=path)
+        except ValueError as error:
+            assert "too large" in str(error)
+            break
+        saved.append(model)
+    assert 0 < len(saved) < 32
+    assert gguf_models.read_registry(path) == tuple(saved)
+    gguf_models.save_registration(saved[-1], remove=True, path=path)
+    assert gguf_models.read_registry(path) == tuple(saved[:-1])
+
+
+def test_invalid_registration_cannot_replace_a_readable_catalog(tmp_path):
+    original = registration(tmp_path)
+    path = tmp_path / "registry.json"
+    gguf_models.save_registration(original, path=path)
+    with pytest.raises(ValueError):
+        gguf_models.save_registration(replace(original, name=""), path=path)
+    assert gguf_models.read_registry(path) == (original,)
+
+
 def test_corrupt_registry_is_not_overwritten_and_preference_has_no_path(tmp_path):
     model = registration(tmp_path)
     path = tmp_path / "registry.json"

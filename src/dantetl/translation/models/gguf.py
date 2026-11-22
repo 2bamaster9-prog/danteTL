@@ -161,17 +161,26 @@ def describe(
     )
 
 
+_MAX_REGISTRY_BYTES = 262_144
+
+
 def registry_path() -> Path:
     return state_root() / "data/imported-models.json"
 
 
 def read_registry(path: Path | None = None) -> tuple[ImportedModel, ...]:
     path = path or registry_path()
-    if not path.exists():
+    try:
+        with path.open("rb") as stream:
+            return _decode_registry(stream.read(_MAX_REGISTRY_BYTES + 1))
+    except FileNotFoundError:
         return ()
-    if path.stat().st_size > 262_144:
+
+
+def _decode_registry(payload: bytes) -> tuple[ImportedModel, ...]:
+    if len(payload) > _MAX_REGISTRY_BYTES:
         raise ValueError(tr("Imported model list is too large."))
-    data = json.loads(path.read_text("utf-8"))
+    data = json.loads(payload.decode("utf-8"))
     if not isinstance(data, dict) or data.get("version") != 1:
         raise ValueError(tr("Unsupported imported model list."))
     entries = data.get("models")
@@ -215,11 +224,13 @@ def save_registration(
             models.append(model)
         if len(models) > 32:
             raise ValueError(tr("Remove an imported model before adding another (limit 32)."))
+        payload = json.dumps(
+            {"version": 1, "models": [asdict(m) for m in models]}, ensure_ascii=False
+        ).encode("utf-8")
+        _decode_registry(payload)
         temporary = path.with_name(f".{path.name}-{uuid4().hex}.tmp")
         try:
-            temporary.write_text(
-                json.dumps({"version": 1, "models": [asdict(m) for m in models]}), "utf-8"
-            )
+            temporary.write_bytes(payload)
             os.replace(temporary, path)
         finally:
             temporary.unlink(missing_ok=True)

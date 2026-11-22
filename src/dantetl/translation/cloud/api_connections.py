@@ -1,15 +1,17 @@
 """Reusable provider credentials, separate from model entries. Worker-only operations."""
 
-import json
-import os
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, replace
 from uuid import uuid4
 
-from dantetl.i18n import tr
+from dantetl.i18n import mark, tr
 from dantetl.translation.cloud.credentials import Secrets
 from dantetl.translation.cloud.profiles import CloudProfiles
+from dantetl.translation.cloud.settings_file import SettingsFile
 from dantetl.translation.cloud.values import MAX_CLOUD_PROFILES, ApiConnection, CloudProfile
+
+# Includes full version-1 catalogs with JSON-escaped Unicode names.
+_FILE = SettingsFile(24 * 1024, mark("API connection settings are too large."))
 
 
 @dataclass(frozen=True)
@@ -52,9 +54,7 @@ class ApiConnections:
     ) -> tuple[ApiConnection, ...]:
         connections: tuple[ApiConnection, ...] = ()
         if self.path.exists():
-            if self.path.stat().st_size > 16_384:
-                raise ValueError(tr("API connection settings are too large."))
-            value = json.loads(self.path.read_text("utf-8"))
+            value = _FILE.read(self.path)
             if not isinstance(value, dict) or value.get("version") != 1:
                 raise ValueError(tr("Unsupported API connection settings."))
             rows = value.get("connections")
@@ -84,18 +84,7 @@ class ApiConnections:
     def _write(self, connections: tuple[ApiConnection, ...]) -> None:
         if len(connections) > 16:
             raise ValueError(tr("Remove an unused API connection first (limit: sixteen)."))
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.path.with_name(f".{self.path.name}-{uuid4().hex}.tmp")
-        try:
-            temporary.write_text(
-                json.dumps(
-                    {"version": 1, "connections": [asdict(c) for c in connections]}, indent=2
-                ),
-                "utf-8",
-            )
-            os.replace(temporary, self.path)
-        finally:
-            temporary.unlink(missing_ok=True)
+        _FILE.write(self.path, {"version": 1, "connections": [asdict(c) for c in connections]})
 
     def secret(self, profile: CloudProfile, secrets: Secrets) -> str:
         with self.catalog.transaction():
@@ -131,11 +120,13 @@ class ApiConnections:
             updated = tuple(p for p in profiles if p.key != profile.key) + (saved,)
             if len(updated) > MAX_CLOUD_PROFILES or (existing is None and len(connections) >= 16):
                 raise ValueError(tr("Remove an unused model or connection before adding another."))
+            added_connection = False
             try:
                 if secret:
                     secrets.write(selected.key, secret)
                 if existing is None:
                     self._write(connections + (selected,))
+                    added_connection = True
                 self.catalog.write(updated)
             except Exception:
                 if secret:
@@ -143,7 +134,7 @@ class ApiConnections:
                         secrets.write(selected.key, previous)
                     else:
                         secrets.delete(selected.key)
-                if existing is None:
+                if added_connection:
                     self._write(connections)
                 raise
             return saved, bool(secret and secret != previous)
