@@ -3,10 +3,11 @@
 import hashlib
 import os
 import threading
+from functools import partial
 from pathlib import Path
 from typing import Any
 
-from dantetl.i18n import tr
+from dantetl.i18n import mark, tr
 from dantetl.languages.selection import DEFAULT_SOURCE
 from dantetl.languages.source import SourceLanguage
 from dantetl.languages.target import ENGLISH, TargetLanguage
@@ -15,6 +16,7 @@ from dantetl.runtime.assets import ModelAsset, validate_asset
 from dantetl.runtime.llama import flash_attention_options, load_runtime, menu_sequence_width
 from dantetl.translation.backend import RequestRejected
 from dantetl.translation.backends.label_decoder import LlamaLabelDecoder
+from dantetl.translation.backends.prompt_budget import fit_prompt
 from dantetl.translation.dialogue.classifier import (
     Classification,
     ClassificationInput,
@@ -184,25 +186,15 @@ class GemmaBackend:
     ) -> str:
         if self._model is None:
             raise RuntimeError(tr("Gemma is closed."))
-        if not text.strip() or len(text) > 512:
-            raise RequestRejected(tr("Gemma source must contain 1–512 characters."))
-        context = context[-2:]
-        while sum(len(t.source) + len(t.english) for t in context) > 512:
-            context = context[1:]
-        while True:
-            tokens = self._model.tokenize(
-                translation_prompt(text, context, language=self._language, target=target).encode(),
-                add_bos=False,
-                special=True,
-            )
-            if len(tokens) + OUTPUT_LIMIT <= CONTEXT:
-                break
-            if context:
-                context = context[1:]
-                continue
-            raise RequestRejected(
-                tr("Gemma source exceeds its allocated context; refusing truncation.")
-            )
+        tokens = fit_prompt(
+            self._model,
+            text,
+            context,
+            partial(translation_prompt, language=self._language, target=target),
+            max_tokens=CONTEXT - OUTPUT_LIMIT,
+            invalid_source=mark("Gemma source must contain 1–512 characters."),
+            overflow=mark("Gemma source exceeds its allocated context; refusing truncation."),
+        )
         response = self._model.create_completion(
             prompt=tokens,
             max_tokens=OUTPUT_LIMIT,

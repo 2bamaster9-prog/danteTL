@@ -5,6 +5,7 @@ import json
 import os
 import re
 import threading
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,7 @@ from dantetl.runtime.llama import (
 )
 from dantetl.translation.backend import RequestRejected
 from dantetl.translation.backends.label_decoder import LlamaLabelDecoder, Sampling
+from dantetl.translation.backends.prompt_budget import fit_prompt
 from dantetl.translation.dialogue.classifier import (
     Classification,
     ClassificationInput,
@@ -279,21 +281,13 @@ class GgufBackend:
     ) -> str:
         if self._model is None:
             raise RuntimeError(tr("Imported model is closed."))
-        if not text.strip() or len(text) > 512:
-            raise RequestRejected(tr("Translation source must contain 1–512 characters."))
-        context = context[-2:]
-        while sum(len(t.source) + len(t.english) for t in context) > 512:
-            context = context[1:]
-        while True:
-            prompt = self._prompt(text, context, target)
-            tokens = self._model.tokenize(prompt.encode(), add_bos=False, special=True)
-            if len(tokens) + OUTPUT_LIMIT <= CONTEXT:
-                break
-            if not context:
-                raise RequestRejected(
-                    tr("Source exceeds the allocated context; refusing truncation.")
-                )
-            context = context[1:]
+        tokens = fit_prompt(
+            self._model,
+            text,
+            context,
+            partial(self._prompt, target=target),
+            max_tokens=CONTEXT - OUTPUT_LIMIT,
+        )
         response = self._model.create_completion(
             prompt=tokens,
             max_tokens=OUTPUT_LIMIT,
