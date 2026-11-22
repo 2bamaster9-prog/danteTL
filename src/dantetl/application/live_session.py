@@ -120,8 +120,10 @@ class LiveSession:
         self._history_suspended = False
 
     def suspend_history(self, suspended: bool) -> bool:
+        if suspended and not self._history_suspended:
+            self.history.reset_scene()
         self._history_suspended = suspended
-        if suspended and self._classifier:
+        if suspended and self._classifier and not self._classifier_retiring:
             self._classifier.request_stop()
             self._classifier_retiring = True
         self._advance_history()
@@ -193,7 +195,7 @@ class LiveSession:
         self._language = language
         self._tracker = TextTracker(language=language)
         self._grouper = DialogueGrouper(language=language)
-        self.history.clear()
+        self.history.start()
         if self.ocr:
             self.ocr.invalidate()
         self.valid_size = None
@@ -395,7 +397,11 @@ class LiveSession:
                 ):
                     scores[track] = region.confidence
         self._advance_history()
-        if self.history_enabled and (self._history_layout_only or self._history_factory):
+        if (
+            self.history_enabled
+            and not self._history_suspended
+            and (self._history_layout_only or self._history_factory)
+        ):
             self.history.observe(
                 grouped.blocks,
                 requests,
@@ -405,7 +411,7 @@ class LiveSession:
                 corrections=self._tracker.display_predecessors(),
                 assisted=not self._history_layout_only,
             )
-            if self._classifier and not self._classifier_retiring and not self._history_suspended:
+            if self._classifier and not self._classifier_retiring:
                 self._classifier.update(self.history.classification_requests())
                 self.history.accept_classifications(self._classifier.snapshot().results)
         if not stabilize:

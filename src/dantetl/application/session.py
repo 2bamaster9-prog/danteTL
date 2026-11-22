@@ -210,9 +210,7 @@ class ApplicationSession:
             )
             self.refresh_routes()
         if not self._source_change:
-            self.translation.configure_history(
-                self.live, enabled=values.history_enabled, reference=values.history_model
-            )
+            self._configure_history()
         self.persist()
 
     def persist(self) -> None:
@@ -248,9 +246,13 @@ class ApplicationSession:
             return  # The new source inventory determines which workers remain compatible.
         if self.translation.refresh_route():
             self._invalidate_english()
+        self._configure_history()
+
+    def _configure_history(self) -> None:
         self.translation.configure_history(
             self.live, enabled=self.values.history_enabled, reference=self.values.history_model
         )
+        self.live.suspend_history(self.setup.probing or not self.values.translation)
 
     @property
     def _can_assign(self) -> bool:
@@ -544,7 +546,7 @@ class ApplicationSession:
             enabled=self.values.translation,
             probing=self.setup.probing,
         )
-        history_ready = self.live.suspend_history(self.setup.probing)
+        history_ready = self.live.suspend_history(self.setup.probing or not self.values.translation)
         if activity.probe_ready and history_ready:
             self.setup.permit_probe()
         if activity.clears_english:

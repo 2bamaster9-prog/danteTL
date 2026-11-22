@@ -44,6 +44,52 @@ def _centered(a: TextBlock, b: TextBlock, tolerance: float) -> bool:
     return abs((a.bounds.x + a.bounds.width / 2) - (b.bounds.x + b.bounds.width / 2)) <= tolerance
 
 
+class _PreviousTurns:
+    """Index one scene's candidates and match the prior turn that a current block continues."""
+
+    def __init__(
+        self,
+        candidates: tuple[_Candidate, ...],
+        corrections: tuple[tuple[TextTrack, TextTrack], ...],
+        *,
+        resuming: bool,
+    ) -> None:
+        self._exact = {c.block.key: c for c in candidates}
+        self._by_track: dict[int, dict[int, _Candidate]] = {}
+        self._by_text: dict[str, dict[int, _Candidate]] = {}
+        self._predecessors = dict(corrections)
+        for index, candidate in enumerate(candidates):
+            for line in candidate.block.lines:
+                self._by_track.setdefault(line.track_id, {})[index] = candidate
+            if resuming:
+                self._by_text.setdefault(candidate.block.text, {})[index] = candidate
+
+    def match(self, block: TextBlock) -> _Candidate | None:
+        exact = self._exact.get(block.key)
+        if exact and _same_panel(exact.block, block):
+            return exact
+        text = block.text.strip()
+        resumed = self._by_text.get(text, {})
+        related = dict(resumed)
+        for line in block.lines:
+            related.update(self._by_track.get(line.track_id, {}))
+        for index, candidate in sorted(related.items()):
+            prior = candidate.block
+            if not _same_panel(prior, block):
+                continue
+            if prior.key == block.key or index in resumed:
+                return candidate
+            # Other candidates came from the track index, so they share a live track.
+            if text.startswith(prior.text):
+                return candidate
+            if len(block.lines) == len(prior.lines) and all(
+                line == old or self._predecessors.get(line) == old
+                for line, old in zip(block.lines, prior.lines, strict=True)
+            ):
+                return candidate
+        return None
+
+
 class _SpeakerIndex:
     """One scene's bottom-edge index; query only the narrow speaker band above a body."""
 
@@ -379,15 +425,7 @@ class DialogueHistory:
         current: dict[ClassificationInput, _Candidate] = {
             k: c for k, c in reserved.items() if not self._layout.is_header_label(c.block)
         }
-        predecessors = dict(corrections)
-        exact = {c.block.key: c for c in previous}
-        by_track: dict[int, dict[int, _Candidate]] = {}
-        by_text: dict[str, dict[int, _Candidate]] = {}
-        for index, candidate in enumerate(previous):
-            for line in candidate.block.lines:
-                by_track.setdefault(line.track_id, {})[index] = candidate
-            if resuming:
-                by_text.setdefault(candidate.block.text, {})[index] = candidate
+        prior_turns = _PreviousTurns(previous, corrections, resuming=resuming)
         speakers = _SpeakerIndex(blocks)
         for block in sorted(blocks, key=lambda b: (b.bounds.y, b.bounds.x)):
             if any(set(block.lines) < set(c.block.lines) for c in reserved.values()):
@@ -432,40 +470,7 @@ class DialogueHistory:
             # Canonical relations/exact relevant text enter cache identity, not track IDs,
             # pixel jitter, unrelated HUD labels, observation order or timestamps.
             key = ClassificationInput(text, name, self._layout.context(block, name_block))
-            old = exact.get(block.key)
-            if old and not _same_panel(old.block, block):
-                old = None
-            related = dict(by_text.get(text, {})) if resuming else {}
-            if old is None:
-                for line in block.lines:
-                    related.update(by_track.get(line.track_id, {}))
-            old = old or next(
-                (
-                    c
-                    for _, c in sorted(related.items())
-                    if _same_panel(c.block, block)
-                    and (
-                        c.block.key == block.key
-                        or (resuming and c.block.text == text)
-                        or (
-                            any(
-                                t.track_id == o.track_id for t in block.lines for o in c.block.lines
-                            )
-                            and (
-                                text.startswith(c.block.text)
-                                or (
-                                    len(block.lines) == len(c.block.lines)
-                                    and all(
-                                        t == o or predecessors.get(t) == o
-                                        for t, o in zip(block.lines, c.block.lines, strict=True)
-                                    )
-                                )
-                            )
-                        )
-                    )
-                ),
-                None,
-            )
+            old = prior_turns.match(block)
             speaker = (
                 name
                 if name_block

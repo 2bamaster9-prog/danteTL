@@ -1,5 +1,6 @@
 """Lifecycle regressions through application commands and injected worker completions."""
 
+import threading
 import time
 from dataclasses import replace
 from unittest.mock import Mock
@@ -11,6 +12,7 @@ from test_live_session import Capture, Ocr, Visual, frame
 from dantetl.application.model_inventory import InventoryData
 from dantetl.application.preference_values import Preferences
 from dantetl.domain import CaptureSnapshot, CaptureState, Rect
+from dantetl.languages.target import ENGLISH, TargetLanguage
 from dantetl.ocr.observation import CandidateReview
 from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState, TextRegion
 from dantetl.ocr.visual_values import VisualState
@@ -31,9 +33,11 @@ def replay(tmp_path):
     value.close()
 
 
-def observe(replay, sequence=1):
+def observe(replay, sequence=1, *, regions=None):
     source = frame(sequence, sequence)
-    result = OcrResult(source, (TextRegion("設定", Rect(50, 40, 100, 30)),), 25, sequence)
+    if regions is None:
+        regions = (TextRegion("設定", Rect(50, 40, 100, 30)),)
+    result = OcrResult(source, regions, 25, sequence)
     replay.capture.current = CaptureSnapshot(CaptureState.RUNNING, source)
     replay.ocr.current = OcrSnapshot(OcrState.READY, result)
     replay.visual.current = VisualState(
@@ -377,3 +381,56 @@ def test_nested_advance_is_coalesced_and_never_runs_owners_reentrantly(replay):
     replay.setup.advance = complete
     replay.app.advance(1)
     assert len(calls) == 1
+
+
+def test_history_classification_requires_translation_and_cancels_inflight_work(tmp_path):
+    from dantetl.translation.dialogue.classifier import Classification
+
+    entered, closed = threading.Event(), threading.Event()
+    calls = []
+
+    class Engine:
+        cache_identity = "classifier-fixture"
+        batch_size = 1
+
+        def translate(
+            self, texts: tuple[str, ...], /, *, target: TargetLanguage = ENGLISH
+        ) -> tuple[str, ...]:
+            raise AssertionError("The classifier must only receive classification requests")
+
+        def classify(self, value, cancelled):
+            calls.append(value)
+            entered.set()
+            cancelled.wait(3)
+            return Classification("dialogue", "no")
+
+        def close(self):
+            closed.set()
+
+    choice = BackendChoice("Fixture", Engine, "fixture", classifies=True)
+    replay = Replay(
+        tmp_path,
+        data=InventoryData((choice,)),
+        preferences=Preferences(
+            translation=False, history_enabled=True, history_model="local:fixture"
+        ),
+    )
+    regions = (
+        TextRegion("ここから先は危険です。私と一緒に進んでください。", Rect(100, 650, 700, 35)),
+    )
+    try:
+        assert replay.app.start_capture(replay.capture.target, 0)
+        for seq in (1, 2, 3):
+            observe(replay, seq, regions=regions)
+        assert not entered.wait(0.1) and not replay.app.history_turns
+        replay.app.configure(translation=True, show_overlay=False)
+        for seq in (4, 5, 6):
+            observe(replay, seq, regions=regions)
+        assert entered.wait(2)
+        replay.app.configure(translation=False)
+        assert closed.wait(1)
+        for seq in (7, 8, 9):
+            observe(replay, seq, regions=regions)
+        assert len(calls) == 1 and replay.app.values.history_enabled
+    finally:
+        replay.close()

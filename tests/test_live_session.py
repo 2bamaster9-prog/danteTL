@@ -646,3 +646,32 @@ def test_scene_change_resets_dialogue_once_and_stopping_rejects_late_ocr_setup()
     live.start(capture, None)
     live.add_recognition(Mock())
     factory.assert_not_called()
+
+
+def test_compatible_source_switch_starts_fresh_history_for_same_visible_line():
+    from dantetl.languages.selection import source_language
+
+    replay = Replay(language=source_language("en"))
+    replay.live.configure_history(True, "layout", layout_only=True)
+    box = Rect(100, 605, 70, 27)
+    regions = (
+        TextRegion("Alex", box, (TextCharacter("Alex", box, 0.98),)),
+        TextRegion("Attention!", Rect(100, 650, 380, 35)),
+    )
+    backend = Mock()
+    for index, code in enumerate(("en", "fr")):
+        if index:
+            replay.live.change_language(source_language(code), backend)
+            assert not replay.live.history.turns
+        for tick in range(3):
+            seq = index * 3 + tick + 1
+            scene = replay.observe(frame(seq, float(seq)), regions)
+            backend.snapshot.return_value = TranslationSnapshot(
+                TranslationState.READY,
+                tuple(
+                    TranslatedText(TranslationRequest.from_block(b), b.text) for b in scene.requests
+                ),
+            )
+            replay.live.publish(backend, scene.requests, scene.blocks)
+        (turn,) = replay.live.history.turns
+        assert turn.source == "Attention!" and turn.language == source_language(code)

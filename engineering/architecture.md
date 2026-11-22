@@ -511,7 +511,8 @@ or reused position.
 ## Experimental dialogue reader
 
 Settings → Experimental → Dialogue history defaults off and remembers opt-in. Off hides the reader/button
-and stops collection/classification. Opening/closing it never alters translation. Its separate selector
+and stops collection/classification. Turning translation off also suspends collection and drains any
+classifier, preserving the opt-in and existing turns. Opening/closing the reader never alters translation. Its separate selector
 offers prepared instruction models, configured cloud models and explicit layout-only mode; never silently
 select, download or prepare a model. Text-only semantic judgments remain fallible.
 
@@ -532,7 +533,7 @@ Translation never awaits classification. Disable/switch/stop/reset/shutdown canc
 import probes wait for it too. Native loading/prefill may finish before cancel. Separate local models
 consume resources; cloud checks share selected-profile limits. The reader holds at most 20 bounded turns
 in memory, newest first with scroll anchoring and exact copy controls. Clear suppresses unchanged current
-turns; growth/corrections update a turn, new capture clears history. Reader history never enters prompts.
+turns; growth/corrections update a turn. A new capture or source language starts fresh turn identities. Reader history never enters prompts.
 
 ## Cloud and credential boundary
 
