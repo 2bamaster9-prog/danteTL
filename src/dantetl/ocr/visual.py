@@ -431,10 +431,32 @@ class _FineReference:
         return True if certain else None
 
 
+def _backing_colors(pixels: Bytes, track: TextTrack) -> Bytes | None:
+    b = track.bounds
+    start, end, top, bottom = b.x, b.x + b.width, b.y, b.y + b.height
+    if track.vertical:
+        pixels = pixels.swapaxes(0, 1)
+        start, end, top, bottom = top, bottom, start, end
+    if top < 4 or bottom + 3 >= pixels.shape[0]:
+        return None
+    return pixels[[top - 4, bottom + 3], start : end : max(1, ceil((end - start) / 16)), :3]
+
+
+def _native_edges(pixels: Bytes, bounds: Rect, limit: int) -> Bytes | None:
+    box = padded(bounds, (pixels.shape[1], pixels.shape[0]), 4)
+    if box.width * box.height > limit:
+        return None
+    area = pixels[box.y : box.y + box.height, box.x : box.x + box.width]
+    return cv2.morphologyEx(area, cv2.MORPH_GRADIENT, np.ones((5, 5), np.uint8))
+
+
 @dataclass(slots=True)
 class _Anchor:
     value: TextTrack
     reference: Gray
+    layout: Bytes
+    backing: Bytes | None
+    source_sequence: int
     extension_bounds: Rect | None = None
     extension: Gray | None = None
     x: Gray = field(init=False)
@@ -449,6 +471,7 @@ class _Anchor:
     hits: int = 0
     hidden: bool = False
     present: bool = False
+    glyphs_match: bool = False
     last_sequence: int = 0
     content: _GlyphReference = field(init=False)
     fine_required: bool = False
@@ -500,17 +523,50 @@ class _Anchor:
             not surroundings_changed
             and np.count_nonzero(np.abs(self.reference - current) >= 16) < current.size * 0.9
         ):
-            return False
+            # A panel and the exposed background can have the same luminance.
+            # Verify the native colors changed along both sides of the accepted text.
+            colors = _backing_colors(pixels, self.value) if self.backing is not None else None
+            if colors is None or self.backing is None:
+                return False
+            different = np.max(cv2.absdiff(self.backing, colors), axis=2) >= 16
+            if np.any(np.mean(different, axis=1) < 0.9):
+                return False
         # Check the native colors just outside the box too. A shifted glyph or
         # isoluminant lettering can disappear in the reduced grayscale comparison.
-        box = padded(self.value.bounds, (pixels.shape[1], pixels.shape[0]), 4)
-        if box.width * box.height > 65_536:
-            return False
-        area = pixels[box.y : box.y + box.height, box.x : box.x + box.width]
         # Smooth shading is consistent with an exposed background. Look for
         # local color edges across a stroke's width, even in very faint text.
-        edges = cv2.morphologyEx(area, cv2.MORPH_GRADIENT, np.ones((5, 5), np.uint8))
-        return cv2.norm(edges, cv2.NORM_INF) <= 4
+        edges = _native_edges(pixels, self.value.bounds, 65_536)
+        return edges is not None and cv2.norm(edges, cv2.NORM_INF) <= 4
+
+    def _layout_changed(self, layout: Bytes, size: tuple[int, int]) -> bool:
+        # Compare with the accepted source even when a menu closes over several frames.
+        # Disregard the line and adjacent text so a blinking dialogue cannot corroborate itself.
+        changed = cv2.absdiff(self.layout, layout) >= 24
+        x1, y1, x2, y2 = _tile_bounds(self.value.bounds, size)
+        changed[max(0, y1 - 1) : y2 + 1, max(0, x1 - 1) : x2 + 1] = False
+        if not np.any(changed[max(0, y1 - 4) : y2 + 4, max(0, x1 - 4) : x2 + 4]):
+            return False
+        ys, xs = np.nonzero(changed)
+        return xs.size >= 12 and bool(np.ptp(xs) >= 3 and np.ptp(ys) >= 3)
+
+    def _vacant_after_switch(self, pixels: Bytes, current: Gray) -> bool:
+        # A new page can share the old gradient and leave a border in one part of a line.
+        # Check native color around the old strokes to catch shifted or isoluminant letters.
+        if not self._strokes_replaced(current):
+            return False
+        edges = _native_edges(pixels, self.value.bounds, _FINE_LINE_PIXELS)
+        if edges is None:
+            return False
+        axis = 0 if self.value.vertical else 1
+        clear = 0
+        for old, new in zip(
+            np.array_split(self.mask, 3, axis=axis),
+            np.array_split(edges, 3, axis=axis),
+            strict=True,
+        ):
+            if np.count_nonzero(old) >= 8 and cv2.norm(new, cv2.NORM_INF) <= 8:
+                clear += 1
+        return clear >= 2
 
     def _strokes_replaced(self, current: Gray) -> bool:
         """Require loss across the old line, even when the new menu has its own edges."""
@@ -546,6 +602,7 @@ class _Anchor:
         changed: bool,
         scene_has_detail: bool,
         surroundings_changed: bool,
+        layout: Bytes,
     ) -> bool:
         if sequence <= self.last_sequence:
             return self.hidden
@@ -562,14 +619,19 @@ class _Anchor:
             return self.hidden
         current = _crop(pixels, self.value.bounds)
         self.present = False
-        if current is None or self.stroke_count < 24:
-            return False  # Insufficient stroke evidence: let OCR decide.
-        glyph_match = self.content.matches(current)
-        if self.cleared and glyph_match is not True and self.fine is not None:
-            # Restored fine glyphs can be visible through a noisy coarse thumbnail.
-            glyph_match = self.fine.matches(pixels, self.value)
+        self.glyphs_match = False
+        if current is None:
+            return self.hidden
+        if sequence == self.source_sequence:
+            glyph_match = True  # The accepted OCR read this exact capture.
+        elif self.stroke_count < 24 and not self.cleared:
+            return self.hidden
+        elif self.cleared and self.fine_required:
+            glyph_match = self.fine.matches(pixels, self.value) if self.fine is not None else None
+        else:
+            glyph_match = self.content.matches(current)
         if glyph_match is True:
-            self.present = True
+            self.glyphs_match = self.present = True
             self.replacement = None
             self.cleared = False
             self.clear_samples = 0
@@ -578,6 +640,8 @@ class _Anchor:
             self.hits += 1
             if self.hits >= 2:
                 self.hidden = False
+            return self.hidden
+        if self.stroke_count < 24:
             return self.hidden
         x, y = _edges(current)
         # A one-pixel tolerance allows antialiasing and tiny camera/text shifts.
@@ -633,7 +697,7 @@ class _Anchor:
         elif coverage >= 0.4 or correlation >= 0.6:
             # The line can still be present despite a glyph or background change.
             # Only corroborated edge and spatial agreement can veto an OCR miss.
-            self.present = coverage >= 0.4 and correlation >= 0.7
+            self.present = not self.cleared and coverage >= 0.4 and correlation >= 0.7
             self.misses = 0
             self.hits += 1
             if self.hits >= 2:
@@ -644,8 +708,12 @@ class _Anchor:
         if replaced:
             # Outside change corroborates a menu transition immediately. An isolated
             # replacement must show the same new pattern on a second distinct capture.
-            if surroundings_changed or (
-                previous_replacement is not None and not _changed(previous_replacement, current)
+            if (
+                surroundings_changed
+                or (
+                    previous_replacement is not None and not _changed(previous_replacement, current)
+                )
+                or self._layout_changed(layout, (pixels.shape[1], pixels.shape[0]))
             ):
                 self.cleared = True
                 self.clear_since = now
@@ -663,11 +731,13 @@ class _Anchor:
                 or (
                     scene_has_detail and self._panel_replaced(pixels, current, surroundings_changed)
                 )
+                or (
+                    self._layout_changed(layout, (pixels.shape[1], pixels.shape[0]))
+                    and self._vacant_after_switch(pixels, current)
+                )
             )
         else:
             self.clear_samples = 0
-            if self.present:
-                self.cleared = False
             if not self.cleared:
                 self.clear_since = None
         return self.hidden
@@ -749,11 +819,14 @@ class VisualAnalyzer:
         self._checked: frozenset[TextTrack] = frozenset()
         self._unchanged: frozenset[TextTrack] = frozenset()
 
-    def _references(self, job: _Job, pixels: Bytes, matching: MatchingEvidence | None) -> None:
+    def _references(
+        self, job: _Job, pixels: Bytes, layout: Bytes, matching: MatchingEvidence | None
+    ) -> None:
         key = (job.result.frame.sequence if job.result else 0, job.tracks)
         if key == self._reference_key:
             return
         self._reference_key = key
+        dismissed = {t.track_id: a.clear_since for t, a in self._anchors.items() if a.cleared}
         self._anchors = {t: a for t, a in self._anchors.items() if t in job.tracks}
         result = job.result
         if result is None:
@@ -776,6 +849,7 @@ class VisualAnalyzer:
             if key is not None
         }
         fine_budget = _FINE_PIXELS - sum(a.fine.pixels for a in self._anchors.values() if a.fine)
+        reference_layout = layout if result.frame is job.frame else None
         color_candidates: list[tuple[_FineReference, TextTrack, TextRegion, Rect]] = []
         for track in job.tracks[:128]:
             region = by_id.get(track.track_id)
@@ -795,6 +869,10 @@ class VisualAnalyzer:
             if track not in self._anchors and region is not None and region.text == track.text:
                 crop = _crop(source, track.bounds)
                 if crop is not None:
+                    if reference_layout is None:
+                        from dantetl.ocr.discovery import source_layout
+
+                        reference_layout = source_layout(source)
                     b = track.bounds
                     width = max(
                         b.width + b.height * 3, b.height * 36 if len(track.text) >= 10 else 0
@@ -807,13 +885,19 @@ class VisualAnalyzer:
                     if fine is not None:
                         fine_budget -= fine.pixels
                         color_candidates.append((fine, track, region, area))
+                    clear_since = dismissed.get(track.track_id)
                     self._anchors[track] = _Anchor(
                         track,
                         crop,
+                        reference_layout,
+                        _backing_colors(source, track),
+                        result.frame.sequence,
                         area,
                         _crop(source, area, wide=True),
                         fine_required=fine_required,
                         fine=fine,
+                        cleared=clear_since is not None,
+                        clear_since=clear_since,
                     )
         # Optional color must never consume another line's basic glyph evidence.
         for fine, track, region, area in color_candidates:
@@ -916,7 +1000,12 @@ class VisualAnalyzer:
             self._dpi = frame.geometry.dpi
         size = frame.geometry.client.size
         fresh = frame.sequence > self._sequence
-        self._references(_Job(frame, result, tracks, assignments, activity), pixels, matching)
+        now = frame.captured_at
+        previous = self._tiles.thumbnail
+        evidence = self._tiles.observe(pixels, now, fresh=fresh)
+        self._references(
+            _Job(frame, result, tracks, assignments, activity), pixels, evidence.layout, matching
+        )
         checked_key = (candidate.frame.sequence if candidate else 0, tracks)
         if checked_key != self._checked_key:
             self._checked_key = checked_key
@@ -928,13 +1017,12 @@ class VisualAnalyzer:
             )
             self._checked = frozenset(t for t, same in matches.items() if same is not None)
             self._unchanged = frozenset(t for t, same in matches.items() if same is True)
-        now = frame.captured_at
-        previous = self._tiles.thumbnail
-        evidence = self._tiles.observe(pixels, now, fresh=fresh)
         changed_tiles = evidence.changed
         # A blank capture can be a one-frame flash. Require some surviving scene
         # detail before using a single capture as evidence of a panel closing.
-        scene_has_detail = bool(self._anchors and fresh and np.ptp(evidence.gray) >= 16)
+        # An OCR completion can introduce a new anchor after we analyzed the latest
+        # capture. It still sees those pixels once, even if WGC sends no more frames.
+        scene_has_detail = bool(self._anchors and np.ptp(evidence.gray) >= 16)
         hidden = frozenset(
             key
             for key, anchor in self._anchors.items()
@@ -945,6 +1033,7 @@ class VisualAnalyzer:
                 _touches(changed_tiles, key.bounds, size),
                 scene_has_detail,
                 _surroundings_changed(evidence.strong, key.bounds, size),
+                evidence.layout,
             )
         )
         stable, blocked = [], set()
@@ -1034,6 +1123,7 @@ class VisualAnalyzer:
                 present=frozenset(t for t, a in self._anchors.items() if a.present),
             ),
             cleared=frozenset(t for t, a in self._anchors.items() if a.cleared),
+            matching_lines=frozenset(t for t, a in self._anchors.items() if a.glyphs_match),
             review=CandidateReview(
                 candidate.frame.sequence if candidate else 0, self._checked, self._unchanged
             ),
@@ -1064,8 +1154,32 @@ class _ObservationReview:
         self.pixel_key: tuple[int, tuple[Rect, ...]] | None = None
         self.rejected_sequence = 0
         self.message = ""
+        self.last_visual_sequence = 0
 
     def apply(self, state: VisualState, job: _Job) -> VisualState:
+        if not state.message:
+            self.last_visual_sequence = job.frame.sequence
+        elif job.result and job.result.frame.sequence > self.last_visual_sequence:
+            # In OCR-only fallback, a later accepted reading can restore dismissed
+            # English. Unscanned lines and results from before the failure cannot.
+            result = job.result
+            rows = (
+                self.matching.content
+                if self.matching and self.matching.describes(result, self.language)
+                else tuple(content_region(r, self.language) for r in result.regions[:512])
+            )
+            by_id = dict(zip(job.assignments, rows, strict=False))
+            state = replace(
+                state,
+                matching_lines=frozenset(
+                    t
+                    for t in job.tracks
+                    if (row := by_id.get(t.track_id)) is not None
+                    and row.text == t.text
+                    and row.vertical == t.vertical
+                    and result.covers(t.bounds)
+                ),
+            )
         candidate = job.candidate
         if candidate is None:
             return replace(state, review_message=self.message) if self.message else state

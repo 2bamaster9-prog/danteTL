@@ -21,7 +21,7 @@ from verify_translation import process_memory
 from dantetl.application.model_discovery import translation_backends
 from dantetl.application.model_factories import create_recognizer
 from dantetl.capture.windows import Windows
-from dantetl.domain import CapturedFrame, WindowTarget
+from dantetl.domain import CapturedFrame, WindowTarget, sample_box
 from dantetl.ocr.values import OcrState, TextRegion
 from dantetl.ocr.worker import OcrChoice
 from dantetl.translation.values import TranslationState
@@ -30,6 +30,12 @@ from dantetl.ui.demo import DIALOGUE_LINES, DemoWindow
 
 class EquipmentMenu(QWidget):
     """A second populated screen with strong edges throughout the old dialogue area."""
+
+    similar_rows = False
+
+    def show_similar_rows(self) -> None:
+        self.similar_rows = True
+        self.update()
 
     def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
@@ -45,6 +51,13 @@ class EquipmentMenu(QWidget):
             painter.fillRect(45, y - 32, 250, 42, QColor("#263447"))
             painter.setPen(QColor("#ffffff"))
             painter.drawText(60, y, text)
+        if self.similar_rows:
+            box = sample_box(self.width(), self.height())
+            painter.fillRect(box.x, box.y - 60, box.width, box.height + 60, QColor("#29465e"))
+            font.setPixelSize(20)
+            painter.setFont(font)
+            for i, text in enumerate((DIALOGUE_LINES[0], "その前に装備を確認してください。")):
+                painter.drawText(box.x + 24, box.y - 6 + 30 * i, text)
 
 
 def main() -> int:
@@ -205,6 +218,23 @@ def main() -> int:
     transitions_done = False
     locked_pixels = None
     timeout = 180 if args.device != "cpu" or args.translation else 45
+    hidden_since = 0.0
+    seen_hidden = False
+    rebound = False
+    original_scene = window._overlay.set_scene
+
+    def audit_scene(*args, **kwargs):
+        nonlocal rebound, seen_hidden
+        original_scene(*args, **kwargs)
+        if stage in (10, 14):
+            visible = any(
+                t.request.source == translation_source for t in window._overlay._translations
+            )
+            rebound |= seen_hidden and visible
+            seen_hidden |= not visible
+
+    if args.transitions:
+        window._overlay.set_scene = audit_scene
 
     def close_panel() -> None:
         demo.panel_visible = False
@@ -220,7 +250,7 @@ def main() -> int:
         nonlocal continuity_started, continuity_polls, continuity_request
         nonlocal border_owners, border_sequence
         nonlocal reveal_finished
-        nonlocal transitions_done, locked_pixels
+        nonlocal transitions_done, locked_pixels, hidden_since
         now = time.monotonic()
         try:
             if now - started > timeout:
@@ -608,25 +638,25 @@ def main() -> int:
                         .pixelColor(b.x + b.width // 2, b.y + b.height // 2)
                     )
                     assert center.alpha() == 0, "Dialogue still painted over the closed panel"
+                stage, hidden_since = 14, now
                 if next_menu:
-                    stage = 14
-                else:
-                    demo.panel_visible = True
-                    demo.update()
-                    stage, stage_started = 11, time.monotonic()
+                    QTimer.singleShot(125, next_menu.show_similar_rows)
             elif stage == 14:
                 assert now - stage_started < 15, "Replacement menu never translated"
                 shown = {t.request.source for t in window._overlay._translations}
-                assert translation_source not in shown, (
-                    "Old dialogue returned while the menu translated"
+                assert not rebound and translation_source not in shown, (
+                    "Dismissed dialogue returned"
                 )
-                if "設定" in shown:
-                    evidence["new_menu_english_seconds"] = round(now - stage_started, 3)
-                    assert next_menu is not None
+                if next_menu and "設定" in shown:
+                    evidence.setdefault("new_menu_english_seconds", round(now - stage_started, 3))
+                if now - hidden_since < 1 or (next_menu and "設定" not in shown):
+                    return
+                evidence["continuously_hidden_seconds"] = round(now - hidden_since, 3)
+                if next_menu:
                     next_menu.hide()
-                    demo.panel_visible = True
-                    demo.update()
-                    stage, stage_started = 11, time.monotonic()
+                demo.panel_visible = True
+                demo.update()
+                stage, stage_started = 11, time.monotonic()
             elif stage == 11:
                 if not any(
                     t.request.source == translation_source for t in window._overlay._translations

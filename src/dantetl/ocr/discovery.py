@@ -13,6 +13,21 @@ GRID = (32, 18)
 THUMBNAIL = (640, 360)
 
 
+def _corners(small: Bytes) -> Bytes:
+    return cast(Bytes, cv2.Sobel(small, -1, 1, 1, ksize=3, scale=0.5, delta=128))
+
+
+def _layout(strokes: Bytes) -> Bytes:
+    corners = cv2.bitwise_not(cv2.inRange(strokes, (116, 116, 116, 0), (140, 140, 140, 255)))
+    return cast(Bytes, cv2.resize(corners, GRID, interpolation=cv2.INTER_AREA))
+
+
+def source_layout(pixels: Bytes) -> Bytes:
+    """Corner density per tile of an OCR source, including isoluminant UI elements."""
+    small = cast(Bytes, cv2.resize(pixels, THUMBNAIL, interpolation=cv2.INTER_AREA))
+    return _layout(_corners(small))
+
+
 def _stroke_tiles(current: Bytes, reference: Bytes) -> Mask:
     # Count nearby changes in corner detail in any color channel. A smooth
     # brightness ramp or a straight scrolling edge has little mixed derivative.
@@ -28,12 +43,14 @@ class TileEvidence:
     changed: Mask
     significant: Mask
     strong: Mask
+    layout: Bytes
 
 
 class DiscoveryTiles:
     def __init__(self) -> None:
         self._thumbnail: Bytes | None = None
         self._gray = np.zeros(THUMBNAIL[::-1], np.uint8)
+        self._layout = np.zeros(GRID[::-1], np.uint8)
         self._strokes: Bytes | None = None
         self._reference: Bytes | None = None
         self._streak = np.zeros(GRID[::-1], np.uint8)
@@ -50,23 +67,26 @@ class DiscoveryTiles:
         none = np.zeros(GRID[::-1], bool)
         if not fresh and self._thumbnail is not None:
             # New tracks may need to examine this same immutable source again.
-            return TileEvidence(self._gray, ~none, none, none)
+            return TileEvidence(self._gray, ~none, none, none, self._layout)
         small = cast(Bytes, cv2.resize(pixels, THUMBNAIL, interpolation=cv2.INTER_AREA))
         first = self._thumbnail is None
         changed, significant, strong = (~none if first else none), none, none
         recent = none
         if self._thumbnail is None or not np.array_equal(small, self._thumbnail):
             gray = cast(Bytes, cv2.cvtColor(small, cv2.COLOR_BGRA2GRAY))
-            strokes = cast(Bytes, cv2.Sobel(small, -1, 1, 1, ksize=3, scale=0.5, delta=128))
+            strokes = _corners(small)
             if self._strokes is not None and self._reference is not None:
                 delta = cv2.absdiff(gray, self._gray)
                 energy = delta.reshape(18, 20, 32, 20).mean(axis=(1, 3))
-                if not np.array_equal(strokes, self._strokes):
-                    recent = _stroke_tiles(strokes, self._strokes)
-                    self._accumulated = _stroke_tiles(strokes, self._reference)
-                changed = (energy > 0) | recent
+                changed = energy > 0
                 significant = energy > 1.5
                 strong = energy >= 12
+            if self._strokes is None or not np.array_equal(strokes, self._strokes):
+                self._layout = _layout(strokes)
+                if self._strokes is not None and self._reference is not None:
+                    recent = _stroke_tiles(strokes, self._strokes)
+                    self._accumulated = _stroke_tiles(strokes, self._reference)
+                    changed |= recent
             self._thumbnail, self._gray, self._strokes = small, gray, strokes
         self.dirty |= (significant & (self._streak == 0)) | (~significant & (self._streak >= 2))
         # Accumulate sub-threshold changes against the last requested pixels in
@@ -79,7 +99,7 @@ class DiscoveryTiles:
             self.dirty |= detail
         self._moving_strokes = recent
         self._streak = np.where(significant, np.minimum(self._streak + 1, 8), 0).astype(np.uint8)
-        return TileEvidence(self._gray, changed, significant, strong)
+        return TileEvidence(self._gray, changed, significant, strong, self._layout)
 
     def requested(self, tiles: Mask | None, now: float) -> None:
         assert self._strokes is not None

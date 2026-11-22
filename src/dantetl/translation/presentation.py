@@ -28,7 +28,7 @@ class EnglishPresentation:
     def __init__(self) -> None:
         self._published: tuple[Publication, ...] = ()
         self._visible: tuple[Publication, ...] = ()
-        self._concealed: dict[TranslationRequest, tuple[str, ...]] = {}
+        self._concealed: dict[int, str] = {}
         self._ready: dict[TranslationRequest, TranslatedText] = {}
         self._scope: object = None
         self._menus: dict[MenuSample, Publication] = {}
@@ -148,9 +148,10 @@ class EnglishPresentation:
                 continue
             # Once removed from the screen, old English cannot fill the wait for a
             # different source that happens to reuse the same track IDs.
-            hidden_source = self._concealed.get(p.translation.request)
-            if hidden_source is None or hidden_source == tuple(
-                live[t.track_id].text for t in lines
+            if all(
+                t.track_id not in self._concealed
+                or self._concealed[t.track_id] == live[t.track_id].text
+                for t in lines
             ):
                 prior.append(p)
 
@@ -180,12 +181,21 @@ class EnglishPresentation:
             if i not in waiting
         )
         self._published = tuple(sorted(painted, key=lambda p: p.painted.lines[0].track_id))
-        self._concealed = {
-            p.translation.request: tuple(live[t.track_id].text for t in p.painted.lines)
-            for p in self._published
-            if cleared and all(live[t.track_id] in cleared for t in p.painted.lines)
-        }
-        self._visible = tuple(
-            p for p in self._published if p.translation.request not in self._concealed
-        )
+        cleared_ids = {t.track_id for t in cleared if live.get(t.track_id) == t}
+        # Carry dismissed members through regrouping and the wait for a reply.
+        # A partial return cannot restore a whole paragraph.
+        waiting_for_return = self._concealed.keys() & cleared_ids
+        concealed = {key: live[key].text for key in waiting_for_return}
+        visible = []
+        for publication in self._published:
+            members = publication.painted.lines
+            if cleared_ids and (
+                all(t.track_id in cleared_ids for t in members)
+                or any(t.track_id in waiting_for_return for t in members)
+            ):
+                concealed.update((t.track_id, live[t.track_id].text) for t in members)
+            else:
+                visible.append(publication)
+        self._concealed = concealed
+        self._visible = tuple(visible)
         return self._visible

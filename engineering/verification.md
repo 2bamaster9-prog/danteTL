@@ -161,8 +161,10 @@ checks briefly remove the lettering while its panel stays in place and require c
 With debug drawing off, the fixture also compares the painted dialogue pixels during visual loss.
 At 8 FPS removing the entire panel must hide the dialogue on the first analyzed capture showing the
 exposed background and within 400 ms of closure, even with delayed OCR. Record the
-elapsed time and whether it hid before OCR observed the closure. Reopening must restore English.
+elapsed time and whether it hid before OCR observed the closure. Audit overlay publications for
+at least one second after dismissal. Reopening must restore English.
 Repeat with `--populated-transition` to switch to a textured menu with new Japanese labels.
+It brings back one original row and changes the wording of the other in the same position.
 Record the first menu capture, visibility of the old dialogue at the first visual analysis,
 elapsed time to hide, and time to the new English. Old dialogue stays hidden throughout inference.
 These fixtures exercise one reveal cadence; they do not establish every game's behavior.
@@ -215,8 +217,13 @@ static WGC frames, small continuation growth, polarity/brightness changes, failu
 Long horizontal/vertical digit-change replays must both retain unchanged text through lighting/OCR noise
 and accept genuine edits after ordinary confirmation. Include exhausted fine-reference budgets.
 For quest switches, replay a two-line paragraph disappearing against its original gradient while
-OCR is delayed. Check when the whole English paragraph hides, continuity of other labels and
-restoration on the first returning capture. Repeated polls of one capture count once.
+OCR is delayed. A new menu layout must hide its old English on the first analyzed capture and
+keep independent labels visible. Also replay a panel closing onto a different color of equal
+luminance, isolated lettering loss, distant animation, surviving color strokes, and OCR arriving
+after a switch to a static page. Replay similar glyph outlines and delayed revisions after
+dismissal, including an already-cached translation and a partially returning group.
+Check restoration on the first capture that verifies the returning source.
+Repeated polls of one capture count once.
 Colored-paragraph replays cover partial scans/misses, appended false detections, mixed-color digits,
 real growth/removal and preservation of raw OCR. Keep supplied frame pairs with their actual OCR in
 ignored artifacts when diagnosing background-dependent disagreement.

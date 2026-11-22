@@ -199,15 +199,24 @@ checks and periodic full discovery still run. Supplemental edge evidence can req
 The presence and tracking policies decide whether to hide or retire a translation.
 Between OCR passes, a painted block can hide when every current member loses its glyph pattern.
 A vacant line can hide on the first detailed capture if its backing or surrounding area changes
-and native color edges confirm the space is clear. Other vacant lines require three distinct captures
-spanning at least 160 ms. A shared background gradient can correlate across a switch even
+and native color edges confirm the space is clear. Samples on both sides of the line can detect
+a backing color change at equal luminance. For menu switches, the worker compares tile-level
+corner density with the accepted OCR source. Changes must extend beyond the line and its
+neighbors and include part of the surrounding layout. When old stroke patches vanish and
+separate parts of the line are clear at native color resolution, the English can hide on that
+capture even if the new page reuses the old backing. Other vacant lines require three distinct
+captures spanning at least 160 ms. A shared background gradient can correlate across a switch even
 when all lettering has vanished. Very low surviving edge coverage and loss of separate
 stroke patches across the line can corroborate vacancy in that case. For a textured replacement,
 compare separate stroke patches across the old line with positional tolerance. Strong surrounding
-change corroborates the loss immediately.
+change or a corroborated layout switch confirms the loss immediately.
 An isolated replacement needs a second capture with the same new pattern. Weak or surviving glyph
-evidence defers to OCR. The publication and track survive so returning glyphs can
-restore the same English on the next capture. Retirement requires a covered OCR miss
+evidence defers to OCR. After dismissal, matching glyphs can restore the line on the
+next capture. Similar outlines on the new menu only provide evidence for retaining an
+undismissed track. A new OCR template for a dismissed line must also match the display
+capture. Live reconciliation preserves dismissal across pending bounds or text revisions
+until the worker verifies the current line. During visual failure a later covered OCR
+reading can restore it. Retirement requires a covered OCR miss
 with corroborating pattern loss, or repeated covered misses across distinct captures. On a static
 source, a single miss can settle only with strong pattern loss on that exact capture. Matching pixels
 or a surviving stroke pattern at least as recent as a miss preserve the track. Positive OCR edits
@@ -315,7 +324,8 @@ before it can resize or replace the label. A quiet image cannot confirm its spel
 and follows its live member bounds through edits. Automatic splits and merges swap together when
 the replacement translations for their shared members are ready. Independent boxes can update
 immediately. Retired members, model changes, source resets and explicit grouping changes clear
-the affected publications. A visually concealed publication can return for the same live content.
+the affected publications. A visually concealed publication can return for the same live content
+once all of its dismissed members have returned.
 When its track IDs acquire different text, only a ready translation can restore English there.
 
 For a known standalone menu word, the visual worker can retain its exact native pixels with

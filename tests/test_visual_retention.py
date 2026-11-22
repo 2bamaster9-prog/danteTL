@@ -19,8 +19,9 @@ from dantetl.translation.values import TranslatedText, TranslationRequest
 BOX = Rect(20, 30, 220, 28)
 
 
-def test_quest_paragraph_clears_over_its_original_gradient_while_ocr_is_delayed():
-    viewport = Rect(0, 0, 2480, 220)
+@pytest.mark.parametrize("menu_switch", (False, True))
+def test_quest_paragraph_clears_over_its_original_gradient_while_ocr_is_delayed(menu_switch):
+    viewport = Rect(0, 0, 2480, 400)
     rows = (Rect(30, 40, 2398, 46), Rect(30, 100, 1165, 46))
     gradient = np.linspace(20, 150, viewport.width, dtype=np.uint8)
     backing = np.tile(gradient, (viewport.height, 1))
@@ -48,6 +49,10 @@ def test_quest_paragraph_clears_over_its_original_gradient_while_ocr_is_delayed(
         WindowGeometry(viewport, viewport, viewport, 96),
         cv2.cvtColor(original, cv2.COLOR_GRAY2BGRA).tobytes(),
     )
+    if menu_switch:
+        # The new page keeps the gradient behind the paragraph and gains controls elsewhere.
+        for y in range(175, 290, 24):
+            cv2.putText(backing, "EQUIPMENT  " * 6, (340, y), 0, 0.8, 235, 2, cv2.LINE_AA)
     bare = replace(visible, bgra=cv2.cvtColor(backing, cv2.COLOR_GRAY2BGRA).tobytes())
     result = OcrResult(visible, tuple(TextRegion(t.text, t.bounds) for t in tracks), 10, 0.01)
     blocks = (TextBlock(tracks[:2]), TextBlock(tracks[2:]))
@@ -64,7 +69,7 @@ def test_quest_paragraph_clears_over_its_original_gradient_while_ocr_is_delayed(
             replace(bare, sequence=seq, captured_at=(seq - 1) / 8), result, tracks, (1, 2, 3)
         )
         assert presentation.update(blocks, (), cleared=state.cleared) == (
-            initial if seq < 4 else initial[1:]
+            initial if not menu_switch and seq < 4 else initial[1:]
         )
     restored = visual.observe(
         replace(visible, sequence=6, captured_at=0.625), result, tracks, (1, 2, 3)
@@ -384,6 +389,27 @@ def test_publication_retention_cannot_cross_backend_generations_or_worker_restar
     new = replace(old, english="Gemma settings")
     assert store.update((block,), (new,), scope=("worker1", 1))[0].translation == new
     assert not store.update((block,), (), scope=("worker2", 0))
+
+
+def test_reply_for_partially_returned_paragraph_waits_through_a_revision_and_regroup():
+    store = EnglishPresentation()
+    first = TextTrack(1, "次の冒険に出ましょう。", BOX)
+    second = TextTrack(2, "装備が必要です。", replace(BOX, y=66))
+    old = TextBlock((first, second))
+    reply = TranslatedText(TranslationRequest.from_block(old), "Old paragraph")
+    assert store.update((old,), (reply,))
+    assert not store.update((old,), (), cleared=frozenset(old.lines))
+
+    # The first row returns. A delayed OCR revision of the missing row forms a
+    # different group whose translation is still pending.
+    revised = replace(second, text="装備を確認します。", text_revision=2)
+    third = replace(first, track_id=3, text="続けますか。", bounds=replace(BOX, y=102))
+    new = TextBlock((first, revised, third))
+    missing = frozenset((revised,))
+    assert not store.update((new,), (), cleared=missing)
+    translated = TranslatedText(TranslationRequest.from_block(new), "Revised paragraph")
+    assert not store.update((new,), (translated,), cleared=missing)
+    assert store.update((new,), ())[0].translation == translated
 
 
 def test_stale_visual_evidence_cannot_lock_new_source_or_a_new_revision():

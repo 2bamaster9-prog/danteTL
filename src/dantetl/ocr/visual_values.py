@@ -41,3 +41,4 @@ class VisualState:
     complete_lines: frozenset[TextTrack] = frozenset()
     matching_menus: tuple[MenuSample, ...] = ()
     settled_scan: SettledScan | None = None
+    matching_lines: frozenset[TextTrack] = frozenset()

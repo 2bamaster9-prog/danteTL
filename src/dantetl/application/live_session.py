@@ -5,7 +5,7 @@ is supplied explicitly; this coordinator owns which sources it sees and what may
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Protocol
 
 from dantetl.application.values import Scene
@@ -345,7 +345,7 @@ class LiveSession:
                 self._tracker.confirm_observations(state.stable_tracks, state.frame.captured_at)
             self.tracking = self._tracker.advance(frame, now)
             if state.frame is not None:
-                self.visual_state = state
+                self.visual_state = self._display_evidence(state)
             self.visual.submit(
                 frame,
                 self.accepted,
@@ -357,6 +357,21 @@ class LiveSession:
                 self._tracker.matching_sources(snapshot.result.frame) if snapshot.result else (),
             )
         return snapshot
+
+    def _display_evidence(self, state: VisualState) -> VisualState:
+        # Tracking may adopt delayed OCR before the visual worker has examined
+        # its revised bounds or reading. Keep a previously dismissed ID hidden
+        # until the current live line itself has positive evidence.
+        if not (state.cleared or self.visual_state.cleared):
+            return state
+        dismissed = {line.track_id for line in self.visual_state.cleared}
+        cleared = frozenset(
+            line
+            for line in self.tracking.visible
+            if line in state.cleared
+            or (line.track_id in dismissed and line not in state.matching_lines)
+        )
+        return state if cleared == state.cleared else replace(state, cleared=cleared)
 
     def scene(
         self, frame: CapturedFrame | None, now: float, *, grouping: bool, stabilize: bool = True

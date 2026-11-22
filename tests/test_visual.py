@@ -192,8 +192,9 @@ def test_lettering_loss_over_the_same_backing_needs_three_captures_at_eight_fps(
     assert not observe(8).cleared
 
 
-@pytest.mark.parametrize("shaded", (False, True))
-def test_panel_replacement_hides_on_first_capture_and_restores_on_first_return(shaded):
+@pytest.mark.parametrize("backing", ("flat", "shaded", "same_luminance"))
+@pytest.mark.parametrize("late_ocr", (False, True))
+def test_panel_replacement_hides_on_first_capture_and_restores_on_first_return(backing, late_ocr):
     analyzer = VisualAnalyzer()
     result, track = reference()
     neighbor = TextTrack(2, "設定", Rect(20, 82, 148, 24))
@@ -203,14 +204,17 @@ def test_panel_replacement_hides_on_first_capture_and_restores_on_first_return(s
         regions=(*result.regions, TextRegion(neighbor.text, neighbor.bounds)),
     )
     tracks = (track, neighbor)
-    analyzer.observe(result.frame, result, tracks, (1, 2))
+    if not late_ocr:
+        analyzer.observe(result.frame, result, tracks, (1, 2))
     # Another label remains elsewhere. Only this panel changes color and loses its ink.
     closed = picture(2, ink=False, second=True)
     pixels = np.frombuffer(closed.bgra, np.uint8).reshape(240, 400, 4).copy()
-    pixels[40:82, 10:210, :3] = 95
-    if shaded:
+    pixels[40:82, 10:210, :3] = (180, 16, 0) if backing == "same_luminance" else 95
+    if backing == "shaded":
         pixels[40:82, 10:210, :3] += (np.arange(200, dtype=np.uint8) // 4)[:, None]
     closed = replace(closed, bgra=pixels.tobytes())
+    if late_ocr:
+        analyzer.observe(closed)
     assert analyzer.observe(closed, result, tracks, (1, 2)).cleared == {track}
     assert not analyzer.observe(picture(3, second=True), result, tracks, (1, 2)).cleared
 
@@ -228,6 +232,38 @@ def test_large_difference_alone_cannot_hide_on_first_capture(scene):
         pixels[55:68, 30:190:6, :3] = (0, 162, 0)  # Same gray level as the new backing.
     state = analyzer.observe(replace(changed, bgra=pixels.tobytes()), result, (track,), (1,))
     assert not state.cleared
+
+
+@pytest.mark.parametrize(
+    "scene", ["switched", "closed", "distant_animation", "colored_ink", "shifted_ink"]
+)
+def test_late_ocr_uses_its_own_menu_layout_on_the_only_changed_capture(scene):
+    analyzer = VisualAnalyzer()
+    result, track = reference()
+    changed = picture(2, ink=False)
+    menu = result.frame if scene == "closed" else changed
+    pixels = np.frombuffer(menu.bgra, np.uint8).reshape(240, 400, 4).copy()
+    top = 175 if scene == "distant_animation" else 100
+    for y in range(top, 238, 14):
+        cv2.putText(pixels, "MAP CONTROLS", (80, y), 0, 0.55, (235, 235, 235, 255), 2)
+    if scene == "colored_ink":
+        original = np.frombuffer(result.frame.bgra, np.uint8).reshape(240, 400, 4)
+        pixels[original[:, :, 0] == 230, :3] = (180, 16, 0)
+    elif scene == "shifted_ink":
+        pixels[75:77, 30:190, :3] = 240
+    if scene == "closed":
+        result = replace(result, frame=replace(menu, bgra=pixels.tobytes()))
+        current = changed
+    else:
+        current = replace(changed, bgra=pixels.tobytes())
+    analyzer.observe(result.frame)
+    analyzer.observe(current)
+    # OCR finishes on the old page after the new static capture was already analyzed.
+    for _ in range(3):
+        view = analyzer.observe(current, result, (track,), (1,))
+        assert bool(view.cleared) == (scene in {"switched", "closed"})
+    returned = replace(result.frame, sequence=3, captured_at=0.25)
+    assert not analyzer.observe(returned, result, (track,), (1,)).cleared
 
 
 def test_textured_screen_replacement_hides_on_its_first_capture_and_stays_hidden():
@@ -287,6 +323,34 @@ def test_delayed_positive_from_before_a_closure_cannot_restore_a_cleared_label()
     # still disagrees. The exact positive observation supersedes the visual mask.
     restored = replace(result, frame=noisy_picture(8, ink=True))
     assert not analyzer.observe(restored.frame, restored, (track,), (1,)).cleared
+
+
+@pytest.mark.parametrize("delayed_reading", [False, True])
+def test_dismissed_label_stays_hidden_through_similar_new_glyphs_until_original_returns(
+    delayed_reading,
+):
+    analyzer = VisualAnalyzer()
+    result, track = reference()
+    analyzer.observe(result.frame, result, (track,), (1,))
+    closed = picture(2, ink=False, brightness=65, second=True)
+    assert analyzer.observe(closed, result, (track,), (1,)).cleared == {track}
+    # A briefly reopened panel is read in flight. Its OCR finishes when the
+    # replacement menu is already on screen, 125 ms after the closure.
+    if delayed_reading:
+        result = replace(result, frame=replace(picture(3), captured_at=0.18))
+    menu = picture(4, ink=False, second=True)
+    pixels = np.frombuffer(menu.bgra, np.uint8).reshape(240, 400, 4).copy()
+    for x in range(22, 190, 15):
+        # Every glyph has the old outline but lacks its central stroke.
+        cv2.rectangle(pixels, (x, 53), (x + 9, 70), (230, 230, 230, 255), 2)
+    menu = replace(menu, bgra=pixels.tobytes())
+    for seq in range(4, 9):
+        current = replace(menu, sequence=seq, captured_at=(seq - 2) / 8)
+        state = analyzer.observe(current, result, (track,), (1,))
+        assert state.cleared == {track}
+        assert not state.matching_lines and not state.presence.present
+    restored = analyzer.observe(picture(9), result, (track,), (1,))
+    assert not restored.cleared and restored.matching_lines == {track}
 
 
 def test_duplicate_polling_is_not_disappearance_evidence():
@@ -476,6 +540,43 @@ def test_visual_initialization_failure_falls_back_and_still_finishes_shutdown(mo
             assert time.monotonic() < deadline
             time.sleep(0.005)
         assert calls == [1]  # No repeated native initialization/error-log storm.
+    finally:
+        session.request_stop()
+        deadline = time.monotonic() + 3
+        while not session.finished:
+            assert time.monotonic() < deadline
+            time.sleep(0.005)
+
+
+def test_visual_failure_restores_only_a_later_covered_ocr_reading(monkeypatch):
+    finished = threading.Event()
+    session = VisualSession(on_change=finished.set)
+    result, track = reference()
+    tracks = (track, TextTrack(2, "設定", Rect(20, 82, 148, 24)))
+    original = VisualAnalyzer.observe
+
+    def observe(self, frame, *args):
+        if frame.sequence >= 3:
+            raise ValueError("fixture analysis failure")
+        return original(self, frame, *args)
+
+    def submit(frame, accepted):
+        finished.clear()
+        session.submit(frame, accepted, tracks, (1,), ())
+        assert finished.wait(3)
+        return session.poll()
+
+    monkeypatch.setattr(VisualAnalyzer, "observe", observe)
+    session.start()
+    try:
+        submit(result.frame, result)
+        closed = picture(2, ink=False, brightness=65, second=True)
+        assert submit(closed, result).cleared == {track}
+        failed = submit(picture(3, ink=False), result)
+        assert failed.message and not failed.matching_lines
+        returned = picture(4)
+        reading = replace(result, frame=returned, scanned=(track.bounds,))
+        assert submit(returned, reading).matching_lines == {track}
     finally:
         session.request_stop()
         deadline = time.monotonic() + 3

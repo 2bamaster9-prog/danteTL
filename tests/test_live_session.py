@@ -409,25 +409,79 @@ def test_vacated_group_hides_locally_and_restores_cached_english_without_new_ocr
     locked = replay.live.publish(backend, scene.requests, scene.blocks)
     backend.snapshot.return_value = TranslationSnapshot(TranslationState.READY)
     a, b = dialogue.lines
-    for seq, cleared, visible in (
-        (3, (a,), locked.blocks),
-        (4, (a, replace(b, text_revision=b.text_revision + 1)), locked.blocks),
-        (5, (a, b), (label,)),
-        (6, (), locked.blocks),
+    for seq, cleared, matches, visible in (
+        (3, (a,), (b,), locked.blocks),
+        (4, (a, replace(b, text_revision=b.text_revision + 1)), (), locked.blocks),
+        (5, (a, b), (), (label,)),
+        (6, (b,), (a,), (label,)),
+        (7, (), (), (label,)),
+        (8, (), (a, replace(b, bounds=replace(b.bounds, x=b.bounds.x + 1))), (label,)),
+        (9, (), (a, b), locked.blocks),
     ):
         current = frame(seq, seq / 8 + 1.5)
         replay.visual.current = replace(
-            replay.visual.current, frame=current, cleared=frozenset(cleared)
+            replay.visual.current,
+            frame=current,
+            cleared=frozenset(cleared),
+            matching_lines=frozenset(matches),
         )
         replay.live.reconcile(current, current.captured_at)
         observed = replay.live.scene(current, current.captured_at, grouping=True)
         assert observed.blocks == scene.blocks
-        assert observed.tracks == tuple(t for t in scene.tracks if t not in cleared)
+        hidden_lines = (b,) if seq in (7, 8) else cleared
+        assert observed.tracks == tuple(t for t in scene.tracks if t not in hidden_lines)
         shown = replay.live.publish(backend, observed.requests, observed.blocks)
         assert shown.blocks == visible
         assert shown.translations == ((english[1],) if visible == (label,) else locked.translations)
         assert backend.update.call_args.kwargs["retain"] == scene.blocks
     assert replay.ocr.acknowledged == [1, 2]
+
+
+def test_cached_translation_for_a_revised_dismissed_line_waits_for_its_current_glyphs():
+    replay, backend = Replay(), Mock()
+    bounds = Rect(50, 40, 100, 30)
+    first = replay.observe(frame(1), (TextRegion("設定", bounds),))
+    old = first.tracks[0]
+    english = TranslatedText(TranslationRequest.from_block(first.blocks[0]), "Settings")
+    backend.snapshot.return_value = TranslationSnapshot(TranslationState.READY, (english,))
+    assert replay.live.publish(backend, first.requests, first.blocks).translations == (english,)
+
+    closed = frame(4, 2.0)
+    replay.visual.current = replace(replay.visual.current, frame=closed, cleared=frozenset((old,)))
+    replay.live.reconcile(closed, closed.captured_at)
+    assert not replay.live.publish(backend, first.requests, first.blocks).translations
+
+    # An edit from before closure finishes now. The new translation is already cached.
+    for sequence in (2, 3):
+        edited = OcrResult(
+            frame(sequence, 1.5 + sequence / 10), (TextRegion("装備", bounds),), 400, 2.2
+        )
+        replay.ocr.current = OcrSnapshot(OcrState.READY, edited)
+        replay.visual.current = replace(replay.visual.current, review=CandidateReview(sequence))
+        replay.live.reconcile(closed, 2.2)
+    scene = replay.live.scene(closed, 2.2, grouping=True)
+    revised = scene.blocks[0].lines[0]
+    assert revised.track_id == old.track_id and revised.text == "装備"
+    new = TranslatedText(TranslationRequest.from_block(scene.blocks[0]), "Equipment")
+    backend.snapshot.return_value = TranslationSnapshot(TranslationState.READY, (new,))
+    assert (
+        not scene.tracks
+        and not replay.live.publish(backend, scene.requests, scene.blocks).translations
+    )
+    for seq, matches, visible in ((5, (old,), False), (6, (revised,), True)):
+        current = frame(seq, 2 + seq / 10)
+        replay.visual.current = replace(
+            replay.visual.current,
+            frame=current,
+            cleared=frozenset(),
+            matching_lines=frozenset(matches),
+        )
+        replay.live.reconcile(current, current.captured_at)
+        scene = replay.live.scene(current, current.captured_at, grouping=True)
+        assert bool(scene.tracks) == visible
+        assert replay.live.publish(backend, scene.requests, scene.blocks).translations == (
+            (new,) if visible else ()
+        )
 
 
 @pytest.mark.parametrize("verified_pixels", [False, True])
