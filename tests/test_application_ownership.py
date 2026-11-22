@@ -35,6 +35,33 @@ def replay(tmp_path):
     value.close()
 
 
+def test_first_run_offer_survives_pending_account_discovery(replay, monkeypatch):
+    release = threading.Event()
+
+    def accounts(_report):
+        assert release.wait(3)
+        return ()
+
+    monkeypatch.setattr(replay.cloud.connections, "accounts", accounts)
+    replay.cloud.start()
+    try:
+        replay.app.offer_first_run()
+        replay.app.advance(0)
+        assert not replay.app.can_setup
+        assert not replay.app.take_destination()
+    finally:
+        release.set()
+    deadline = time.monotonic() + 3
+    while replay.cloud.busy:
+        assert time.monotonic() < deadline
+        replay.app.advance(1)
+        time.sleep(0.001)
+    assert replay.app.can_setup
+    assert replay.app.take_destination() == "guide"
+    replay.app.advance(2)
+    assert not replay.app.take_destination()
+
+
 def test_startup_setting_edit_preserves_unresolved_saved_assignment(tmp_path):
     preferences = Preferences(
         model="gemma",

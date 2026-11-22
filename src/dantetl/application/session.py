@@ -380,8 +380,10 @@ class ApplicationSession:
                 f.present for f in self.setup.files if f.key != "ocr"
             ):
                 self.setup_skipped()
-            else:
+            elif self.can_setup:
                 self.destination = "guide"
+            else:
+                return
         self._first_run_requested = False
 
     def request_close(self, target: Path | None = None) -> None:

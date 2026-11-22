@@ -299,8 +299,17 @@ class SetupCoordinator:
             else None
         )
 
-    def selection_id(self, key: str) -> str:
-        return self._models[key].selection_id
+    def acknowledge_review(self, token: int) -> str | None:
+        """Consume a successful review once, including across recreated dialogs."""
+        if self._review is None or token != self._review.token or token != self._completed_review:
+            return None
+        selection = self._models[self._review.model].selection_id
+        self._review = None
+        self._plan = None
+        self._completed_review = None
+        self._guide_target = None
+        self._jobs[SetupLane.GUIDE] = SetupJob()
+        return selection
 
     def cancel(self, lane: SetupLane) -> None:
         operation = self._operations.get(lane)

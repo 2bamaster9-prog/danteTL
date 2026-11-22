@@ -16,7 +16,7 @@ Release builds use [the standard build entry point](building.md). The distributi
 runs `verify_standalone_windows.py --headless` against the relocated EXE with offline Japanese OCR.
 
 Use explicit-time controller replays for processing/lifecycle policy. Keep GUI checks for commands,
-visible state, pause/disclosure, progress and responsiveness. Keep worker integration tests for
+visible state, pause/disclosure, progress and responsiveness. Exercise both startup discovery orders and reopen setup after acknowledging its result. Switch models with a paused inspector after the live scene empties. Keep worker integration tests for
 thread ownership, teardown, publication races and cancellation. New extraction tests should use
 public commands/snapshots, not mirror private fields or implementation helper order.
 `test_application_transitions.py` drives `start_capture`, `configure`, `assign`, `consent`, `stop`

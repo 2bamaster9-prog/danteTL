@@ -80,6 +80,16 @@ def test_recreated_guide_observes_same_review_and_completion(app, tmp_path):
             assert view.pages.currentIndex() == 4 and view.next.isEnabled()
             assert len(replay.operations) == 1
             assert not replay.setup.start_review(review.token)
+            completed = []
+            view.completed.connect(lambda key, target: completed.append((key, target)))
+            view.next.click()
+            assert completed == [("model", None)]
+            reopened = SetupAssistant(replay.setup, None, parent)
+            try:
+                assert reopened.pages.currentIndex() == 0
+                assert len(replay.operations) == 1
+            finally:
+                shiboken6.delete(reopened)
         finally:
             shiboken6.delete(view)
     finally:

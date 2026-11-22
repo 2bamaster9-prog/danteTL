@@ -375,11 +375,16 @@ class SetupAssistant(QDialog):
             self.close()
 
     def _finish(self, target: Path | None) -> None:
-        self._reported = True
+        self._report_completion(target)
         self.hide()
-        key = self.service.selection_id(self.model.currentData())
-        self.completed.emit(key, target)
         self.accept()
+
+    def _report_completion(self, target: Path | None) -> None:
+        self._reported = True
+        if self._review is not None:
+            key = self.service.acknowledge_review(self._review.token)
+            if key is not None:
+                self.completed.emit(key, target)
 
     def _skip(self) -> None:
         if self.busy:
@@ -399,10 +404,9 @@ class SetupAssistant(QDialog):
             event.ignore()
             return
         if not self._reported:
-            self._reported = True
             if self._finished:
-                key = self.service.selection_id(self.model.currentData())
-                self.completed.emit(key, None)
+                self._report_completion(None)
             else:
+                self._reported = True
                 self.skipped.emit()
         event.accept()

@@ -71,7 +71,6 @@ def main() -> int:
     window.show()
     window.offer_first_run()
     guide = window._setup_assistant
-    assert guide
     stage, ticks = 0, 0
     failed = False
     evidence = {}
@@ -95,8 +94,11 @@ def main() -> int:
         nonlocal stage, ticks, failed, guide
         ticks += 1
         try:
-            assert guide
             assert time.monotonic() - started < 45
+            if guide is None:
+                guide = window._setup_assistant
+                if guide is None:
+                    return
             if stage == 0:
                 if guide.hardware_status is None:
                     return
@@ -152,7 +154,7 @@ def main() -> int:
                 assert not guide.isVisible()
                 window._show_setup_assistant()
                 guide = window._setup_assistant
-                assert guide and guide.isVisible()
+                assert guide and guide.isVisible() and guide.pages.currentIndex() == 0
                 guide.skip.click()
                 window.close()
                 stage = 5
