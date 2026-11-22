@@ -276,6 +276,49 @@ def test_imported_context_is_bounded_and_source_is_never_truncated(tmp_path, fak
 
 
 @pytest.mark.parametrize(
+    "architecture,profile",
+    [
+        ("llama", "embedded"),
+        ("llama", "llama3"),
+        ("llama", "chatml"),
+        ("qwen35", "embedded"),
+        ("gemma4", "gemma4"),
+        ("plamo3", "plamo3"),
+    ],
+)
+def test_imported_label_decoder_uses_the_selected_prompt_and_sampling(
+    tmp_path, fake_runtime, monkeypatch, architecture, profile
+):
+    from dantetl.languages.target import ENGLISH
+
+    monkeypatch.setattr(gguf_backend, "supports_plamo", lambda: True)
+    create = Mock()
+    monkeypatch.setattr(gguf_backend, "LlamaLabelDecoder", create)
+    registration_ = replace(registration(tmp_path, architecture=architecture), profile=profile)
+    backend = gguf_backend.GgufBackend(registration_, device="cpu")
+    model = fake_runtime.Llama.return_value
+    try:
+        backend.translate(("装備<武器>",))
+        prompt = model.tokenize.call_args.args[0].decode()
+        options = model.create_completion.call_args.kwargs
+        assert backend.prepare_labels(ENGLISH) is create.return_value
+        _, _, _, render, validate, stops, limit, target, sampling = create.call_args.args
+        assert render("装備<武器>", target) == prompt
+        assert list(stops) == options["stop"] and limit == options["max_tokens"]
+        assert validate(model.create_completion.return_value) == "Settings"
+        sampling.sampler(model)
+        model.set_seed.assert_called_with(options["seed"])
+        model._init_sampler.assert_called_with(
+            temp=options["temperature"],
+            top_k=options["top_k"],
+            top_p=options["top_p"],
+            repeat_penalty=options["repeat_penalty"],
+        )
+    finally:
+        backend.close()
+
+
+@pytest.mark.parametrize(
     "text,reason",
     [
         ("", "stop"),

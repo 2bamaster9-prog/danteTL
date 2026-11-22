@@ -53,6 +53,30 @@ def installed_device() -> str | None:
     return "cpu" if {"llama.dll", "libllama.dll"} & names and cpu else None
 
 
+def menu_sequence_width(device: str) -> int:
+    """Choose a bounded width for main_gpu=0 from the loaded runtime's visible devices."""
+    if device == "cpu":
+        return 8  # Close to the 16-slot throughput, with earlier first labels.
+    from ctypes import CDLL, CFUNCTYPE, c_char_p, c_void_p
+
+    try:
+        from llama_cpp import _ggml
+
+        # DXGI order can differ from llama.cpp, especially with Vulkan device filtering.
+        find = CFUNCTYPE(c_void_p, c_char_p)(("ggml_backend_dev_by_name", _ggml.libggml))
+        base = CDLL(str(Path(_ggml.__file__).parent / "lib" / "ggml-base.dll"))
+        describe = CFUNCTYPE(c_char_p, c_void_p)(("ggml_backend_dev_description", base))
+        handle = find(b"CUDA0" if device == "cuda" else b"Vulkan0")
+        description = describe(handle) if handle else b""
+    except (ImportError, AttributeError, OSError):
+        description = b""
+    if description and b"RTX 5080" in description:
+        return 8
+    if device == "vulkan" and description == b"AMD Radeon(TM) Graphics":
+        return 16
+    return 4
+
+
 def load_runtime(device: str) -> Any:
     """Load native libraries on a worker or in the isolated setup probe only."""
     global _runtime

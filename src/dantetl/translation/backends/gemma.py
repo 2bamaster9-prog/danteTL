@@ -12,8 +12,9 @@ from dantetl.languages.source import SourceLanguage
 from dantetl.languages.target import ENGLISH, TargetLanguage
 from dantetl.paths import state_root
 from dantetl.runtime.assets import ModelAsset, validate_asset
-from dantetl.runtime.llama import flash_attention_options, load_runtime
+from dantetl.runtime.llama import flash_attention_options, load_runtime, menu_sequence_width
 from dantetl.translation.backend import RequestRejected
+from dantetl.translation.backends.label_decoder import LlamaLabelDecoder
 from dantetl.translation.dialogue.classifier import (
     Classification,
     ClassificationInput,
@@ -216,6 +217,22 @@ class GemmaBackend:
         if self._model is not None:
             self._model.close()
             self._model = None
+
+    @property
+    def label_width(self) -> int:
+        return menu_sequence_width(self._device)
+
+    def prepare_labels(self, target: TargetLanguage) -> LlamaLabelDecoder:
+        return LlamaLabelDecoder(
+            load_runtime(self._device),
+            self._model,
+            self.label_width,
+            lambda text, target: translation_prompt(text, language=self._language, target=target),
+            completed_translation,
+            ["<turn|>", "<|turn>", "<eos>"],
+            OUTPUT_LIMIT,
+            target,
+        )
 
     def classify(self, value: ClassificationInput, cancelled: threading.Event) -> Classification:
         return local_classification(

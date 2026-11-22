@@ -13,8 +13,14 @@ from dantetl.languages.selection import DEFAULT_SOURCE
 from dantetl.languages.source import SourceLanguage
 from dantetl.languages.target import ENGLISH, TargetLanguage
 from dantetl.paths import state_root
-from dantetl.runtime.llama import flash_attention_options, load_runtime, supports_plamo
+from dantetl.runtime.llama import (
+    flash_attention_options,
+    load_runtime,
+    menu_sequence_width,
+    supports_plamo,
+)
 from dantetl.translation.backend import RequestRejected
+from dantetl.translation.backends.label_decoder import LlamaLabelDecoder, Sampling
 from dantetl.translation.dialogue.classifier import (
     Classification,
     ClassificationInput,
@@ -112,6 +118,7 @@ class GgufBackend:
             raise ValueError(tr("Unknown language-model device."))
         self._model: Any = None
         self.registration = registration
+        self._device = device
         path = Path(registration.path)
         info = inspect_gguf(path, registration.profile)
         if info.profile == "plamo3" and not supports_plamo():
@@ -140,6 +147,11 @@ class GgufBackend:
                 tr("The selected runtime cannot accelerate this model. Open Acceleration.")
             )
         self._qwen = info.architecture.startswith("qwen")
+        self._sampling = (
+            Sampling(temperature=0.7, top_k=20, top_p=0.8, seed=42)
+            if self._qwen
+            else Sampling(seed=42)
+        )
         self._gemma = info.profile == "gemma4"
         self._plamo = info.profile == "plamo3"
         batch = 128 if device == "cpu" else 1
@@ -235,6 +247,33 @@ class GgufBackend:
             raise ValueError(tr("At most four sources per call."))
         return tuple(self.translate_with_context(text, (), target=target) for text in texts)
 
+    def _prompt(self, text: str, context: tuple[DialogueTurn, ...], target: TargetLanguage) -> str:
+        if self._plamo:
+            from dantetl.translation.backends.plamo import translation_prompt
+
+            prompt = translation_prompt(text, context, language=self._language, target=target)
+        elif self._gemma:
+            from dantetl.translation.backends.gemma import translation_prompt
+
+            prompt = translation_prompt(text, context, language=self._language, target=target)
+        else:
+            # A single user turn works with templates that disallow system roles.
+            formatted = self._formatter(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": user_prompt(
+                            text, context, language=self._language, target=target
+                        ),
+                    }
+                ],
+                enable_thinking=False,
+            )
+            prompt = formatted.prompt
+        if len(prompt) > 65_536:
+            raise RequestRejected(tr("Model chat template produced an oversized prompt."))
+        return prompt
+
     def translate_with_context(
         self, text: str, context: tuple[DialogueTurn, ...], *, target: TargetLanguage = ENGLISH
     ) -> str:
@@ -246,30 +285,7 @@ class GgufBackend:
         while sum(len(t.source) + len(t.english) for t in context) > 512:
             context = context[1:]
         while True:
-            if self._plamo:
-                from dantetl.translation.backends.plamo import translation_prompt
-
-                prompt = translation_prompt(text, context, language=self._language, target=target)
-            elif self._gemma:
-                from dantetl.translation.backends.gemma import translation_prompt
-
-                prompt = translation_prompt(text, context, language=self._language, target=target)
-            else:
-                # A single user turn works with templates that disallow system roles.
-                formatted = self._formatter(
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": user_prompt(
-                                text, context, language=self._language, target=target
-                            ),
-                        }
-                    ],
-                    enable_thinking=False,
-                )
-                prompt = formatted.prompt
-            if len(prompt) > 65_536:
-                raise RequestRejected(tr("Model chat template produced an oversized prompt."))
+            prompt = self._prompt(text, context, target)
             tokens = self._model.tokenize(prompt.encode(), add_bos=False, special=True)
             if len(tokens) + OUTPUT_LIMIT <= CONTEXT:
                 break
@@ -281,10 +297,10 @@ class GgufBackend:
         response = self._model.create_completion(
             prompt=tokens,
             max_tokens=OUTPUT_LIMIT,
-            temperature=0.7 if self._qwen else 0,
-            top_p=0.8 if self._qwen else 0.95,
-            top_k=20 if self._qwen else 40,
-            seed=42,
+            temperature=self._sampling.temperature,
+            top_p=self._sampling.top_p,
+            top_k=self._sampling.top_k,
+            seed=self._sampling.seed,
             repeat_penalty=1.0,
             stop=self._stops,
             stream=False,
@@ -295,6 +311,23 @@ class GgufBackend:
         if self._model is not None:
             self._model.close()
             self._model = None
+
+    @property
+    def label_width(self) -> int:
+        return menu_sequence_width(self._device)
+
+    def prepare_labels(self, target: TargetLanguage) -> LlamaLabelDecoder:
+        return LlamaLabelDecoder(
+            load_runtime(self._device),
+            self._model,
+            self.label_width,
+            lambda text, target: self._prompt(text, (), target),
+            completed_answer,
+            self._stops,
+            OUTPUT_LIMIT,
+            target,
+            self._sampling,
+        )
 
     def classify(self, value: ClassificationInput, cancelled: threading.Event) -> Classification:
         if self._plamo:
