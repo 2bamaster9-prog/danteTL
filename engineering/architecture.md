@@ -204,7 +204,11 @@ pending image and accumulated coverage still require acknowledgement of the prev
 An artificial-edge detection discards the provisional crops. An optimized plan retries the original
 demand directly. An edge in the original crops triggers one full-frame fallback.
 Independent full-discovery deadlines cannot be delayed
-by typewriter activity elsewhere. `ScanPlanner` evaluates partitions of at most four areas using provider
+by typewriter activity elsewhere. An unsettled local edit carries a one-shot quiet deadline and
+closed coverage on its exact capture. The desktop refresh releases that work if captures stop.
+When another area needs OCR on the same capture, the next capture releases the independent
+area alone; reaching the deadline first releases both together. Each capture supplies at most
+one observation, including on a static window. `ScanPlanner` evaluates partitions of at most four areas using provider
 costs and bounded geometry/confidence hints. Unknown/weak/small/vertical cases retain the baseline.
 Changed plans need savings and glyph/coverage safeguards. Preservation requires a one-to-one matching
 covering expected lines, using geometry/orientation/confidence without old-text equality. One oversized

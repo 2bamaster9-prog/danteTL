@@ -59,7 +59,7 @@ class VisualWorker(Protocol):
     def start(self) -> None: ...
     def request_stop(self) -> None: ...
     def invalidate(self, *, language: SourceLanguage) -> None: ...
-    def poll(self) -> VisualState: ...
+    def poll(self, latest_sequence: int, now: float) -> VisualState: ...
     def submit(
         self,
         frame: CapturedFrame,
@@ -309,7 +309,7 @@ class LiveSession:
             return snapshot
         self._ocr_failed = False
         if self.visual:
-            state = self.visual.poll()
+            state = self.visual.poll(frame.sequence, now)
             candidate = (
                 snapshot.result
                 if snapshot.result and snapshot.result.frame.sequence > self._consumed_sequence

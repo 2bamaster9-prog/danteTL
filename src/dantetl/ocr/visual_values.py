@@ -15,6 +15,12 @@ class MenuSample:
 
 
 @dataclass(frozen=True, slots=True)
+class SettledScan:
+    deadline: float
+    areas: tuple[Rect, ...] | None
+
+
+@dataclass(frozen=True, slots=True)
 class VisualState:
     frame: CapturedFrame | None = None
     request_ocr: bool = False
@@ -41,3 +47,4 @@ class VisualState:
     review_message: str = ""
     complete_lines: frozenset[TextTrack] = frozenset()
     matching_menus: tuple[MenuSample, ...] = ()
+    settled_scan: SettledScan | None = None

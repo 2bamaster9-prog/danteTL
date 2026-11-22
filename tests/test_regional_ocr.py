@@ -382,6 +382,48 @@ def test_periodic_full_scan_is_not_starved_by_frequent_small_changes():
     assert all(b - a <= 25 for a, b in zip(full, full[1:], strict=False))
 
 
+@pytest.mark.parametrize("outcome", ["static", "mixed_static", "mixed_moving", "invalidate"])
+def test_last_deferred_capture_is_scanned_once_without_creating_new_evidence(outcome):
+    published = threading.Event()
+    worker = VisualSession(on_change=published.set)
+    track = TextTrack(1, "これから長い文章が表示されます", Rect(48, 98, 310, 25))
+    result = OcrResult(ink_frame(1), (TextRegion(track.text, track.bounds),), 30, 0.2)
+
+    def submit(frame):
+        published.clear()
+        worker.submit(frame, result, (track,), (1,), ())
+        assert published.wait(3)
+        return worker.poll(frame.sequence, frame.captured_at)
+
+    worker.start()
+    try:
+        assert submit(result.frame).request_ocr
+        assert submit(ink_frame(4)).request_ocr
+        mixed = outcome.startswith("mixed")
+        last = ink_frame(5, continuation=True, label=mixed)
+        waiting = submit(last)
+        assert waiting.blocked == {1} and not waiting.request_ocr
+        if outcome == "invalidate":
+            worker.invalidate()
+            assert not worker.poll(5, 10).request_ocr
+            return
+        newer = outcome == "mixed_moving"
+        state = worker.poll(6 if newer else 5, last.captured_at + (0.05 if newer else 0.17))
+        assert state.request_ocr and state.frame is last
+        assert state.blocked == waiting.blocked and state.stable_tracks == waiting.stable_tracks
+
+        def covers(box):
+            return state.scan_areas is None or any(a.contains(box) for a in state.scan_areas)
+
+        assert covers(track.bounds) != newer
+        if mixed:
+            assert covers(Rect(770, 448, 85, 28))
+        assert not worker.poll(5, 10).request_ocr
+    finally:
+        worker.request_stop()
+        wait_for(lambda: worker.finished)
+
+
 def test_menu_request_does_not_consume_the_dialogues_later_settling_request():
     visual = VisualAnalyzer()
     first = ink_frame(1)

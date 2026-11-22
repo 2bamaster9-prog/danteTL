@@ -19,7 +19,7 @@ from dantetl.ocr.regions import padded, scan_regions
 from dantetl.ocr.text_content import content_region
 from dantetl.ocr.tracking import MatchingEvidence, TextActivity, TextTrack, prepare_matching
 from dantetl.ocr.values import OcrResult, TextRegion
-from dantetl.ocr.visual_values import VisualState
+from dantetl.ocr.visual_values import SettledScan, VisualState
 
 logger = logging.getLogger(__name__)
 cv2: Any
@@ -953,6 +953,8 @@ class VisualAnalyzer:
         complete_lines = set()
         growing_areas = []
         local_areas = []
+        settling = []
+        deadline = now
         for probe in self._probes:
             if not probe.checked or _touches(changed_tiles, probe.bounds, size):
                 current = _crop(pixels, probe.bounds, wide=True)
@@ -992,8 +994,12 @@ class VisualAnalyzer:
                     stable.append(probe.index)
             if probe.dialogue and growth and not quiet:
                 growing_areas.append(probe.bounds)
-            if (dirty or growth) and quiet and probe.changed_at > probe.requested_at:
-                local_areas.append(padded(probe.bounds, size))
+            if (dirty or growth) and probe.changed_at > probe.requested_at:
+                if quiet:
+                    local_areas.append(padded(probe.bounds, size))
+                else:
+                    settling.append(padded(probe.bounds, size))
+                    deadline = max(deadline, probe.changed_at + 0.16)
         due = self._followup is not None and now >= self._followup
         refresh = now - self._last_full >= 3.0
         # Delay only the revealing area, not unrelated newly opened UI. Dirty tiles
@@ -1020,6 +1026,16 @@ class VisualAnalyzer:
             None if refresh else scan_regions(proposed, size, tuple(t.bounds for t in tracks))
         )
         request = fresh and coverage != ()
+        settled_scan = None
+        if (
+            settling
+            and coverage is not None
+            and any(not any(area.contains(box) for area in coverage) for box in settling)
+        ):
+            settled_scan = SettledScan(
+                deadline,
+                scan_regions((*coverage, *settling), size, tuple(t.bounds for t in tracks)),
+            )
         if request:
             if (
                 previous is not None
@@ -1063,6 +1079,7 @@ class VisualAnalyzer:
             stable_tracks=tuple(stable_tracks),
             complete_lines=frozenset(complete_lines),
             matching_menus=self._menus.matching(pixels),
+            settled_scan=settled_scan,
             changed_areas=tuple(
                 Rect(
                     int(x) * size[0] // 32,
@@ -1114,6 +1131,7 @@ class _ObservationReview:
                 review_message=self.message,
                 request_ocr=True,
                 scan_areas=None,
+                settled_scan=None,
             )
         key = sequence, job.evidence_bounds
         if self.pixel_key != key:
@@ -1157,6 +1175,7 @@ class VisualSession:
         self._stop = False
         self._done = threading.Event()
         self._snapshot = VisualState()
+        self._delivered_sequence = 0
         self._thread = threading.Thread(target=self._run, name="visual-owner", daemon=True)
 
     def start(self) -> None:
@@ -1214,6 +1233,7 @@ class VisualSession:
             self._generation += 1
             self._pending, self._last_key = None, None
             self._snapshot = VisualState()
+            self._delivered_sequence = 0
 
     def request_stop(self) -> None:
         with self._condition:
@@ -1226,12 +1246,25 @@ class VisualSession:
     def finished(self) -> bool:
         return self._done.is_set()
 
-    def poll(self) -> VisualState:
-        """Read current evidence and acknowledge the coalesced OCR request."""
+    def poll(self, latest_sequence: int | None = None, now: float | None = None) -> VisualState:
+        """Release work once per capture. The desktop refresh also services quiet deadlines."""
         with self._condition:
             value = self._snapshot
-            self._snapshot = replace(value, request_ocr=False)
-            return value
+            if not value.request_ocr and value.settled_scan is None:
+                return value
+            frame = value.frame
+            if frame is None or frame.sequence <= self._delivered_sequence:
+                self._snapshot = replace(value, request_ocr=False, settled_scan=None)
+                return self._snapshot
+            settled = value.settled_scan
+            if settled and (latest_sequence is None or latest_sequence <= frame.sequence):
+                if (time.monotonic() if now is None else now) < settled.deadline:
+                    return replace(value, request_ocr=False)
+                value = replace(value, request_ocr=True, scan_areas=settled.areas)
+            if value.request_ocr:
+                self._delivered_sequence = frame.sequence
+            self._snapshot = replace(value, request_ocr=False, settled_scan=None)
+            return replace(value, settled_scan=None)
 
     def _run(self) -> None:
         analyzer, generation = None, -1
@@ -1290,11 +1323,22 @@ class VisualSession:
                                     job.frame.geometry.client.size,
                                 )
                             )
+                        settled = state.settled_scan
+                        if settled is not None and old.request_ocr:
+                            settled = SettledScan(
+                                settled.deadline,
+                                None
+                                if areas is None or settled.areas is None
+                                else scan_regions(
+                                    (*areas, *settled.areas), job.frame.geometry.client.size
+                                ),
+                            )
                         self._snapshot = replace(
                             state,
                             duration_ms=(time.perf_counter() - started) * 1000,
                             request_ocr=state.request_ocr or old.request_ocr,
                             scan_areas=areas,
+                            settled_scan=settled,
                         )
                 if published:
                     self._notify()

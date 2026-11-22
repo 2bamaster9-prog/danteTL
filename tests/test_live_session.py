@@ -94,7 +94,7 @@ class Visual(Worker):
         super().invalidate()
         self.language = language
 
-    def poll(self):
+    def poll(self, latest_sequence=None, now=None):
         if (
             self.ocr
             and (result := self.ocr.current.result)
