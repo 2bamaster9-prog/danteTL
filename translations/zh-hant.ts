@@ -261,10 +261,6 @@ Repairs folder: {directory}</source>
       <translation>阿爾巴尼亞語</translation>
     </message>
     <message>
-      <source>All processing stays on this PC. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
-      <translation>所有處理皆留在此電腦上。計時描述的是最近完成的工作，而非從遊戲文字到翻譯的總時間。擷取取樣、穩定性檢查與對話分組會增加等待時間。暫停檢查不會暫停這些即時指標。將滑鼠懸停在翻譯上可查看其 OCR 來源。</translation>
-    </message>
-    <message>
       <source>Amber: visual changes. Cyan: completed OCR coverage. Timings and diagnostics do not change processing.</source>
       <translation>琥珀色：視覺變更。青色：完成的 OCR 涵蓋範圍。計時與診斷不會改變處理方式。</translation>
     </message>
@@ -529,6 +525,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Capture and OCR stay local.</source>
       <translation>擷取與 OCR 維持在本機。</translation>
+    </message>
+    <message>
+      <source>Capture and OCR stay local. If you select a cloud model, it receives text. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
+      <translation>擷取與 OCR 維持在本機。如果選擇雲端模型，文字會傳送給該模型。計時描述的是最近完成的工作，而非從遊戲文字到翻譯的總時間。擷取取樣、穩定性檢查與對話分組會增加等待時間。暫停檢查不會暫停這些即時指標。將滑鼠懸停在翻譯上可查看其 OCR 來源。</translation>
     </message>
     <message>
       <source>Capture is running. Device and capture rate changes apply next time you start capture.</source>

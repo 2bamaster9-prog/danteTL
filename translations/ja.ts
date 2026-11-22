@@ -261,10 +261,6 @@ Repairs folder: {directory}</source>
       <translation>アルバニア語</translation>
     </message>
     <message>
-      <source>All processing stays on this PC. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
-      <translation>すべての処理はこのPC上で行われます。タイムは最後に完了した作業を示しており、ゲームテキストから翻訳までの合計時間ではありません。キャプチャサンプリング、安定性チェック、会話のグループ化は待機時間を追加します。検査を一時停止しても、これらのライブメトリクスは一時停止しません。翻訳にマウスオーバーするとOCRソースが表示されます。</translation>
-    </message>
-    <message>
       <source>Amber: visual changes. Cyan: completed OCR coverage. Timings and diagnostics do not change processing.</source>
       <translation>アンバー：視覚的な変更。シアン：完了したOCRカバレッジ。タイムと診断は処理を変更しません。</translation>
     </message>
@@ -529,6 +525,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Capture and OCR stay local.</source>
       <translation>キャプチャとOCRはローカルで実行されます。</translation>
+    </message>
+    <message>
+      <source>Capture and OCR stay local. If you select a cloud model, it receives text. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
+      <translation>キャプチャとOCRはローカルで実行されます。クラウドモデルを選択すると、そのモデルにテキストが送信されます。タイムは最後に完了した作業を示しており、ゲームテキストから翻訳までの合計時間ではありません。キャプチャサンプリング、安定性チェック、会話のグループ化は待機時間を追加します。検査を一時停止しても、これらのライブメトリクスは一時停止しません。翻訳にマウスオーバーするとOCRソースが表示されます。</translation>
     </message>
     <message>
       <source>Capture is running. Device and capture rate changes apply next time you start capture.</source>

@@ -261,10 +261,6 @@ Folder perbaikan: {directory}</translation>
       <translation>Bahasa Albania</translation>
     </message>
     <message>
-      <source>All processing stays on this PC. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
-      <translation>Semua pemrosesan tetap di PC ini. Waktu menunjukkan pekerjaan terakhir yang selesai, bukan total waktu dari teks game hingga terjemahan. Pengambilan sampel, pemeriksaan stabilitas, dan pengelompokan dialog menambah waktu tunggu. Menjeda inspeksi tidak menjeda metrik langsung ini. Arahkan kursor ke terjemahan untuk melihat sumber OCR-nya.</translation>
-    </message>
-    <message>
       <source>Amber: visual changes. Cyan: completed OCR coverage. Timings and diagnostics do not change processing.</source>
       <translation>Amber: perubahan visual. Cyan: cakupan OCR yang selesai. Waktu dan diagnostik tidak mengubah pemrosesan.</translation>
     </message>
@@ -529,6 +525,10 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Capture and OCR stay local.</source>
       <translation>Tangkapan dan OCR tetap lokal.</translation>
+    </message>
+    <message>
+      <source>Capture and OCR stay local. If you select a cloud model, it receives text. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
+      <translation>Tangkapan dan OCR tetap lokal. Jika Anda memilih model cloud, model tersebut akan menerima teks. Waktu menunjukkan pekerjaan terakhir yang selesai, bukan total waktu dari teks game hingga terjemahan. Pengambilan sampel, pemeriksaan stabilitas, dan pengelompokan dialog menambah waktu tunggu. Menjeda inspeksi tidak menjeda metrik langsung ini. Arahkan kursor ke terjemahan untuk melihat sumber OCR-nya.</translation>
     </message>
     <message>
       <source>Capture is running. Device and capture rate changes apply next time you start capture.</source>

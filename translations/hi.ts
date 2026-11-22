@@ -261,10 +261,6 @@ Repairs folder: {directory}</source>
       <translation>अल्बानियाई</translation>
     </message>
     <message>
-      <source>All processing stays on this PC. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
-      <translation>सारी प्रोसेसिंग इस PC पर ही रहती है। समय पिछले पूर्ण कार्य को दर्शाता है, गेम टेक्स्ट से अनुवाद तक का कुल समय नहीं। कैप्चर सैंपलिंग, स्थिरता जाँच और संवाद समूहन प्रतीक्षा समय जोड़ते हैं। निरीक्षण रोकने से ये लाइव मेट्रिक्स नहीं रुकतीं। किसी अनुवाद पर होवर करके उसका OCR स्रोत देखें।</translation>
-    </message>
-    <message>
       <source>Amber: visual changes. Cyan: completed OCR coverage. Timings and diagnostics do not change processing.</source>
       <translation>एम्बर: दृश्य परिवर्तन। सियान: पूर्ण OCR कवरेज। समय और डायग्नोस्टिक्स प्रोसेसिंग नहीं बदलते।</translation>
     </message>
@@ -529,6 +525,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Capture and OCR stay local.</source>
       <translation>कैप्चर और OCR स्थानीय रहते हैं।</translation>
+    </message>
+    <message>
+      <source>Capture and OCR stay local. If you select a cloud model, it receives text. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
+      <translation>कैप्चर और OCR स्थानीय रहते हैं। अगर आप क्लाउड मॉडल चुनते हैं, तो उसे टेक्स्ट भेजा जाता है। समय पिछले पूर्ण कार्य को दर्शाता है, गेम टेक्स्ट से अनुवाद तक का कुल समय नहीं। कैप्चर सैंपलिंग, स्थिरता जाँच और संवाद समूहन प्रतीक्षा समय जोड़ते हैं। निरीक्षण रोकने से ये लाइव मेट्रिक्स नहीं रुकतीं। किसी अनुवाद पर होवर करके उसका OCR स्रोत देखें।</translation>
     </message>
     <message>
       <source>Capture is running. Device and capture rate changes apply next time you start capture.</source>

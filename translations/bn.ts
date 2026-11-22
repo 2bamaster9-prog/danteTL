@@ -261,10 +261,6 @@ Repairs folder: {directory}</source>
       <translation>আলবেনীয়</translation>
     </message>
     <message>
-      <source>All processing stays on this PC. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
-      <translation>সকল প্রক্রিয়াকরণ এই PC-তেই থাকে। সময়গুলো শেষ সম্পন্ন কাজের বর্ণনা দেয়, গেম টেক্সট থেকে অনুবাদ পর্যন্ত মোট সময় নয়। ক্যাপচার স্যাম্পলিং, স্থিতিশীলতা যাচাই ও সংলাপ গ্রুপিং অপেক্ষার সময় যোগ করে। পরিদর্শন বিরতি দিলে এই লাইভ মেট্রিকগুলো থামে না। কোনো অনুবাদের উপর হোভার করলে তার OCR উৎস দেখতে পাবেন।</translation>
-    </message>
-    <message>
       <source>Amber: visual changes. Cyan: completed OCR coverage. Timings and diagnostics do not change processing.</source>
       <translation>অ্যাম্বার: দৃশ্যমান পরিবর্তন। সায়ান: সম্পন্ন OCR কভারেজ। সময় ও ডায়াগনস্টিকস প্রক্রিয়াকরণ পরিবর্তন করে না।</translation>
     </message>
@@ -529,6 +525,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Capture and OCR stay local.</source>
       <translation>ক্যাপচার এবং OCR স্থানীয়ভাবে থাকে।</translation>
+    </message>
+    <message>
+      <source>Capture and OCR stay local. If you select a cloud model, it receives text. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
+      <translation>ক্যাপচার এবং OCR স্থানীয়ভাবে থাকে। ক্লাউড মডেল নির্বাচন করলে সেটি টেক্সট পাবে। সময়গুলো শেষ সম্পন্ন কাজের বর্ণনা দেয়, গেম টেক্সট থেকে অনুবাদ পর্যন্ত মোট সময় নয়। ক্যাপচার স্যাম্পলিং, স্থিতিশীলতা যাচাই ও সংলাপ গ্রুপিং অপেক্ষার সময় যোগ করে। পরিদর্শন বিরতি দিলে এই লাইভ মেট্রিকগুলো থামে না। কোনো অনুবাদের উপর হোভার করলে তার OCR উৎস দেখতে পাবেন।</translation>
     </message>
     <message>
       <source>Capture is running. Device and capture rate changes apply next time you start capture.</source>

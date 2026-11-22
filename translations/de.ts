@@ -261,10 +261,6 @@ Reparaturordner: {directory}</translation>
       <translation>Albanisch</translation>
     </message>
     <message>
-      <source>All processing stays on this PC. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
-      <translation>Die gesamte Verarbeitung bleibt auf diesem PC. Zeiten beschreiben die zuletzt abgeschlossene Arbeit, nicht die Gesamtzeit vom Spieltext bis zur Übersetzung. Aufnahme-Sampling, Stabilitätsprüfungen und Dialoggruppierung verursachen Wartezeit. Das Pausieren der Inspektion pausiert diese Live-Metriken nicht. Fahren Sie über eine Übersetzung, um ihre OCR-Quelle zu sehen.</translation>
-    </message>
-    <message>
       <source>Amber: visual changes. Cyan: completed OCR coverage. Timings and diagnostics do not change processing.</source>
       <translation>Bernstein: visuelle Änderungen. Türkis: abgeschlossene OCR-Abdeckung. Zeiten und Diagnosen ändern die Verarbeitung nicht.</translation>
     </message>
@@ -529,6 +525,10 @@ Details finden Sie in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Capture and OCR stay local.</source>
       <translation>Aufnahme und OCR bleiben lokal.</translation>
+    </message>
+    <message>
+      <source>Capture and OCR stay local. If you select a cloud model, it receives text. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
+      <translation>Aufnahme und OCR bleiben lokal. Wenn du ein Cloud-Modell auswählst, erhält es Text. Zeiten beschreiben die zuletzt abgeschlossene Arbeit, nicht die Gesamtzeit vom Spieltext bis zur Übersetzung. Aufnahme-Sampling, Stabilitätsprüfungen und Dialoggruppierung verursachen Wartezeit. Das Pausieren der Inspektion pausiert diese Live-Metriken nicht. Fahren Sie über eine Übersetzung, um ihre OCR-Quelle zu sehen.</translation>
     </message>
     <message>
       <source>Capture is running. Device and capture rate changes apply next time you start capture.</source>

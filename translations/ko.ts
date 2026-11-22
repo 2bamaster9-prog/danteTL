@@ -261,10 +261,6 @@ Repairs folder: {directory}</source>
       <translation>알바니아어</translation>
     </message>
     <message>
-      <source>All processing stays on this PC. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
-      <translation>모든 처리는 이 PC에서 이루어집니다. 타이밍은 게임 텍스트부터 번역까지의 총 시간이 아니라 마지막으로 완료된 작업을 나타냅니다. 캡처 샘플링, 안정성 검사, 대화 그룹화로 인해 대기 시간이 추가됩니다. 검사 일시 중지는 이러한 실시간 지표를 일시 중지하지 않습니다. 번역 위에 마우스를 올리면 해당 OCR 소스를 볼 수 있습니다.</translation>
-    </message>
-    <message>
       <source>Amber: visual changes. Cyan: completed OCR coverage. Timings and diagnostics do not change processing.</source>
       <translation>주황색: 시각적 변경. 청록색: 완료된 OCR 범위. 타이밍과 진단 정보는 처리를 변경하지 않습니다.</translation>
     </message>
@@ -529,6 +525,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Capture and OCR stay local.</source>
       <translation>캡처와 OCR은 로컬에서 처리됩니다.</translation>
+    </message>
+    <message>
+      <source>Capture and OCR stay local. If you select a cloud model, it receives text. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
+      <translation>캡처와 OCR은 로컬에서 처리됩니다. 클라우드 모델을 선택하면 해당 모델로 텍스트가 전송됩니다. 타이밍은 게임 텍스트부터 번역까지의 총 시간이 아니라 마지막으로 완료된 작업을 나타냅니다. 캡처 샘플링, 안정성 검사, 대화 그룹화로 인해 대기 시간이 추가됩니다. 검사 일시 중지는 이러한 실시간 지표를 일시 중지하지 않습니다. 번역 위에 마우스를 올리면 해당 OCR 소스를 볼 수 있습니다.</translation>
     </message>
     <message>
       <source>Capture is running. Device and capture rate changes apply next time you start capture.</source>

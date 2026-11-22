@@ -261,10 +261,6 @@ Herstelmap: {directory}</translation>
       <translation>Albanees</translation>
     </message>
     <message>
-      <source>All processing stays on this PC. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
-      <translation>Alle verwerking blijft op deze pc. Tijden beschrijven het laatst voltooide werk, niet de totale tijd van gametekst tot vertaling. Opnamesampling, stabiliteitscontroles en dialooggroepering voegen wachttijd toe. Het pauzeren van inspectie pauzeert deze live statistieken niet. Beweeg over een vertaling om de OCR-bron te zien.</translation>
-    </message>
-    <message>
       <source>Amber: visual changes. Cyan: completed OCR coverage. Timings and diagnostics do not change processing.</source>
       <translation>Amber: visuele wijzigingen. Cyaan: voltooide OCR-dekking. Tijden en diagnostiek veranderen de verwerking niet.</translation>
     </message>
@@ -529,6 +525,10 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Capture and OCR stay local.</source>
       <translation>Vastleggen en OCR blijven lokaal.</translation>
+    </message>
+    <message>
+      <source>Capture and OCR stay local. If you select a cloud model, it receives text. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
+      <translation>Vastleggen en OCR blijven lokaal. Als je een cloudmodel kiest, ontvangt het tekst. Tijden beschrijven het laatst voltooide werk, niet de totale tijd van gametekst tot vertaling. Opnamesampling, stabiliteitscontroles en dialooggroepering voegen wachttijd toe. Het pauzeren van inspectie pauzeert deze live statistieken niet. Beweeg over een vertaling om de OCR-bron te zien.</translation>
     </message>
     <message>
       <source>Capture is running. Device and capture rate changes apply next time you start capture.</source>

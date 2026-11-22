@@ -261,10 +261,6 @@ Carpeta de reparaciones: {directory}</translation>
       <translation>Albanés</translation>
     </message>
     <message>
-      <source>All processing stays on this PC. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
-      <translation>Todo el procesamiento permanece en este PC. Los tiempos describen el último trabajo completado, no el tiempo total desde el texto del juego hasta la traducción. El muestreo de captura, las comprobaciones de estabilidad y la agrupación de diálogos añaden tiempo de espera. Pausar la inspección no pausa estas métricas en vivo. Pasa el cursor sobre una traducción para ver su origen OCR.</translation>
-    </message>
-    <message>
       <source>Amber: visual changes. Cyan: completed OCR coverage. Timings and diagnostics do not change processing.</source>
       <translation>Ámbar: cambios visuales. Cian: cobertura OCR completada. Los tiempos y diagnósticos no cambian el procesamiento.</translation>
     </message>
@@ -529,6 +525,10 @@ Los detalles están en %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Capture and OCR stay local.</source>
       <translation>La captura y el OCR permanecen locales.</translation>
+    </message>
+    <message>
+      <source>Capture and OCR stay local. If you select a cloud model, it receives text. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
+      <translation>La captura y el OCR permanecen locales. Si seleccionas un modelo en la nube, recibirá texto. Los tiempos describen el último trabajo completado, no el tiempo total desde el texto del juego hasta la traducción. El muestreo de captura, las comprobaciones de estabilidad y la agrupación de diálogos añaden tiempo de espera. Pausar la inspección no pausa estas métricas en vivo. Pasa el cursor sobre una traducción para ver su origen OCR.</translation>
     </message>
     <message>
       <source>Capture is running. Device and capture rate changes apply next time you start capture.</source>

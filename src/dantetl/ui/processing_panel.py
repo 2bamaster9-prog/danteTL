@@ -70,7 +70,8 @@ class ProcessingPanel(QWidget):
             InfoButton(
                 mark("Processing timings"),
                 mark(
-                    "All processing stays on this PC. Timings describe the last completed work, "
+                    "Capture and OCR stay local. If you select a cloud model, it receives text. "
+                    "Timings describe the last completed work, "
                     "not total time from game text to translation. Capture sampling, "
                     "stability checks "
                     "and dialogue grouping add waiting time. Pausing inspection does not pause "

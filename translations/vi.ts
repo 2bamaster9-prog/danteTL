@@ -261,10 +261,6 @@ Thư mục sửa chữa: {directory}</translation>
       <translation>Tiếng Albania</translation>
     </message>
     <message>
-      <source>All processing stays on this PC. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
-      <translation>Mọi xử lý đều diễn ra trên PC này. Thời gian mô tả công việc hoàn thành gần nhất, không phải tổng thời gian từ văn bản trong game đến bản dịch. Việc lấy mẫu chụp, kiểm tra ổn định và nhóm hội thoại làm tăng thời gian chờ. Tạm dừng kiểm tra không tạm dừng các số liệu trực tiếp này. Di chuột lên bản dịch để xem nguồn OCR của nó.</translation>
-    </message>
-    <message>
       <source>Amber: visual changes. Cyan: completed OCR coverage. Timings and diagnostics do not change processing.</source>
       <translation>Hổ phách: thay đổi hình ảnh. Lục lam: độ phủ OCR đã hoàn thành. Thời gian và chẩn đoán không thay đổi quá trình xử lý.</translation>
     </message>
@@ -529,6 +525,10 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Capture and OCR stay local.</source>
       <translation>Chụp và OCR diễn ra cục bộ.</translation>
+    </message>
+    <message>
+      <source>Capture and OCR stay local. If you select a cloud model, it receives text. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
+      <translation>Chụp và OCR diễn ra cục bộ. Nếu bạn chọn mô hình đám mây, văn bản sẽ được gửi tới mô hình đó. Thời gian mô tả công việc hoàn thành gần nhất, không phải tổng thời gian từ văn bản trong game đến bản dịch. Việc lấy mẫu chụp, kiểm tra ổn định và nhóm hội thoại làm tăng thời gian chờ. Tạm dừng kiểm tra không tạm dừng các số liệu trực tiếp này. Di chuột lên bản dịch để xem nguồn OCR của nó.</translation>
     </message>
     <message>
       <source>Capture is running. Device and capture rate changes apply next time you start capture.</source>

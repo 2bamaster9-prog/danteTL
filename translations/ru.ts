@@ -261,10 +261,6 @@ Repairs folder: {directory}</source>
       <translation>Албанский</translation>
     </message>
     <message>
-      <source>All processing stays on this PC. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
-      <translation>Вся обработка остаётся на этом ПК. Тайминги описывают последнюю завершённую работу, а не общее время от текста в игре до перевода. Выборка захвата, проверки стабильности и группировка диалогов добавляют время ожидания. Пауза инспекции не приостанавливает эти метрики в реальном времени. Наведите курсор на перевод, чтобы увидеть его источник OCR.</translation>
-    </message>
-    <message>
       <source>Amber: visual changes. Cyan: completed OCR coverage. Timings and diagnostics do not change processing.</source>
       <translation>Янтарный: визуальные изменения. Голубой: завершённое покрытие OCR. Тайминги и диагностика не влияют на обработку.</translation>
     </message>
@@ -529,6 +525,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Capture and OCR stay local.</source>
       <translation>Захват и OCR выполняются локально.</translation>
+    </message>
+    <message>
+      <source>Capture and OCR stay local. If you select a cloud model, it receives text. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
+      <translation>Захват и OCR выполняются локально. Если вы выберете облачную модель, ей будет отправлен текст. Тайминги описывают последнюю завершённую работу, а не общее время от текста в игре до перевода. Выборка захвата, проверки стабильности и группировка диалогов добавляют время ожидания. Пауза инспекции не приостанавливает эти метрики в реальном времени. Наведите курсор на перевод, чтобы увидеть его источник OCR.</translation>
     </message>
     <message>
       <source>Capture is running. Device and capture rate changes apply next time you start capture.</source>

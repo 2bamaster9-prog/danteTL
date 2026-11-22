@@ -261,10 +261,6 @@ Repairs folder: {directory}</source>
       <translation>الألبانية</translation>
     </message>
     <message>
-      <source>All processing stays on this PC. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
-      <translation>تبقى كل المعالجة على هذا الكمبيوتر. تصف التوقيتات آخر عمل مكتمل، وليس الوقت الإجمالي من نص اللعبة إلى الترجمة. تضيف أخذ عينات الالتقاط وفحوصات الاستقرار وتجميع الحوار وقت انتظار. لا يؤدي إيقاف الفحص مؤقتًا إلى إيقاف هذه المقاييس المباشرة. مرّر المؤشر فوق ترجمة لرؤية مصدر OCR الخاص بها.</translation>
-    </message>
-    <message>
       <source>Amber: visual changes. Cyan: completed OCR coverage. Timings and diagnostics do not change processing.</source>
       <translation>كهرماني: تغييرات بصرية. سماوي: تغطية OCR مكتملة. لا تغيّر التوقيتات والتشخيصات المعالجة.</translation>
     </message>
@@ -529,6 +525,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Capture and OCR stay local.</source>
       <translation>يبقى الالتقاط والتعرف الضوئي محليًا.</translation>
+    </message>
+    <message>
+      <source>Capture and OCR stay local. If you select a cloud model, it receives text. Timings describe the last completed work, not total time from game text to translation. Capture sampling, stability checks and dialogue grouping add waiting time. Pausing inspection does not pause these live metrics. Hover over a translation to see its OCR source.</source>
+      <translation>يبقى الالتقاط والتعرف الضوئي محليًا. إذا اخترت نموذجًا سحابيًا، فسيتلقى نصًا. تصف التوقيتات آخر عمل مكتمل، وليس الوقت الإجمالي من نص اللعبة إلى الترجمة. تضيف أخذ عينات الالتقاط وفحوصات الاستقرار وتجميع الحوار وقت انتظار. لا يؤدي إيقاف الفحص مؤقتًا إلى إيقاف هذه المقاييس المباشرة. مرّر المؤشر فوق ترجمة لرؤية مصدر OCR الخاص بها.</translation>
     </message>
     <message>
       <source>Capture is running. Device and capture rate changes apply next time you start capture.</source>
