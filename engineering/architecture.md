@@ -129,7 +129,8 @@ missing selections never choose replacements. Persist validated IDs/values, neve
 Badges distinguish files-present from engine-available. Device/rate edits apply next capture, including
 when models arrive mid-session. Worker-based hardware advice separates detection from verified inference.
 Capture status lives in Game & overlay. Its indeterminate loading bar and stage text project actual
-capture/OCR/per-model readiness, including a partially loaded route and the first translation. They
+capture/OCR/per-model readiness, including a partially loaded route. Ordinary translation requests
+do not activate the loading bar. Startup indicators
 remain visible with inspection collapsed and clear on readiness, stop or failure; no estimated
 percentage or extra polling is introduced.
 

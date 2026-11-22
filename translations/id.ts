@@ -3589,10 +3589,6 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Terjemahkan baris di dekatnya dari panel dialog yang sama secara bersamaan. Matikan jika teks yang tidak terkait digabungkan.</translation>
     </message>
     <message>
-      <source>Translating recognized text…</source>
-      <translation>Menerjemahkan teks yang dikenali…</translation>
-    </message>
-    <message>
       <source>Translating · oldest active call {value:.1f} s</source>
       <translation>Menerjemahkan · panggilan aktif terlama {value:.1f} s</translation>
     </message>

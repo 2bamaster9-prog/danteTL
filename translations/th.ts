@@ -3589,10 +3589,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>แปลบรรทัดใกล้เคียงจากแผงบทสนทนาเดียวกันพร้อมกัน ปิดหากข้อความที่ไม่เกี่ยวข้องถูกนำมาเชื่อมกัน</translation>
     </message>
     <message>
-      <source>Translating recognized text…</source>
-      <translation>กำลังแปลข้อความที่รู้จำได้…</translation>
-    </message>
-    <message>
       <source>Translating · oldest active call {value:.1f} s</source>
       <translation>กำลังแปล · การเรียกที่เก่าที่สุดที่ยังทำงาน {value:.1f} วินาที</translation>
     </message>

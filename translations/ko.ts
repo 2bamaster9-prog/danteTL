@@ -3589,10 +3589,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>一起翻译同一对话面板中的相邻行。如果不相关的文本被合并，请关闭。</translation>
     </message>
     <message>
-      <source>Translating recognized text…</source>
-      <translation>正在翻译识别出的文本…</translation>
-    </message>
-    <message>
       <source>Translating · oldest active call {value:.1f} s</source>
       <translation>正在翻译 · 最旧的活动调用 {value:.1f} 秒</translation>
     </message>

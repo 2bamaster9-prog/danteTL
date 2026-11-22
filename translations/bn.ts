@@ -3589,10 +3589,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>একই সংলাপ প্যানেলের কাছাকাছি লাইনগুলো একসাথে অনুবাদ করে। সম্পর্কহীন টেক্সট যুক্ত হলে বন্ধ করুন।</translation>
     </message>
     <message>
-      <source>Translating recognized text…</source>
-      <translation>স্বীকৃত টেক্সট অনুবাদ করা হচ্ছে…</translation>
-    </message>
-    <message>
       <source>Translating · oldest active call {value:.1f} s</source>
       <translation>অনুবাদ হচ্ছে · সবচেয়ে পুরোনো সক্রিয় কল {value:.1f} s</translation>
     </message>

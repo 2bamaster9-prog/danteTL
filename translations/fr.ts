@@ -3589,10 +3589,6 @@ Téléchargements de modèles : jusqu'à {size:.2f} Go ; les fichiers existants 
       <translation>Traduit ensemble les lignes proches d'un même panneau de dialogue. Désactivez si des textes sans rapport sont fusionnés.</translation>
     </message>
     <message>
-      <source>Translating recognized text…</source>
-      <translation>Traduction du texte reconnu…</translation>
-    </message>
-    <message>
       <source>Translating · oldest active call {value:.1f} s</source>
       <translation>Traduction · appel actif le plus ancien {value:.1f} s</translation>
     </message>

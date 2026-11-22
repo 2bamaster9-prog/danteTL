@@ -3589,10 +3589,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>Переводит соседние строки из одной панели диалога вместе. Отключите, если объединяется несвязанный текст.</translation>
     </message>
     <message>
-      <source>Translating recognized text…</source>
-      <translation>Перевод распознанного текста…</translation>
-    </message>
-    <message>
       <source>Translating · oldest active call {value:.1f} s</source>
       <translation>Перевод · самый старый активный вызов {value:.1f} с</translation>
     </message>

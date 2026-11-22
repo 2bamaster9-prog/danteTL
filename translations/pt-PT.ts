@@ -3589,10 +3589,6 @@ Transferências de modelos: até {size:.2f} GB; os ficheiros existentes são ver
       <translation>Traduz em conjunto linhas próximas do mesmo painel de diálogo. Desativa se estiveres a juntar texto não relacionado.</translation>
     </message>
     <message>
-      <source>Translating recognized text…</source>
-      <translation>A traduzir texto reconhecido…</translation>
-    </message>
-    <message>
       <source>Translating · oldest active call {value:.1f} s</source>
       <translation>A traduzir · chamada ativa mais antiga {value:.1f} s</translation>
     </message>

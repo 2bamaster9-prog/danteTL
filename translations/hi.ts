@@ -3589,10 +3589,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>एक ही संवाद पैनल की निकटवर्ती पंक्तियों का एक साथ अनुवाद करता है। यदि असंबंधित टेक्स्ट जुड़ रहा हो तो बंद करें।</translation>
     </message>
     <message>
-      <source>Translating recognized text…</source>
-      <translation>पहचाने गए टेक्स्ट का अनुवाद हो रहा है…</translation>
-    </message>
-    <message>
       <source>Translating · oldest active call {value:.1f} s</source>
       <translation>अनुवाद हो रहा है · सबसे पुरानी सक्रिय कॉल {value:.1f} s</translation>
     </message>

@@ -3589,10 +3589,6 @@ Modell-Downloads: bis zu {size:.2f} GB; vorhandene Dateien werden geprüft und w
       <translation>Übersetzt nahe beieinanderliegende Zeilen desselben Dialogfensters gemeinsam. Ausschalten, wenn unzusammenhängender Text verbunden wird.</translation>
     </message>
     <message>
-      <source>Translating recognized text…</source>
-      <translation>Erkannter Text wird übersetzt…</translation>
-    </message>
-    <message>
       <source>Translating · oldest active call {value:.1f} s</source>
       <translation>Übersetzung · ältester aktiver Aufruf {value:.1f} s</translation>
     </message>

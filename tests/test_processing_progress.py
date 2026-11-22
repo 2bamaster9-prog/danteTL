@@ -37,10 +37,6 @@ def test_startup_explains_each_stage_without_an_invented_percentage():
         (replace(view, ocr=OcrSnapshot(OcrState.LOADING)), "Loading MeikiOCR"),
         (replace(view, ocr=OcrSnapshot(OcrState.READY)), "Reading the first frame"),
         (replace(view, scene=Scene(waiting_blocks=1)), "text to finish appearing"),
-        (
-            replace(view, translation=TranslationSnapshot(TranslationState.READY, pending=1)),
-            "Translating recognized text",
-        ),
     )
     for current, expected in stages:
         result = processing_progress(current, translation_enabled=True)
@@ -75,6 +71,11 @@ def test_loaded_idle_or_published_translation_is_not_reported_as_startup():
     view = ready_view()
     assert processing_progress(view, translation_enabled=True).message == ""
     view = replace(view, translation=TranslationSnapshot(TranslationState.READY, pending=1))
+    assert not processing_progress(view, translation_enabled=True).message
+    working = replace(
+        view, translation=TranslationSnapshot(TranslationState.READY, processing_since=2)
+    )
+    assert not processing_progress(working, translation_enabled=True).busy
     assert not processing_progress(view, translation_enabled=False).busy
     view = replace(view, english=(TranslatedText(TranslationRequest(1, 0, "設定"), "Settings"),))
     assert not processing_progress(view, translation_enabled=True).busy

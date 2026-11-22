@@ -3589,10 +3589,6 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
       <translation>Vertaalt nabije regels uit hetzelfde dialoogpaneel samen. Zet uit als ongerelateerde tekst wordt samengevoegd.</translation>
     </message>
     <message>
-      <source>Translating recognized text…</source>
-      <translation>Herkende tekst vertalen…</translation>
-    </message>
-    <message>
       <source>Translating · oldest active call {value:.1f} s</source>
       <translation>Vertalen · oudste actieve aanroep {value:.1f} s</translation>
     </message>

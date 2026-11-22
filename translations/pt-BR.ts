@@ -3589,10 +3589,6 @@ Downloads de modelos: até {size:.2f} GB; arquivos existentes são verificados e
       <translation>Traduz linhas próximas do mesmo painel de diálogo em conjunto. Desative se textos não relacionados estiverem sendo unidos.</translation>
     </message>
     <message>
-      <source>Translating recognized text…</source>
-      <translation>Traduzindo texto reconhecido…</translation>
-    </message>
-    <message>
       <source>Translating · oldest active call {value:.1f} s</source>
       <translation>Traduzindo · chamada ativa mais antiga {value:.1f} s</translation>
     </message>

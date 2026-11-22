@@ -170,13 +170,6 @@ def processing_progress(
                 busy |= translation.state != TranslationState.FAILED
                 if translation.state == TranslationState.FAILED:
                     tone = "error"
-            if (
-                not messages
-                and not view.english
-                and (translation.pending or translation.processing_since is not None)
-            ):
-                messages.append(tr("Translating recognized text…"))
-                busy = True
         if not messages and view.scene.waiting_blocks and not view.english:
             messages.append(tr("Waiting for text to finish appearing…"))
             busy = True

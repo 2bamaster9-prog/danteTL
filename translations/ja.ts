@@ -3589,10 +3589,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>同じ会話パネルからの近くの行をまとめて翻訳します。関連性のないテキストが結合される場合はオフにしてください。</translation>
     </message>
     <message>
-      <source>Translating recognized text…</source>
-      <translation>認識したテキストを翻訳中…</translation>
-    </message>
-    <message>
       <source>Translating · oldest active call {value:.1f} s</source>
       <translation>翻訳中 · 最も古いアクティブな呼び出し {value:.1f} 秒</translation>
     </message>

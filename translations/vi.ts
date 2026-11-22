@@ -3589,10 +3589,6 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Dịch cùng lúc các dòng gần nhau từ cùng một bảng hội thoại. Tắt nếu văn bản không liên quan đang bị ghép lại.</translation>
     </message>
     <message>
-      <source>Translating recognized text…</source>
-      <translation>Đang dịch văn bản đã nhận dạng…</translation>
-    </message>
-    <message>
       <source>Translating · oldest active call {value:.1f} s</source>
       <translation>Đang dịch · lệnh gọi hoạt động lâu nhất {value:.1f} giây</translation>
     </message>

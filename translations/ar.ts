@@ -3589,10 +3589,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>ترجمة الأسطر القريبة من لوحة الحوار نفسها معاً. أوقف الخيار إذا كان يتم دمج نصوص غير مترابطة.</translation>
     </message>
     <message>
-      <source>Translating recognized text…</source>
-      <translation>جارٍ ترجمة النص المُتعرَّف عليه…</translation>
-    </message>
-    <message>
       <source>Translating · oldest active call {value:.1f} s</source>
       <translation>جارٍ الترجمة · أقدم استدعاء نشط {value:.1f} ث</translation>
     </message>
