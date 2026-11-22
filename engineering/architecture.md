@@ -451,7 +451,8 @@ translator while capture/OCR continue. Backend generation also scopes retained E
 Cache keys include weights/tokenizers, runtime, languages, decoding, adapter and frozen context; future
 glossaries must extend identity. Serialize SQLite WAL/schema initialization, keeping connections on owners.
 Memory hits participate in bounded, batched disk-recency updates, flushed on writes and close. Recency
-across owners is approximate until flushing; capacity accounting and eviction are transactional. Evict
+across owners is approximate until flushing; capacity accounting and eviction are transactional.
+Older databases initialize the counter from existing translations once in the schema transaction. Evict
 only the indexed oldest excess rows, without scanning an offset on every write. Keep the O(1) memory LRU.
 Disk failure preserves files and falls back visibly to bounded memory. English caches are not encrypted;
 source text appears only through hashed keys. No routine logging/saving of frames or recognized text.
