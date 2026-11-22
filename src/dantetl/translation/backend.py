@@ -40,6 +40,24 @@ Source = tuple[str, tuple[DialogueTurn, ...]]
 BatchResult = tuple[dict[Source, str], dict[Source, str]]
 
 
+class LabelDecoder(Protocol):
+    """An owner-driven set of independent sequences sharing the loaded weights."""
+
+    width: int
+
+    def submit(self, source: Source, target: TargetLanguage) -> Future[BatchResult] | None: ...
+    def step(self) -> None: ...
+    def reset(self) -> None: ...
+    def close(self) -> None: ...
+
+
+@runtime_checkable
+class ParallelLabelBackend(TranslationBackend, Protocol):
+    @property
+    def label_width(self) -> int: ...
+    def prepare_labels(self, target: TargetLanguage) -> LabelDecoder | None: ...
+
+
 @runtime_checkable
 class DeferredBackend(ContextualBackend, Protocol):
     """Network I/O completes elsewhere; the session retains cache/publication ownership."""
