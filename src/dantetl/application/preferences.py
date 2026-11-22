@@ -10,9 +10,12 @@ from uuid import uuid4
 
 from dantetl.application.hotkeys import parse_shortcut
 from dantetl.application.preference_values import MAX_CAPTURE_RATE, Preferences
+from dantetl.file_lock import file_lock
 from dantetl.i18n import INTERFACE_LANGUAGES, tr
 from dantetl.languages.selection import SOURCE_LANGUAGES
 from dantetl.languages.target import TARGET_LANGUAGES
+
+_MAX_BYTES = 16_384
 
 
 def decode_preferences(value: object) -> Preferences:
@@ -95,12 +98,11 @@ class PreferenceStore:
         self._pending: Preferences | None = None
         self._thread: threading.Thread | None = None
         self._last: Preferences | None = None
+        self._written: Preferences | None = None
         self._read_only = False
         if path and path.exists():
             try:
-                if path.stat().st_size > 16_384:
-                    raise ValueError(tr("Settings file is too large; defaults are being used."))
-                self.initial = decode_preferences(json.loads(path.read_text("utf-8")))
+                _, self.initial = self._read(path)
             except (OSError, ValueError, TypeError) as error:
                 # Never silently overwrite corrupt or newer settings on startup.
                 self.load_warning = str(error)
@@ -145,17 +147,40 @@ class PreferenceStore:
             try:
                 self._write(value)
                 error = ""
-            except OSError as failure:
+            except (OSError, ValueError) as failure:
                 error = tr("Could not save settings: {failure}", failure=failure)
             with self._lock:
                 self._error = error
 
+    @staticmethod
+    def _read(path: Path) -> tuple[dict[str, object], Preferences]:
+        with path.open("rb") as stream:
+            data = stream.read(_MAX_BYTES + 1)
+        if len(data) > _MAX_BYTES:
+            raise ValueError(tr("Settings file is too large; defaults are being used."))
+        record = json.loads(data.decode("utf-8"))
+        return record, decode_preferences(record)
+
     def _write(self, value: Preferences) -> None:
         assert self.path is not None
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = self.path.with_name(f".{self.path.name}-{uuid4().hex}.tmp")
-        try:
-            temporary.write_text(json.dumps({"version": 1, **asdict(value)}, indent=2), "utf-8")
-            os.replace(temporary, self.path)
-        finally:
-            temporary.unlink(missing_ok=True)
+        previous = asdict(self._written or self.initial)
+        fields = asdict(value)
+        with file_lock(self.path.with_name(self.path.name + ".lock")):
+            try:
+                record, current = self._read(self.path)
+            except FileNotFoundError:
+                record = {"version": 1, **fields}
+            else:
+                # Fill absent migrated fields; another version may know values we cannot decode.
+                record = {**asdict(current), **record}
+                record.update((k, v) for k, v in fields.items() if v != previous[k])
+            data = json.dumps(record, indent=2).encode("utf-8")
+            if len(data) > _MAX_BYTES:
+                raise ValueError(tr("Settings file is too large; defaults are being used."))
+            temporary = self.path.with_name(f".{self.path.name}-{uuid4().hex}.tmp")
+            try:
+                temporary.write_bytes(data)
+                os.replace(temporary, self.path)
+            finally:
+                temporary.unlink(missing_ok=True)
+            self._written = value

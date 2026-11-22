@@ -330,7 +330,6 @@ def test_every_published_latin_source_shares_one_install_and_ocr_factory(monkeyp
 
 
 def test_source_change_drains_active_capture_and_keeps_output_language(tmp_path):
-    from dataclasses import replace
 
     from ownership_fixtures import Replay
 
@@ -341,7 +340,7 @@ def test_source_change_drains_active_capture_and_keeps_output_language(tmp_path)
     assert replay.app.start_capture(replay.capture.target, 1)
     assert replay.app.change_source("pt")
     assert not replay.app.closing and not replay.app.change_source("de")
-    replay.app.configure(replace(replay.app.values, source_language="ja"))
+    replay.app.configure(opacity=60)
     finish_source_change(replay)
     replay.close()
     saved = PreferenceStore(tmp_path / "preferences.json").initial
@@ -366,7 +365,6 @@ def finish_source_change(replay):
 def test_source_switch_resumes_exact_game_and_reuses_only_compatible_ocr(
     tmp_path, source, device, reuse
 ):
-    from dataclasses import replace
     from unittest.mock import Mock
 
     from ownership_fixtures import Replay
@@ -379,7 +377,7 @@ def test_source_switch_resumes_exact_game_and_reuses_only_compatible_ocr(
     target = replay.capture.target
     assert replay.app.start_capture(target, 1)
     original = replay.ocr
-    replay.app.configure(replace(replay.app.values, ocr_device=device))
+    replay.app.configure(ocr_device=device)
     assert replay.app.source_requires_restart("pt") is (not reuse)
     assert replay.app.change_source("pt")
     assert original.stop_requested != reuse

@@ -1132,6 +1132,8 @@ def test_switch_clears_painted_and_paused_english_rejects_late_reply_and_keeps_m
         old.release.clear()
         show_scene(window, (first, second))
         assert old.entered.wait(1)
+        poll_until(lambda: not (application.view.english or application.view.results), ())
+        assert cell(window.inspector, 0, 3).text().startswith("E4B fixture")
         new.release.clear()
         window.backend_combo.setCurrentIndex(find_model(window.backend_combo, choices[1]))
         assert not application.view.english and not application.view.blocks

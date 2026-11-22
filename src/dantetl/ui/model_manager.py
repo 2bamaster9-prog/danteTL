@@ -381,6 +381,7 @@ class ModelManager(QDialog):
 
     def refresh_view(self) -> None:
         self.refresh()
+        self.cloud.refresh_view()
         if self.import_dialog:
             self.import_dialog.refresh_view()
         job = self.service.job(SetupLane.MODELS)

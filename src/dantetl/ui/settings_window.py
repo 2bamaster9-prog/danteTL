@@ -1,7 +1,5 @@
 """One nonmodal settings window owns appearance, recognition and background setup views."""
 
-from dataclasses import replace
-
 from PySide6.QtCore import QSignalBlocker, Qt, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
@@ -20,7 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from dantetl.application.hotkeys import HotkeyAction, Hotkeys
-from dantetl.application.preference_values import MAX_CAPTURE_RATE, Preferences
+from dantetl.application.preference_values import MAX_CAPTURE_RATE, EditSettings, Preferences
 from dantetl.application.services import CacheCommands, CloudCommands, SetupCommands
 from dantetl.i18n import display, mark, tr
 from dantetl.runtime.setup_values import SetupLane
@@ -40,7 +38,6 @@ from dantetl.ui.runtime_dialog import RuntimeSetupDialog
 
 
 class SettingsWindow(QDialog):
-    changed = Signal()
     restart_requested = Signal(object)
     runtime_created = Signal(object)
 
@@ -50,6 +47,7 @@ class SettingsWindow(QDialog):
         ocr_choices: tuple[OcrOption, ...],
         parent: QWidget,
         *,
+        edit: EditSettings,
         cloud: CloudCommands,
         setup: SetupCommands,
         cache: CacheCommands,
@@ -60,6 +58,7 @@ class SettingsWindow(QDialog):
         self.setWindowModality(Qt.WindowModality.NonModal)
         self.resize(680, 620)
         self.setMinimumSize(540, 440)
+        self._edit = edit
         self._setup = setup
         self._cloud = cloud
         self._ocr_key = preferences.ocr_device
@@ -215,7 +214,7 @@ class SettingsWindow(QDialog):
             preferences.capture_focused_window,
             hotkeys,
         )
-        self.hotkeys.changed.connect(self.changed.emit)
+        self.hotkeys.changed.connect(self._save_hotkeys)
         shortcuts.addWidget(self.hotkeys)
         self.cache = CacheSettings(cache)
         self._pages["Cache"] = self.cache
@@ -285,17 +284,14 @@ class SettingsWindow(QDialog):
         footer.addStretch()
         footer.addWidget(close)
         layout.addLayout(footer)
-        for control in (
-            self.stabilize,
-            self.automatic_size,
-            self.group_dialogue,
-            self.history_enabled,
-            self.backdrop_blur,
-        ):
-            control.toggled.connect(lambda _: self.changed.emit())
+        self.stabilize.toggled.connect(lambda value: edit(stabilize=value))
+        self.automatic_size.toggled.connect(lambda value: edit(automatic_size=value))
+        self.group_dialogue.toggled.connect(lambda value: edit(group_dialogue=value))
+        self.history_enabled.toggled.connect(lambda value: edit(history_enabled=value))
+        self.backdrop_blur.toggled.connect(lambda value: edit(backdrop_blur=value))
         self.opacity.valueChanged.connect(self._opacity_changed)
-        self.text_size.valueChanged.connect(lambda _: self.changed.emit())
-        self.capture_rate.valueChanged.connect(lambda _: self.changed.emit())
+        self.text_size.valueChanged.connect(lambda value: edit(text_size=value))
+        self.capture_rate.valueChanged.connect(lambda value: edit(capture_rate=value))
         self.automatic_size.toggled.connect(lambda enabled: self.text_size.setEnabled(not enabled))
         self.ocr_device.currentIndexChanged.connect(self._ocr_changed)
 
@@ -339,7 +335,7 @@ class SettingsWindow(QDialog):
 
     def _opacity_changed(self, value: int) -> None:
         self.opacity_value.setText(f"{value}%")
-        self.changed.emit()
+        self._edit(opacity=value)
 
     def set_ocr_choices(self, choices: tuple[OcrOption, ...]) -> None:
         if choices == self._ocr_choices:
@@ -355,28 +351,34 @@ class SettingsWindow(QDialog):
     def _ocr_changed(self) -> None:
         choice = self.ocr_device.currentData()
         self._ocr_key = choice.key or "cpu"
-        self.changed.emit()
+        self._edit(ocr_device=self._ocr_key)
 
-    def values(self, current: Preferences, *, show_overlay: bool, translation: bool) -> Preferences:
-        return replace(
-            current,
-            interface_language=self.interface_language.currentData(),
-            show_overlay=show_overlay,
-            translation=translation,
-            stabilize=self.stabilize.isChecked(),
-            opacity=self.opacity.value(),
-            backdrop_blur=self.backdrop_blur.isChecked(),
-            automatic_size=self.automatic_size.isChecked(),
-            text_size=self.text_size.value(),
-            group_dialogue=self.group_dialogue.isChecked(),
-            ocr_device=self._ocr_key,
-            capture_rate=self.capture_rate.value(),
+    def _save_hotkeys(self) -> None:
+        self._edit(
             overlay_hotkey=self.hotkeys.rows[HotkeyAction.OVERLAY].committed,
             capture_hotkey=self.hotkeys.rows[HotkeyAction.CAPTURE].committed,
             original_hotkey=self.hotkeys.rows[HotkeyAction.ORIGINAL].committed,
             capture_focused_window=self.hotkeys.capture_focused.isChecked(),
-            history_enabled=self.history_enabled.isChecked(),
         )
+
+    def refresh_view(
+        self,
+        preferences: Preferences,
+        choices: tuple[OcrOption, ...],
+        *,
+        active: bool,
+        can_change_source: bool,
+    ) -> None:
+        self.output_language.set_language(preferences.output_language)
+        self.source_picker.setCurrentIndex(self.source_picker.findData(preferences.source_language))
+        self.source_picker.setEnabled(can_change_source)
+        self.set_ocr_choices(choices)
+        self.set_capture_active(active)
+        self.models.refresh_view()
+        if self.cache.isVisible():
+            self.cache.refresh_view()
+        if self.runtime:
+            self.runtime.refresh_view()
 
     def show_hotkeys(self) -> None:
         self.tabs.setCurrentWidget(self._pages["Hotkeys"])

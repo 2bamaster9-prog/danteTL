@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Protocol, TypedDict, Unpack
 
 from dantetl.application.hotkeys import DEFAULT_CAPTURE, DEFAULT_ORIGINAL, DEFAULT_OVERLAY
 from dantetl.languages.target import ENGLISH
@@ -42,3 +43,35 @@ class Preferences:
     source_language: str = "ja"
     output_language: str = ENGLISH.code
     interface_language: str = ENGLISH.code
+
+
+class SettingsEdit(TypedDict, total=False):
+    """User-editable settings. Assignment, source changes and setup have dedicated commands."""
+
+    show_overlay: bool
+    show_border: bool
+    include_overlay_in_capture: bool
+    translation: bool
+    stabilize: bool
+    opacity: int
+    automatic_size: bool
+    text_size: int
+    group_dialogue: bool
+    ocr_device: str
+    capture_rate: int
+    overlay_hotkey: str
+    capture_hotkey: str
+    original_hotkey: str
+    capture_focused_window: bool
+    game_hint: str
+    advanced_routing: bool
+    game_from_window: bool
+    history_enabled: bool
+    history_model: str
+    backdrop_blur: bool
+    output_language: str
+    interface_language: str
+
+
+class EditSettings(Protocol):
+    def __call__(self, **changes: Unpack[SettingsEdit]) -> None: ...

@@ -3,8 +3,8 @@
 import logging
 import subprocess
 import time
-from dataclasses import replace
 from pathlib import Path
+from typing import Unpack
 
 from PySide6.QtCore import QSignalBlocker, QSize, Qt, QTimer, QUrl
 from PySide6.QtGui import QCloseEvent, QDesktopServices, QIcon
@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 
 from dantetl.application.api import ApplicationCommands
 from dantetl.application.hotkeys import HotkeyAction, Hotkeys
+from dantetl.application.preference_values import SettingsEdit
 from dantetl.application.setup_status import SetupAdvice
 from dantetl.application.values import ApplicationControls, ShutdownPhase
 from dantetl.capture.windows import Windows
@@ -117,6 +118,7 @@ class MainWindow(QMainWindow):
             preferences,
             self.application.ocr_options,
             self,
+            edit=self._edit_settings,
             cloud=self.application.cloud,
             setup=self.application.setup,
             cache=self.application.cache,
@@ -135,7 +137,6 @@ class MainWindow(QMainWindow):
         self.group_dialogue = self._settings.group_dialogue
         self.automatic_font = self._settings.automatic_size
         self.font_size = self._settings.text_size
-        self.group_dialogue.toggled.connect(self._grouping_changed)
         self.automatic_font.toggled.connect(self._font_style_changed)
         self.font_size.valueChanged.connect(self._font_style_changed)
         self._settings.opacity.valueChanged.connect(self._overlay.set_opacity)
@@ -285,7 +286,9 @@ class MainWindow(QMainWindow):
         self.backend_combo = self.routing.simple
         self.routing.changed.connect(self._routing_changed)
         self.routing.model_requested.connect(self._request_assignment)
-        self.routing.disclosure_changed.connect(self._save_preferences)
+        self.routing.disclosure_changed.connect(
+            lambda: self.application.configure(advanced_routing=self.routing.advanced.isChecked())
+        )
         self.windows_combo.currentIndexChanged.connect(self._game_window_changed)
         self.onboarding = StatusBanner()
         self.notice = self.onboarding.label
@@ -346,14 +349,13 @@ class MainWindow(QMainWindow):
         self._compact_space = QWidget()
         body.addWidget(self._compact_space, 1)
         self.advanced.toggled.connect(self._advanced_changed)
-        self.overlay_check.toggled.connect(self._settings_changed)
+        self.overlay_check.toggled.connect(lambda value: self._edit_settings(show_overlay=value))
         self.border_check.toggled.connect(self._border_changed)
         self.capture_overlay_check.toggled.connect(self._capture_visibility_changed)
-        self.translate_check.toggled.connect(self._settings_changed)
+        self.translate_check.toggled.connect(lambda value: self._edit_settings(translation=value))
         self.translate_check.toggled.connect(self.raw_boxes_check.setDisabled)
         self.raw_boxes_check.toggled.connect(self._tick)
         self.debug_check.toggled.connect(self._tick)
-        self._settings.changed.connect(self._settings_changed)
         self._settings.interface_language.currentIndexChanged.connect(
             self._change_interface_language
         )
@@ -378,27 +380,6 @@ class MainWindow(QMainWindow):
         self._font_style_changed()
         self._update_notice()
 
-    def _save_preferences(self) -> None:
-        self.application.configure(
-            replace(
-                self._settings.values(
-                    self.application.values,
-                    show_overlay=self.overlay_check.isChecked(),
-                    translation=self.translate_check.isChecked(),
-                ),
-                show_border=self.border_check.isChecked(),
-                include_overlay_in_capture=self.capture_overlay_check.isChecked(),
-                short_model=self.routing.selection.short,
-                long_model=self.routing.selection.long,
-                translate_short=self.routing.selection.short_enabled,
-                translate_long=self.routing.selection.long_enabled,
-                game_hint=self.routing.manual_game_hint,
-                game_from_window=self.routing.game_from_window.isChecked(),
-                advanced_routing=self.routing.advanced.isChecked(),
-                history_model=self.history_panel.model_key,
-            )
-        )
-
     def _game_window_changed(self) -> None:
         target = self.windows_combo.currentData()
         if not self.application.controls.capture_active:
@@ -413,13 +394,13 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         assert isinstance(app, QApplication)
         code = self._settings.interface_language.currentData()
-        self.application.configure(replace(self.application.values, interface_language=code))
+        self.application.configure(interface_language=code)
         install_language(app, code)
         self._history_options = None
         self.driver.refresh(inspect=True)
 
     def _change_output_language(self, code: str) -> None:
-        self.application.configure(replace(self.application.values, output_language=code))
+        self.application.configure(output_language=code)
         self._tick()
 
     def _resolve_language_notice(self) -> None:
@@ -446,7 +427,7 @@ class MainWindow(QMainWindow):
         )
 
     def _history_changed(self) -> None:
-        self._save_preferences()
+        self.application.configure(history_model=self.history_panel.model_key)
         self._render_history()
 
     def _render_history(self) -> None:
@@ -465,12 +446,11 @@ class MainWindow(QMainWindow):
         self.routing.set_selection(self.application.controls.assignment)
         self._render_application(True)
 
-    def _clear_english_display(self) -> None:
-        self.application.clear_english()
-        self._render_scene()
-
     def _routing_changed(self) -> None:
-        self._save_preferences()
+        self.application.configure(
+            game_hint=self.routing.manual_game_hint,
+            game_from_window=self.routing.game_from_window.isChecked(),
+        )
         self._render_scene()
         controls = self.application.controls
         self.routing.set_models(controls.options, controls.assignment)
@@ -513,17 +493,12 @@ class MainWindow(QMainWindow):
         self.application.setup_completed(model, target)
         self.driver.refresh(inspect=False)
 
-    def _activate_setup_model(self) -> None:
-        self.application.offer_first_run()
-        self.application.advance(time.monotonic())
-        self._handle_destination()
-
-    def _settings_changed(self) -> None:
-        self._save_preferences()
+    def _edit_settings(self, **changes: Unpack[SettingsEdit]) -> None:
+        self.application.configure(**changes)
         self._tick()
 
     def _border_changed(self, enabled: bool) -> None:
-        self._save_preferences()
+        self.application.configure(show_border=enabled)
 
     def _capture_visibility_changed(self, included: bool) -> None:
         try:
@@ -533,7 +508,7 @@ class MainWindow(QMainWindow):
                 self.capture_overlay_check.setChecked(not included)
             QMessageBox.warning(self, tr("Screen capture setting"), str(error))
             return
-        self._save_preferences()
+        self.application.configure(include_overlay_in_capture=included)
 
     def _show_settings(self) -> None:
         if not self.application.closing:
@@ -728,10 +703,6 @@ class MainWindow(QMainWindow):
         self._overlay.set_scene(())
         self._overlay.set_debug(None)
 
-    def _grouping_changed(self) -> None:
-        self._save_preferences()
-        self._tick()
-
     def _font_style_changed(self) -> None:
         automatic = self.automatic_font.isChecked()
         self.font_size.setEnabled(not automatic)
@@ -883,8 +854,7 @@ class MainWindow(QMainWindow):
         if self.application.closing:
             self.close()
             return
-        for combo in (self.output_language, self._settings.output_language):
-            combo.set_language(self.application.values.output_language)
+        self.output_language.set_language(self.application.values.output_language)
         if self.application.original and not self.application.show_original(
             True, modal=QApplication.activeModalWidget() is not None
         ):
@@ -895,21 +865,20 @@ class MainWindow(QMainWindow):
         self._render_preparation(controls)
         self.routing.set_models(controls.options, controls.assignment)
         self._refresh_history_models(controls.options)
-        self._settings.models.refresh_view()
-        if self._settings.cache.isVisible():
-            self._settings.cache.refresh_view()
-        self._settings.models.cloud.refresh_view()
-        if self._settings.runtime:
-            self._settings.runtime.refresh_view()
         if self._setup_assistant:
             self._setup_assistant.refresh_view()
         active = controls.capture_active
         can_change_source = self.application.can_change_source
-        for picker in (self.source_picker, self._settings.source_picker):
-            picker.setCurrentIndex(picker.findData(self.application.values.source_language))
-            picker.setEnabled(can_change_source)
-        self._settings.set_ocr_choices(self.application.ocr_options)
-        self._settings.set_capture_active(active)
+        self.source_picker.setCurrentIndex(
+            self.source_picker.findData(self.application.values.source_language)
+        )
+        self.source_picker.setEnabled(can_change_source)
+        self._settings.refresh_view(
+            self.application.values,
+            self.application.ocr_options,
+            active=active,
+            can_change_source=can_change_source,
+        )
         self.windows_combo.setEnabled(not active and not controls.changing_source)
         self.refresh_button.setEnabled(not active and not controls.changing_source)
         self.start_button.set_capturing(active)

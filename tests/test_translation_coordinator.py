@@ -1,6 +1,5 @@
 """Selection and route ownership replays without a widget hierarchy."""
 
-from dataclasses import replace
 from unittest.mock import Mock
 
 import pytest
@@ -106,7 +105,7 @@ def test_restore_legacy_explicit_none_disabled_and_unavailable_ids(tmp_path, val
     try:
         assert replay.translation.plan == expected
         assert not replay.workers and not replay.routes
-        replay.app.configure(replace(values, opacity=60))
+        replay.app.configure(opacity=60)
         assert replay.translation.plan == expected
     finally:
         replay.close()
@@ -171,11 +170,9 @@ def test_history_selection_is_independent_and_disabled_by_default(tmp_path):
     try:
         original = replay.translation.plan
         assert not replay.live.history_enabled
-        replay.app.configure(
-            replace(replay.app.values, history_enabled=True, history_model="local:classifier")
-        )
+        replay.app.configure(history_enabled=True, history_model="local:classifier")
         assert replay.live.history_enabled and replay.translation.plan == original
-        replay.app.configure(replace(replay.app.values, history_enabled=False))
+        replay.app.configure(history_enabled=False)
         assert not replay.live.history_enabled and replay.translation.plan == original
         factory.assert_not_called()  # no capture, so no eager classifier load
     finally:

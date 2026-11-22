@@ -130,3 +130,30 @@ def test_failed_atomic_write_preserves_good_file_and_can_retry(tmp_path, monkeyp
     store.save(Preferences(opacity=60))
     wait_idle(store)
     assert not store.error and PreferenceStore(path).initial.opacity == 60
+
+
+def test_two_instances_merge_changed_fields_and_preserve_future_fields(tmp_path):
+    path = tmp_path / "prefs.json"
+    path.write_text('{"version":1,"future_option":42,"model":"future-model"}')
+    first, second = PreferenceStore(path), PreferenceStore(path)
+    first.save(replace(first.current, output_language="fr"))
+    second.save(replace(second.current, opacity=42))
+    wait_idle(first)
+    wait_idle(second)
+    first.save(replace(first.current, capture_rate=10))
+    wait_idle(first)
+    assert not first.error and not second.error
+    assert PreferenceStore(path).initial == Preferences(
+        output_language="fr", opacity=42, capture_rate=10
+    )
+    record = json.loads(path.read_text())
+    assert (record["future_option"], record["model"]) == (42, "future-model")
+
+
+def test_preferences_validate_current_file_again_before_saving(tmp_path):
+    path = tmp_path / "prefs.json"
+    store = PreferenceStore(path)
+    path.write_text('{"version":2}')
+    store.save(replace(store.current, opacity=60))
+    wait_idle(store)
+    assert store.error and json.loads(path.read_text()) == {"version": 2}

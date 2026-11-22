@@ -44,7 +44,12 @@ Shared asset validation belongs in `runtime.assets`; OCR owns only its pinned mo
 Views may retain drafts and last-rendered values, never backend factories, credentials or model policy.
 Rendering must not start work or scan files. `ApplicationCommands`, `CloudCommands`, `SetupCommands`
 expose commands and immutable snapshots. Import Linter enforces transitive view/service separation;
-public ports have strict type checks. Prefer headless explicit-time replays for coordination policy.
+public ports have strict type checks. Each settings gesture submits only the editable fields it owns.
+The session applies those fields to current preferences. The settings writer merges changes since its
+last successful save under a cross-process lock, preserving unrelated edits from other instances. Model assignments, source changes and setup
+intent use separate commands. On a source change the application applies one source-specific set of
+OCR choices, setup bundles and inventory inspector, then waits for discovery before resuming capture.
+Prefer headless explicit-time replays for coordination policy.
 
 `advance` adopts inventory/cloud/setup completions before integrating live owners. Nested Qt events
 request a coalesced follow-up, not reentrant coordination. Worker hints wake the same path; a 33 ms

@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Unpack
 
 from dantetl.application.cache_management import CacheManagement
 from dantetl.application.capture_lifecycle import CaptureLifecycle, CapturePhase, WindowAccess
@@ -10,7 +11,7 @@ from dantetl.application.cloud_services import CloudServices
 from dantetl.application.live_session import CaptureWorker, LiveSession
 from dantetl.application.model_inventory import ModelInventory
 from dantetl.application.notice import NoticeInput, Notices, project_notices
-from dantetl.application.preference_values import Preferences
+from dantetl.application.preference_values import SettingsEdit
 from dantetl.application.preferences import PreferenceStore
 from dantetl.application.presentation import (
     ocr_status,
@@ -174,9 +175,13 @@ class ApplicationSession:
         if change.target:
             self._start_capture(change.target, now)
 
-    def configure(self, values: Preferences) -> None:
-        # Assignment/preparation and setup intent have authoritative owners. A view
-        # submits appearance/device preferences, not a stale copy of those decisions.
+    def configure(self, **changes: Unpack[SettingsEdit]) -> None:
+        if unknown := changes.keys() - SettingsEdit.__optional_keys__:
+            raise TypeError(f"Unsupported settings: {sorted(unknown)}")
+        prior = self.values
+        values = replace(prior, **changes)
+        if values == prior:
+            return
         if values.output_language not in TARGET_LANGUAGES:
             raise ValueError(
                 tr(
@@ -184,34 +189,15 @@ class ApplicationSession:
                     output_language=values.output_language,
                 )
             )
-        prior = self.values
-        self.values = replace(
-            values,
-            model=prior.model,
-            source_language=prior.source_language,
-            setup_seen=prior.setup_seen,
-            setup_model=prior.setup_model,
-            short_model=self.translation.plan.short
-            if self.translation.restored
-            else prior.short_model,
-            long_model=self.translation.plan.long
-            if self.translation.restored
-            else prior.long_model,
-            translate_short=self.translation.plan.short_enabled
-            if self.translation.restored
-            else prior.translate_short,
-            translate_long=self.translation.plan.long_enabled
-            if self.translation.restored
-            else prior.translate_long,
-        )
+        self.values = values
         if prior.output_language != values.output_language:
             self.cloud.test_target = TARGET_LANGUAGES[values.output_language]
             if worker := self.translation.lifecycle.publication:
                 worker.invalidate()
-            self.clear_english(force=True)
+            self._invalidate_english()
         if prior.group_dialogue != values.group_dialogue:
             self.live.change_grouping(self.translation.lifecycle.publication)
-            self.clear_english()
+            self._invalidate_english()
         if prior.show_border != values.show_border and self.live.capture:
             self.live.capture.set_border(values.show_border)
         if (prior.game_hint, prior.game_from_window) != (values.game_hint, values.game_from_window):
@@ -259,7 +245,7 @@ class ApplicationSession:
         if self._source_change is not None:
             return  # The new source inventory determines which workers remain compatible.
         if self.translation.refresh_route(preserve_prepared=preserve_prepared):
-            self.clear_english()
+            self._invalidate_english()
         self.translation.configure_history(
             self.live, enabled=self.values.history_enabled, reference=self.values.history_model
         )
@@ -299,15 +285,13 @@ class ApplicationSession:
         self._consent = None
         self.translation.lifecycle.consent(accepted)
         if accepted:
-            self.clear_english()
+            self._invalidate_english()
         else:
             self.refresh_routes()
         self.persist()
 
-    def clear_english(self, *, force: bool = False) -> None:
+    def _invalidate_english(self) -> None:
         self.live.clear_english()
-        if not (force or self.view.english or self.view.results):
-            return
         self.view = replace(
             self.view, blocks=(), english=(), results=(), english_reset=self.view.english_reset + 1
         )
@@ -548,7 +532,10 @@ class ApplicationSession:
         if activity.probe_ready and history_ready:
             self.setup.permit_probe()
         if activity.clears_english:
-            self.clear_english()
+            if self.view.english or self.view.results:
+                self._invalidate_english()
+            else:
+                self.live.clear_english()
         if activity.mode == TranslationMode.SWITCHING:
             self.view = replace(
                 self.view,

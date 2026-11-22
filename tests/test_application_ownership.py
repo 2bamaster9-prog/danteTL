@@ -45,7 +45,7 @@ def test_startup_setting_edit_preserves_unresolved_saved_assignment(tmp_path):
     )
     replay = Replay(tmp_path, preferences=preferences, loaded=False)
     try:
-        replay.app.configure(replace(preferences, opacity=60))
+        replay.app.configure(opacity=60)
         assert replay.app.values.translate_short is False
         assert replay.app.values.translate_long is False
         assert replay.app.values.short_model == "local:gemma"

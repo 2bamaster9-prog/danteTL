@@ -64,7 +64,7 @@ def test_device_and_rate_are_frozen_until_all_old_workers_finish(tmp_path):
     try:
         assert replay.app.start_capture(replay.capture.target, 1)
         assert replay.app.controls.capture_rate == 8 and not replay.recognizers
-        replay.app.configure(replace(replay.app.values, ocr_device="cpu", capture_rate=5))
+        replay.app.configure(ocr_device="cpu", capture_rate=5)
         replay.discover(InventoryData())
         replay.app.advance(2)
         assert replay.recognizers == [gpu] and len(replay.capture_calls) == 1
@@ -208,7 +208,7 @@ def test_hidden_overlay_and_focus_loss_preserve_the_processing_scene(replay):
     replay.app.advance(2)
     assert replay.app.view.overlay_bounds is None
     assert replay.app.view.scene == before and replay.app.view.english == (english,)
-    replay.app.configure(replace(replay.app.values, show_overlay=False))
+    replay.app.configure(show_overlay=False)
     replay.windows.is_foreground.return_value = True
     replay.app.advance(3)
     assert replay.app.view.scene == before and set(replay.ocr.acknowledged) == {1}
