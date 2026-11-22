@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Literal
 
 from dantetl.application.translation_activity import TranslationMode
 from dantetl.domain import CapturedFrame, CaptureSnapshot, Rect
@@ -41,6 +42,9 @@ class Scene:
 class ModelConsent:
     token: int
     option: ModelOption
+
+
+DesktopAction = Literal["guide", "models", "runtime"] | ModelConsent
 
 
 @dataclass(frozen=True)

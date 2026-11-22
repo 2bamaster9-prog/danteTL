@@ -5,6 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 
+from dantetl.application.model_inventory import ModelInventory
 from dantetl.application.translation_activity import (
     InactiveReason,
     TranslationActivity,
@@ -36,14 +37,32 @@ class ModelPhase(StrEnum):
     CLOSING = "closing"
 
 
+@dataclass(frozen=True, slots=True)
+class RouteModel:
+    reference: str
+    identity: LocalIdentity | CloudIdentity
+    available: bool
+    choice: BackendChoice | CloudProfile = field(compare=False)
+
+
 @dataclass(frozen=True)
 class RouteSelection:
     game: str = ""
-    available_models: frozenset[str] = frozenset()
     plan: TranslationPlan = TranslationPlan()
-    identities: tuple[BackendChoice | CloudProfile | None, ...] = field(default=(), compare=False)
-    model_keys: tuple[LocalIdentity | CloudIdentity | None, ...] = ()
+    models: tuple[RouteModel, ...] = ()
     language: SourceLanguage = DEFAULT_SOURCE
+
+    def prepared_choice(self, loaded: BackendChoice) -> BackendChoice | None:
+        return next(
+            (
+                m.choice
+                for m in self.models
+                if m.available
+                and isinstance(m.choice, BackendChoice)
+                and m.choice.matches_preparation(loaded)
+            ),
+            None,
+        )
 
 
 @dataclass(frozen=True)
@@ -81,15 +100,15 @@ class ModelLifecycle:
     def __init__(
         self,
         create: Callable[[BackendChoice], TranslationSession],
-        prepared: Callable[[BackendChoice], bool],
-        record: Callable[[str], None],
+        inventory: ModelInventory,
     ) -> None:
-        self._create, self._prepared, self._record = create, prepared, record
+        self._create, self._inventory = create, inventory
         self._session: Worker | None = None
         self._selected: BackendChoice | None = None
         self._preparing: BackendChoice | None = None
         self._standby = False
         self._proposal: BackendChoice | None = None
+        self._consent_token = 0
         self._started = False
         self._prepared_this_run: set[str] = set()
         self._preparation_revision = 0
@@ -157,7 +176,7 @@ class ModelLifecycle:
 
     def is_prepared(self, choice: BackendChoice) -> bool:
         return not choice.unavailable_reason and (
-            choice.preparation_id in self._prepared_this_run or self._prepared(choice)
+            choice.preparation_id in self._prepared_this_run or self._inventory.prepared(choice)
         )
 
     def restore_selection(
@@ -177,22 +196,27 @@ class ModelLifecycle:
         return (
             running
             and enabled
-            and bool(self._route.available_models)
+            and any(m.available for m in self._route.models)
             and not self._preparing
             and not self._probing
             and self._phase != ModelPhase.CLOSING
         )
 
-    def request_assignment(self, plan: TranslationPlan, choice: BackendChoice | None) -> bool:
+    @property
+    def assignment_busy(self) -> bool:
+        return self._proposal is not None or self._preparing is not None
+
+    def request_assignment(self, plan: TranslationPlan, choice: BackendChoice | None) -> int | None:
         """Stage assignments for consent without touching the committed route/worker."""
-        if self._preparing or self._probing or self._phase == ModelPhase.CLOSING:
+        if self.assignment_busy or self._probing or self._phase == ModelPhase.CLOSING:
             raise ValueError(tr("Wait for the current model operation to finish."))
         if choice and choice.unavailable_reason:
             raise ValueError(choice.unavailable_reason)
         if choice and not self.is_prepared(choice):
             self._pending_assignment, self._proposal = plan, choice
             self._phase = ModelPhase.CONSENT
-            return False
+            self._consent_token += 1
+            return self._consent_token
         self._assignment, self._pending_assignment = plan, None
         self._proposal = None
         if choice:
@@ -200,16 +224,17 @@ class ModelLifecycle:
             self._phase, self._message = ModelPhase.READY, ""
         elif not plan.active_models:
             self._selected, self._standby = None, False
-        return True
+        return None
 
-    def consent(self, accepted: bool) -> None:
-        choice, self._proposal = self._proposal, None
-        if self._phase != ModelPhase.CONSENT or choice is None:
-            return
+    def consent(self, token: int, accepted: bool) -> BackendChoice | None:
+        choice = self._proposal
+        if choice is None or token != self._consent_token or self._phase != ModelPhase.CONSENT:
+            return None
+        self._proposal = None
         if not accepted:
             self._pending_assignment = None
             self._phase = ModelPhase.READY if self._selected else ModelPhase.IDLE
-            return
+            return choice
         self._preparing = choice
         self._started = False
         self._standby = True
@@ -217,17 +242,29 @@ class ModelLifecycle:
         self._message = tr("Finishing the previous model…")
         if self._session:
             self._session.request_stop()
+        return choice
 
     def advance_preparation(self, *, closing: bool = False) -> PreparationOutcome | None:
-        choice = self._preparing
-        if choice is None:
+        if self._preparing is None:
             return None
+        choice = self._inventory.current_preparation(self._preparing)
         session = self._session
         committed, error = False, ""
         if closing:
             self.shutdown()
             if session and not session.finished:
                 return None
+        elif choice is None or self._pending_assignment is None:
+            # Revocation survives a later rediscovery while the stale owner drains.
+            self._pending_assignment = None
+            self._standby = False
+            self.drain()
+            if self._session is not None:
+                self._phase = ModelPhase.DRAINING
+                self._message = tr("Finishing the previous model…")
+                return None
+            self._phase = ModelPhase.FAILED
+            error = tr("Model unavailable · open Settings")
         elif not self._started:
             if session and not session.finished:
                 return None
@@ -250,13 +287,12 @@ class ModelLifecycle:
                     self._prepared_this_run.add(choice.preparation_id)
                     self._preparation_revision += 1
                 try:
-                    self._record(choice.preparation_id)
+                    self._inventory.record_prepared(choice.preparation_id)
                 except OSError as error_record:
                     logger.warning("Could not save preparation receipt: %s", error_record)
                 self._selected, self._standby = choice, True
                 self._phase = ModelPhase.READY
-                if self._pending_assignment is not None:
-                    self._assignment = self._pending_assignment
+                self._assignment = self._pending_assignment
             else:
                 self._session, self._standby = None, False
                 error = result.message
@@ -271,31 +307,23 @@ class ModelLifecycle:
         self,
         route: RouteSelection,
         factory: Callable[[RouteInput], RoutedTranslationSession],
-        *,
-        preserve_prepared: bool = False,
     ) -> bool:
         previous = self._route
         changed = route != previous
         self._route, self._route_factory = route, factory
         if (
             changed
-            and route.language != previous.language
             and isinstance(self._session, TranslationSession)
             and self._worker_choice
             and not self._preparing
             and not self._session.finished
+            and (choice := route.prepared_choice(self._worker_choice)) is not None
         ):
-            for choice in route.identities:
-                if (
-                    isinstance(choice, BackendChoice)
-                    and self.is_prepared(choice)
-                    and choice.key == self._worker_choice.key
-                    and choice.preparation_id == self._worker_choice.preparation_id
-                ):
-                    self._session.set_source(route.language, choice.create)
-                    self._worker_choice = choice
-                    return True
-        if changed and not preserve_prepared and not self._preparing:
+            if route.language != previous.language:
+                self._session.set_source(route.language, choice.create)
+            self._worker_choice = choice
+            return True
+        if changed and not self._preparing:
             self._standby = False
             if isinstance(self._session, RoutedTranslationSession) and not self._session.stopping:
                 self._session = factory(self._route_input())
@@ -303,9 +331,11 @@ class ModelLifecycle:
                 self.drain()
         elif (
             not changed
-            and previous.identities != route.identities
             and isinstance(self._session, RoutedTranslationSession)
             and not self._session.stopping
+            and any(
+                a.choice is not b.choice for a, b in zip(previous.models, route.models, strict=True)
+            )
         ):
             factory(self._session)  # Presentation-only changes preserve worker/result generations.
         return changed
@@ -401,8 +431,8 @@ class ModelLifecycle:
         if session and session.snapshot().state == TranslationState.STOPPING:
             return None
         if isinstance(session, TranslationSession):
-            key = "local:" + self._worker_choice.preference_key if self._worker_choice else ""
-            if key not in self._route.available_models:
+            assert self._worker_choice is not None
+            if self._route.prepared_choice(self._worker_choice) is None:
                 self.drain()
                 if self._session:
                     return None

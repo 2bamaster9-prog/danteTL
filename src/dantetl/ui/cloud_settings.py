@@ -259,9 +259,6 @@ class CloudSettings(QWidget):
         view = self.service.snapshot()
         old = self._view
         self._view = view
-        url = self.service.take_browser()
-        if url:
-            QDesktopServices.openUrl(QUrl(url))
         if view.version != self._version:
             self._version = view.version
             self.progress.setVisible(view.busy)
@@ -292,19 +289,27 @@ class CloudSettings(QWidget):
             ):
                 self.changed.emit()
             self._selection_changed()
+        self._refresh_usage()
+
+    def handle_desktop_actions(self) -> None:
+        url = self.service.take_browser()
+        if url:
+            QDesktopServices.openUrl(QUrl(url))
         account = self.service.take_welcome()
         if account:
-            QMessageBox.information(
-                self.editor or self,
+            dialog = QMessageBox(
+                QMessageBox.Icon.Information,
                 tr("You're using your ChatGPT plan"),
                 tr(
                     "Eligible translations use your ChatGPT plan. Manage allowance and credit "
                     "permissions in ChatGPT Settings → Usage. "
                     "DanteTL never falls back to an API key."
                 ),
+                parent=self.editor or self,
             )
-            self.service.acknowledge_welcome(account)
-        self._refresh_usage()
+            dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            dialog.finished.connect(lambda _: self.service.acknowledge_welcome(account))
+            dialog.open()
 
     def _test(self, draft: CloudDraft) -> None:
         profile = draft.profile

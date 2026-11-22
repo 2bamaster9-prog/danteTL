@@ -1,5 +1,6 @@
 """Selection and route ownership replays without a widget hierarchy."""
 
+from dataclasses import replace
 from unittest.mock import Mock
 
 import pytest
@@ -7,6 +8,7 @@ from ownership_fixtures import Replay
 
 from dantetl.application.model_inventory import InventoryData
 from dantetl.application.preference_values import Preferences
+from dantetl.application.values import ModelConsent
 from dantetl.translation.backend import BackendChoice
 from dantetl.translation.cloud.values import CloudProfile
 from dantetl.translation.plan import TranslationPlan
@@ -21,10 +23,11 @@ def test_prepared_worker_adoption_uses_loaded_identity_after_other_category_chan
     replay = Replay(tmp_path, data=InventoryData((first, second)))
     try:
         owner = replay.translation
-        assert not owner.assign(
+        prompt = owner.assign(
             AssignmentChange(TranslationPlan("local:first", "local:first"), "local:first")
         )
-        owner.lifecycle.consent(True)
+        assert isinstance(prompt, ModelConsent)
+        owner.lifecycle.consent(prompt.token, True)
         owner.lifecycle.advance_preparation()
         prepared = replay.workers[-1]
         prepared.state = TranslationState.READY
@@ -32,14 +35,43 @@ def test_prepared_worker_adoption_uses_loaded_identity_after_other_category_chan
         assert outcome and outcome.committed
         # The other category can change before the prepared worker joins a router.
         plan = TranslationPlan("local:first", "local:second")
-        assert owner.assign(AssignmentChange(plan, "local:second"))
+        assert owner.assign(AssignmentChange(plan, "local:second")) == "committed"
         assert owner.lifecycle.snapshot().selected == second
-        owner.refresh_route(preserve_prepared=True)
+        owner.refresh_route()
         assert owner.advance_activity(running=True, enabled=True).worker
         _, arguments = replay.routes[-1]
         assert arguments["prepared"] == ("local:first", prepared)
         assert len(replay.workers) == 1 and prepared.stops == 0
         assert owner.plan == plan
+    finally:
+        replay.close()
+
+
+def test_prepared_worker_cannot_join_a_route_for_another_prepared_revision(tmp_path):
+    from dantetl.translation.values import TranslationState
+
+    first = BackendChoice("Candidate", Mock(), "new", "first")
+    replay = Replay(tmp_path, data=InventoryData((first,)))
+    try:
+        owner = replay.translation
+        plan = TranslationPlan("local:new", "local:new")
+        prompt = owner.assign(AssignmentChange(plan, "local:new"))
+        assert isinstance(prompt, ModelConsent)
+        owner.lifecycle.consent(prompt.token, True)
+        owner.lifecycle.advance_preparation()
+        worker = replay.workers[0]
+        worker.state = TranslationState.READY
+        outcome = owner.lifecycle.advance_preparation()
+        assert outcome and outcome.committed
+        second = replace(first, preparation_id="second", create=Mock())
+        replay.discover(InventoryData((second,), prepared=frozenset({"second"})))
+        owner.refresh_route()
+        assert owner.advance_activity(running=True, enabled=True).worker is None
+        assert worker.stops and not replay.routes
+        worker.ended = True
+        assert owner.advance_activity(running=True, enabled=True).worker
+        args, config = replay.routes[-1]
+        assert args[1]["local:new"] is second.create and config["prepared"] is None
     finally:
         replay.close()
 
@@ -67,8 +99,11 @@ def test_successful_preparation_updates_options_even_if_receipt_write_fails(tmp_
             Preferences(),
         )
         assert not owner.options()[0].prepared
-        owner.assign(AssignmentChange(TranslationPlan("local:new", "local:new"), "local:new"))
-        owner.lifecycle.consent(True)
+        prompt = owner.assign(
+            AssignmentChange(TranslationPlan("local:new", "local:new"), "local:new")
+        )
+        assert isinstance(prompt, ModelConsent)
+        owner.lifecycle.consent(prompt.token, True)
         owner.lifecycle.advance_preparation()
         worker.state = TranslationState.READY
         outcome = owner.lifecycle.advance_preparation()

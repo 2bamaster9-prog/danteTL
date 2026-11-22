@@ -26,6 +26,7 @@ from dantetl.application.translation_coordinator import TranslationCoordinator
 from dantetl.application.values import (
     ApplicationControls,
     ApplicationView,
+    DesktopAction,
     ModelConsent,
     ShutdownPhase,
     ShutdownSnapshot,
@@ -91,11 +92,10 @@ class ApplicationSession:
         self.original = False
         self.raw_boxes = False
         self.debug = False
-        self.destination = ""
+        self._desktop_action: DesktopAction | None = None
         self.error = ""
         self.error_revision = 0
-        self._consent: ModelConsent | None = None
-        self._consent_serial = 0
+        self._setup_consent: int | None = None
         self._inventory_revision = -1
         self._cloud_revision: tuple[tuple[CloudProfile, ...], frozenset[str], int] | None = None
         self._advancing = self._again = False
@@ -114,8 +114,7 @@ class ApplicationSession:
             or self.closing
             or self.setup.busy
             or self.cloud.busy
-            or self._consent
-            or self.translation.lifecycle.preparation_message is not None
+            or self.translation.lifecycle.assignment_busy
         )
 
     def source_requires_restart(self, code: str) -> bool:
@@ -244,38 +243,41 @@ class ApplicationSession:
         )
         self.refresh_routes()
 
-    def refresh_routes(self, *, preserve_prepared: bool = False) -> None:
+    def refresh_routes(self) -> None:
         if self._source_change is not None:
             return  # The new source inventory determines which workers remain compatible.
-        if self.translation.refresh_route(preserve_prepared=preserve_prepared):
+        if self.translation.refresh_route():
             self._invalidate_english()
         self.translation.configure_history(
             self.live, enabled=self.values.history_enabled, reference=self.values.history_model
         )
 
-    def assign(self, change: AssignmentChange) -> ModelConsent | None:
-        if (
+    @property
+    def _can_assign(self) -> bool:
+        return not (
             self.shutdown.active
             or self._source_change is not None
             or not self.translation.restored
-            or self.translation.lifecycle.preparation_message is not None
+            or self.translation.lifecycle.assignment_busy
             or self.setup.probing
-            or self._consent
-        ):
-            return None
-        option = next(
-            (c for c in self.translation.options() if c.reference == change.reference), None
         )
-        if change.plan == self.translation.plan and (option is None or option.prepared):
+
+    def assign(self, change: AssignmentChange) -> ModelConsent | None:
+        if not self._can_assign:
             return None
-        if option and option.unavailable_reason:
-            self.destination = "models" if option.key.startswith("imported-") else "runtime"
+        outcome = self._apply_assignment(change)
+        if isinstance(outcome, ModelConsent):
+            return outcome
+        if outcome:
+            self._desktop_action = outcome
+        return None
+
+    def _apply_assignment(self, change: AssignmentChange) -> DesktopAction | None:
+        outcome = self.translation.assign(change)
+        if outcome == "unchanged":
             return None
-        if not self.translation.assign(change):
-            assert option is not None
-            self._consent_serial += 1
-            self._consent = ModelConsent(self._consent_serial, option)
-            return self._consent
+        if outcome != "committed":
+            return outcome
         self.refresh_routes()
         if not change.plan.short and not change.plan.long:
             self.remember_model()
@@ -283,10 +285,15 @@ class ApplicationSession:
         return None
 
     def consent(self, token: int, accepted: bool) -> None:
-        if self._consent is None or token != self._consent.token or self.shutdown.active:
+        if self.shutdown.active:
             return
-        self._consent = None
-        self.translation.lifecycle.consent(accepted)
+        choice = self.translation.lifecycle.consent(token, accepted)
+        if choice is None:
+            return
+        if token == self._setup_consent:
+            if self.values.setup_model == choice.preference_key:
+                self.values = replace(self.values, setup_model="")
+            self._setup_consent = None
         if accepted:
             self._invalidate_english()
         else:
@@ -371,20 +378,26 @@ class ApplicationSession:
             return
         if self.values.setup_model:
             key = "local:" + self.values.setup_model
-            if self.translation.resolve(key) is None:
+            if self.translation.resolve(key) is None or not self._can_assign:
                 # Setup can finish before its asynchronous inventory refresh. Keep the
                 # persisted intent and retry after discovery, including transient failures.
                 return
-            self.values = replace(self.values, setup_model="")
-            self.persist()
-            self.destination = "select:" + key
+            plan = replace(self.translation.plan, short=key, long=key)
+            outcome = self._apply_assignment(AssignmentChange(plan, key))
+            if outcome:
+                self._desktop_action = outcome
+                if isinstance(outcome, ModelConsent):
+                    self._setup_consent = outcome.token
+            else:
+                self.values = replace(self.values, setup_model="")
+                self.persist()
         elif not self.values.setup_seen:
             if self.inventory.snapshot().data.ocr_ready and any(
                 f.present for f in self.setup.files if f.key != "ocr"
             ):
                 self.setup_skipped()
             elif self.can_setup:
-                self.destination = "guide"
+                self._desktop_action = "guide"
             else:
                 return
         self._first_run_requested = False
@@ -393,7 +406,8 @@ class ApplicationSession:
         if self.shutdown.active:
             return
         self.original = False
-        self._consent = None
+        self._setup_consent = None
+        self._desktop_action = None
         self._source_change = None
         self.cloud.close()
         self.shutdown.request(target)
@@ -434,9 +448,9 @@ class ApplicationSession:
     def clear_history(self) -> None:
         self.live.history.clear()
 
-    def take_destination(self) -> str:
-        destination, self.destination = self.destination, ""
-        return destination
+    def take_desktop_action(self) -> DesktopAction | None:
+        action, self._desktop_action = self._desktop_action, None
+        return action
 
     def show_original(self, held: bool, *, modal: bool = False) -> bool:
         capture = self.live.capture
@@ -511,9 +525,7 @@ class ApplicationSession:
         )
 
     def _advance_preparation(self) -> None:
-        if self.translation.lifecycle.preparation_message is None:
-            return
-        outcome = self.translation.lifecycle.advance_preparation(closing=self.shutdown.active)
+        outcome = self.translation.lifecycle.advance_preparation()
         if outcome is None:
             return
         if outcome.committed:
@@ -523,9 +535,8 @@ class ApplicationSession:
             self.view = replace(
                 self.view, translation_status=tr("Preparation failed: {error}", error=outcome.error)
             )
-        if not self.shutdown.active:
-            self.refresh_routes(preserve_prepared=outcome.committed)
-            self.persist()
+        self.refresh_routes()
+        self.persist()
 
     def _translate(self, running: bool, *, now: float) -> None:
         activity = self.translation.advance_activity(

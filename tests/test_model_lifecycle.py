@@ -62,14 +62,16 @@ def test_consent_preserves_worker_then_preparation_waits_for_cleanup_and_is_adop
     try:
         original = activate(replay)
         assert original is replay.route_workers[0]
-        assert not propose(replay, candidate)
+        token = propose(replay, candidate)
+        assert token is not None
         assert lifecycle.snapshot().phase == ModelPhase.CONSENT
         assert lifecycle.snapshot().selected == base
         assert activate(replay) is original and replay.route_workers[0].stops == 0
-        lifecycle.consent(False)
+        lifecycle.consent(token, False)
         assert lifecycle.snapshot().selected == base and not lifecycle.snapshot().preparing
-        assert not propose(replay, candidate)
-        lifecycle.consent(True)
+        token = propose(replay, candidate)
+        assert token is not None
+        lifecycle.consent(token, True)
         assert lifecycle.advance_preparation() is None and not replay.workers
         replay.route_workers[0].finish()
         lifecycle.advance_preparation()
@@ -80,7 +82,7 @@ def test_consent_preserves_worker_then_preparation_waits_for_cleanup_and_is_adop
         assert replay.translation.plan.active_models == ("local:new",)
         assert lifecycle.advance_activity(running=False, enabled=True).worker is None
         assert lifecycle.publication is prepared
-        replay.translation.refresh_route(preserve_prepared=True)
+        replay.translation.refresh_route()
         assert replay.translation.advance_activity(running=True, enabled=True).worker
         assert replay.routes[-1][1]["prepared"] == ("local:new", prepared)
         assert len(replay.workers) == 1 and prepared.stops == 0
@@ -93,8 +95,9 @@ def test_failed_preparation_waits_for_cleanup_and_preserves_committed_assignment
     lifecycle = replay.translation.lifecycle
     try:
         original = replay.translation.plan
-        assert not propose(replay, candidate)
-        lifecycle.consent(True)
+        token = propose(replay, candidate)
+        assert token is not None
+        lifecycle.consent(token, True)
         lifecycle.advance_preparation()
         prepared = replay.workers[0]
         prepared.state = TranslationState.FAILED
@@ -113,8 +116,9 @@ def test_route_refresh_during_preparation_cannot_stop_prepared_owner(tmp_path):
     replay, _, candidate = setup(tmp_path)
     lifecycle = replay.translation.lifecycle
     try:
-        assert not propose(replay, candidate)
-        lifecycle.consent(True)
+        token = propose(replay, candidate)
+        assert token is not None
+        lifecycle.consent(token, True)
         lifecycle.advance_preparation()
         prepared = replay.workers[0]
         replay.translation.refresh_route()
@@ -122,7 +126,7 @@ def test_route_refresh_during_preparation_cannot_stop_prepared_owner(tmp_path):
         prepared.state = TranslationState.READY
         outcome = lifecycle.advance_preparation()
         assert outcome and outcome.committed
-        replay.translation.refresh_route(preserve_prepared=True)
+        replay.translation.refresh_route()
         assert replay.translation.advance_activity(running=True, enabled=True).worker
         assert replay.routes[-1][1]["prepared"] == ("local:new", prepared)
     finally:
@@ -152,8 +156,9 @@ def test_shutdown_during_preparation_never_commits_or_starts_another_owner(tmp_p
     replay, base, candidate = setup(tmp_path)
     lifecycle = replay.translation.lifecycle
     try:
-        assert not propose(replay, candidate)
-        lifecycle.consent(True)
+        token = propose(replay, candidate)
+        assert token is not None
+        lifecycle.consent(token, True)
         lifecycle.advance_preparation()
         assert not lifecycle.finish_shutdown()
         assert lifecycle.advance_activity(running=True, enabled=True).worker is None

@@ -8,6 +8,7 @@ from typing import Protocol, runtime_checkable
 from dantetl.languages.source import SourceLanguage
 from dantetl.languages.target import ENGLISH, TargetLanguage
 from dantetl.translation.dialogue.context import DialogueTurn
+from dantetl.translation.selection import LocalIdentity
 
 
 class RequestRejected(ValueError):
@@ -90,6 +91,17 @@ class BackendChoice:
     selection_id: str = ""
     classifies: bool = False
     output_codes: frozenset[str] | None = None
+
+    @property
+    def identity(self) -> LocalIdentity:
+        return LocalIdentity(self.key, self.preparation_id, self.unavailable_reason)
+
+    def matches_preparation(self, loaded: "BackendChoice") -> bool:
+        return (
+            not self.unavailable_reason
+            and self.preference_key == loaded.preference_key
+            and self.identity == loaded.identity
+        )
 
     @property
     def preference_key(self) -> str:

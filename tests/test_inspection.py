@@ -47,6 +47,15 @@ from dantetl.ui.overlay import OverlayWindow  # noqa: E402
 from dantetl.ui.text_layout import layout_english  # noqa: E402
 
 
+def visible_messages(window):
+    return [dialog for dialog in window.findChildren(QMessageBox) if dialog.isVisible()]
+
+
+def answer_dialog(window, answer):
+    (dialog,) = visible_messages(window)
+    dialog.button(answer).click()
+
+
 @pytest.mark.parametrize("code", ["pt-PT", "ar", "ja"])
 def test_bundled_language_translates_controls_and_preserves_language_ids(app, code):
     from PySide6.QtCore import QLocale, Qt
@@ -519,35 +528,50 @@ def test_included_ocr_has_ready_badge_and_is_not_in_first_run_download_plan(app,
     window.deleteLater()
 
 
-@pytest.mark.parametrize("key", ["gemma", "gemma-e4b", "qwen35-4b", "plamo-2b", "plamo-0.8b"])
+@pytest.mark.parametrize(
+    ("key", "already_assigned"),
+    [
+        ("gemma", True),
+        ("gemma", False),
+        ("gemma-e4b", False),
+        ("qwen35-4b", False),
+        ("plamo-2b", False),
+        ("plamo-0.8b", False),
+    ],
+)
 def test_first_run_resumes_model_intent_after_restart_but_still_requires_consent(
-    app, tmp_path, monkeypatch, key
+    app, tmp_path, monkeypatch, key, already_assigned
 ):
     from dantetl.application.preference_values import Preferences
     from dantetl.application.preferences import PreferenceStore
 
     path = tmp_path / "preferences.json"
     PreferenceStore(path)._write(
-        Preferences(model="imported-" + "f" * 64, setup_seen=True, setup_model=key)
+        Preferences(
+            model="imported-" + "f" * 64,
+            setup_seen=True,
+            setup_model=key,
+            short_model="local:" + key if already_assigned else "legacy",
+            long_model="local:" + key if already_assigned else "legacy",
+        )
     )
     windows, factory = Mock(), Mock()
     windows.list_targets.return_value = []
     base = BackendChoice("Imported fixture", factory, "imported-" + "f" * 64)
     gemma = BackendChoice("Language model", factory, f"{key}-cuda", "new-device", selection_id=key)
     monkeypatch.setattr("dantetl.runtime.model_store.is_prepared", lambda key: not key)
-    consent = Mock(return_value=QMessageBox.StandardButton.No)
-    monkeypatch.setattr(QMessageBox, "question", consent)
     window = MainWindow(windows, Mock(), (base, gemma), preferences_path=path)
     application = app_owner(window)
     window.offer_first_run()
-    consent.assert_called_once()
-    assert window.backend_combo.currentData() == window.routing.resolve(model_reference(base))
+    answer_dialog(window, QMessageBox.StandardButton.No)
+    expected = gemma if already_assigned else base
+    assert window.backend_combo.currentData() == window.routing.resolve(model_reference(expected))
     factory.assert_not_called()
     drain(window, lambda: application.preferences.idle)
     saved = PreferenceStore(path).initial
     assert saved.setup_model == "" and saved.model == "imported-" + "f" * 64
     window.offer_first_run()
-    consent.assert_called_once()  # Decline is not re-prompted on the next startup.
+    assert not visible_messages(window)  # Decline is not re-prompted on the next startup.
     window.close()
     window.deleteLater()
 
@@ -1213,8 +1237,6 @@ def test_runtime_restart_waits_for_translation_and_recovers_if_launch_fails(
 
     restart = Mock(side_effect=fail_restart)
     monkeypatch.setattr("dantetl.composition.RuntimeRestart", restart)
-    warnings = []
-    monkeypatch.setattr(QMessageBox, "warning", lambda *a: warnings.append(a[-1]))
     settings(window).restart_requested.emit(tmp_path)
     assert application.shutdown.active
     assert worker.stops
@@ -1224,7 +1246,8 @@ def test_runtime_restart_waits_for_translation_and_recovers_if_launch_fails(
     drain(window, lambda: not application.shutdown.active)
     restart.assert_called_once()
     assert not application.shutdown.active
-    assert warnings == ["Could not launch"]
+    assert [d.text() for d in visible_messages(window)] == ["Could not launch"]
+    answer_dialog(window, QMessageBox.StandardButton.Ok)
     assert hotkeys.shortcut(HotkeyAction.OVERLAY) == "Ctrl+Alt+F8"
     assert hotkeys.shortcut(HotkeyAction.CAPTURE) == "Ctrl+Alt+F9"
     central = window.centralWidget()
@@ -1237,7 +1260,7 @@ def test_restart_cleanup_cannot_block_gui_or_report_finished_before_draining(
     app, tmp_path, monkeypatch
 ):
     entered, release = threading.Event(), threading.Event()
-    owners, warnings = [], []
+    owners = []
 
     class Restart:
         def __init__(self, root, target, *, on_cleanup, cancel):
@@ -1255,7 +1278,6 @@ def test_restart_cleanup_cannot_block_gui_or_report_finished_before_draining(
     window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
     application = app_owner(window)
     monkeypatch.setattr("dantetl.composition.RuntimeRestart", Restart)
-    monkeypatch.setattr(QMessageBox, "warning", lambda *a: warnings.append(a[-1]))
     try:
         settings(window).restart_requested.emit(tmp_path)
         drain(window, entered.is_set)
@@ -1264,11 +1286,12 @@ def test_restart_cleanup_cannot_block_gui_or_report_finished_before_draining(
             window.driver.refresh(inspect=True)
             app.processEvents()
             assert application.shutdown.snapshot().phase == "restarting"
-            assert not warnings and application.shutdown.active
+            assert not visible_messages(window) and application.shutdown.active
         assert "Stopping" in window.status.text()
         release.set()
         drain(window, lambda: not application.shutdown.active)
-        assert warnings == ["fixture cleanup finished"]
+        assert [d.text() for d in visible_messages(window)] == ["fixture cleanup finished"]
+        answer_dialog(window, QMessageBox.StandardButton.Ok)
     finally:
         release.set()
         window.close()
@@ -1296,14 +1319,14 @@ def test_preparation_decline_preserves_selection_and_accept_loads_once_off_ui(
     gemma = BackendChoice("Gemma", load, "gemma", "new")
     monkeypatch.setattr("dantetl.runtime.model_store.is_prepared", lambda key: not key)
     monkeypatch.setattr("dantetl.runtime.model_store.mark_prepared", receipts.append)
-    monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.No)
     window = MainWindow(windows, Mock(), (base, gemma), cache_path=tmp_path / "cache")
     application = app_owner(window)
     window.backend_combo.setCurrentIndex(find_model(window.backend_combo, gemma))
     assert window.backend_combo.currentData() == window.routing.resolve(model_reference(base))
     assert not entered.is_set() and not receipts
-    monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.Yes)
+    answer_dialog(window, QMessageBox.StandardButton.No)
     window.backend_combo.setCurrentIndex(find_model(window.backend_combo, gemma))
+    answer_dialog(window, QMessageBox.StandardButton.Yes)
     # Draining the previous worker may take more than one GUI poll under build/IO load.
     drain(window, entered.is_set)
     progress = window.findChild(QProgressDialog)
@@ -1331,22 +1354,22 @@ def test_failed_preparation_restores_previous_selection_without_a_receipt(
     windows.list_targets.return_value = []
     base = BackendChoice("E4B fixture", Mock(), "gemma-e4b")
     bad = BackendChoice("Gemma", Mock(side_effect=RuntimeError("GPU unavailable")), "gemma", "new")
-    receipts, errors = [], []
+    receipts = []
     monkeypatch.setattr("dantetl.runtime.model_store.is_prepared", lambda key: not key)
     monkeypatch.setattr("dantetl.runtime.model_store.mark_prepared", receipts.append)
-    monkeypatch.setattr(QMessageBox, "question", lambda *a: QMessageBox.StandardButton.Yes)
-    monkeypatch.setattr(QMessageBox, "warning", lambda *a: errors.append(a[-1]))
     window = MainWindow(windows, Mock(), (base, bad), cache_path=tmp_path / "cache")
     application = app_owner(window)
     window.backend_combo.setCurrentIndex(find_model(window.backend_combo, bad))
+    answer_dialog(window, QMessageBox.StandardButton.Yes)
     drain(window, lambda: not application.translation.lifecycle.snapshot().preparing)
     assert window.backend_combo.currentData() == window.routing.resolve(model_reference(base))
-    assert not receipts and errors == ["GPU unavailable"]
+    assert not receipts and [d.text() for d in visible_messages(window)] == ["GPU unavailable"]
+    answer_dialog(window, QMessageBox.StandardButton.Ok)
     window.close()
     window.deleteLater()
 
 
-def test_nested_consent_event_loop_does_not_unload_previous_model(app, tmp_path, monkeypatch):
+def test_open_consent_dialog_allows_updates_and_keeps_previous_model(app, tmp_path, monkeypatch):
     from ownership_fixtures import Route
 
     windows = Mock()
@@ -1363,13 +1386,10 @@ def test_nested_consent_event_loop_does_not_unload_previous_model(app, tmp_path,
     show_scene(window)
     assert application.translation.lifecycle.publication is session
 
-    def question(*args):
-        show_scene(window)
-        assert session.stops == 0
-        return QMessageBox.StandardButton.No
-
-    monkeypatch.setattr(QMessageBox, "question", question)
     window.backend_combo.setCurrentIndex(find_model(window.backend_combo, gemma))
+    show_scene(window)
+    assert session.stops == 0
+    answer_dialog(window, QMessageBox.StandardButton.No)
     assert (
         window.backend_combo.currentData() == window.routing.resolve(model_reference(base))
         and application.translation.lifecycle.publication == session
@@ -1661,18 +1681,16 @@ def test_saved_model_choice_survives_runtime_change_without_implicit_preparation
         "Language model", factory, f"{key}-vulkan", "vulkan-receipt", selection_id=key
     )
     monkeypatch.setattr("dantetl.runtime.model_store.is_prepared", lambda key: prepared or not key)
-    consent = Mock(return_value=QMessageBox.StandardButton.No)
-    monkeypatch.setattr(QMessageBox, "question", consent)
     window = MainWindow(windows, factory, (base, gemma), preferences_path=path)
     application = app_owner(window)
     assert window.backend_combo.currentData() == (
         window.routing.resolve(model_reference(gemma if prepared else None))
     )
-    consent.assert_not_called()
+    assert not visible_messages(window)
     factory.assert_not_called()
     if not prepared:
         window.backend_combo.setCurrentIndex(find_model(window.backend_combo, gemma))
-        consent.assert_called_once()
+        answer_dialog(window, QMessageBox.StandardButton.No)
         assert window.backend_combo.currentData() is None
     settings(window).opacity.setValue(63)
     drain(window, lambda: application.preferences.idle)

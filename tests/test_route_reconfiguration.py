@@ -72,7 +72,7 @@ class Routes:
         self.worker = worker
 
     def assign(self, plan, reference):
-        assert self.owner.assign(AssignmentChange(plan, reference))
+        assert self.owner.assign(AssignmentChange(plan, reference)) in ("committed", "unchanged")
         self.owner.refresh_route()
         assert self.owner.advance_activity(running=True, enabled=True).worker is self.worker
 

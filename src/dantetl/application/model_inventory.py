@@ -77,6 +77,12 @@ class ModelInventory:
     def prepared(self, choice: BackendChoice) -> bool:
         return not choice.preparation_id or choice.preparation_id in self._snapshot.data.prepared
 
+    def current_preparation(self, choice: BackendChoice) -> BackendChoice | None:
+        """Resolve the current recipe for the exact weights and runtime being prepared."""
+        return next(
+            (c for c in self._snapshot.data.backends if c.matches_preparation(choice)), None
+        )
+
     def set_inspector(self, inspect: Callable[[], InventoryData]) -> None:
         self._inspect = inspect
         self._snapshot = InventorySnapshot(revision=self._snapshot.revision + 1)

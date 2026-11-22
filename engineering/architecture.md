@@ -53,7 +53,8 @@ Prefer headless explicit-time replays for coordination policy.
 
 `advance` adopts inventory/cloud/setup completions before integrating live owners. Nested Qt events
 request a coalesced follow-up, not reentrant coordination. Worker hints wake the same path; a 33 ms
-fallback services geometry/lifecycle. Image analysis and native/file work never run on that thread.
+fallback services geometry/lifecycle. Dialogs opened from this path return immediately and dispatch
+consent or acknowledgement when the user responds. Image analysis and native/file work never run on that thread.
 Capture polling returns an explicit phase; the application does not infer it from several worker
 flags. Translation returns a typed activity (probe, preparation, standby, inactive, switching or
 active), with a publication worker only when usable. The application joins probe readiness with
@@ -63,8 +64,12 @@ Controls and notices reuse the published OCR and translation state for the curre
 Resetting the scene releases its OCR snapshot, including the source image, as soon as capture stops.
 `TranslationCoordinator` owns a `ModelLifecycle` through composition. Lifecycle state is private;
 commands change it and immutable snapshots expose it. Assignment/readiness revisions can be read
-without polling workers. Prepared-worker handoff pairs the worker with the model it loaded; a later
-selection cannot relabel that resource. `ModelLifecycle` gates route activation, consent, probing and
+without polling workers. Starting preparation and committing its result both require the consented
+model reference and weights/runtime identity in the current inventory. Revocation drains the worker
+and preserves the previous assignment and receipts. Handoff checks the same identity against the
+available route. Rediscovery can update the file location or display name for that identity.
+`ModelLifecycle` owns each one-shot consent token and adopts prepared workers by exact identity during
+route reconciliation. It gates route activation, consent, probing and
 shutdown. The coordinator tracks availability for each assigned model. Revoking one connection
 withdraws its recipe on the next reconciliation even when another assignment is ready.
 The routed owner retains unchanged workers during committed

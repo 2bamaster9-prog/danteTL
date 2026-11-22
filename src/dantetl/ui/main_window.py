@@ -30,7 +30,7 @@ from dantetl.application.api import ApplicationCommands
 from dantetl.application.hotkeys import HotkeyAction, Hotkeys
 from dantetl.application.preference_values import SettingsEdit
 from dantetl.application.setup_status import SetupAdvice
-from dantetl.application.values import ApplicationControls, ShutdownPhase
+from dantetl.application.values import ApplicationControls, ModelConsent, ShutdownPhase
 from dantetl.capture.windows import Windows
 from dantetl.domain import WindowTarget
 from dantetl.i18n import display, mark, tr
@@ -443,7 +443,7 @@ class MainWindow(QMainWindow):
     def _request_assignment(self, change: AssignmentChange) -> None:
         prompt = self.application.assign(change)
         if prompt:
-            self.application.consent(prompt.token, self._ask_preparation(prompt.option))
+            self._ask_preparation(prompt)
         self.routing.set_selection(self.application.controls.assignment)
         self._render_application(True)
 
@@ -460,7 +460,7 @@ class MainWindow(QMainWindow):
     def offer_first_run(self) -> None:
         self.application.offer_first_run()
         self.application.advance(time.monotonic())
-        self._handle_destination()
+        self._handle_desktop_action()
 
     def _show_setup_assistant(self) -> None:
         if not self.application.can_setup:
@@ -709,9 +709,10 @@ class MainWindow(QMainWindow):
         self.font_size.setEnabled(not automatic)
         self._overlay.set_text_style(automatic, self.font_size.value())
 
-    def _ask_preparation(self, choice: ModelOption) -> bool:
-        answer = QMessageBox.question(
-            self,
+    def _ask_preparation(self, prompt: ModelConsent) -> None:
+        choice = prompt.option
+        dialog = QMessageBox(
+            QMessageBox.Icon.Question,
             tr("Prepare translation model for this PC?"),
             tr(
                 "The model files will be checked and a short test translation will run. "
@@ -720,9 +721,16 @@ class MainWindow(QMainWindow):
             + (display(choice.performance_notice) + "\n\n" if choice.performance_notice else "")
             + tr("Prepare now? Choosing No keeps your previous assignments."),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
+            self,
         )
-        return answer == QMessageBox.StandardButton.Yes
+        dialog.setDefaultButton(QMessageBox.StandardButton.No)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.finished.connect(
+            lambda result: self.application.consent(
+                prompt.token, result == QMessageBox.StandardButton.Yes
+            )
+        )
+        dialog.open()
 
     def _show_preparation(self, message: str) -> None:
         if self._progress_dialog is None:
@@ -750,7 +758,7 @@ class MainWindow(QMainWindow):
             self._progress_dialog = None
         if self._render_error != self.application.error_revision:
             self._render_error = self.application.error_revision
-            QMessageBox.warning(self, tr("Model preparation failed"), self.application.error)
+            self._open_warning(tr("Model preparation failed"), self.application.error)
 
     def _manage_models(self) -> None:
         if not self.application.closing:
@@ -836,19 +844,29 @@ class MainWindow(QMainWindow):
                 model=self.routing.summary,
             )
 
+    def _open_warning(self, title: str, message: str) -> None:
+        dialog = QMessageBox(QMessageBox.Icon.Warning, title, message, parent=self)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.open()
+
+    def _show_restart_failure(self, message: str) -> None:
+        if self._restart_failed:
+            return
+        self._restart_failed = True
+        self._settings.hotkeys.activate()
+        self._show_capture_stopped()
+        self.routing.set_selection(self.application.controls.assignment)
+        self.backend_combo.setEnabled(True)
+        self.routing.setEnabled(True)
+        if central := self.centralWidget():
+            central.setEnabled(True)
+        self.status.setText(message)
+        self._open_warning(tr("Restart failed"), message)
+
     def _render_application(self, inspect: bool) -> None:
         shutdown = self.application.close_status
         if shutdown.phase == ShutdownPhase.FAILED and not self._restart_failed:
-            self._restart_failed = True
-            self._settings.hotkeys.activate()
-            self._show_capture_stopped()
-            self.routing.set_selection(self.application.controls.assignment)
-            self.backend_combo.setEnabled(True)
-            self.routing.setEnabled(True)
-            if central := self.centralWidget():
-                central.setEnabled(True)
-            self.status.setText(shutdown.message)
-            QMessageBox.warning(self, tr("Restart failed"), shutdown.message)
+            self._show_restart_failure(shutdown.message)
             return
         if shutdown.phase != ShutdownPhase.FAILED:
             self._restart_failed = False
@@ -905,7 +923,7 @@ class MainWindow(QMainWindow):
             self.inspector.refresh()
             self._update_notice()
             self._refresh_metrics(controls)
-        self._handle_destination()
+        self._handle_desktop_action()
 
     def _render_scene(self) -> None:
         value = self.application.view
@@ -946,21 +964,17 @@ class MainWindow(QMainWindow):
         else:
             self._overlay.hide()
 
-    def _handle_destination(self) -> None:
-        destination = self.application.take_destination()
-        if destination == "runtime":
+    def _handle_desktop_action(self) -> None:
+        self._settings.models.cloud.handle_desktop_actions()
+        action = self.application.take_desktop_action()
+        if action == "runtime":
             self._manage_runtime()
-        elif destination == "models":
+        elif action == "models":
             self._manage_models()
-        elif destination == "guide":
+        elif action == "guide":
             self._show_setup_assistant()
-        elif destination.startswith("select:"):
-            reference = destination.removeprefix("select:")
-            for index in range(self.backend_combo.count()):
-                choice = self.backend_combo.itemData(index)
-                if isinstance(choice, ModelOption) and choice.reference == reference:
-                    self.backend_combo.setCurrentIndex(index)
-                    break
+        elif isinstance(action, ModelConsent):
+            self._ask_preparation(action)
 
     def _open_demo(self) -> None:
         python = gui_executable()
@@ -990,16 +1004,7 @@ class MainWindow(QMainWindow):
         self.application.advance(time.monotonic())
         result = self.application.close_status
         if result.phase == ShutdownPhase.FAILED:
-            self._settings.hotkeys.activate()
-            self._show_capture_stopped()
-            self.routing.set_selection(self.application.controls.assignment)
-            self.backend_combo.setEnabled(True)
-            self.routing.setEnabled(True)
-            if central := self.centralWidget():
-                central.setEnabled(True)
-            self.status.setText(result.message)
-            self._restart_failed = True
-            QMessageBox.warning(self, tr("Restart failed"), result.message)
+            self._show_restart_failure(result.message)
             event.ignore()
             return
         if result.phase != ShutdownPhase.READY:

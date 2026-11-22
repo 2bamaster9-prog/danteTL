@@ -64,6 +64,41 @@ def drain(app, predicate):
         time.sleep(0.005)
 
 
+def test_cloud_welcome_allows_desktop_updates_until_acknowledged(app, tmp_path, monkeypatch):
+    from itertools import chain, repeat
+
+    from PySide6.QtCore import QTimer
+
+    windows = Mock()
+    windows.list_targets.return_value = []
+    window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
+    owner = app_owner(window)
+    acknowledge = Mock()
+    monkeypatch.setattr(owner.cloud, "acknowledge_welcome", acknowledge)
+    monkeypatch.setattr(
+        owner.cloud, "take_welcome", Mock(side_effect=chain(["fixture"], repeat("")))
+    )
+    advances = Mock(wraps=owner.advance)
+    monkeypatch.setattr(owner, "advance", advances)
+    # Release a regressed blocking dialog so the test can report the failure.
+    guard = QTimer(window)
+    guard.setSingleShot(True)
+    guard.timeout.connect(lambda: [d.reject() for d in window.findChildren(QMessageBox)])
+    guard.start(2000)
+    try:
+        window.driver.refresh(inspect=True)
+        (dialog,) = [d for d in window.findChildren(QMessageBox) if d.isVisible()]
+        assert not acknowledge.called
+        drain(app, lambda: advances.call_count >= 3)
+        assert dialog.isVisible()
+        dialog.button(QMessageBox.StandardButton.Ok).click()
+        acknowledge.assert_called_once_with("fixture")
+    finally:
+        guard.stop()
+        window.close()
+        window.deleteLater()
+
+
 def test_usage_label_names_selected_model_and_switches_without_configuration_change(app, tmp_path):
     first = replace(CloudProfile.new("deepseek"), name="Translation")
     second = replace(CloudProfile.new("openai"), name="Classifier")
@@ -356,8 +391,8 @@ def test_simple_selection_declined_preparation_and_custom_disclosure_preserve_ro
             model_reference(profile)
         )
         assert not window.routing.advanced.isChecked()
-        monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.No)
         window.routing.simple.setCurrentIndex(find_model(window.routing.simple, backend))
+        app.activeModalWidget().button(QMessageBox.StandardButton.No).click()
         assert window.routing.selection == TranslationPlan(
             "cloud:" + profile.key, "cloud:" + profile.key
         )
@@ -553,7 +588,6 @@ def test_simple_local_preparation_commits_only_when_ready_and_reuses_worker(
     backend = BackendChoice(
         "Local", factory, "local-fixture", preparation_id="fixture-prepare-once"
     )
-    monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Yes)
     monkeypatch.setattr("dantetl.runtime.model_store.mark_prepared", lambda *args: None)
     windows = Mock()
     windows.list_targets.return_value = []
@@ -564,6 +598,7 @@ def test_simple_local_preparation_commits_only_when_ready_and_reuses_worker(
         window.driver.timer.stop()
         previous = window.routing.selection
         window.routing.simple.setCurrentIndex(find_model(window.routing.simple, backend))
+        app.activeModalWidget().button(QMessageBox.StandardButton.Yes).click()
         assert (
             application.translation.lifecycle.snapshot().proposed == backend
             and window.routing.selection == previous

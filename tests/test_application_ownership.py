@@ -16,7 +16,7 @@ from test_live_session import frame
 
 from dantetl.application.model_inventory import InventoryData
 from dantetl.application.preference_values import Preferences
-from dantetl.application.values import ShutdownPhase
+from dantetl.application.values import ModelConsent, ShutdownPhase
 from dantetl.domain import CapturedFrame, CaptureSnapshot, CaptureState, Rect
 from dantetl.ocr.observation import CandidateReview
 from dantetl.ocr.values import OcrResult, OcrSnapshot, OcrState, TextRegion
@@ -48,7 +48,7 @@ def test_first_run_offer_survives_pending_account_discovery(replay, monkeypatch)
         replay.app.offer_first_run()
         replay.app.advance(0)
         assert not replay.app.can_setup
-        assert not replay.app.take_destination()
+        assert replay.app.take_desktop_action() is None
     finally:
         release.set()
     deadline = time.monotonic() + 3
@@ -57,9 +57,9 @@ def test_first_run_offer_survives_pending_account_discovery(replay, monkeypatch)
         replay.app.advance(1)
         time.sleep(0.001)
     assert replay.app.can_setup
-    assert replay.app.take_destination() == "guide"
+    assert replay.app.take_desktop_action() == "guide"
     replay.app.advance(2)
-    assert not replay.app.take_destination()
+    assert replay.app.take_desktop_action() is None
 
 
 def test_startup_setting_edit_preserves_unresolved_saved_assignment(tmp_path):
@@ -121,7 +121,7 @@ def test_finishing_setup_retries_selection_after_delayed_discovery(replay):
         assert entered.wait(1)
         for now in range(2, 12):
             replay.app.advance(now)
-            assert replay.app.take_destination() == ""
+            assert replay.app.take_desktop_action() is None
             assert replay.app.values.setup_model == "downloaded"
         release.set()
         deadline = time.monotonic() + 2
@@ -129,11 +129,15 @@ def test_finishing_setup_retries_selection_after_delayed_discovery(replay):
             assert time.monotonic() < deadline
             replay.app.advance(12)
             time.sleep(0.001)
-        assert replay.app.take_destination() == "select:local:downloaded"
-        assert replay.app.values.setup_model == ""
+        prompt = replay.app.take_desktop_action()
+        assert isinstance(prompt, ModelConsent) and prompt.option.reference == "local:downloaded"
+        assert replay.app.values.setup_model == "downloaded"
         replay.app.advance(13)
-        assert replay.app.take_destination() == ""
-        assert not replay.workers  # Selection still goes through normal preparation consent.
+        assert replay.app.take_desktop_action() is None
+        assert not replay.workers
+        replay.app.consent(prompt.token, True)
+        replay.app.advance(14)
+        assert len(replay.workers) == 1 and replay.app.values.setup_model == ""
     finally:
         release.set()
 

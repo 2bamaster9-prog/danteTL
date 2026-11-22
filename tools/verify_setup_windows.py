@@ -185,16 +185,16 @@ def main() -> int:
                 window.routing.set_models(
                     application.translation.options(), application.translation.plan
                 )
-                with patch.object(
-                    QMessageBox, "question", return_value=QMessageBox.StandardButton.No
-                ):
-                    window.backend_combo.setCurrentIndex(index)
+                window.backend_combo.setCurrentIndex(index)
+                prompt = app.activeModalWidget()
+                assert isinstance(prompt, QMessageBox)
+                prompt.button(QMessageBox.StandardButton.No).click()
                 assert window.backend_combo.currentData() is None and not loads
                 evidence["decline_returns_to_none_without_loading"] = True
-                with patch.object(
-                    QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes
-                ):
-                    window.backend_combo.setCurrentIndex(index)
+                window.backend_combo.setCurrentIndex(index)
+                prompt = app.activeModalWidget()
+                assert isinstance(prompt, QMessageBox)
+                prompt.button(QMessageBox.StandardButton.Yes).click()
                 stage = 3
             elif stage == 3:
                 if application.translation.lifecycle.snapshot().preparing:

@@ -7,7 +7,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from dantetl.application.model_lifecycle import ModelLifecycle, RouteSelection
+from dantetl.application.model_inventory import ModelInventory
+from dantetl.application.model_lifecycle import ModelLifecycle, RouteModel, RouteSelection
 from dantetl.application.preference_values import Preferences
 from dantetl.application.preferences import decode_preferences
 from dantetl.domain import Rect
@@ -117,7 +118,7 @@ def test_reassign_drains_changed_owner_and_rejects_previous_inflight_reply(tmp_p
         k: BackendChoice(k, lambda e=e: e, k) for k, e in (("a", old), ("b", other), ("c", new))
     }
     lifecycle = ModelLifecycle(
-        lambda c: TranslationSession(c.create, tmp_path / "cache"), lambda c: True, lambda k: None
+        lambda c: TranslationSession(c.create, tmp_path / "cache"), Mock(spec=ModelInventory)
     )
     factories = {"local:" + k: c.create for k, c in choices.items()}
 
@@ -128,9 +129,12 @@ def test_reassign_drains_changed_owner_and_rejects_previous_inflight_reply(tmp_p
                 return existing
             return start(plan)
 
-        lifecycle.configure_route(
-            RouteSelection(available_models=frozenset(plan.active_models), plan=plan), reconfigure
+        models = tuple(
+            RouteModel(ref, choice.identity, True, choice)
+            for ref in plan.active_models
+            if (choice := choices.get(ref.removeprefix("local:")))
         )
+        lifecycle.configure_route(RouteSelection(plan=plan, models=models), reconfigure)
 
     def start(plan):
         result = RoutedTranslationSession(plan, factories, tmp_path / "cache")

@@ -263,6 +263,56 @@ def test_pending_consent_keeps_old_route_and_failure_preserves_assignment(replay
     assert not replay.receipts
 
 
+@pytest.mark.parametrize("change", ["removed", "replaced", "unavailable"])
+def test_inventory_change_rejects_late_preparation_and_preserves_assignment(replay, change):
+    base = replay.source.data.backends[0]
+    candidate = BackendChoice("Candidate", Mock(), "new", "weights-1")
+    replay.discover(InventoryData((base, candidate)))
+    replay.app.advance(1)
+    original = replay.app.controls.assignment
+    plan = TranslationPlan("local:new", "local:new")
+    prompt = replay.app.assign(AssignmentChange(plan, "local:new"))
+    assert prompt
+    replay.app.consent(prompt.token, True)
+    replay.app.advance(2)
+    worker = replay.workers[0]
+    remaining = (base,)
+    if change == "replaced":
+        remaining += (replace(candidate, preparation_id="weights-2"),)
+    elif change == "unavailable":
+        remaining += (replace(candidate, unavailable_reason="Unavailable"),)
+    replay.discover(InventoryData(remaining, prepared=frozenset({"weights-2"})))
+    worker.state = TranslationState.READY
+    replay.app.advance(3)
+    assert worker.stops and replay.app.controls.assignment == original
+    assert replay.app.controls.preparing
+    # Even if the original files return, a worker being torn down cannot commit.
+    replay.discover(InventoryData((base, candidate)))
+    worker.ended = True
+    replay.app.advance(4)
+    assert not replay.app.controls.preparing and replay.app.error
+    assert replay.app.controls.assignment == original and not replay.receipts
+    assert replay.app.values.short_model == original.short
+    replay.app.start_capture(replay.capture.target, 5)
+    replay.app.advance(5)
+    assert replay.routes[-1][1]["prepared"] is None
+    assert replay.routes[-1][0][0] == original
+
+
+def test_changed_recipe_before_worker_start_uses_current_location_for_same_revision(replay):
+    base = replay.source.data.backends[0]
+    candidate = BackendChoice("Candidate", Mock(), "new", "weights")
+    replay.discover(InventoryData((base, candidate)))
+    replay.app.advance(1)
+    prompt = replay.app.assign(AssignmentChange(TranslationPlan("local:new"), "local:new"))
+    assert prompt
+    moved = replace(candidate, create=Mock())
+    replay.discover(InventoryData((base, moved)))
+    replay.app.consent(prompt.token, True)
+    replay.app.advance(2)
+    assert replay.workers[0].choice.create is moved.create
+
+
 def test_removed_model_revokes_publication_and_drains_old_worker(replay):
     replay.app.start_capture(replay.capture.target, 0)
     observe(replay)

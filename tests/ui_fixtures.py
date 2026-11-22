@@ -138,7 +138,9 @@ def cloud_panel(**kwargs):
 
     panel = CloudSettings(cloud_service(**kwargs))
     timer = QTimer(panel)
-    timer.timeout.connect(lambda: (cloud_owner(panel).advance(), panel.refresh_view()))
+    timer.timeout.connect(cloud_owner(panel).advance)
+    timer.timeout.connect(panel.refresh_view)
+    timer.timeout.connect(panel.handle_desktop_actions)
     timer.start(10)
     return panel
 

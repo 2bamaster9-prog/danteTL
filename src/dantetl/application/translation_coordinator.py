@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from functools import partial
 from pathlib import Path
+from typing import Literal
 
 from dantetl.application.cloud_services import CloudServices
 from dantetl.application.live_session import LiveSession
@@ -12,6 +13,7 @@ from dantetl.application.model_lifecycle import (
     ModelLifecycle,
     PreparedWorker,
     RouteInput,
+    RouteModel,
     RouteSelection,
 )
 from dantetl.application.preference_values import Preferences
@@ -20,6 +22,7 @@ from dantetl.application.translation_activity import (
     TranslationActivity,
     TranslationMode,
 )
+from dantetl.application.values import ModelConsent
 from dantetl.languages.selection import source_language
 from dantetl.languages.source import SourceLanguage
 from dantetl.translation.backend import BackendChoice, TranslationBackend
@@ -30,7 +33,6 @@ from dantetl.translation.selection import (
     AssignmentChange,
     ClassifierIdentity,
     CloudIdentity,
-    LocalIdentity,
     ModelOption,
 )
 from dantetl.translation.worker import TranslationSession
@@ -59,8 +61,7 @@ class TranslationCoordinator:
         self.language = source_language(preferences.source_language)
         self._lifecycle = ModelLifecycle(
             lambda choice: create(choice, self.language),
-            inventory.prepared,
-            inventory.record_prepared,
+            inventory,
         )
         self.inventory, self.cloud = inventory, cloud
         self._route_create, self._cache, self._notify = route_create, cache, on_change
@@ -71,8 +72,6 @@ class TranslationCoordinator:
         self.game_from_window = preferences.game_from_window
         self.manual_game = preferences.game_hint
         self.window_title = ""
-        self.history_enabled = preferences.history_enabled
-        self.history_model = preferences.history_model
         self.restore()
 
     @property
@@ -170,40 +169,47 @@ class TranslationCoordinator:
         self.manual_game = " ".join(manual.split())[:120]
         self.window_title = " ".join(title.split())[:120]
 
-    def assign(self, change: AssignmentChange) -> bool:
+    def assign(
+        self, change: AssignmentChange
+    ) -> ModelConsent | Literal["unchanged", "committed", "models", "runtime"]:
+        option = next((o for o in self.options() if o.reference == change.reference), None)
+        if change.plan == self.plan and (option is None or option.prepared):
+            return "unchanged"
+        if option and option.unavailable_reason:
+            return "models" if option.key.startswith("imported-") else "runtime"
         choice = self.resolve(change.reference)
-        return self._lifecycle.request_assignment(
+        token = self._lifecycle.request_assignment(
             change.plan, choice if isinstance(choice, BackendChoice) else None
         )
+        if token is None:
+            return "committed"
+        assert option is not None
+        return ModelConsent(token, option)
 
-    def refresh_route(self, *, preserve_prepared: bool = False) -> bool:
+    def _route_model(self, reference: str) -> RouteModel | None:
+        choice = self.resolve(reference)
+        if isinstance(choice, BackendChoice):
+            return RouteModel(
+                reference, choice.identity, self._lifecycle.is_prepared(choice), choice
+            )
+        if choice is None:
+            return None
+        identity = CloudIdentity.from_profile(
+            choice, self.game, self.cloud.credential_revision(choice)
+        )
+        return RouteModel(reference, identity, self.cloud.available(choice.key), choice)
+
+    def refresh_route(self) -> bool:
         self.restore()
         self._lifecycle.refresh_choices(self.choices)
-        choices = tuple(self.resolve(key) for key in self.plan.active_models)
-        remote = any(isinstance(c, CloudProfile) for c in choices)
+        models = tuple(m for ref in self.plan.active_models if (m := self._route_model(ref)))
         route = RouteSelection(
             language=self.language,
-            game=self.game if remote else "",
-            available_models=frozenset(
-                model_reference(c)
-                for c in choices
-                if (isinstance(c, BackendChoice) and self._lifecycle.is_prepared(c))
-                or (isinstance(c, CloudProfile) and self.cloud.available(c.key))
-            ),
+            game=self.game if any(isinstance(m.choice, CloudProfile) for m in models) else "",
             plan=self.plan,
-            identities=choices,
-            model_keys=tuple(
-                LocalIdentity(c.key, c.preparation_id, c.unavailable_reason)
-                if isinstance(c, BackendChoice)
-                else CloudIdentity.from_profile(c, self.game, self.cloud.credential_revision(c))
-                if isinstance(c, CloudProfile)
-                else None
-                for c in choices
-            ),
+            models=models,
         )
-        return self._lifecycle.configure_route(
-            route, partial(self._create_route, route), preserve_prepared=preserve_prepared
-        )
+        return self._lifecycle.configure_route(route, partial(self._create_route, route))
 
     def _create_route(
         self,
@@ -213,17 +219,16 @@ class TranslationCoordinator:
         factories = {}
         identities: dict[str, ModelIdentity] = {}
         names = {}
-        for choice, identity in zip(route.identities, route.model_keys, strict=True):
-            reference = model_reference(choice)
-            if reference not in route.available_models:
+        for model in route.models:
+            if not model.available:
                 continue
-            assert choice is not None and identity is not None
+            choice, reference = model.choice, model.reference
             factories[reference] = (
                 choice.create
                 if isinstance(choice, BackendChoice)
                 else partial(self.cloud.create_backend, choice, route.game, route.language)
             )
-            identities[reference] = identity
+            identities[reference] = model.identity
             names[reference] = choice.name
         if isinstance(local, RoutedTranslationSession):
             local.reconfigure(
@@ -246,7 +251,6 @@ class TranslationCoordinator:
         return result
 
     def configure_history(self, live: LiveSession, *, enabled: bool, reference: str) -> None:
-        self.history_enabled, self.history_model = enabled, reference
         choice = self.resolve(reference)
         factory: Callable[[], TranslationBackend] | None = None
         identity = ClassifierIdentity(reference, None)
@@ -256,9 +260,7 @@ class TranslationCoordinator:
             and self._lifecycle.is_prepared(choice)
         ):
             factory = choice.create
-            identity = ClassifierIdentity(
-                reference, LocalIdentity(choice.key, choice.preparation_id), available=True
-            )
+            identity = ClassifierIdentity(reference, choice.identity, available=True)
         elif isinstance(choice, CloudProfile) and self.cloud.available(choice.key):
             factory = partial(self.cloud.create_backend, choice, "", self.language)
             identity = ClassifierIdentity(
