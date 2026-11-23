@@ -10,6 +10,20 @@ from packaging.utils import parse_wheel_filename
 
 from dantetl.i18n import tr
 
+PORTABLE_FILES = {"DanteTL.exe", "README.txt", "THIRD-PARTY.txt", "LICENSE"}
+
+
+def check_portable_folder(folder: Path) -> None:
+    if (
+        folder == folder.parent
+        or folder.resolve() != folder
+        or {p.name for p in folder.iterdir()} != PORTABLE_FILES | {"_internal"}
+        or any(not (folder / name).is_file() for name in PORTABLE_FILES)
+        or any(path.is_symlink() or path.is_junction() for path in folder.iterdir())
+        or not (folder / "_internal/app/standalone.json").is_file()
+    ):
+        raise ValueError("In-place updates require a dedicated DanteTL release folder.")
+
 
 @dataclass(frozen=True, slots=True)
 class ApplicationWheel:

@@ -1,11 +1,19 @@
+import hashlib
+import io
+import json
+import threading
 import time
 from dataclasses import replace
+from zipfile import ZipFile
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from dantetl.application.updates import WEEK, Updates
+from dantetl.runtime.package import PORTABLE_FILES, bundled_application
 from dantetl.runtime.release_feed import parse_release
-from dantetl.runtime.release_values import Release
+from dantetl.runtime.release_values import ARCHIVE, MANIFEST, SIGNATURE, Release
+from dantetl.runtime.update_install import stage_release
 
 
 def settled(service):
@@ -94,3 +102,71 @@ def test_failed_check_can_retry_and_never_offers_an_older_version(tmp_path):
         assert settled(service).phase == "current"
     finally:
         service.finish()
+
+
+def bundle_files(version):
+    wheel = f"dantetl-{version}-py3-none-any.whl"
+    data = version.encode()
+    checksum = f"{hashlib.sha256(data).hexdigest()}  {wheel}"
+    return {name: b"fixture" for name in PORTABLE_FILES} | {
+        "_internal/app/standalone.json": b"{}",
+        f"_internal/app/application/{wheel}": data,
+        f"_internal/app/application/{wheel}.sha256": checksum.encode(),
+    }
+
+
+def installed(folder):
+    return bundled_application(folder / "_internal/app").version
+
+
+@pytest.mark.parametrize("case", ["signature", "digest", "path", "interrupt"])
+def test_portable_transaction(tmp_path, case):
+    cancel = threading.Event()
+    old, state = tmp_path / "Portable", tmp_path / "state"
+    state.mkdir()
+    preferences = state / "preferences.json"
+    preferences.write_text("keep me")
+    for name, data in bundle_files("1.0.0").items():
+        path = old / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    stream = io.BytesIO()
+    with ZipFile(stream, "w") as archive:
+        for name, data in bundle_files("1.1.0").items():
+            archive.writestr("DanteTL/" + name, data)
+        if case == "path":
+            archive.writestr("DanteTL/_internal/../../outside", b"fixture")
+    payload = stream.getvalue()
+    key = Ed25519PrivateKey.generate()
+    manifest = json.dumps(
+        dict(
+            file=ARCHIVE,
+            version="1.1.0",
+            size=len(payload),
+            sha256=hashlib.sha256(payload).hexdigest(),
+        )
+    ).encode()
+    files = {ARCHIVE: payload, MANIFEST: manifest, SIGNATURE: key.sign(manifest)}
+    release = Release("1.1.0", len(payload), len(manifest), 64)
+    if case == "signature":
+        files[SIGNATURE] = bytes(64)
+    if case == "digest":
+        files[ARCHIVE] = bytes(len(payload))
+
+    def receive(url, destination, size, progress, cancel):
+        if case == "interrupt" and destination.name == ARCHIVE:
+            raise OSError("connection interrupted")
+        destination.write_bytes(files[destination.name])
+        assert destination.stat().st_size == size
+
+    def stage():
+        return stage_release(
+            release, old, key.public_key(), cancel, lambda *_: None, receive=receive
+        )
+
+    with pytest.raises((ValueError, OSError)):
+        stage()
+    assert not list(tmp_path.glob(".dantetl-update-*"))
+    assert preferences.read_text() == "keep me"
+    assert installed(old) == "1.0.0"
+    assert not (tmp_path / "outside").exists()
