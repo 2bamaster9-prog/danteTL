@@ -311,10 +311,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>應用程式安裝會略過使用者狀態。</translation>
     </message>
     <message>
-      <source>Applies to the overlay, inspector, and new dialogue history entries.</source>
-      <translation>套用於覆蓋層、檢查器及新的對話歷史記錄項目。</translation>
-    </message>
-    <message>
       <source>Apply</source>
       <translation>套用</translation>
     </message>

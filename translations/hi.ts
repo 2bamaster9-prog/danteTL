@@ -311,10 +311,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>एप्लिकेशन इंस्टॉलेशन उपयोगकर्ता स्थिति से बाहर निकलता है।</translation>
     </message>
     <message>
-      <source>Applies to the overlay, inspector, and new dialogue history entries.</source>
-      <translation>ओवरले, इंस्पेक्टर और नई संवाद इतिहास प्रविष्टियों पर लागू होता है।</translation>
-    </message>
-    <message>
       <source>Apply</source>
       <translation>लागू करें</translation>
     </message>

@@ -311,10 +311,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>응용 프로그램 설치가 사용자 상태를 이스케이프합니다.</translation>
     </message>
     <message>
-      <source>Applies to the overlay, inspector, and new dialogue history entries.</source>
-      <translation>오버레이, 검사기 및 새 대화 기록 항목에 적용됩니다.</translation>
-    </message>
-    <message>
       <source>Apply</source>
       <translation>적용</translation>
     </message>

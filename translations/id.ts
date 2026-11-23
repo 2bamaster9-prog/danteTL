@@ -311,10 +311,6 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Instalasi aplikasi melewati status pengguna.</translation>
     </message>
     <message>
-      <source>Applies to the overlay, inspector, and new dialogue history entries.</source>
-      <translation>Berlaku untuk overlay, inspector, dan entri riwayat dialog baru.</translation>
-    </message>
-    <message>
       <source>Apply</source>
       <translation>Terapkan</translation>
     </message>

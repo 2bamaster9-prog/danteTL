@@ -311,10 +311,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>การติดตั้งแอปพลิเคชันจะไม่เก็บสถานะผู้ใช้</translation>
     </message>
     <message>
-      <source>Applies to the overlay, inspector, and new dialogue history entries.</source>
-      <translation>มีผลกับโอเวอร์เลย์, ตัวตรวจสอบ และรายการประวัติบทสนทนาใหม่</translation>
-    </message>
-    <message>
       <source>Apply</source>
       <translation>นำไปใช้</translation>
     </message>

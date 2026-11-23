@@ -1499,13 +1499,14 @@ def test_output_language_controls_warn_before_capture_and_switch_only_the_affect
         window.show()
         window.backend_combo.setCurrentIndex(find_model(window.backend_combo, plamo))
         window.settings_button.click()
-        panel.output_language.setCurrentIndex(panel.output_language.findData("pt-BR"))
+        assert not panel.findChildren(type(window.output_language))
+        window.output_language.setCurrentIndex(window.output_language.findData("pt-BR"))
         assert window.output_language.currentData() == owner.values.output_language == "pt-BR"
         for banner in (window.language_notice, panel.language_notice):
             assert banner.isVisible() and "Portuguese (Brazil)" in banner.label.text()
             assert "PLaMo" in banner.label.text() and "Gemma" in banner.action.text()
         window.output_language.setCurrentIndex(window.output_language.findData("ja"))
-        assert panel.output_language.currentData() == owner.values.output_language == "ja"
+        assert owner.values.output_language == "ja"
         assert panel.language_notice.isHidden()
         window.routing.advanced.setChecked(True)
         window.routing.short_model.setCurrentIndex(find_model(window.routing.short_model, other))
@@ -1517,7 +1518,7 @@ def test_output_language_controls_warn_before_capture_and_switch_only_the_affect
         window.routing.long_enabled.setChecked(True)
         panel.language_notice.action.click()
         assert owner.controls.assignment == TranslationPlan("local:other", "local:gemma")
-        assert panel.output_language.currentData() == "pt-PT"
+        assert window.output_language.currentData() == "pt-PT"
         assert panel.language_notice.isHidden() and window.language_notice.isHidden()
         assert not owner.controls.capture_active
         factory.assert_not_called()
@@ -1571,9 +1572,8 @@ def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_pat
     original = settings(window)
     window.settings_button.click()
     assert settings(window) is original
-    assert original.output_language.currentData() == "en"
+    assert window.output_language.currentData() == "en"
     window.output_language.setCurrentIndex(window.output_language.findData("pt-PT"))
-    assert original.output_language.currentData() == "pt-PT"
     assert application.values.output_language == application.cloud.test_target.code == "pt-PT"
     assert original.backdrop_blur.isChecked()
     assert original.tabs.currentWidget().isAncestorOf(original.backdrop_blur)
@@ -1598,7 +1598,6 @@ def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_pat
     window.deleteLater()
     restored = MainWindow(windows, factory, ocr_backends=choices, preferences_path=path)
     assert not settings(restored).backdrop_blur.isChecked()
-    assert settings(restored).output_language.currentData() == "pt-PT"
     assert restored.output_language.currentData() == "pt-PT"
     assert app_owner(restored).cloud.test_target.code == "pt-PT"
     assert not restored.stabilize_check.isChecked() and not restored.group_dialogue.isChecked()

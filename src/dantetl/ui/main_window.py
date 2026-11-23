@@ -273,8 +273,7 @@ class MainWindow(QMainWindow):
             picker.activated.connect(lambda _, p=picker: self._change_source(p))
         self.language_notice = StatusBanner()
         self.sections.translation_layout.addWidget(self.language_notice)
-        for combo in (self.output_language, self._settings.output_language):
-            combo.language_changed.connect(self._change_output_language)
+        self.output_language.language_changed.connect(self._change_output_language)
         for banner in (self.language_notice, self._settings.language_notice):
             banner.action.clicked.connect(self._resolve_language_notice)
         self.routing = RoutingControls(preferences)

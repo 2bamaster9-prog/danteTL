@@ -311,10 +311,6 @@ I dettagli sono in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>L'installazione dell'applicazione ignora lo stato utente.</translation>
     </message>
     <message>
-      <source>Applies to the overlay, inspector, and new dialogue history entries.</source>
-      <translation>Si applica all'overlay, all'inspector e alle nuove voci della cronologia dialoghi.</translation>
-    </message>
-    <message>
       <source>Apply</source>
       <translation>Applica</translation>
     </message>

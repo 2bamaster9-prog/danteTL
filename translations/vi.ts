@@ -311,10 +311,6 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Quá trình cài đặt ứng dụng thoát khỏi trạng thái người dùng.</translation>
     </message>
     <message>
-      <source>Applies to the overlay, inspector, and new dialogue history entries.</source>
-      <translation>Áp dụng cho lớp phủ, trình kiểm tra và các mục lịch sử hội thoại mới.</translation>
-    </message>
-    <message>
       <source>Apply</source>
       <translation>Áp dụng</translation>
     </message>

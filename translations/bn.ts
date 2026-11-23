@@ -311,10 +311,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>অ্যাপ্লিকেশন ইনস্টলেশন ব্যবহারকারীর অবস্থা এড়িয়ে যায়।</translation>
     </message>
     <message>
-      <source>Applies to the overlay, inspector, and new dialogue history entries.</source>
-      <translation>ওভারলে, ইন্সপেক্টর এবং নতুন ডায়ালগ ইতিহাস এন্ট্রিতে প্রযোজ্য।</translation>
-    </message>
-    <message>
       <source>Apply</source>
       <translation>প্রয়োগ করুন</translation>
     </message>

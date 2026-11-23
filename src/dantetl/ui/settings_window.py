@@ -26,7 +26,6 @@ from dantetl.translation.selection import OcrOption
 from dantetl.ui.cache_settings import CacheSettings
 from dantetl.ui.controls import (
     InfoButton,
-    OutputLanguageCombo,
     SourceLanguageCombo,
     StatusBanner,
     Switch,
@@ -79,13 +78,6 @@ class SettingsWindow(QDialog):
             self.interface_language,
             mark("App language"),
             "",
-        )
-        self.output_language = OutputLanguageCombo(preferences.output_language)
-        self._setting(
-            appearance,
-            self.output_language,
-            mark("Output language"),
-            mark("Applies to the overlay, inspector, and new dialogue history entries."),
         )
         self.language_notice = StatusBanner()
         appearance.addWidget(self.language_notice)
@@ -367,7 +359,6 @@ class SettingsWindow(QDialog):
         active: bool,
         can_change_source: bool,
     ) -> None:
-        self.output_language.set_language(preferences.output_language)
         self.source_picker.setCurrentIndex(self.source_picker.findData(preferences.source_language))
         self.source_picker.setEnabled(can_change_source)
         self.set_ocr_choices(choices)

@@ -38,7 +38,7 @@ The reader keeps the last 20 completed conversation turns, independently
 of model context. Close the reader without stopping collection; Clear empties it. A new capture
 starts a fresh history. Nothing is written to disk. Lower-screen dialogue with a nearby speaker
 label is recognized conservatively; uncertain names show Unknown speaker and ambiguous UI is skipped.
-Choose the output language in Translation or Settings > Appearance. English is the default.
+Choose the output language under Translation in the main window. English is the default.
 Each original or translated paragraph has a copy icon.
 Show border controls the yellow Windows capture indicator without resetting translations.
 Windows policy or another capturing app can still require the indicator.

@@ -311,10 +311,6 @@ Les détails se trouvent dans %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>L'installation de l'application échappe à l'état utilisateur.</translation>
     </message>
     <message>
-      <source>Applies to the overlay, inspector, and new dialogue history entries.</source>
-      <translation>S'applique à l'overlay, à l'inspecteur et aux nouvelles entrées de l'historique des dialogues.</translation>
-    </message>
-    <message>
       <source>Apply</source>
       <translation>Appliquer</translation>
     </message>

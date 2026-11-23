@@ -311,10 +311,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>应用安装会绕过用户状态。</translation>
     </message>
     <message>
-      <source>Applies to the overlay, inspector, and new dialogue history entries.</source>
-      <translation>适用于叠加层、检查器和新对话历史条目。</translation>
-    </message>
-    <message>
       <source>Apply</source>
       <translation>应用</translation>
     </message>

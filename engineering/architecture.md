@@ -402,7 +402,7 @@ retaining OCR and loaded models. A completed reader entry keeps its original tar
 line remains on screen during a switch. Speaker translations must match the entry's target. Regional
 variants have distinct prompt instructions and cache keys. PLaMo accepts only its documented PFML3
 output codes. Explicit cloud profile tests capture the selected output language when submitted.
-The Translation card and Appearance settings edit the same preference. Before capture, both project
+The Translation card owns the output language picker. Before capture, it and Appearance settings show
 documented target restrictions from enabled model assignments. An explicit Gemma switch uses the
 existing assignment and preparation flow, preserving compatible assignments and category toggles.
 

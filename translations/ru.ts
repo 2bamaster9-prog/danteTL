@@ -311,10 +311,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>Установка приложения сбрасывает состояние пользователя.</translation>
     </message>
     <message>
-      <source>Applies to the overlay, inspector, and new dialogue history entries.</source>
-      <translation>Применяется к оверлею, инспектору и новым записям истории диалогов.</translation>
-    </message>
-    <message>
       <source>Apply</source>
       <translation>Применить</translation>
     </message>

@@ -311,10 +311,6 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Installatie van de toepassing omzeilt de gebruikersstatus.</translation>
     </message>
     <message>
-      <source>Applies to the overlay, inspector, and new dialogue history entries.</source>
-      <translation>Geldt voor de overlay, inspector en nieuwe vermeldingen in de gespreksgeschiedenis.</translation>
-    </message>
-    <message>
       <source>Apply</source>
       <translation>Toepassen</translation>
     </message>

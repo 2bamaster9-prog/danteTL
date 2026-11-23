@@ -311,10 +311,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>تثبيت التطبيق يتجاوز حالة المستخدم.</translation>
     </message>
     <message>
-      <source>Applies to the overlay, inspector, and new dialogue history entries.</source>
-      <translation>يُطبق على التراكب وأداة الفحص وإدخالات سجل الحوار الجديدة.</translation>
-    </message>
-    <message>
       <source>Apply</source>
       <translation>تطبيق</translation>
     </message>

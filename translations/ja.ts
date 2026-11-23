@@ -311,10 +311,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>アプリケーションのインストールはユーザーの状態を無視します。</translation>
     </message>
     <message>
-      <source>Applies to the overlay, inspector, and new dialogue history entries.</source>
-      <translation>オーバーレイ、インスペクター、および新しい会話履歴のエントリに適用されます。</translation>
-    </message>
-    <message>
       <source>Apply</source>
       <translation>適用</translation>
     </message>
