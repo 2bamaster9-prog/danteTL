@@ -3901,10 +3901,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>威尔士语</translation>
     </message>
     <message>
-      <source>When enabled, open Dialogue beside the Settings gear to choose a classifier model and read recent turns. Cloud classifiers use your plan/API allowance.</source>
-      <translation>启用后，在设置齿轮旁打开对话以选择分类器模型并查看最近的轮次。云端分类器会使用你的方案/API 配额。</translation>
-    </message>
-    <message>
       <source>When starting with the capture hotkey, select the focused window automatically. Turn off to use the main page's selection. The Start button always uses that selection. While capturing, the hotkey always stops the current session.</source>
       <translation>使用捕获热键启动时，自动选择当前聚焦的窗口。关闭则使用主页中的选择。开始按钮始终使用该选择。捕获期间，热键始终会停止当前会话。</translation>
     </message>

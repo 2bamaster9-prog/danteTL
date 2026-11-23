@@ -3901,10 +3901,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>ওয়েলশ</translation>
     </message>
     <message>
-      <source>When enabled, open Dialogue beside the Settings gear to choose a classifier model and read recent turns. Cloud classifiers use your plan/API allowance.</source>
-      <translation>সক্রিয় করা হলে, ক্লাসিফায়ার মডেল বেছে নিতে এবং সাম্প্রতিক টার্ন পড়তে Settings গিয়ারের পাশে Dialogue খুলুন। ক্লাউড ক্লাসিফায়ার আপনার প্ল্যান/API ভাতা ব্যবহার করে।</translation>
-    </message>
-    <message>
       <source>When starting with the capture hotkey, select the focused window automatically. Turn off to use the main page's selection. The Start button always uses that selection. While capturing, the hotkey always stops the current session.</source>
       <translation>ক্যাপচার হটকি দিয়ে শুরু করার সময়, ফোকাসকৃত উইন্ডো স্বয়ংক্রিয়ভাবে নির্বাচন করুন। মূল পৃষ্ঠার নির্বাচন ব্যবহার করতে বন্ধ করুন। Start বোতাম সবসময় সেই নির্বাচন ব্যবহার করে। ক্যাপচার চলাকালীন, হটকি সর্বদা বর্তমান সেশন বন্ধ করে।</translation>
     </message>

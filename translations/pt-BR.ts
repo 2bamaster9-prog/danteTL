@@ -3901,10 +3901,6 @@ Downloads de modelos: até {size:.2f} GB; arquivos existentes são verificados e
       <translation>Galês</translation>
     </message>
     <message>
-      <source>When enabled, open Dialogue beside the Settings gear to choose a classifier model and read recent turns. Cloud classifiers use your plan/API allowance.</source>
-      <translation>Quando ativado, abra Diálogo ao lado da engrenagem de Configurações para escolher um modelo de classificação e ler turnos recentes. Classificadores na nuvem usam sua franquia de plano/API.</translation>
-    </message>
-    <message>
       <source>When starting with the capture hotkey, select the focused window automatically. Turn off to use the main page's selection. The Start button always uses that selection. While capturing, the hotkey always stops the current session.</source>
       <translation>Ao iniciar com a hotkey de captura, selecionar automaticamente a janela em foco. Desative para usar a seleção da página principal. O botão Iniciar sempre usa essa seleção. Durante a captura, a hotkey sempre encerra a sessão atual.</translation>
     </message>

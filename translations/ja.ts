@@ -3901,10 +3901,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>ウェールズ語</translation>
     </message>
     <message>
-      <source>When enabled, open Dialogue beside the Settings gear to choose a classifier model and read recent turns. Cloud classifiers use your plan/API allowance.</source>
-      <translation>有効にすると設定ギアの横にある会話を開き分類モデルを選択して最近のやり取りを読みます。クラウド分類器はプラン/API利用枠を使用します。</translation>
-    </message>
-    <message>
       <source>When starting with the capture hotkey, select the focused window automatically. Turn off to use the main page's selection. The Start button always uses that selection. While capturing, the hotkey always stops the current session.</source>
       <translation>キャプチャホットキーで開始するとフォーカスされたウィンドウが自動的に選択されます。無効にするとメインページの選択を使用します。開始ボタンは常にその選択を使用します。キャプチャ中はホットキーが現在のセッションを停止します。</translation>
     </message>

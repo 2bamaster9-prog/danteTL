@@ -3901,10 +3901,6 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
       <translation>Welsh</translation>
     </message>
     <message>
-      <source>When enabled, open Dialogue beside the Settings gear to choose a classifier model and read recent turns. Cloud classifiers use your plan/API allowance.</source>
-      <translation>Indien ingeschakeld, open je Dialoog naast het instellingentandwiel om een classificatiemodel te kiezen en recente beurten te lezen. Cloudclassificaties gebruiken je plan-/API-tegoed.</translation>
-    </message>
-    <message>
       <source>When starting with the capture hotkey, select the focused window automatically. Turn off to use the main page's selection. The Start button always uses that selection. While capturing, the hotkey always stops the current session.</source>
       <translation>Selecteer bij starten met de capture-sneltoets automatisch het actieve venster. Schakel uit om de selectie van de hoofdpagina te gebruiken. De knop Starten gebruikt altijd die selectie. Tijdens vastleggen stopt de sneltoets altijd de huidige sessie.</translation>
     </message>

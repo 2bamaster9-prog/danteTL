@@ -3901,10 +3901,6 @@ Modell-Downloads: bis zu {size:.2f} GB; vorhandene Dateien werden geprüft und w
       <translation>Walisisch</translation>
     </message>
     <message>
-      <source>When enabled, open Dialogue beside the Settings gear to choose a classifier model and read recent turns. Cloud classifiers use your plan/API allowance.</source>
-      <translation>Wenn aktiviert, öffne Dialog neben dem Einstellungszahnrad, um ein Klassifizierungsmodell auszuwählen und aktuelle Runden zu lesen. Cloud-Klassifizierer verwenden dein Plan-/API-Kontingent.</translation>
-    </message>
-    <message>
       <source>When starting with the capture hotkey, select the focused window automatically. Turn off to use the main page's selection. The Start button always uses that selection. While capturing, the hotkey always stops the current session.</source>
       <translation>Beim Start mit dem Aufnahme-Hotkey das fokussierte Fenster automatisch auswählen. Ausschalten, um die Auswahl der Hauptseite zu verwenden. Die Start-Schaltfläche verwendet immer diese Auswahl. Während der Aufnahme stoppt der Hotkey stets die aktuelle Sitzung.</translation>
     </message>

@@ -133,7 +133,9 @@ Changing the interface language replaces the app-owned Qt catalogs and updates t
 with `tr` and static metadata with `mark`, then translate that metadata for display.
 Keep IDs, OCR samples, user content and inference prompts independent of the interface locale.
 Main/Settings/Advanced are views of one live session. Controls remain top-left and width-bounded;
-inspection expands without changing maximized state. Simple/advanced routing preserves assignments.
+Settings → Experimental → Inspection and diagnostics defaults off and remembers the selection.
+Enabling it reveals a collapsed section. Disabling it closes inspection and clears pause and
+diagnostic overlays. Inspection expands without changing maximized state. Simple/advanced routing preserves assignments.
 Model selectors share styled nonselectable category headings. Unchanged lists preserve popup focus;
 missing selections never choose replacements. Persist validated IDs/values, never HWNDs, pause or debug.
 Badges distinguish files-present from engine-available. Device/rate edits apply next capture, including

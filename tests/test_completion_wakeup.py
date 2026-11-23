@@ -4,7 +4,7 @@ import time
 from dataclasses import replace
 from unittest.mock import Mock
 
-from ui_fixtures import app_owner
+from ui_fixtures import app_owner, settings
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -102,6 +102,7 @@ def test_completion_advances_without_polling_but_defers_inspector_rendering(app,
     window = MainWindow(windows, Mock(), preferences_path=tmp_path / "preferences.json")
     application = app_owner(window)
     window.driver.timer.stop()
+    settings(window).inspection_enabled.setChecked(True)
     window.advanced.setChecked(True)
     bounds = Rect(0, 0, 200, 100)
     frame = CapturedFrame(1, 0, WindowGeometry(bounds, bounds, bounds, 96), bytes(200 * 100 * 4))

@@ -277,7 +277,8 @@ before recursive cleanup. Artifact size must not grow without a deliberate reaso
 ## Interactive acceptance
 
 1. Open the demo, select it and start capture. Inspect raw Japanese/boxes on their matching frame.
-2. Expand/collapse Advanced, pause/resume inspection, resize and maximize. Processing continues;
+2. Enable Inspection and diagnostics in Settings → Experimental. Expand/collapse the section,
+   pause/resume inspection, resize and maximize. Processing continues;
    frozen inspection stays source-matched and main controls remain compact/top-left.
 3. Check English placement, automatic/manual text size, opacity, overflow/tooltips and click-through.
 4. Toggle Translation overlay and Show OCR boxes. Change model; old English clears immediately,

@@ -95,7 +95,7 @@ def main() -> int:
             if stage == 0:
                 if not hardware.finished:
                     return
-                assert not window.advanced.isChecked() and not window.advanced_panel.isVisible()
+                assert not window.advanced.isVisible() and not window.advanced_panel.isVisible()
                 assert window.translate_check.text() == "Translation overlay"
                 QTest.keyClick(window.overlay_check, Qt.Key.Key_Space)
                 assert not window.overlay_check.isChecked()
@@ -153,8 +153,15 @@ def main() -> int:
                 )
                 settings.grab().save(str(args.output / "cache.png"))
                 evidence["cache_inventory_and_actions"] = True
-                settings.tabs.setCurrentIndex(settings.tabs.count() - 1)
+                settings.tabs.setCurrentIndex(
+                    next(
+                        i
+                        for i in range(settings.tabs.count())
+                        if settings.tabs.tabText(i) == "Experimental"
+                    )
+                )
                 assert not settings.history_enabled.isChecked()
+                assert not settings.inspection_enabled.isChecked()
                 assert not window.history_button.isVisible()
                 settings.grab().save(str(args.output / "experimental.png"))
                 QTest.keyClick(settings.history_enabled, Qt.Key.Key_Space)
@@ -172,6 +179,18 @@ def main() -> int:
                 )
                 assert not application.live.history_enabled
                 evidence["experimental_history_opt_in"] = True
+                QTest.keyClick(settings.inspection_enabled, Qt.Key.Key_Space)
+                assert window.advanced.isVisible() and not window.advanced_panel.isVisible()
+                QTest.keyClick(window.advanced, Qt.Key.Key_Space)
+                assert window.advanced_panel.isVisible()
+                window.inspector.pause.setChecked(True)
+                window.debug_check.setChecked(True)
+                QTest.keyClick(settings.inspection_enabled, Qt.Key.Key_Space)
+                assert not window.advanced.isVisible() and not window.advanced_panel.isVisible()
+                assert not window.inspector.pause.isChecked() and not window.debug_check.isChecked()
+                QTest.keyClick(settings.inspection_enabled, Qt.Key.Key_Space)
+                assert window.advanced.isVisible() and not window.advanced.isChecked()
+                evidence["experimental_inspection_opt_in"] = True
                 settings.opacity.setValue(62)
                 window.automatic_font.setChecked(False)
                 window.font_size.setValue(24)

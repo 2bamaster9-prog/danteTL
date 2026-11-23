@@ -229,6 +229,7 @@ def main() -> int:
     application = app_owner(window)
     window.record_directory = args.output
     window.show()
+    window._settings.inspection_enabled.setChecked(args.advanced)
     window.advanced.setChecked(args.advanced)
     window.capture_rate.setValue(args.capture_rate)
     window.windows_combo.addItem(

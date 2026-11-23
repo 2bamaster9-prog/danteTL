@@ -3901,10 +3901,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>Валлийский</translation>
     </message>
     <message>
-      <source>When enabled, open Dialogue beside the Settings gear to choose a classifier model and read recent turns. Cloud classifiers use your plan/API allowance.</source>
-      <translation>Если включено, откройте «Диалог» рядом с шестерёнкой настроек, чтобы выбрать модель-классификатор и просмотреть последние реплики. Облачные классификаторы используют вашу квоту плана/API.</translation>
-    </message>
-    <message>
       <source>When starting with the capture hotkey, select the focused window automatically. Turn off to use the main page's selection. The Start button always uses that selection. While capturing, the hotkey always stops the current session.</source>
       <translation>При запуске горячей клавишей захвата автоматически выбирается активное окно. Отключите, чтобы использовать выбор с главной страницы. Кнопка «Старт» всегда использует этот выбор. Во время захвата горячая клавиша всегда останавливает текущий сеанс.</translation>
     </message>

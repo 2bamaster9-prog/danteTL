@@ -235,6 +235,7 @@ def main() -> None:
             app.processEvents()
             window.grab().save(str(args.output / "main-maximized.png"))
             window.control_panel.grab().save(str(args.output / "main-controls-wide.png"))
+            window._settings.inspection_enabled.setChecked(True)
             window.advanced.setChecked(True)
             app.processEvents()
             assert (

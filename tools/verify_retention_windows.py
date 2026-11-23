@@ -171,6 +171,7 @@ def main() -> int:
     application = app_owner(window)
     window.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
     window.show()
+    window._settings.inspection_enabled.setChecked(True)
     window.advanced.setChecked(True)
     window.windows_combo.addItem(
         "Own fixture", WindowTarget(int(target.winId()), os.getpid(), target.windowTitle())

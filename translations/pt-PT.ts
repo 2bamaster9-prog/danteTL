@@ -3901,10 +3901,6 @@ Transferências de modelos: até {size:.2f} GB; os ficheiros existentes são ver
       <translation>Galês</translation>
     </message>
     <message>
-      <source>When enabled, open Dialogue beside the Settings gear to choose a classifier model and read recent turns. Cloud classifiers use your plan/API allowance.</source>
-      <translation>Quando ativado, abre Diálogo junto à engrenagem de Definições para escolher um modelo de classificação e ler os turnos recentes. Os classificadores na cloud usam o teu plano/limite de API.</translation>
-    </message>
-    <message>
       <source>When starting with the capture hotkey, select the focused window automatically. Turn off to use the main page's selection. The Start button always uses that selection. While capturing, the hotkey always stops the current session.</source>
       <translation>Ao iniciar com o atalho de captura, seleciona automaticamente a janela em foco. Desativa para usar a seleção da página principal. O botão Iniciar usa sempre essa seleção. Durante a captura, o atalho para sempre a sessão atual.</translation>
     </message>

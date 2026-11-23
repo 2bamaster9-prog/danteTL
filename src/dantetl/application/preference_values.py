@@ -42,6 +42,7 @@ class Preferences:
     source_language: str = "ja"
     output_language: str = ENGLISH.code
     interface_language: str = ENGLISH.code
+    inspection_enabled: bool = False
 
 
 class SettingsEdit(TypedDict, total=False):
@@ -69,6 +70,7 @@ class SettingsEdit(TypedDict, total=False):
     backdrop_blur: bool
     output_language: str
     interface_language: str
+    inspection_enabled: bool
 
 
 class EditSettings(Protocol):

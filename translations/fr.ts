@@ -3901,10 +3901,6 @@ Téléchargements de modèles : jusqu'à {size:.2f} Go ; les fichiers existants 
       <translation>Gallois</translation>
     </message>
     <message>
-      <source>When enabled, open Dialogue beside the Settings gear to choose a classifier model and read recent turns. Cloud classifiers use your plan/API allowance.</source>
-      <translation>Lorsque cette option est activée, ouvrez Dialogue à côté de l'engrenage des paramètres pour choisir un modèle de classificateur et lire les tours récents. Les classificateurs cloud utilisent votre quota de forfait/API.</translation>
-    </message>
-    <message>
       <source>When starting with the capture hotkey, select the focused window automatically. Turn off to use the main page's selection. The Start button always uses that selection. While capturing, the hotkey always stops the current session.</source>
       <translation>Lors du démarrage avec le raccourci de capture, sélectionnez automatiquement la fenêtre active. Désactivez pour utiliser la sélection de la page principale. Le bouton Démarrer utilise toujours cette sélection. Pendant la capture, le raccourci arrête toujours la session en cours.</translation>
     </message>

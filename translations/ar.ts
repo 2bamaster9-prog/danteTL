@@ -3901,10 +3901,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>الويلزية</translation>
     </message>
     <message>
-      <source>When enabled, open Dialogue beside the Settings gear to choose a classifier model and read recent turns. Cloud classifiers use your plan/API allowance.</source>
-      <translation>عند التفعيل، افتح Dialogue بجوار ترس الإعدادات لاختيار نموذج تصنيف وقراءة الأدوار الأخيرة. تستخدم المصنفات السحابية حصة خطتك/API الخاصة بك.</translation>
-    </message>
-    <message>
       <source>When starting with the capture hotkey, select the focused window automatically. Turn off to use the main page's selection. The Start button always uses that selection. While capturing, the hotkey always stops the current session.</source>
       <translation>عند البدء باستخدام مفتاح الالتقاط السريع، حدِّد النافذة النشطة تلقائيًا. أوقف الخيار لاستخدام التحديد من الصفحة الرئيسية. يستخدم زر البدء ذلك التحديد دائمًا. أثناء الالتقاط، يوقف المفتاح السريع الجلسة الحالية دائمًا.</translation>
     </message>

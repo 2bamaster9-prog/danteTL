@@ -1107,6 +1107,7 @@ def test_switch_clears_painted_and_paused_english_rejects_late_reply_and_keeps_m
     window = MainWindow(windows, Mock(), choices, scene_feed=True, cache_path=tmp_path / "cache")
     application = app_owner(window)
     window.driver.timer.stop()
+    settings(window).inspection_enabled.setChecked(True)
     window.advanced.setChecked(True)
     first = TextBlock((TextTrack(1, "猫", Rect(0, 0, 40, 20)),))
     second = TextBlock((TextTrack(2, "犬", Rect(0, 40, 40, 20)),))
@@ -1578,6 +1579,7 @@ def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_pat
     assert original.backdrop_blur.isChecked()
     assert original.tabs.currentWidget().isAncestorOf(original.backdrop_blur)
     original.backdrop_blur.click()
+    original.inspection_enabled.click()
     window.stabilize_check.setChecked(False)
     settings(window).opacity.setValue(61)
     window.automatic_font.setChecked(False)
@@ -1598,6 +1600,7 @@ def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_pat
     window.deleteLater()
     restored = MainWindow(windows, factory, ocr_backends=choices, preferences_path=path)
     assert not settings(restored).backdrop_blur.isChecked()
+    assert settings(restored).inspection_enabled.isChecked() and not restored.advanced.isHidden()
     assert restored.output_language.currentData() == "pt-PT"
     assert app_owner(restored).cloud.test_target.code == "pt-PT"
     assert not restored.stabilize_check.isChecked() and not restored.group_dialogue.isChecked()
@@ -1729,6 +1732,7 @@ def test_inspector_disclosure_and_pause_do_not_change_the_injected_live_session(
         assert live.accepted is result
         if sequence == 1:
             assert window.inspector.result is None
+            settings(window).inspection_enabled.setChecked(True)
             window.advanced.setChecked(True)
             frozen = window.inspector.result
             window.inspector.pause.setChecked(True)

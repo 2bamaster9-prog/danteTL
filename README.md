@@ -49,8 +49,9 @@ Use **Refresh models** in the cloud model editor to see which models your accoun
 | **Ctrl+Alt+F8** | Hide or show the overlay. Translation continues while hidden. |
 | **Ctrl+Alt+F9** | Start capture on the focused window, or stop the current capture. |
 
-Change shortcuts in **Settings → Hotkeys**. If a translation looks wrong, open **Inspection and
-diagnostics** to compare it with the recognized text. To record the overlay, enable **Include in
+Change shortcuts in **Settings → Hotkeys**. To compare a translation with the recognized text,
+enable **Settings → Experimental → Inspection and diagnostics**, then expand the section in
+the main window. To record the overlay, enable **Include in
 screen capture** and record the entire display.
 
 Manage translators in **Settings → Models**. For GPU acceleration, open **Settings →

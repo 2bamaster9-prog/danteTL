@@ -300,7 +300,6 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.hotkey_notice)
         self.advanced = QToolButton()
         localized(self.advanced, text=mark("Inspection and diagnostics"))
-        self.advanced.setCheckable(True)
         self.advanced.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         self.advanced.setArrowType(Qt.ArrowType.RightArrow)
         layout.addWidget(self.advanced)
@@ -346,6 +345,7 @@ class MainWindow(QMainWindow):
         self._compact_space = QWidget()
         body.addWidget(self._compact_space, 1)
         self.advanced.toggled.connect(self._advanced_changed)
+        self._set_inspection_enabled(preferences.inspection_enabled)
         self.overlay_check.toggled.connect(self._overlay_visibility_changed)
         self.border_check.toggled.connect(self._border_changed)
         self.capture_overlay_check.toggled.connect(self._capture_visibility_changed)
@@ -495,6 +495,8 @@ class MainWindow(QMainWindow):
 
     def _edit_settings(self, **changes: Unpack[SettingsEdit]) -> None:
         self.application.configure(**changes)
+        if "inspection_enabled" in changes:
+            self._set_inspection_enabled(self.application.values.inspection_enabled)
         self._tick()
 
     def _border_changed(self, enabled: bool) -> None:
@@ -539,6 +541,16 @@ class MainWindow(QMainWindow):
                 self._select_target(target)
             # Use the button's existing lifecycle guard, including asynchronous stop/drain.
             self.start_button.click()
+
+    def _set_inspection_enabled(self, enabled: bool) -> None:
+        if not enabled:
+            self.advanced.setChecked(False)
+            self.inspector.pause.setChecked(False)
+            with QSignalBlocker(self.raw_boxes_check), QSignalBlocker(self.debug_check):
+                self.raw_boxes_check.setChecked(False)
+                self.debug_check.setChecked(False)
+        self.advanced.setCheckable(enabled)
+        self.advanced.setVisible(enabled)
 
     def _advanced_changed(self, expanded: bool) -> None:
         maximized = self.isMaximized() or self.isFullScreen()

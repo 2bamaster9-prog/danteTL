@@ -3901,10 +3901,6 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Tiếng Wales</translation>
     </message>
     <message>
-      <source>When enabled, open Dialogue beside the Settings gear to choose a classifier model and read recent turns. Cloud classifiers use your plan/API allowance.</source>
-      <translation>Khi bật, mở Hội thoại bên cạnh biểu tượng Cài đặt để chọn mô hình phân loại và xem các lượt gần đây. Bộ phân loại đám mây dùng hạn mức gói/API của bạn.</translation>
-    </message>
-    <message>
       <source>When starting with the capture hotkey, select the focused window automatically. Turn off to use the main page's selection. The Start button always uses that selection. While capturing, the hotkey always stops the current session.</source>
       <translation>Khi khởi động bằng phím tắt chụp, tự động chọn cửa sổ đang được focus. Tắt để dùng lựa chọn của trang chính. Nút Bắt đầu luôn dùng lựa chọn đó. Trong khi chụp, phím tắt luôn dừng phiên hiện tại.</translation>
     </message>

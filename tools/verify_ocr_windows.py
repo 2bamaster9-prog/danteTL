@@ -188,6 +188,7 @@ def main() -> int:
     if args.translation:
         assert model_index >= 0, "Requested model is not downloaded"
         window.backend_combo.setCurrentIndex(model_index)
+    window._settings.inspection_enabled.setChecked(True)
     window.debug_check.setChecked(args.debug)
     window.show()
     window.advanced.setChecked(True)

@@ -62,7 +62,8 @@ OpenAI, DeepSeek, Gemini and Claude API keys use API quota/billing, not a chat s
 Gemini choices: 3.5 Flash-Lite, 3.8 Flash, 4 Hydrogen (Google AI Studio API key).
 Claude choices: Haiku 5.5 and Sonnet 5.5 (workspace-scoped Claude Console API key).
 Save a model, then choose it in the main Translation model picker. Advanced routing
-offers separate choices for dialogue and labels. Inspection and diagnostics is separate.
+offers separate choices for dialogue and labels. To inspect recognized text, enable
+Inspection and diagnostics under Settings → Experimental, then expand it in the main window.
 Model dropdowns group local models, ChatGPT plan models and each API provider. Section headings
 are not selectable. Use the translation/category switches to turn work off without losing model
 choices. Empty or unavailable selections do not automatically switch to another model.

@@ -240,15 +240,9 @@ class SettingsWindow(QDialog):
                 "be inaccurate. Disabled by default; your choice is saved."
             ),
         )
-        history_note = localized(
-            QLabel(),
-            text=mark(
-                "When enabled, open Dialogue beside the Settings gear to choose a classifier model "
-                "and read recent turns. Cloud classifiers use your plan/API allowance."
-            ),
-        )
-        history_note.setWordWrap(True)
-        experimental.addWidget(history_note)
+        self.inspection_enabled = localized(Switch(), text=mark("Inspection and diagnostics"))
+        self.inspection_enabled.setChecked(preferences.inspection_enabled)
+        experimental.addWidget(self.inspection_enabled)
         experimental.addStretch()
 
         def refresh_tabs() -> None:
@@ -279,6 +273,7 @@ class SettingsWindow(QDialog):
         self.automatic_size.toggled.connect(lambda value: edit(automatic_size=value))
         self.group_dialogue.toggled.connect(lambda value: edit(group_dialogue=value))
         self.history_enabled.toggled.connect(lambda value: edit(history_enabled=value))
+        self.inspection_enabled.toggled.connect(lambda value: edit(inspection_enabled=value))
         self.backdrop_blur.toggled.connect(lambda value: edit(backdrop_blur=value))
         self.opacity.valueChanged.connect(self._opacity_changed)
         self.text_size.valueChanged.connect(lambda value: edit(text_size=value))

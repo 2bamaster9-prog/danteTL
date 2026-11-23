@@ -3901,10 +3901,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>ภาษาเวลส์</translation>
     </message>
     <message>
-      <source>When enabled, open Dialogue beside the Settings gear to choose a classifier model and read recent turns. Cloud classifiers use your plan/API allowance.</source>
-      <translation>เมื่อเปิดใช้งาน ให้เปิด Dialogue ข้างเฟืองการตั้งค่าเพื่อเลือกโมเดลตัวจำแนกและอ่านเทิร์นล่าสุด ตัวจำแนกบนคลาวด์ใช้แผน/โควตา API ของคุณ</translation>
-    </message>
-    <message>
       <source>When starting with the capture hotkey, select the focused window automatically. Turn off to use the main page's selection. The Start button always uses that selection. While capturing, the hotkey always stops the current session.</source>
       <translation>เมื่อเริ่มด้วยคีย์ลัดการจับภาพ ให้เลือกหน้าต่างที่โฟกัสอัตโนมัติ ปิดเพื่อใช้การเลือกจากหน้าหลัก ปุ่ม Start ใช้การเลือกนั้นเสมอ ขณะจับภาพ คีย์ลัดจะหยุดเซสชันปัจจุบันเสมอ</translation>
     </message>

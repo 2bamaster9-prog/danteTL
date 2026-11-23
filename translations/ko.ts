@@ -3901,10 +3901,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>웨일스어</translation>
     </message>
     <message>
-      <source>When enabled, open Dialogue beside the Settings gear to choose a classifier model and read recent turns. Cloud classifiers use your plan/API allowance.</source>
-      <translation>활성화하면 설정 톱니바퀴 옆의 대화를 열어 분류기 모델을 선택하고 최근 턴을 읽을 수 있습니다. 클라우드 분류기는 플랜/API 허용량을 사용합니다.</translation>
-    </message>
-    <message>
       <source>When starting with the capture hotkey, select the focused window automatically. Turn off to use the main page's selection. The Start button always uses that selection. While capturing, the hotkey always stops the current session.</source>
       <translation>캡처 단축키로 시작할 때 포커스된 창을 자동으로 선택합니다. 끄면 메인 페이지의 선택을 사용합니다. 시작 버튼은 항상 해당 선택을 사용합니다. 캡처 중에는 단축키가 항상 현재 세션을 중지합니다.</translation>
     </message>

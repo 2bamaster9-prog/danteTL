@@ -3901,10 +3901,6 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Welsh</translation>
     </message>
     <message>
-      <source>When enabled, open Dialogue beside the Settings gear to choose a classifier model and read recent turns. Cloud classifiers use your plan/API allowance.</source>
-      <translation>Jika diaktifkan, buka Dialog di samping ikon roda gigi Pengaturan untuk memilih model klasifikator dan membaca giliran terbaru. Klasifikator cloud menggunakan kuota paket/API Anda.</translation>
-    </message>
-    <message>
       <source>When starting with the capture hotkey, select the focused window automatically. Turn off to use the main page's selection. The Start button always uses that selection. While capturing, the hotkey always stops the current session.</source>
       <translation>Saat memulai dengan hotkey tangkapan, pilih jendela yang difokuskan secara otomatis. Matikan untuk menggunakan pilihan di halaman utama. Tombol Mulai selalu menggunakan pilihan tersebut. Saat menangkap, hotkey selalu menghentikan sesi saat ini.</translation>
     </message>

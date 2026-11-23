@@ -3901,10 +3901,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>वेल्श</translation>
     </message>
     <message>
-      <source>When enabled, open Dialogue beside the Settings gear to choose a classifier model and read recent turns. Cloud classifiers use your plan/API allowance.</source>
-      <translation>सक्षम होने पर, क्लासिफायर मॉडल चुनने और हाल के टर्न पढ़ने के लिए सेटिंग्स गियर के बगल में Dialogue खोलें। क्लाउड क्लासिफायर आपके प्लान/API भत्ते का उपयोग करते हैं।</translation>
-    </message>
-    <message>
       <source>When starting with the capture hotkey, select the focused window automatically. Turn off to use the main page's selection. The Start button always uses that selection. While capturing, the hotkey always stops the current session.</source>
       <translation>कैप्चर हॉटकी से प्रारंभ करते समय, फ़ोकस किए गए विंडो को स्वचालित रूप से चुनें। मुख्य पृष्ठ के चयन का उपयोग करने के लिए बंद करें। Start बटन हमेशा उसी चयन का उपयोग करता है। कैप्चर के दौरान, हॉटकी हमेशा वर्तमान सत्र को रोकता है।</translation>
     </message>
