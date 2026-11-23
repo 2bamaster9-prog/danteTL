@@ -1,146 +1,72 @@
-# DanteTL
+# <img src="engineering/assets/dantetl.png" width="40" height="40" align="absmiddle" alt=""> DanteTL
 
-DanteTL reads text in 35 source languages from a selected Windows game and displays translations in a click-through
-overlay. Choose from 19 output languages in **Translation → Output language** or **Settings →
-Appearance**, including Japanese, Portuguese (Portugal), Portuguese (Brazil), Korean, and both Chinese scripts.
-If an assigned model lacks the selected language, the warning beside the selector offers a switch
-to Gemma or opens its setup page. Text recognition (OCR) runs on your PC. Translation can
-use a local model or a supported cloud provider.
+DanteTL translates on-screen game text in a click-through Windows overlay. It reads Japanese
+and 34 Latin-script languages on your PC. Choose from 19 output languages, depending on your
+translator.
 
-## Get started
+![English translations over the menu labels and profile text on Saber's character screen in Honkai: Star Rail](engineering/assets/hsr_dantetl.png)
 
-For Windows x64. Windows 11 is the current validation target; use windowed or borderless fullscreen.
+## Get started on Windows
 
-1. Extract **DanteTL-windows-x64.zip** and open **DanteTL.exe**. Keep the `_internal` folder beside
-   the EXE. The standalone app needs no separate Python installation.
-2. In the **Setup assistant**, choose **Add cloud model…** to connect a provider, or **Next** to
-   set up a local translator. You can finish after saving a cloud model or add more while the
-   local model and runtime download. Cloud models also appear in **Settings → Models**.
-   The assistant downloads both together and shows progress for each. Interrupted downloads resume
-   from the saved bytes when the server supports it, including after reopening DanteTL.
-3. Select your translator in the main window, choose the game window, and click **Start capture**.
-   Return to the game to see the overlay. Models load in the background; first use may ask you to
-   prepare a local model before continuing.
+1. Extract the entire `DanteTL-windows-x64.zip` and open `DanteTL.exe`. Keep the `_internal`
+   folder beside it. The ZIP includes text recognition (OCR) and runs without a separate Python
+   installation. [GitHub releases](https://github.com/nhmelo/dantejp/releases)
+2. In the **Setup assistant**, choose how to translate.
+   - **For offline translation**, choose **Next** to download a local model. CPU support is included.
+   - **For cloud translation**, choose **Add cloud model…**, sign in with an eligible ChatGPT account or enter an
+     OpenAI, Gemini, DeepSeek or Claude API key, then save the model. Cloud requests can consume
+     plan allowance or incur API charges.
+3. Run the game in windowed or borderless fullscreen mode. In DanteTL, select the game window.
+   Under **Translation**, choose your model, **Game text language** and **Output language**.
+   Click **Start capture**, then return to the game.
 
-DanteTL starts in English. Choose **App language** in the Setup assistant or under
-**Settings → Appearance**. The interface updates immediately, including during setup or capture.
+Screenshots stay on your PC. With cloud translation, the selected provider receives recognized
+text and, when available, a game-name hint and recent dialogue for context.
 
-Choose the source under **Translation → Game text language** or **Settings → Recognition**.
-Switching between Latin languages keeps capture running. If the OCR model or device needs to
-change during play, confirm to resume capture on the same game window. Compatible translators
-stay loaded, and each source change starts a fresh dialogue history.
-The Windows ZIP includes **MeikiOCR** for Japanese and **PaddleOCR** for all 34 Latin-script sources.
-Both work offline on CPU from first launch. Choose
-**Automatic** in an NVIDIA runtime to accelerate both detection and recognition.
+## Model recommendations
 
-Under **Settings → Recognition → Capture rate**, enter a target in samples per second, or lower
-the value to **Unlimited** to sample every frame Windows delivers. The setting takes effect
-the next time you start capture. Higher rates can catch changes sooner and use more resources.
+| Local model | Download | When to choose it |
+| --- | ---: | --- |
+| **Gemma 4 E2B** | 3.35 GB | Start here for a balance of speed and accurate game terminology. |
+| Gemma 4 E4B | 5.15 GB | Good for game terminology if you have more memory available. |
+| PLaMo 3 Translate 2B | 1.81 GB | Fast for dialogue. Less reliable for stats and game terms. |
+| PLaMo 3 Translate 0.8B | 0.57 GB | Smallest download. Fast, with weaker phrasing and terminology. |
+| Qwen3.5 4B | 2.74 GB | An alternative if you dislike Gemma’s wording. Slower in DanteTL’s tests. |
 
-Local translation weights are separate downloads. Reopen **Settings → Setup assistant…** with capture stopped, or manage
-models directly in **Settings → Models**.
-
-## Choose a translator
-
-Use one model for everything, or enable **Advanced routing** to assign different models to
-**Short labels** and **Long text & dialogue**. You can mix local and cloud models or turn either
-category off. Two local models can use substantially more memory.
-
-### Local models
-
-Start with **Gemma 4 E2B**. These are practical recommendations from testing and player feedback;
-quality and speed vary by game and hardware.
-
-| Model | Approx. download | Recommendation / tradeoff |
-| --- | --- | --- |
-| **Gemma 4 E2B** | 3.35 GB | Recommended balance of game terminology, quality and speed. |
-| **Gemma 4 E4B** | 5.15 GB | Higher-resource alternative with good game terminology; needs more memory. |
-| PLaMo 3 Translate 2B | 1.81 GB | Fast dialogue alternative; less reliable for game stats and terminology. |
-| PLaMo 3 Translate 0.8B | 0.57 GB | Small, fast option; weaker wording and game terminology. |
-| Qwen3.5 4B | 2.74 GB | Useful alternative, but substantially slower in this app's tests. |
-
-Download sizes are **not RAM/VRAM requirements**: leave additional memory for inference and the
-game. Model downloads have their own license terms.
-
-CPU support is included in the standalone app. **Settings → Acceleration** offers optional NVIDIA
-CUDA acceleration for supported OCR/translation engines, or Vulkan acceleration for translation
-with CPU OCR. Choosing an installed runtime or finishing its installation opens a restart prompt
-once other setup downloads finish. GPU compatibility depends
-on your hardware and drivers; downloaded weights alone do not mean GPU support is installed.
-Local translation works offline after setup.
-
-### Cloud models
-
-Cloud translation needs an internet connection and a configured provider connection, but no local
-translation weights or GPU setup.
-
-| Provider | Recommended model |
+| Cloud provider | Recommended model |
 | --- | --- |
 | ChatGPT / OpenAI | [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna) |
-| Gemini | [Gemini 3.5 Flash-Lite](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite) |
+| Gemini | [Gemini 3.5 Flash-Lite](https://aistudio.google.com/docs/models/gemini-3.5-flash-lite) |
 | DeepSeek | [DeepSeek Flash](https://api-docs.deepseek.com/quick_start/pricing/) |
-| Claude | [Haiku 5.5](https://platform.claude.com/docs/en/models/haiku-5-5/overview) |
+| Claude | [Claude Haiku 5.5](https://platform.claude.com/docs/en/models/haiku-5-5/overview) |
 
-These recommendations are **as of writing, 17 November 2026**. Models may have been updated or
-replaced since; choose a current equivalent in the same speed/cost tier. They are starting points,
-not a guarantee of translation quality. Use **Refresh models** to see your provider's current list.
+Use **Refresh models** in the cloud model editor to see which models your account can access.
 
-In **Settings → Models**, set **Model type** to **Cloud translation**, then choose **Add cloud
-model…**. Sign in with ChatGPT or enter the provider's API key, choose a model, and save. Select the
-saved model in the main window to use it. **Test connection** sends a sample request and may use
-paid allowance.
-
-ChatGPT sign-in depends on your account's access and available models. API-key connections use
-separate API billing, not your chat subscription. Cloud requests consume provider allowance and
-may incur charges; DanteTL's request limits are not spending caps.
-
-Screenshots and OCR stay on your PC. Cloud translation sends recognized text, the game-name hint,
-and limited recent dialogue context to the selected provider.
-
-## Everyday controls
+## During play
 
 | Default shortcut | Action |
 | --- | --- |
-| **Ctrl+Alt+F8** | Show or hide the overlay while processing continues. |
-| **Ctrl+Alt+F9** | Start capture of the focused window, or stop the current capture. |
+| **Ctrl+Alt+F8** | Hide or show the overlay. Translation continues while hidden. |
+| **Ctrl+Alt+F9** | Start capture on the focused window, or stop the current capture. |
 
-Change shortcuts in **Settings → Hotkeys**. The main **Start capture** button uses the selected
-window; the capture shortcut uses the focused window by default.
+Change shortcuts in **Settings → Hotkeys**. If a translation looks wrong, open **Inspection and
+diagnostics** to compare it with the recognized text. To record the overlay, enable **Include in
+screen capture** and record the entire display.
 
-To read the original game text, press **Show / hide overlay** once, then press it again to restore
-translations. Capture and translation continue while the overlay is hidden.
+Manage translators in **Settings → Models**. For GPU acceleration, open **Settings →
+Acceleration**. NVIDIA CUDA can accelerate recognition and translation. Vulkan accelerates
+supported local translators and keeps OCR on CPU.
 
-- **Settings → Appearance** adjusts text size, background opacity and **Blur behind translated text**.
-  Blur starts enabled on a fresh setup. You can turn it off in the welcome guide or in Appearance.
-- **Inspection and diagnostics** shows the recognized source text and full translations.
-  Pause it to review or copy text while the game overlay continues updating.
-- **Settings → Experimental → Dialogue history** enables the optional reader. It is **off by
-  default**. Once enabled, open **Dialogue** beside the Settings gear to read recent turns.
-  DanteTL remembers your opt-in. The reader can still misidentify dialogue or speakers. Cloud
-  classifiers make additional requests using your provider allowance.
-- To record or share the translated view, use display/entire-screen capture; game-only capture
-  may omit the separate overlay. Keep **Include in screen capture** enabled.
+## Updates and recovery
 
-## Updates and limitations
+Close DanteTL and extract the new ZIP into a fresh folder. The standalone app reuses your models
+and settings in `%LOCALAPPDATA%\DanteTL`. If a GPU runtime fails to start, launch
+`DanteTL.exe --cpu`.
 
-Close the app and extract an update into a new folder. Standalone models, settings, caches and
-optional runtimes live in **`%LOCALAPPDATA%\DanteTL`** and are reused across updates. Compatible
-runtimes do not need setup again for an app-only update. If GPU startup fails, launch
-`DanteTL.exe --cpu` to use the bundled CPU environment.
+## Run from source
 
-Tiny text, unusual fonts, names, dialogue choices and dense layouts can produce recognition or
-translation errors. Check the inspector when a result looks wrong. Exclusive fullscreen, protected windows, HDR and individual game or
-anti-cheat compatibility are not guaranteed.
+On Windows x64, install Visual Studio C++ Build Tools and either uv or Python 3.12+.
+Open `Run DanteTL.cmd` to set up the environment and launch the app. Use the Setup assistant
+to download OCR files for your game text language.
 
-## From source and contributing
-
-For a source checkout, **Run DanteTL.cmd** sets up and launches the app. Initial setup needs uv
-(or Python to bootstrap it) and C++ Build Tools for the CPU language-model engine. Source runs
-keep models and data in the project folder and do not bundle OCR weights; use the setup assistant
-to download them.
-
-The Python package and CLI are both `dantetl` (`python -m dantetl` or `uv run dantetl` after setup).
-
-See the [engineering guide](engineering/README.md) for development guidance,
-[verification](engineering/verification.md) for checks, and [building](engineering/building.md)
-for dependencies, standalone builds and GitHub releases.
+For development, testing and packaging, see the [engineering guide](engineering/README.md).
