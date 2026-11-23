@@ -392,7 +392,7 @@ def test_model_summary_separates_ratings_capabilities_and_unrated_imports(app):
 
     summary = ModelSummary()
     summary.set_model("plamo-2b", 1_800_000_000, True)
-    assert summary.values[1].property("tone") == "error"
+    assert summary.values[1].text() == "~ Mixed" and summary.values[1].property("tone") == "warning"
     assert "Heart Rate" in summary.values[1].toolTip()
     assert "support" in summary.cpu.text() and "support" in summary.gpu.text()
     summary.set_model("qwen35-4b", 2_700_000_000, True)

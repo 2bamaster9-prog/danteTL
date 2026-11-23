@@ -1423,8 +1423,8 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Mislukt</translation>
     </message>
     <message>
-      <source>Fast dialogue translation; unreliable for game stats and terminology.</source>
-      <translation>Snelle dialoogvertaling; onbetrouwbaar voor spelstatistieken en terminologie.</translation>
+      <source>Fast dialogue translation. Mixed results for game stats and terminology.</source>
+      <translation>Vertaalt dialogen snel. Wisselende resultaten bij spelstatistieken en speltermen.</translation>
     </message>
     <message>
       <source>Features under development. Results may be inaccurate or incomplete.</source>
@@ -3145,6 +3145,10 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
       <translation>Sloveens</translation>
     </message>
     <message>
+      <source>Small and fast, with weaker phrasing and mixed results for game terms.</source>
+      <translation>Klein en snel, met minder natuurlijke formuleringen en wisselende resultaten bij speltermen.</translation>
+    </message>
+    <message>
       <source>Source exceeds the allocated context; refusing truncation.</source>
       <translation>Bron overschrijdt de toegewezen context; afkappen geweigerd.</translation>
     </message>
@@ -3817,10 +3821,6 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
       <translation>Runtime verifiëren / repareren</translation>
     </message>
     <message>
-      <source>Very small and fast; weaker wording and unreliable game terminology.</source>
-      <translation>Zeer klein en snel; zwakkere formulering en onbetrouwbare spelspecifieke terminologie.</translation>
-    </message>
-    <message>
       <source>Vietnamese</source>
       <translation>Vietnamees</translation>
     </message>
@@ -4289,10 +4289,6 @@ Architectuur: {architecture} · Formaat: {value}
     <message>
       <source>✕ Slow</source>
       <translation>✕ Langzaam</translation>
-    </message>
-    <message>
-      <source>✕ Unreliable</source>
-      <translation>✕ Onbetrouwbaar</translation>
     </message>
     <message>
       <source>＋ Add ChatGPT account</source>

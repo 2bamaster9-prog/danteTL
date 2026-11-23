@@ -1423,8 +1423,8 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>失敗</translation>
     </message>
     <message>
-      <source>Fast dialogue translation; unreliable for game stats and terminology.</source>
-      <translation>高速対話翻訳 ゲームの統計や専門用語には信頼できません。</translation>
+      <source>Fast dialogue translation. Mixed results for game stats and terminology.</source>
+      <translation>会話を高速に翻訳します。ゲームの能力値や用語の訳にはばらつきがあります。</translation>
     </message>
     <message>
       <source>Features under development. Results may be inaccurate or incomplete.</source>
@@ -3145,6 +3145,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>スロベニア語</translation>
     </message>
     <message>
+      <source>Small and fast, with weaker phrasing and mixed results for game terms.</source>
+      <translation>軽量で高速ですが、言い回しにぎこちなさがあり、ゲーム用語の訳にはばらつきがあります。</translation>
+    </message>
+    <message>
       <source>Source exceeds the allocated context; refusing truncation.</source>
       <translation>ソースが割り当てられたコンテキストを超えています。切り取りを拒否します。</translation>
     </message>
@@ -3817,10 +3821,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>ランタイム検証/修復</translation>
     </message>
     <message>
-      <source>Very small and fast; weaker wording and unreliable game terminology.</source>
-      <translation>非常に小さく高速ですが、語彙が弱くゲーム用語の信頼性が低いです。</translation>
-    </message>
-    <message>
       <source>Vietnamese</source>
       <translation>ベトナム語</translation>
     </message>
@@ -4289,10 +4289,6 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>✕ Slow</source>
       <translation>✕ 低速</translation>
-    </message>
-    <message>
-      <source>✕ Unreliable</source>
-      <translation>✕ 不安定</translation>
     </message>
     <message>
       <source>＋ Add ChatGPT account</source>

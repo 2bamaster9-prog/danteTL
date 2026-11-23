@@ -1423,8 +1423,8 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Thất bại</translation>
     </message>
     <message>
-      <source>Fast dialogue translation; unreliable for game stats and terminology.</source>
-      <translation>Dịch hội thoại nhanh; không đáng tin cậy cho chỉ số và thuật ngữ trong game.</translation>
+      <source>Fast dialogue translation. Mixed results for game stats and terminology.</source>
+      <translation>Dịch hội thoại nhanh. Chất lượng dịch chỉ số và thuật ngữ trong game không đồng đều.</translation>
     </message>
     <message>
       <source>Features under development. Results may be inaccurate or incomplete.</source>
@@ -3145,6 +3145,10 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Tiếng Slovenia</translation>
     </message>
     <message>
+      <source>Small and fast, with weaker phrasing and mixed results for game terms.</source>
+      <translation>Nhỏ gọn và nhanh, nhưng cách diễn đạt kém tự nhiên hơn và chất lượng dịch thuật ngữ trong game không đồng đều.</translation>
+    </message>
+    <message>
       <source>Source exceeds the allocated context; refusing truncation.</source>
       <translation>Nguồn vượt quá ngữ cảnh được cấp; từ chối cắt bớt.</translation>
     </message>
@@ -3817,10 +3821,6 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Xác minh / sửa chữa runtime</translation>
     </message>
     <message>
-      <source>Very small and fast; weaker wording and unreliable game terminology.</source>
-      <translation>Rất nhỏ và nhanh; cách diễn đạt yếu hơn và thuật ngữ game không đáng tin cậy.</translation>
-    </message>
-    <message>
       <source>Vietnamese</source>
       <translation>Tiếng Việt</translation>
     </message>
@@ -4289,10 +4289,6 @@ Kiến trúc: {architecture} · Định dạng: {value}
     <message>
       <source>✕ Slow</source>
       <translation>✕ Chậm</translation>
-    </message>
-    <message>
-      <source>✕ Unreliable</source>
-      <translation>✕ Không đáng tin cậy</translation>
     </message>
     <message>
       <source>＋ Add ChatGPT account</source>

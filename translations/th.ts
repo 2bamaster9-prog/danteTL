@@ -1423,8 +1423,8 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>ล้มเหลว</translation>
     </message>
     <message>
-      <source>Fast dialogue translation; unreliable for game stats and terminology.</source>
-      <translation>แปลบทสนทนาเร็ว; ไม่น่าเชื่อถือสำหรับสถิติและคำศัพท์ในเกม</translation>
+      <source>Fast dialogue translation. Mixed results for game stats and terminology.</source>
+      <translation>แปลบทสนทนาได้รวดเร็ว คุณภาพการแปลค่าสถานะและศัพท์ในเกมแตกต่างกันไป</translation>
     </message>
     <message>
       <source>Features under development. Results may be inaccurate or incomplete.</source>
@@ -3145,6 +3145,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>สโลวีเนีย</translation>
     </message>
     <message>
+      <source>Small and fast, with weaker phrasing and mixed results for game terms.</source>
+      <translation>มีขนาดเล็กและทำงานรวดเร็ว แต่สำนวนไม่ค่อยเป็นธรรมชาติและคุณภาพการแปลศัพท์ในเกมแตกต่างกันไป</translation>
+    </message>
+    <message>
       <source>Source exceeds the allocated context; refusing truncation.</source>
       <translation>ต้นฉบับเกินบริบทที่จัดสรรไว้ ปฏิเสธการตัดทอน</translation>
     </message>
@@ -3817,10 +3821,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>ตรวจสอบ / ซ่อมแซม runtime</translation>
     </message>
     <message>
-      <source>Very small and fast; weaker wording and unreliable game terminology.</source>
-      <translation>เล็กและเร็วมาก; ถ้อยคำอ่อนกว่าและคำศัพท์เกมไม่น่าเชื่อถือ</translation>
-    </message>
-    <message>
       <source>Vietnamese</source>
       <translation>ภาษาเวียดนาม</translation>
     </message>
@@ -4289,10 +4289,6 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>✕ Slow</source>
       <translation>✕ ช้า</translation>
-    </message>
-    <message>
-      <source>✕ Unreliable</source>
-      <translation>✕ ไม่น่าเชื่อถือ</translation>
     </message>
     <message>
       <source>＋ Add ChatGPT account</source>

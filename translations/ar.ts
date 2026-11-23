@@ -1423,8 +1423,8 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>فشل</translation>
     </message>
     <message>
-      <source>Fast dialogue translation; unreliable for game stats and terminology.</source>
-      <translation>ترجمة حوار سريعة؛ غير موثوقة لإحصاءات اللعبة والمصطلحات.</translation>
+      <source>Fast dialogue translation. Mixed results for game stats and terminology.</source>
+      <translation>ترجمة سريعة للحوارات. تتفاوت النتائج عند ترجمة إحصاءات اللعبة ومصطلحاتها.</translation>
     </message>
     <message>
       <source>Features under development. Results may be inaccurate or incomplete.</source>
@@ -3145,6 +3145,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>السلوفينية</translation>
     </message>
     <message>
+      <source>Small and fast, with weaker phrasing and mixed results for game terms.</source>
+      <translation>صغير وسريع، لكن صياغته أضعف ونتائجه متفاوتة في ترجمة مصطلحات اللعبة.</translation>
+    </message>
+    <message>
       <source>Source exceeds the allocated context; refusing truncation.</source>
       <translation>يتجاوز المصدر السياق المخصص؛ رفض الاقتطاع.</translation>
     </message>
@@ -3817,10 +3821,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>تحقق / إصلاح وقت التشغيل</translation>
     </message>
     <message>
-      <source>Very small and fast; weaker wording and unreliable game terminology.</source>
-      <translation>صغير جدًا وسريع؛ صياغة أضعف ومصطلحات ألعاب غير موثوقة.</translation>
-    </message>
-    <message>
       <source>Vietnamese</source>
       <translation>الفيتنامية</translation>
     </message>
@@ -4289,10 +4289,6 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>✕ Slow</source>
       <translation>✕ بطيء</translation>
-    </message>
-    <message>
-      <source>✕ Unreliable</source>
-      <translation>✕ غير موثوق</translation>
     </message>
     <message>
       <source>＋ Add ChatGPT account</source>

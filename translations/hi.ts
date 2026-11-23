@@ -1423,8 +1423,8 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>विफल</translation>
     </message>
     <message>
-      <source>Fast dialogue translation; unreliable for game stats and terminology.</source>
-      <translation>तेज़ संवाद अनुवाद; गेम आँकड़े और शब्दावली के लिए अविश्वसनीय।</translation>
+      <source>Fast dialogue translation. Mixed results for game stats and terminology.</source>
+      <translation>संवादों का तेज़ अनुवाद। गेम के आँकड़ों और शब्दावली के अनुवाद में मिले-जुले नतीजे।</translation>
     </message>
     <message>
       <source>Features under development. Results may be inaccurate or incomplete.</source>
@@ -3145,6 +3145,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>स्लोवेनियाई</translation>
     </message>
     <message>
+      <source>Small and fast, with weaker phrasing and mixed results for game terms.</source>
+      <translation>छोटा और तेज़ है, लेकिन वाक्य रचना कुछ कमज़ोर है और गेम की शब्दावली के अनुवाद में मिले-जुले नतीजे मिलते हैं।</translation>
+    </message>
+    <message>
       <source>Source exceeds the allocated context; refusing truncation.</source>
       <translation>स्रोत आवंटित संदर्भ से अधिक है; काटने से इंकार कर रहा है।</translation>
     </message>
@@ -3817,10 +3821,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>रनटाइम को सत्यापित / मरम्मत करें</translation>
     </message>
     <message>
-      <source>Very small and fast; weaker wording and unreliable game terminology.</source>
-      <translation>बहुत छोटा और तेज़; कमज़ोर शब्दावली और अविश्वसनीय गेम शब्दावली।</translation>
-    </message>
-    <message>
       <source>Vietnamese</source>
       <translation>वियतनामी</translation>
     </message>
@@ -4289,10 +4289,6 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>✕ Slow</source>
       <translation>✕ धीमा</translation>
-    </message>
-    <message>
-      <source>✕ Unreliable</source>
-      <translation>✕ अविश्वसनीय</translation>
     </message>
     <message>
       <source>＋ Add ChatGPT account</source>

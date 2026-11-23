@@ -1423,8 +1423,8 @@ Los detalles están en %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Error</translation>
     </message>
     <message>
-      <source>Fast dialogue translation; unreliable for game stats and terminology.</source>
-      <translation>Traducción rápida de diálogo; poco fiable para estadísticas y terminología del juego.</translation>
+      <source>Fast dialogue translation. Mixed results for game stats and terminology.</source>
+      <translation>Traduce los diálogos con rapidez. Los resultados varían en las estadísticas y los términos del juego.</translation>
     </message>
     <message>
       <source>Features under development. Results may be inaccurate or incomplete.</source>
@@ -3145,6 +3145,10 @@ Descargas de modelos: hasta {size:.2f} GB; los archivos existentes se verifican 
       <translation>Esloveno</translation>
     </message>
     <message>
+      <source>Small and fast, with weaker phrasing and mixed results for game terms.</source>
+      <translation>Pequeño y rápido, con una redacción menos natural y resultados dispares en los términos del juego.</translation>
+    </message>
+    <message>
       <source>Source exceeds the allocated context; refusing truncation.</source>
       <translation>El origen supera el contexto asignado; se rechaza el truncamiento.</translation>
     </message>
@@ -3817,10 +3821,6 @@ Descargas de modelos: hasta {size:.2f} GB; los archivos existentes se verifican 
       <translation>Verificar / reparar tiempo de ejecución</translation>
     </message>
     <message>
-      <source>Very small and fast; weaker wording and unreliable game terminology.</source>
-      <translation>Muy pequeño y rápido; redacción más débil y terminología de juego poco fiable.</translation>
-    </message>
-    <message>
       <source>Vietnamese</source>
       <translation>Vietnamita</translation>
     </message>
@@ -4289,10 +4289,6 @@ Arquitectura: {architecture} · Formato: {value}
     <message>
       <source>✕ Slow</source>
       <translation>✕ Lento</translation>
-    </message>
-    <message>
-      <source>✕ Unreliable</source>
-      <translation>✕ Poco fiable</translation>
     </message>
     <message>
       <source>＋ Add ChatGPT account</source>

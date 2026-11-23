@@ -1423,8 +1423,8 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>失败</translation>
     </message>
     <message>
-      <source>Fast dialogue translation; unreliable for game stats and terminology.</source>
-      <translation>快速对话翻译；对游戏数据和术语不可靠。</translation>
+      <source>Fast dialogue translation. Mixed results for game stats and terminology.</source>
+      <translation>对话翻译速度快。游戏数值和术语的翻译质量参差不齐。</translation>
     </message>
     <message>
       <source>Features under development. Results may be inaccurate or incomplete.</source>
@@ -3145,6 +3145,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>斯洛文尼亚语</translation>
     </message>
     <message>
+      <source>Small and fast, with weaker phrasing and mixed results for game terms.</source>
+      <translation>小巧快速，但措辞略显生硬，游戏术语的翻译质量参差不齐。</translation>
+    </message>
+    <message>
       <source>Source exceeds the allocated context; refusing truncation.</source>
       <translation>源文本超出分配的上下文；拒绝截断。</translation>
     </message>
@@ -3817,10 +3821,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>验证 / 修复运行时</translation>
     </message>
     <message>
-      <source>Very small and fast; weaker wording and unreliable game terminology.</source>
-      <translation>体积小且速度快；措辞较弱，游戏术语不可靠。</translation>
-    </message>
-    <message>
       <source>Vietnamese</source>
       <translation>越南语</translation>
     </message>
@@ -4289,10 +4289,6 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>✕ Slow</source>
       <translation>✕ 缓慢</translation>
-    </message>
-    <message>
-      <source>✕ Unreliable</source>
-      <translation>✕ 不可靠</translation>
     </message>
     <message>
       <source>＋ Add ChatGPT account</source>

@@ -222,7 +222,8 @@ def main() -> int:
                 summary = settings.models.summary
                 assert summary.isVisible() and summary.cpu.text() == "✓ CPU support"
                 if key.startswith("plamo-"):
-                    assert summary.values[1].property("tone") == "error"
+                    assert summary.values[1].text() == "~ Mixed"
+                    assert summary.values[1].property("tone") == "warning"
                 if key == "qwen35-4b":
                     assert summary.values[2].text() == "✕ Slow"
                 settings.grab().save(str(args.output / f"{key}-status.png"))

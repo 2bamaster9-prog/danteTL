@@ -29,8 +29,8 @@ GOOD = Rating(
 )
 MIXED = Rating(mark("~ Mixed"), "warning", mark("Can change meaning or produce awkward phrasing."))
 TERMS = Rating(
-    mark("✕ Unreliable"),
-    "error",
+    MIXED.text,
+    MIXED.tone,
     mark(
         "Player testing found stat errors such as Critical Rate becoming Heart Rate. "
         "Our earlier small synthetic comparison did not expose this weakness."

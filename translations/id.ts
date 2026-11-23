@@ -1423,8 +1423,8 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Gagal</translation>
     </message>
     <message>
-      <source>Fast dialogue translation; unreliable for game stats and terminology.</source>
-      <translation>Terjemahan dialog cepat; tidak andal untuk statistik game dan terminologi.</translation>
+      <source>Fast dialogue translation. Mixed results for game stats and terminology.</source>
+      <translation>Cepat menerjemahkan dialog. Hasil terjemahan statistik dan istilah gim bervariasi.</translation>
     </message>
     <message>
       <source>Features under development. Results may be inaccurate or incomplete.</source>
@@ -3145,6 +3145,10 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Slovenia</translation>
     </message>
     <message>
+      <source>Small and fast, with weaker phrasing and mixed results for game terms.</source>
+      <translation>Kecil dan cepat, tetapi susunan kalimatnya kurang alami dan hasil terjemahan istilah gim bervariasi.</translation>
+    </message>
+    <message>
       <source>Source exceeds the allocated context; refusing truncation.</source>
       <translation>Sumber melebihi konteks yang dialokasikan; menolak pemotongan.</translation>
     </message>
@@ -3817,10 +3821,6 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Verifikasi / perbaiki runtime</translation>
     </message>
     <message>
-      <source>Very small and fast; weaker wording and unreliable game terminology.</source>
-      <translation>Sangat kecil dan cepat; pencocokan kata lebih lemah dan terminologi game tidak andal.</translation>
-    </message>
-    <message>
       <source>Vietnamese</source>
       <translation>Vietnam</translation>
     </message>
@@ -4289,10 +4289,6 @@ Arsitektur: {architecture} · Format: {value}
     <message>
       <source>✕ Slow</source>
       <translation>✕ Lambat</translation>
-    </message>
-    <message>
-      <source>✕ Unreliable</source>
-      <translation>✕ Tidak andal</translation>
     </message>
     <message>
       <source>＋ Add ChatGPT account</source>

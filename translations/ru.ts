@@ -1423,8 +1423,8 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>Ошибка</translation>
     </message>
     <message>
-      <source>Fast dialogue translation; unreliable for game stats and terminology.</source>
-      <translation>Быстрый перевод диалогов; ненадёжен для игровой статистики и терминологии.</translation>
+      <source>Fast dialogue translation. Mixed results for game stats and terminology.</source>
+      <translation>Быстро переводит диалоги. Качество перевода игровых характеристик и терминов варьируется.</translation>
     </message>
     <message>
       <source>Features under development. Results may be inaccurate or incomplete.</source>
@@ -3145,6 +3145,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>Словенский</translation>
     </message>
     <message>
+      <source>Small and fast, with weaker phrasing and mixed results for game terms.</source>
+      <translation>Компактная и быстрая модель. Формулировки менее естественные, а качество перевода игровых терминов непостоянно.</translation>
+    </message>
+    <message>
       <source>Source exceeds the allocated context; refusing truncation.</source>
       <translation>Источник превышает выделенный контекст; обрезка отклонена.</translation>
     </message>
@@ -3817,10 +3821,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>Проверить / восстановить runtime</translation>
     </message>
     <message>
-      <source>Very small and fast; weaker wording and unreliable game terminology.</source>
-      <translation>Очень маленький и быстрый; слабее формулировки и ненадёжная игровая терминология.</translation>
-    </message>
-    <message>
       <source>Vietnamese</source>
       <translation>Вьетнамский</translation>
     </message>
@@ -4289,10 +4289,6 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>✕ Slow</source>
       <translation>✕ Медленная</translation>
-    </message>
-    <message>
-      <source>✕ Unreliable</source>
-      <translation>✕ Ненадёжная</translation>
     </message>
     <message>
       <source>＋ Add ChatGPT account</source>

@@ -1423,8 +1423,8 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>ব্যর্থ</translation>
     </message>
     <message>
-      <source>Fast dialogue translation; unreliable for game stats and terminology.</source>
-      <translation>দ্রুত সংলাপ অনুবাদ; গেম পরিসংখ্যান ও পরিভাষার জন্য অবিশ্বস্ত।</translation>
+      <source>Fast dialogue translation. Mixed results for game stats and terminology.</source>
+      <translation>সংলাপ দ্রুত অনুবাদ করে। গেমের পরিসংখ্যান ও পরিভাষা অনুবাদে ফলাফল মিশ্র।</translation>
     </message>
     <message>
       <source>Features under development. Results may be inaccurate or incomplete.</source>
@@ -3145,6 +3145,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>স্লোভেনীয়</translation>
     </message>
     <message>
+      <source>Small and fast, with weaker phrasing and mixed results for game terms.</source>
+      <translation>ছোট ও দ্রুত, তবে বাক্য গঠন কিছুটা দুর্বল এবং গেমের পরিভাষা অনুবাদে ফলাফল মিশ্র।</translation>
+    </message>
+    <message>
       <source>Source exceeds the allocated context; refusing truncation.</source>
       <translation>সোর্স বরাদ্দকৃত কনটেক্সট ছাড়িয়েছে; ট্রাঙ্কেশন প্রত্যাখ্যান করা হচ্ছে।</translation>
     </message>
@@ -3817,10 +3821,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>রানটাইম যাচাই / মেরামত</translation>
     </message>
     <message>
-      <source>Very small and fast; weaker wording and unreliable game terminology.</source>
-      <translation>খুব ছোট এবং দ্রুত; দুর্বল শব্দচয়ন এবং অবিশ্বস্ত গেম পরিভাষা।</translation>
-    </message>
-    <message>
       <source>Vietnamese</source>
       <translation>ভিয়েতনামি</translation>
     </message>
@@ -4289,10 +4289,6 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>✕ Slow</source>
       <translation>✕ ধীর</translation>
-    </message>
-    <message>
-      <source>✕ Unreliable</source>
-      <translation>✕ অবিশ্বস্ত</translation>
     </message>
     <message>
       <source>＋ Add ChatGPT account</source>

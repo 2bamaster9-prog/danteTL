@@ -1423,8 +1423,8 @@ Details finden Sie in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Fehlgeschlagen</translation>
     </message>
     <message>
-      <source>Fast dialogue translation; unreliable for game stats and terminology.</source>
-      <translation>Schnelle Dialogübersetzung; unzuverlässig für Spielwerte und Terminologie.</translation>
+      <source>Fast dialogue translation. Mixed results for game stats and terminology.</source>
+      <translation>Übersetzt Dialoge schnell. Durchwachsene Ergebnisse bei Spielwerten und Fachbegriffen.</translation>
     </message>
     <message>
       <source>Features under development. Results may be inaccurate or incomplete.</source>
@@ -3145,6 +3145,10 @@ Modell-Downloads: bis zu {size:.2f} GB; vorhandene Dateien werden geprüft und w
       <translation>Slowenisch</translation>
     </message>
     <message>
+      <source>Small and fast, with weaker phrasing and mixed results for game terms.</source>
+      <translation>Klein und schnell, mit schwächeren Formulierungen und durchwachsenen Ergebnissen bei Spielbegriffen.</translation>
+    </message>
+    <message>
       <source>Source exceeds the allocated context; refusing truncation.</source>
       <translation>Quelle überschreitet den zugewiesenen Kontext; Kürzung wird abgelehnt.</translation>
     </message>
@@ -3817,10 +3821,6 @@ Modell-Downloads: bis zu {size:.2f} GB; vorhandene Dateien werden geprüft und w
       <translation>Runtime überprüfen / reparieren</translation>
     </message>
     <message>
-      <source>Very small and fast; weaker wording and unreliable game terminology.</source>
-      <translation>Sehr klein und schnell; schwächere Formulierung und unzuverlässige Spielterminologie.</translation>
-    </message>
-    <message>
       <source>Vietnamese</source>
       <translation>Vietnamesisch</translation>
     </message>
@@ -4289,10 +4289,6 @@ Architektur: {architecture} · Format: {value}
     <message>
       <source>✕ Slow</source>
       <translation>✕ Langsam</translation>
-    </message>
-    <message>
-      <source>✕ Unreliable</source>
-      <translation>✕ Unzuverlässig</translation>
     </message>
     <message>
       <source>＋ Add ChatGPT account</source>

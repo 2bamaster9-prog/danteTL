@@ -1423,8 +1423,8 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>실패</translation>
     </message>
     <message>
-      <source>Fast dialogue translation; unreliable for game stats and terminology.</source>
-      <translation>빠른 대사 번역, 게임 능력치와 용어에는 신뢰할 수 없습니다.</translation>
+      <source>Fast dialogue translation. Mixed results for game stats and terminology.</source>
+      <translation>대사를 빠르게 번역합니다. 게임 능력치와 용어의 번역 품질은 일정하지 않습니다.</translation>
     </message>
     <message>
       <source>Features under development. Results may be inaccurate or incomplete.</source>
@@ -3145,6 +3145,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>슬로베니아어</translation>
     </message>
     <message>
+      <source>Small and fast, with weaker phrasing and mixed results for game terms.</source>
+      <translation>가볍고 빠르지만 표현이 다소 어색하고 게임 용어의 번역 품질에 편차가 있습니다.</translation>
+    </message>
+    <message>
       <source>Source exceeds the allocated context; refusing truncation.</source>
       <translation>원본이 할당된 컨텍스트를 초과합니다. 잘라내기를 거부합니다.</translation>
     </message>
@@ -3817,10 +3821,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>런타임 검증 / 복구</translation>
     </message>
     <message>
-      <source>Very small and fast; weaker wording and unreliable game terminology.</source>
-      <translation>매우 작고 빠름; 표현이 약하고 게임 용어가 불안정합니다.</translation>
-    </message>
-    <message>
       <source>Vietnamese</source>
       <translation>베트남어</translation>
     </message>
@@ -4289,10 +4289,6 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>✕ Slow</source>
       <translation>✕ 느림</translation>
-    </message>
-    <message>
-      <source>✕ Unreliable</source>
-      <translation>✕ 불안정</translation>
     </message>
     <message>
       <source>＋ Add ChatGPT account</source>

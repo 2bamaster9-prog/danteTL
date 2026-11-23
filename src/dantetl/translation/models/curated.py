@@ -85,7 +85,7 @@ MODELS = (
     CuratedModel(
         "plamo-2b",
         mark("PLaMo 3 Translate 2B · Dialogue alternative"),
-        mark("Fast dialogue translation; unreliable for game stats and terminology."),
+        mark("Fast dialogue translation. Mixed results for game stats and terminology."),
         "plamo3",
         "plamo3",
         (
@@ -108,7 +108,7 @@ MODELS = (
     CuratedModel(
         "plamo-0.8b",
         mark("PLaMo 3 Translate 0.8B · Lightweight alternative"),
-        mark("Very small and fast; weaker wording and unreliable game terminology."),
+        mark("Small and fast, with weaker phrasing and mixed results for game terms."),
         "plamo3",
         "plamo3",
         (

@@ -1423,8 +1423,8 @@ I dettagli sono in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Non riuscito</translation>
     </message>
     <message>
-      <source>Fast dialogue translation; unreliable for game stats and terminology.</source>
-      <translation>Traduzione rapida dei dialoghi; inaffidabile per statistiche e terminologia di gioco.</translation>
+      <source>Fast dialogue translation. Mixed results for game stats and terminology.</source>
+      <translation>Traduce rapidamente i dialoghi. Risultati variabili per le statistiche e i termini di gioco.</translation>
     </message>
     <message>
       <source>Features under development. Results may be inaccurate or incomplete.</source>
@@ -3145,6 +3145,10 @@ Download dei modelli: fino a {size:.2f} GB; i file esistenti vengono verificati 
       <translation>Sloveno</translation>
     </message>
     <message>
+      <source>Small and fast, with weaker phrasing and mixed results for game terms.</source>
+      <translation>Piccolo e veloce, con frasi meno naturali e risultati variabili per i termini di gioco.</translation>
+    </message>
+    <message>
       <source>Source exceeds the allocated context; refusing truncation.</source>
       <translation>L'origine supera il contesto allocato; troncamento rifiutato.</translation>
     </message>
@@ -3817,10 +3821,6 @@ Download dei modelli: fino a {size:.2f} GB; i file esistenti vengono verificati 
       <translation>Verifica / ripara runtime</translation>
     </message>
     <message>
-      <source>Very small and fast; weaker wording and unreliable game terminology.</source>
-      <translation>Molto piccolo e veloce; formulazione più debole e terminologia di gioco inaffidabile.</translation>
-    </message>
-    <message>
       <source>Vietnamese</source>
       <translation>Vietnamita</translation>
     </message>
@@ -4289,10 +4289,6 @@ Architettura: {architecture} · Formato: {value}
     <message>
       <source>✕ Slow</source>
       <translation>✕ Lento</translation>
-    </message>
-    <message>
-      <source>✕ Unreliable</source>
-      <translation>✕ Inaffidabile</translation>
     </message>
     <message>
       <source>＋ Add ChatGPT account</source>
