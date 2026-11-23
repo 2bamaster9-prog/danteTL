@@ -118,54 +118,73 @@ def request_body(
 
 
 def prompt_body(profile: CloudProfile, instruction: str, user: str) -> dict[str, object]:
-    """Shared provider formatting/decoding for bounded translation and classification."""
-    if profile.provider == "gemini":
-        return {
-            "systemInstruction": {"parts": [{"text": instruction}]},
-            "contents": [{"role": "user", "parts": [{"text": user}]}],
-            "generationConfig": _gemini_generation(profile),
-        }
-    if profile.provider == "claude":
-        return {
-            "model": profile.model,
-            "system": instruction,
-            "messages": [{"role": "user", "content": user}],
-            "stream": False,
-            **_claude_decoding(profile),
-        }
-    body: dict[str, object] = {
-        "model": profile.model,
+    """Build the selected provider's request for translation or classification."""
+    match profile.provider:
+        case "openai":
+            return _openai_body(profile, instruction, user)
+        case "deepseek":
+            return _deepseek_body(profile, instruction, user)
+        case "chatgpt":
+            return _chatgpt_body(profile, instruction, user)
+        case "claude":
+            return {
+                "model": profile.model,
+                "system": instruction,
+                "messages": [{"role": "user", "content": user}],
+                "stream": False,
+                **_claude_decoding(profile),
+            }
+        case "gemini":
+            return {
+                "systemInstruction": {"parts": [{"text": instruction}]},
+                "contents": [{"role": "user", "parts": [{"text": user}]}],
+                "generationConfig": _gemini_generation(profile),
+            }
+        case _:
+            raise RequestRejected(tr("Choose a supported provider and model."))
+
+
+def _completion_body(model: str, instruction: str, user: str) -> dict[str, object]:
+    return {
+        "model": model,
         "stream": False,
         "messages": [
             {"role": "system", "content": instruction},
-            {
-                "role": "user",
-                "content": user,
-            },
+            {"role": "user", "content": user},
         ],
     }
-    if profile.provider == "chatgpt":
-        messages = body["messages"]
-        assert isinstance(messages, list)
-        body = {
-            "model": profile.model,
-            "instructions": instruction,
-            "input": [messages[1]],
-            "store": False,
-            "stream": True,
-        }
-        if profile.model.startswith("gpt-5.4-mini") or profile.model == "gpt-6-luna":
-            body["reasoning"] = {"effort": "none"}
-        elif profile.model.startswith("gpt-6"):
-            body["reasoning"] = {"effort": "low"}
-    elif profile.provider == "openai":
-        body.update(max_completion_tokens=2048, store=False)
-        if profile.decoding == "preset":
-            body.update(reasoning_effort="none", max_completion_tokens=768)
-    else:
-        body.update(max_tokens=2048)
-        if profile.decoding == "preset":
-            body.update(thinking={"type": "disabled"}, max_tokens=768, temperature=0)
+
+
+def _openai_body(profile: CloudProfile, instruction: str, user: str) -> dict[str, object]:
+    body = _completion_body(profile.model, instruction, user)
+    preset = profile.decoding == "preset"
+    body.update(max_completion_tokens=768 if preset else 2048, store=False)
+    if preset:
+        body["reasoning_effort"] = "none"
+    return body
+
+
+def _deepseek_body(profile: CloudProfile, instruction: str, user: str) -> dict[str, object]:
+    body = _completion_body(profile.model, instruction, user)
+    preset = profile.decoding == "preset"
+    body["max_tokens"] = 768 if preset else 2048
+    if preset:
+        body.update(thinking={"type": "disabled"}, temperature=0)
+    return body
+
+
+def _chatgpt_body(profile: CloudProfile, instruction: str, user: str) -> dict[str, object]:
+    body: dict[str, object] = {
+        "model": profile.model,
+        "instructions": instruction,
+        "input": [{"role": "user", "content": user}],
+        "store": False,
+        "stream": True,
+    }
+    if profile.model.startswith("gpt-5.4-mini") or profile.model == "gpt-6-luna":
+        body["reasoning"] = {"effort": "none"}
+    elif profile.model.startswith("gpt-6"):
+        body["reasoning"] = {"effort": "low"}
     return body
 
 
