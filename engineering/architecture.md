@@ -608,6 +608,9 @@ protects each digest-named partial through transfer, verification and publicatio
 get bounded retries. Later attempts resume from the saved byte offset, including after app exit.
 Transfer and checksum reads request Windows background I/O priority. The receiver coalesces network
 fragments, flushes its user-space buffer before reporting progress and syncs at the end of a response.
+Runtime setup uses uv to create the private interpreter environment. Its bundled pip installs the
+pinned local wheels directly into that environment, with Windows background processing priority,
+binary-only hash checking, and index, dependency resolution and package caching disabled.
 Appending requires a matching HTTP range. A full response replaces the partial. The parent verifies
 the complete file against the pinned SHA-256 before atomic replacement.
 Bundled restoration and verified cache reuse stay offline without a downloader child.

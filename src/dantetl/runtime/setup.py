@@ -258,18 +258,17 @@ def _install(
             if profile.key == "cpu"
             else None,
         )
+        installer = (
+            project / "install_wheels.py"
+            if is_standalone()
+            else Path(__file__).with_name("install_wheels.py")
+        )
         command(
             [
-                str(uv),
-                "pip",
-                "install",
-                "--offline",
-                "--no-index",
-                "--no-deps",
-                "--require-hashes",
-                "--python",
                 str(target / "Scripts/python.exe"),
-                "--requirements",
+                "-I",
+                "-B",
+                str(installer),
                 str(requirements),
             ],
             tr("Installing verified dependencies…"),

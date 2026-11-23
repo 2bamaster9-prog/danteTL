@@ -42,6 +42,9 @@ wheel hashes and the pinned Python version, independently of application metadat
 Actual dependency changes still require explicit setup into a separate environment with CPU fallback.
 Models, preferences and selection are kept. Moving an unchanged release requires no installation.
 
+For a fresh native runtime, uv creates the environment. The installer uses the pip bundled with its
+pinned CPython to unpack verified wheels directly into that environment at background priority. The
+release includes the standalone installer script so a fresh interpreter can run it before setup.
 Optional runtimes use standard offline `uv pip install --target --no-deps --require-hashes` to
 prepare only the bundled app wheel in an immutable, hash-specific AppData directory. This is shared
 across native profiles and takes no network access. A process-local `PYTHONPATH` selects that app,

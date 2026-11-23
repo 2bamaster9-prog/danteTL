@@ -1,10 +1,14 @@
 import ctypes
+import hashlib
 import json
 import os
+import subprocess
 import sys
 import threading
+import venv
 from pathlib import Path
 from unittest.mock import Mock
+from zipfile import ZipFile
 
 import pytest
 
@@ -55,6 +59,42 @@ def test_recommends_discrete_gpu_and_preserves_manual_cpu_fallback():
     assert recommended_profile((amd,)) == "amd"
 
 
+def test_native_installer_checks_hash_and_ignores_external_pip_target(tmp_path, monkeypatch):
+    target = tmp_path / "private runtime"
+    venv.EnvBuilder(with_pip=False).create(target)
+    foreign = tmp_path / "other site"
+    monkeypatch.setenv("PIP_TARGET", str(foreign))
+    wheel = tmp_path / "fixture-1-py3-none-any.whl"
+    with ZipFile(wheel, "w") as archive:
+        archive.writestr("fixture.py", "value = 1")
+        archive.writestr(
+            "fixture-1.dist-info/METADATA", "Metadata-Version: 2.1\nName: fixture\nVersion: 1\n"
+        )
+        archive.writestr(
+            "fixture-1.dist-info/WHEEL",
+            "Wheel-Version: 1.0\nGenerator: fixture\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
+        )
+        archive.writestr("fixture-1.dist-info/RECORD", "fixture.py,,\n")
+    requirement = tmp_path / "requirements.txt"
+    command = [
+        str(target / "Scripts/python.exe"),
+        "-I",
+        "-B",
+        str(Path(setup.__file__).with_name("install_wheels.py")),
+        str(requirement),
+    ]
+    installed = target / "Lib/site-packages/fixture.py"
+    for digest, valid in (
+        ("0" * 64, False),
+        (hashlib.sha256(wheel.read_bytes()).hexdigest(), True),
+    ):
+        requirement.write_text(f"{wheel.as_uri()} --hash=sha256:{digest}\n", encoding="utf-8")
+        result = subprocess.run(command, capture_output=True, timeout=30)
+        assert (result.returncode == 0) == valid, result.stderr
+        assert installed.exists() == valid
+        assert not foreign.exists()
+
+
 @pytest.mark.parametrize("profile", setup.PROFILES, ids=lambda p: p.key)
 def test_install_validates_before_publishing_and_selection_is_explicit(project, profile):
     root, calls, _ = project
@@ -62,7 +102,11 @@ def test_install_validates_before_publishing_and_selection_is_explicit(project, 
     ready = setup.ready_runtime(root, profile.key)
     assert ready and "venv" in calls[0]
     assert "--locked" in calls[1] and "--no-default-groups" in calls[1]
-    assert all(flag in calls[2] for flag in ("--offline", "--no-index", "--require-hashes"))
+    install = calls[2]
+    assert Path(install[0]) == ready / "Scripts/python.exe"
+    assert Path(install[3]).name == "install_wheels.py"
+    assert install[1:3] == ["-I", "-B"]
+    assert Path(install[-1]) == ready / "pylock.txt"
     assert calls[-1][1:] == ["-m", "dantetl.runtime.probe", profile.key]
     assert not setup.selected_runtime(root)
     setup.select_runtime(root, ready)

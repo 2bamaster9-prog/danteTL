@@ -16,6 +16,8 @@ data = [
     (str(root / name), "app") for name in ("pyproject.toml", "uv.lock", ".python-version")
 ]
 data += [(str(root / "packaging/standalone.json"), "app")]
+# Invoked by the freshly created interpreter before it has any third-party packages.
+data += [(str(root / "src/dantetl/runtime/install_wheels.py"), "app")]
 data += [(str(root / "build/update-helper/bin/DanteTL-update.exe"), "app")]
 if public_key := os.environ.get("DANTETL_UPDATE_PUBLIC_KEY"):
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
