@@ -14,6 +14,7 @@ from dantetl.runtime.package import PORTABLE_FILES, bundled_application
 from dantetl.runtime.release_feed import parse_release
 from dantetl.runtime.release_values import ARCHIVE, MANIFEST, SIGNATURE, Release
 from dantetl.runtime.update_install import stage_release
+from dantetl.runtime.update_swap import bundle_lease, swap
 
 
 def settled(service):
@@ -119,7 +120,9 @@ def installed(folder):
     return bundled_application(folder / "_internal/app").version
 
 
-@pytest.mark.parametrize("case", ["signature", "digest", "path", "interrupt"])
+@pytest.mark.parametrize(
+    "case", ["install", "rollback", "locked", "signature", "digest", "path", "interrupt"]
+)
 def test_portable_transaction(tmp_path, case):
     cancel = threading.Event()
     old, state = tmp_path / "Portable", tmp_path / "state"
@@ -164,9 +167,27 @@ def test_portable_transaction(tmp_path, case):
             release, old, key.public_key(), cancel, lambda *_: None, receive=receive
         )
 
-    with pytest.raises((ValueError, OSError)):
-        stage()
-    assert not list(tmp_path.glob(".dantetl-update-*"))
+    if case in ("signature", "digest", "path", "interrupt"):
+        with pytest.raises((ValueError, OSError)):
+            stage()
+        assert not list(tmp_path.glob(".dantetl-update-*"))
+    else:
+        work = stage()
+
+        def launch(path, data, expected):
+            assert installed(path) == expected == "1.1.0"
+            if case == "rollback":
+                raise RuntimeError("Startup failed")
+
+        if case == "locked":
+            with bundle_lease(old, state), pytest.raises(OSError):
+                swap(old, work, state, release.version, launch=launch)
+        elif case == "rollback":
+            with pytest.raises(RuntimeError, match="Startup failed"):
+                swap(old, work, state, release.version, launch=launch)
+        else:
+            swap(old, work, state, release.version, launch=launch)
+            assert not work.exists()
     assert preferences.read_text() == "keep me"
-    assert installed(old) == "1.0.0"
+    assert installed(old) == ("1.1.0" if case == "install" else "1.0.0")
     assert not (tmp_path / "outside").exists()

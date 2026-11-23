@@ -3,6 +3,7 @@
 from pathlib import Path
 from importlib.metadata import distributions
 import sys
+import os
 import tomllib
 
 from PyInstaller.utils.hooks import collect_dynamic_libs, collect_submodules, copy_metadata, collect_delvewheel_libs_directory
@@ -15,6 +16,15 @@ data = [
     (str(root / name), "app") for name in ("pyproject.toml", "uv.lock", ".python-version")
 ]
 data += [(str(root / "packaging/standalone.json"), "app")]
+data += [(str(root / "build/update-helper/bin/DanteTL-update.exe"), "app")]
+if public_key := os.environ.get("DANTETL_UPDATE_PUBLIC_KEY"):
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    from cryptography.hazmat.primitives.serialization import load_pem_public_key
+    if not isinstance(load_pem_public_key(public_key.encode("ascii")), Ed25519PublicKey):
+        raise ValueError("Expected an Ed25519 update public key.")
+    key_file = root / "build/update-helper/update-public.pem"
+    key_file.write_text(public_key, encoding="ascii")
+    data += [(str(key_file), "app")]
 data += [(str(root / "src/dantetl/ocr/paddle_latin"), "dantetl/ocr/paddle_latin")]
 icons = root / "src/dantetl/ui/icons"
 data += [(str(root / "src/dantetl/ui/locales"), "dantetl/ui/locales")]

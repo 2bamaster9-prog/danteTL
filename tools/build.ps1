@@ -69,6 +69,10 @@ foreach ($profile in @('cpu', 'nvidia', 'amd')) {
     & $uv export --locked --offline --no-default-groups --no-emit-project --group $groups[0] --group $groups[1] --format pylock.toml --output-file "build/runtime-locks/pylock.$profile.toml" --quiet
     if ($LASTEXITCODE -ne 0) { throw "Dependency export failed for $profile." }
 }
+# An independent helper can replace a closed portable folder without locking its DLLs.
+New-Item -ItemType Directory -Force build/update-helper | Out-Null
+& $python -m PyInstaller --noconfirm --onefile --windowed --name DanteTL-update --specpath build/update-helper --workpath build/update-helper/work --distpath build/update-helper/bin packaging/updater_entry.py
+if ($LASTEXITCODE -ne 0) { throw 'Update helper build failed.' }
 & $python -m PyInstaller --noconfirm --clean --workpath build/pyinstaller --distpath dist packaging/DanteTL.spec
 if ($LASTEXITCODE -ne 0) { throw 'PyInstaller build failed.' }
 Copy-Item -LiteralPath LICENSE,packaging/README.txt,packaging/THIRD-PARTY.txt -Destination dist/DanteTL
