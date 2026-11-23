@@ -71,7 +71,7 @@ foreach ($profile in @('cpu', 'nvidia', 'amd')) {
 }
 & $python -m PyInstaller --noconfirm --clean --workpath build/pyinstaller --distpath dist packaging/DanteTL.spec
 if ($LASTEXITCODE -ne 0) { throw 'PyInstaller build failed.' }
-Copy-Item -LiteralPath packaging/README.txt,packaging/THIRD-PARTY.txt -Destination dist/DanteTL
+Copy-Item -LiteralPath LICENSE,packaging/README.txt,packaging/THIRD-PARTY.txt -Destination dist/DanteTL
 Compress-Archive -LiteralPath dist/DanteTL -DestinationPath dist/DanteTL-windows-x64.zip -Force
 $outputs = @(Get-Item dist/DanteTL-windows-x64.zip) + @(Get-ChildItem dist/dantetl-*.whl,dist/dantetl-*.tar.gz)
 foreach ($file in $outputs) {

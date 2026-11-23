@@ -70,3 +70,10 @@ Open `Run DanteTL.cmd` to set up the environment and launch the app. Use the Set
 to download OCR files for your game text language.
 
 For development, testing and packaging, see the [engineering guide](engineering/README.md).
+
+## License
+
+Copyright 2026 Nuno Melo. DanteTL's original code is licensed under the
+[Apache License, Version 2.0](LICENSE). Forks and pull requests are welcome.
+Third-party libraries, models, and assets retain their own terms.
+See the [third-party notices](packaging/THIRD-PARTY.txt) for bundled components.
