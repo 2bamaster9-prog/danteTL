@@ -4,6 +4,7 @@ import json
 import threading
 import time
 from dataclasses import replace
+from unittest.mock import Mock
 from zipfile import ZipFile
 
 import pytest
@@ -65,6 +66,7 @@ def test_startup_choices_across_launches_and_manual_override(tmp_path):
     assert service.take_offer() is None
     service.check()
     assert settled(service).release == release
+    assert service.take_offer() == release
     service.decide(release, "yes")
     assert settled(service).phase == "restart"
     assert installs == [release]
@@ -137,6 +139,59 @@ def test_failed_check_can_retry_and_never_offers_an_older_version(tmp_path):
         service.check()
         assert settled(service).phase == "current"
     finally:
+        service.finish()
+
+
+@pytest.mark.parametrize(
+    "installer,signature_size,primary",
+    [(True, 64, "Yes"), (False, 64, "Release notes"), (True, 0, "Release notes")],
+)
+def test_window_prompts_at_startup_and_on_manual_recheck(
+    app, tmp_path, monkeypatch, installer, signature_size, primary
+):
+    from PySide6.QtGui import QDesktopServices
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QMessageBox
+    from ui_fixtures import create_window
+
+    release = Release("1.2.0", 100, 90, signature_size)
+    install, open_url = Mock(), Mock()
+    monkeypatch.setattr(QDesktopServices, "openUrl", open_url)
+    service = Updates(
+        "1.1.0", tmp_path, fetch=lambda _: release, install=install if installer else None
+    )
+    windows = Mock()
+    windows.list_targets.return_value = []
+    window = create_window(windows, Mock(), updates=service)
+    window.show()
+
+    def prompt(parent):
+        deadline = time.monotonic() + 3
+        while not isinstance(box := app.activeModalWidget(), QMessageBox):
+            assert time.monotonic() < deadline, "Expected a visible update prompt"
+            QTest.qWait(10)
+        assert box.isVisible() and box.parentWidget() is parent
+        assert release.version in box.text()
+        buttons = {b.text().replace("&", ""): b for b in box.buttons()}
+        assert buttons.keys() == {primary, "Ask me later", "No"}
+        return buttons
+
+    try:
+        service.check(automatic=True)
+        prompt(window)["No"].click()
+        settled(service)
+        window.about_button.click()
+        window.about.check.click()
+        buttons = prompt(window.about)
+        if primary == "Release notes":
+            buttons[primary].click()
+            assert open_url.call_args.args[0].toString() == release.notes
+        else:
+            buttons["Ask me later"].click()
+        settled(service)
+        install.assert_not_called()
+    finally:
+        window.close()
         service.finish()
 
 

@@ -77,7 +77,7 @@ def cloud_service(*, catalog, secrets, connections):
     return service
 
 
-def create_window(windows, recognizer, *backends_args, cloud=None, **kwargs):
+def create_window(windows, recognizer, *backends_args, cloud=None, updates=None, **kwargs):
     if kwargs.pop("scene_feed", False):
         kwargs["live_session"] = SceneFeed()
     args = (windows, recognizer, *backends_args)
@@ -124,7 +124,12 @@ def create_window(windows, recognizer, *backends_args, cloud=None, **kwargs):
         *args[:2], cloud=cloud, inventory=inventory, setup=setup, notify=driver.notify, **options
     )
     window = MainWindow(
-        application, args[0], driver, hardware=kwargs.get("hardware"), hotkeys=kwargs.get("hotkeys")
+        application,
+        args[0],
+        driver,
+        hardware=kwargs.get("hardware"),
+        hotkeys=kwargs.get("hotkeys"),
+        updates=updates,
     )
     weakref.finalize(cloud, temporary.cleanup)
     _applications[window], _sources[window] = weakref.ref(application), source

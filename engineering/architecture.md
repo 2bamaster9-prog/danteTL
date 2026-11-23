@@ -641,7 +641,9 @@ The main window's About button shows the installed version and submits update co
 On portable startup a bounded worker checks the public GitHub release metadata. AppData stores
 the latest checked version and the offered version, choice and reminder deadline under a
 cross-process lock. No skips one version. Ask me later allows the same version after seven days.
-Manual checks bypass prompt suppression. Source checkouts support manual discovery.
+Manual checks show the prompt for any newer stable release, including a skipped or snoozed version.
+Source checkouts support manual discovery. When the running copy lacks the publisher key or the
+release lacks signed assets, the prompt opens the release page for a manual download.
 Only an explicit update downloads the signed manifest and ZIP. The updater verifies them with
 the installed publisher key, bounds extraction and stages a sibling folder. A separate helper
 waits for shutdown, validates the old revision and swaps a dedicated installation. It restores

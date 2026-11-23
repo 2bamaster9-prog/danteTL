@@ -100,7 +100,10 @@ class Updates:
             def record(history: _History) -> None:
                 nonlocal prompt
                 history.checked = release.version if release else ""
-                if not (automatic and newer and release and self.can_install(release)):
+                if not newer or release is None:
+                    return
+                if not automatic:
+                    prompt = True
                     return
                 now = self._clock()
                 prompt = Version(release.version) > Version(history.offered or "0") or (
@@ -133,7 +136,7 @@ class Updates:
             or self._closed
             or self._view.release != release
             or self._view.phase not in ("available", "error")
-            or not self.can_install(release)
+            or (choice == "yes" and not self.can_install(release))
         ):
             return
         self._cancel.clear()

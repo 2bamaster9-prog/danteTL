@@ -110,20 +110,27 @@ class AboutDialog(QDialog):
     def offer(self, release: Release) -> None:
         assert self.updates is not None
         updates = self.updates
-        box = QMessageBox(self.parentWidget())
+        box = QMessageBox(self if self.isVisible() else self.parentWidget())
         self._prompt = box
-        box.setWindowTitle(tr("DanteTL {version} is available.", version=release.version))
-        box.setText(
-            tr(
-                "Update from {current} to {version} and restart?",
-                current=updates.installed,
-                version=release.version,
+        available = tr("DanteTL {version} is available.", version=release.version)
+        can_install = updates.can_install(release)
+        if can_install:
+            box.setWindowTitle(available)
+            box.setText(
+                tr(
+                    "Update from {current} to {version} and restart?",
+                    current=updates.installed,
+                    version=release.version,
+                )
             )
-        )
-        box.setTextFormat(Qt.TextFormat.RichText)
-        box.setInformativeText(f'<a href="{release.notes}">{tr("Release notes")}</a>')
-        box.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
-        yes = box.addButton(tr("Yes"), QMessageBox.ButtonRole.YesRole)
+            box.setTextFormat(Qt.TextFormat.RichText)
+            box.setInformativeText(f'<a href="{release.notes}">{tr("Release notes")}</a>')
+            box.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+            primary = box.addButton(tr("Yes"), QMessageBox.ButtonRole.YesRole)
+        else:
+            box.setWindowTitle("DanteTL")
+            box.setText(available)
+            primary = box.addButton(tr("Release notes"), QMessageBox.ButtonRole.ActionRole)
         later = box.addButton(tr("Ask me later"), QMessageBox.ButtonRole.RejectRole)
         no = box.addButton(tr("No"), QMessageBox.ButtonRole.NoRole)
         box.setDefaultButton(later)
@@ -131,9 +138,13 @@ class AboutDialog(QDialog):
 
         def answered() -> None:
             choice = box.clickedButton()
-            updates.decide(release, "yes" if choice is yes else "no" if choice is no else "later")
-            if choice is yes:
+            if can_install and choice is primary:
+                updates.decide(release, "yes")
                 self.open_about()
+            else:
+                updates.decide(release, "no" if choice is no else "later")
+                if choice is primary:
+                    QDesktopServices.openUrl(QUrl(release.notes))
             self._prompt = None
             box.deleteLater()
 
