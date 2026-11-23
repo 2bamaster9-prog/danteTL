@@ -1409,11 +1409,15 @@ def test_closing_during_download_waits_for_cancellation_before_destroying_gui(
     windows = Mock()
     windows.list_targets.return_value = []
     entered = threading.Event()
+    cancellation_received = threading.Event()
+    allow_exit = threading.Event()
 
     def install(bundle, progress, cancel):
         progress(ModelProgress("Downloading", 1, 10))
         entered.set()
         assert cancel.wait(2)
+        cancellation_received.set()
+        assert allow_exit.wait(5)
         raise Cancelled()
 
     monkeypatch.setattr("dantetl.runtime.model_store.install_model", install)
@@ -1423,16 +1427,15 @@ def test_closing_during_download_waits_for_cancellation_before_destroying_gui(
     manager = settings(window).models
     assert manager is not None
     manager.download.click()
-    assert entered.wait(1)
-    window.close()
-    assert window.driver.timer.isActive()
-    deadline = time.monotonic() + 2
-    while window.driver.timer.isActive():
-        assert time.monotonic() < deadline
-        setup_owner(manager).advance()
-        manager.refresh_view()
+    try:
+        assert entered.wait(2)
+        assert not window.close()
+        assert cancellation_received.wait(2)
         window.driver.refresh(inspect=True)
-        time.sleep(0.005)
+        assert window.driver.timer.isActive() and manager.busy
+    finally:
+        allow_exit.set()
+    drain(window, lambda: not window.driver.timer.isActive())
     assert not manager.busy
     window.deleteLater()
 
