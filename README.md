@@ -15,6 +15,8 @@ For Windows x64. Windows 11 is the current validation target; use windowed or bo
    the EXE. The standalone app needs no separate Python installation.
 2. Follow the **Setup assistant** to choose and download a local translator, or skip it and
    configure a cloud model under **Settings → Models**. Downloads require your confirmation.
+   The assistant downloads the local model and runtime together and shows progress for each.
+   Interrupted downloads resume from saved bytes when the server supports it.
 3. Select your translator in the main window, choose the game window, and click **Start capture**.
    Return to the game to see the overlay. Models load in the background; first use may ask you to
    prepare a local model before continuing.

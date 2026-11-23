@@ -247,7 +247,8 @@ and actual inference success are separate evidence.
 `tools/verify_setup_windows.py --missing-runtime` checks downloaded Gemma stays visible with an
 explanation and cannot load without an engine. Ordinary setup checks explicit consent, decline,
 failure rollback, reuse of the prepared worker and closing during setup. First-run checks require
-explicit confirmation, skippable setup, actual current-file byte progress, cancellation and retry.
+explicit confirmation, skippable setup, concurrent model and runtime progress, cancellation of both,
+retry from a saved prefix.
 
 `tools/verify_runtime_windows.py --profile cpu|nvidia|amd --output ...` operates only in a disposable
 extracted distribution/state root. Use `--offline --cache-root <verified-cache>` when available.

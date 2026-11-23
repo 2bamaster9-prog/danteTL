@@ -151,6 +151,9 @@ class SetupAssistant(QDialog):
         page = self._page()
         self.progress_view = SetupProgressView()
         page.addWidget(self.progress_view)
+        self.runtime_progress = SetupProgressView()
+        page.addWidget(self.runtime_progress)
+        self.runtime_progress.hide()
         self.result_note = self._label("")
         page.addWidget(self.result_note)
         page.addStretch()
@@ -305,6 +308,7 @@ class SetupAssistant(QDialog):
         self.next.setEnabled(False)
         self.skip.setText(tr("Cancel setup"))
         self.result_note.setText("")
+        self.runtime_progress.hide()
         self.progress_view.update_progress(ModelProgress(tr("Starting selected setup…")))
 
     @property
@@ -348,7 +352,13 @@ class SetupAssistant(QDialog):
         if not job.token or self._completion == job.token:
             return
         value = job.progress
-        self.progress_view.update_progress(value)
+        if value.parallel and job.busy:
+            self.progress_view.update_progress(value.parallel[0], compact=True)
+            self.runtime_progress.update_progress(value.parallel[1], compact=True)
+            self.runtime_progress.show()
+        else:
+            self.progress_view.update_progress(value)
+            self.runtime_progress.hide()
         if job.busy:
             return
         self._completion = job.token

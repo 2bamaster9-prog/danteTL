@@ -2567,8 +2567,8 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Menyiapkan terjemahan lokal</translation>
     </message>
     <message>
-      <source>Preparing private Python… (installer-managed; byte progress unavailable)</source>
-      <translation>Menyiapkan Python privat… (dikelola penginstal; progres byte tidak tersedia)</translation>
+      <source>Preparing private Python…</source>
+      <translation>Menyiapkan lingkungan Python privat…</translation>
     </message>
     <message>
       <source>Preparing the application wheel…</source>

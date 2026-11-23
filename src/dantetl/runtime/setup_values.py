@@ -1,10 +1,11 @@
 """Immutable setup progress and review data, independent of operations/installers."""
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
+from dantetl.i18n import tr
 from dantetl.runtime.hardware_values import Adapter
 
 
@@ -21,7 +22,7 @@ class DownloadProgress:
 
 @dataclass(frozen=True, slots=True)
 class ModelProgress:
-    message: str = "Starting…"
+    message: str = field(default_factory=lambda: tr("Starting"))
     received: int = 0
     total: int = 0
     done: bool = False
@@ -30,6 +31,7 @@ class ModelProgress:
     download: DownloadProgress | None = None
     stage: int = 0
     stages: int = 0
+    parallel: tuple["ModelProgress", "ModelProgress"] | None = None
 
 
 Progress = Callable[[ModelProgress], None]
@@ -48,7 +50,7 @@ class SetupJob:
     key: str = ""
     busy: bool = False
     cancelling: bool = False
-    progress: ModelProgress = ModelProgress()
+    progress: ModelProgress = field(default_factory=ModelProgress)
 
 
 @dataclass(frozen=True)

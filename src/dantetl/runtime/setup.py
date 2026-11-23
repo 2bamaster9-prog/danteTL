@@ -238,7 +238,7 @@ def _install(
     try:
         command(
             [str(uv), "venv", "--python", RUNTIME_PYTHON, str(target)],
-            tr("Preparing private Python… (installer-managed; byte progress unavailable)"),
+            tr("Preparing private Python…"),
             step=1,
         )
         if is_standalone():

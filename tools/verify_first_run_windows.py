@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import threading
 import time
 from dataclasses import replace
 from pathlib import Path
@@ -17,10 +18,11 @@ from verification_isolation import create_window as MainWindow
 
 from dantetl.application.preferences import PreferenceStore
 from dantetl.capture.windows import Windows
-from dantetl.runtime import model_store
+from dantetl.runtime import first_run, model_store
 from dantetl.runtime.assets import ModelAsset
 from dantetl.runtime.hardware_values import Adapter, HardwareStatus
 from dantetl.runtime.model_store import ModelBundle
+from dantetl.runtime.setup_values import DownloadProgress, ModelProgress
 
 
 def main() -> int:
@@ -75,11 +77,14 @@ def main() -> int:
     failed = False
     evidence = {}
     started = time.monotonic()
+    model_active = threading.Event()
+    runtime_cancelled = threading.Event()
 
     def download(url, destination, limit, progress, cancel):
         start = destination.stat().st_size if destination.exists() else 0
         if start:
             evidence["resumed_model_bytes"] = start
+        model_active.set()
         with destination.open("ab") as output:
             for offset in range(start, len(data), 256 * 1024):
                 if cancel.wait(0.05):
@@ -87,6 +92,16 @@ def main() -> int:
                 chunk = data[offset : offset + 256 * 1024]
                 output.write(chunk)
                 progress(offset + len(chunk), len(data))
+
+    def runtime_install(root, profile, progress, cancel):
+        assert profile.key == "nvidia" and model_active.wait(5)
+        for step in range(1, 31):
+            progress(
+                ModelProgress("Runtime fixture", download=DownloadProgress("fixture.whl", step, 30))
+            )
+            if cancel.wait(0.08):
+                runtime_cancelled.set()
+                raise model_store.Cancelled()
 
     def screenshot(name: str) -> None:
         assert guide
@@ -114,25 +129,38 @@ def main() -> int:
                 guide.next.click()
                 assert guide.runtime.currentData().key == "nvidia"
                 screenshot("acceleration.png")
-                guide.runtime.setCurrentIndex(0)  # Explicit CPU avoids runtime/network install.
+                gpu_index = guide.runtime.currentIndex()
+                guide.runtime.setCurrentIndex(0)
                 guide.next.click()
                 assert guide._review and not guide._review.install_runtime
+                guide.back.click()
+                guide.runtime.setCurrentIndex(gpu_index)
+                guide.next.click()
+                assert guide._review and guide._review.install_runtime
                 assert guide._review.model == "gemma"
                 screenshot("review.png")
                 guide.next.click()
                 stage = 1
             elif stage == 1:
-                if not 0 < guide.progress_view.download.value() < 1000:
+                if not (
+                    0 < guide.progress_view.download.value() < 1000
+                    and guide.runtime_progress.download.isVisible()
+                ):
                     return
                 assert guide.busy and guide.progress_view.download.isVisible()
+                assert not guide.progress_view.overall.isVisible()
+                assert not guide.runtime_progress.overall.isVisible()
                 guide.grab().save(str(args.output / "progress.png"))
                 evidence["two_bars_with_real_bytes"] = True
+                assert 0 < guide.runtime_progress.download.value() < 1000
+                evidence["independent_model_and_runtime_progress"] = True
                 guide.skip.click()
                 stage = 2
             elif stage == 2:
                 if guide.busy:
                     return
                 assert "Retry" in guide.next.text()
+                assert runtime_cancelled.is_set() and next(state.rglob("*.part")).stat().st_size > 0
                 assert not list(state.rglob("*.tmp"))
                 guide.next.click()
                 stage = 3
@@ -142,7 +170,7 @@ def main() -> int:
                 assert guide._finished and models[0].present() and models[1].present()
                 assert not models[2].present()
                 guide.grab().save(str(args.output / "complete.png"))
-                guide.next.click()
+                guide.skip.click()
                 stage = 4
             elif stage == 4:
                 if not application.preferences.idle or not any(
@@ -190,7 +218,11 @@ def main() -> int:
     timer.setInterval(50)
     timer.timeout.connect(tick)
     timer.start()
-    with patch.object(model_store, "download_file", download):
+    with (
+        patch.object(model_store, "download_file", download),
+        patch.object(first_run, "install_runtime", runtime_install),
+        patch.object(first_run, "ready_runtime", return_value=state / "fixture-runtime"),
+    ):
         app.exec()
     shiboken6.delete(app)
     return int(failed)

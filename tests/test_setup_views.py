@@ -12,11 +12,27 @@ from PySide6.QtWidgets import QWidget  # noqa: E402
 from test_setup_ownership import configured  # noqa: E402
 
 from dantetl.runtime.hardware_values import HardwareStatus  # noqa: E402
-from dantetl.runtime.setup_values import SetupLane  # noqa: E402
+from dantetl.runtime.setup_values import DownloadProgress, ModelProgress, SetupLane  # noqa: E402
 from dantetl.translation.models.values import ImportedModel, ProbeResult  # noqa: E402
 from dantetl.ui.model_import_dialog import ModelImportDialog  # noqa: E402
 from dantetl.ui.runtime_dialog import RuntimeSetupDialog  # noqa: E402
 from dantetl.ui.setup_assistant import SetupAssistant  # noqa: E402
+from dantetl.ui.setup_progress import SetupProgressView  # noqa: E402
+
+
+def test_unmeasured_setup_step_animates_until_bytes_arrive_or_work_stops(app):
+    view = SetupProgressView()
+    try:
+        step = ModelProgress("Preparing Python", stage=1, stages=4)
+        view.update_progress(step)
+        assert view.overall.value() == 1 and view.overall.maximum() == 4
+        assert not view.download.isHidden() and view.download.maximum() == 0
+        view.update_progress(replace(step, download=DownloadProgress("wheel", 2, 8)))
+        assert view.download.maximum() == 1000 and view.download.value() == 250
+        view.update_progress(replace(step, done=True, cancelled=True))
+        assert view.download.isHidden() and view.overall.format() == "Stopped"
+    finally:
+        shiboken6.delete(view)
 
 
 def test_local_download_cancel_only_signals_the_model_lane(app, tmp_path, monkeypatch):

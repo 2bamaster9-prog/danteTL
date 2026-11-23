@@ -112,7 +112,12 @@ class SetupCoordinator:
         key: str,
         work: Callable[[Progress, threading.Event], None],
     ) -> bool:
-        if self._closed or lane in self._operations:
+        if (
+            self._closed
+            or lane in self._operations
+            or SetupLane.GUIDE in self._operations
+            or (lane == SetupLane.GUIDE and self.busy)
+        ):
             return False
         self._serial += 1
         operation = self._dependencies.operation(work)
@@ -269,7 +274,7 @@ class SetupCoordinator:
     def start_review(self, token: int) -> bool:
         if (
             self._closed
-            or self.job(SetupLane.GUIDE).busy
+            or self.busy
             or self._review is None
             or self._review.token != token
             or self._completed_review == token

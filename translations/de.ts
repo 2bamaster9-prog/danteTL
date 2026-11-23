@@ -2567,8 +2567,8 @@ Details finden Sie in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Lokale Übersetzung wird vorbereitet</translation>
     </message>
     <message>
-      <source>Preparing private Python… (installer-managed; byte progress unavailable)</source>
-      <translation>Privates Python wird vorbereitet… (vom Installer verwaltet; Byte-Fortschritt nicht verfügbar)</translation>
+      <source>Preparing private Python…</source>
+      <translation>Separate Python-Umgebung wird vorbereitet…</translation>
     </message>
     <message>
       <source>Preparing the application wheel…</source>

@@ -2567,8 +2567,8 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Đang chuẩn bị dịch cục bộ</translation>
     </message>
     <message>
-      <source>Preparing private Python… (installer-managed; byte progress unavailable)</source>
-      <translation>Đang chuẩn bị Python riêng tư… (do trình cài đặt quản lý; không có tiến độ theo byte)</translation>
+      <source>Preparing private Python…</source>
+      <translation>Đang chuẩn bị môi trường Python riêng…</translation>
     </message>
     <message>
       <source>Preparing the application wheel…</source>

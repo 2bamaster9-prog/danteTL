@@ -103,6 +103,9 @@ and guide. Import probes wait for both translator and classifier cleanup. The sk
 downloadable bundles, not imported GGUF registrations. Its saved choice survives delayed discovery
 and goes through the ordinary assignment and consent flow even if the picker already displays it.
 The application acknowledges the choice on assignment or when the user answers the preparation prompt.
+After review, the guide runs one model installer and one runtime installer concurrently and publishes
+progress for each. The guide owns both until they drain. Settings can also install a model and a runtime
+concurrently.
 A cancellation request leaves the lane busy until its worker reports an outcome. Committed changes
 refresh inventory even when cancellation arrives before the application observes completion. Discovery
 also reconciles verified files kept by a partially completed setup.

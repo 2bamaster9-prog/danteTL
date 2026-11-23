@@ -21,7 +21,7 @@ class SetupProgressView(QWidget):
             layout.addWidget(widget)
         self.update_progress(ModelProgress())
 
-    def update_progress(self, value: ModelProgress) -> None:
+    def update_progress(self, value: ModelProgress, *, compact: bool = False) -> None:
         self.status.setText((value.error or value.message)[-1800:])
         if value.done:
             self.overall.setRange(0, 1)
@@ -29,15 +29,27 @@ class SetupProgressView(QWidget):
             self.overall.setFormat(
                 tr("Stopped") if value.error or value.cancelled else tr("Complete")
             )
-        elif value.stages:
+        elif value.stages and not compact:
             self.overall.setRange(0, value.stages)
             self.overall.setValue(value.stage)
             self.overall.setFormat(tr("Setup step %v of %m"))
         else:
             self.overall.setRange(0, 0)
         download = value.download
-        self.download_label.setVisible(download is not None)
-        self.download.setVisible(download is not None)
+        show_bytes = download is not None and not value.done
+        self.overall.setVisible(not compact or not show_bytes)
+        self.download_label.setVisible(
+            show_bytes
+            and bool(
+                download
+                and (not compact or not download.total or download.name not in value.message)
+            )
+        )
+        # Keep the step count visible while an installer or verifier owns the current step.
+        stage_busy = bool(value.stages and not compact and not value.done and download is None)
+        self.download.setVisible(not value.done and (download is not None or stage_busy))
+        if stage_busy:
+            self.download.setRange(0, 0)
         if download:
             self.download_label.setText(download.name)
             self.download.setRange(0, 1000 if download.total else 0)
