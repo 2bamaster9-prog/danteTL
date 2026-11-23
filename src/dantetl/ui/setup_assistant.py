@@ -22,6 +22,7 @@ from dantetl.i18n import display, mark, tr
 from dantetl.runtime.hardware_values import HardwareReader, HardwareStatus, recommended_profile
 from dantetl.runtime.setup_values import ModelProgress, SetupLane, SetupReview
 from dantetl.ui.cloud_settings import CloudSettings
+from dantetl.ui.controls import Switch
 from dantetl.ui.localization import (
     InterfaceLanguageCombo,
     localized,
@@ -45,6 +46,7 @@ class SetupAssistant(QDialog):
         *,
         cloud: CloudSettings,
         interface_language: str = "en",
+        backdrop_blur: bool = True,
     ) -> None:
         super().__init__(parent)
         localized(self, windowTitle=mark("DanteTL · Welcome"))
@@ -75,6 +77,9 @@ class SetupAssistant(QDialog):
         language_label.setBuddy(self.interface_language)
         page.addWidget(language_label)
         page.addWidget(self.interface_language)
+        self.backdrop_blur = localized(Switch(), text=mark("Blur behind translated text"))
+        self.backdrop_blur.setChecked(backdrop_blur)
+        page.addWidget(self.backdrop_blur)
         page.addWidget(
             localized(
                 self._label(""),

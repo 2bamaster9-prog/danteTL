@@ -108,9 +108,8 @@ and limited recent dialogue context to the selected provider.
 Change shortcuts in **Settings → Hotkeys**. The main **Start capture** button uses the selected
 window; the capture shortcut uses the focused window by default.
 
-- **Settings → Appearance** adjusts text size and background opacity.
-- **Settings → Experimental → Blur behind translated text** tries a clear Windows backdrop behind
-  each translation, including labels in dense menus.
+- **Settings → Appearance** adjusts text size, background opacity and **Blur behind translated text**.
+  Blur starts enabled on a fresh setup. You can turn it off in the welcome guide or in Appearance.
 - **Inspection and diagnostics** shows the recognized source text and full translations.
   Pause it to review or copy text while the game overlay continues updating.
 - **Settings → Experimental → Dialogue history** enables the optional reader. It is **off by

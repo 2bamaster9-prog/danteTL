@@ -39,7 +39,7 @@ class Preferences:
     game_from_window: bool = True
     history_enabled: bool = False
     history_model: str = ""
-    backdrop_blur: bool = False
+    backdrop_blur: bool = True
     source_language: str = "ja"
     output_language: str = ENGLISH.code
     interface_language: str = ENGLISH.code

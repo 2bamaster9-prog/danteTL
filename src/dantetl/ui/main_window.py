@@ -478,10 +478,12 @@ class MainWindow(QMainWindow):
             self,
             cloud=self._settings.models.cloud,
             interface_language=self.application.values.interface_language,
+            backdrop_blur=self.application.values.backdrop_blur,
         )
         self._setup_assistant.interface_language.currentIndexChanged.connect(
             self._settings.interface_language.setCurrentIndex
         )
+        self._setup_assistant.backdrop_blur.toggled.connect(self._settings.backdrop_blur.setChecked)
         self._setup_assistant.skipped.connect(self._setup_skipped)
         self._setup_assistant.completed.connect(self._setup_completed)
         self._setup_assistant.show()

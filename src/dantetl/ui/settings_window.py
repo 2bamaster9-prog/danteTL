@@ -101,6 +101,17 @@ class SettingsWindow(QDialog):
                 "Translation always uses stable tracking."
             ),
         )
+        self.backdrop_blur = localized(Switch(), text=mark("Blur behind translated text"))
+        self.backdrop_blur.setChecked(preferences.backdrop_blur)
+        self._setting(
+            appearance,
+            self.backdrop_blur,
+            mark("Blur behind translated text"),
+            mark(
+                "Blur the game behind each translated label. If Windows declines the effect, "
+                "the labels use the configured background opacity."
+            ),
+        )
         self.opacity = QSlider(Qt.Orientation.Horizontal)
         self.opacity.setRange(20, 100)
         self.opacity.setValue(preferences.opacity)
@@ -227,17 +238,6 @@ class SettingsWindow(QDialog):
         note.setWordWrap(True)
         note.setObjectName("muted")
         experimental.addWidget(note)
-        self.backdrop_blur = localized(Switch(), text=mark("Blur behind translated text"))
-        self.backdrop_blur.setChecked(preferences.backdrop_blur)
-        self._setting(
-            experimental,
-            self.backdrop_blur,
-            mark("Blur behind translated text"),
-            mark(
-                "Blur the game behind each translated label. If Windows declines the effect, "
-                "the labels use the configured background opacity."
-            ),
-        )
         self.history_enabled = localized(Switch(), text=mark("Dialogue history"))
         self.history_enabled.setChecked(preferences.history_enabled)
         self._setting(

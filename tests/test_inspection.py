@@ -348,6 +348,9 @@ def test_first_run_skip_persists_and_settings_can_reopen_it(app, tmp_path):
     window.offer_first_run()
     guide = window.findChild(SetupAssistant)
     assert guide is not None
+    assert guide.backdrop_blur.isChecked()
+    guide.backdrop_blur.click()
+    assert not settings(window).backdrop_blur.isChecked()
     guide.interface_language.setCurrentIndex(guide.interface_language.findData("pt-PT"))
     from dantetl.i18n import tr
 
@@ -367,6 +370,7 @@ def test_first_run_skip_persists_and_settings_can_reopen_it(app, tmp_path):
         "ja",
         "en",
     )
+    assert not saved.backdrop_blur
     window.offer_first_run()
     assert not guide.isVisible()
     settings(window).setup_assistant.click()
@@ -1645,7 +1649,8 @@ def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_pat
     window.output_language.setCurrentIndex(window.output_language.findData("pt-PT"))
     assert original.output_language.currentData() == "pt-PT"
     assert application.values.output_language == application.cloud.test_target.code == "pt-PT"
-    assert not original.backdrop_blur.isChecked()
+    assert original.backdrop_blur.isChecked()
+    assert original.tabs.currentWidget().isAncestorOf(original.backdrop_blur)
     original.backdrop_blur.click()
     window.stabilize_check.setChecked(False)
     settings(window).opacity.setValue(61)
@@ -1666,7 +1671,7 @@ def test_settings_edits_persist_and_restore_without_loading_a_model(app, tmp_pat
     window.close()
     window.deleteLater()
     restored = MainWindow(windows, factory, ocr_backends=choices, preferences_path=path)
-    assert settings(restored).backdrop_blur.isChecked()
+    assert not settings(restored).backdrop_blur.isChecked()
     assert settings(restored).output_language.currentData() == "pt-PT"
     assert restored.output_language.currentData() == "pt-PT"
     assert app_owner(restored).cloud.test_target.code == "pt-PT"
