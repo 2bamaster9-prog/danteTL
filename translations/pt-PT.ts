@@ -205,6 +205,10 @@ Pasta de reparações: {directory}</translation>
       <translation>Aceleração</translation>
     </message>
     <message>
+      <source>Acceleration options</source>
+      <translation>Opções de aceleração</translation>
+    </message>
+    <message>
       <source>Account models · list order is not a speed ranking.</source>
       <translation>Modelos da conta · a ordem da lista não é um ranking de velocidade.</translation>
     </message>
@@ -1307,10 +1311,6 @@ Os detalhes estão em %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Transferir modelos</translation>
     </message>
     <message>
-      <source>Download or configure models in Settings → Models.</source>
-      <translation>Transfira ou configure modelos em Definições → Modelos.</translation>
-    </message>
-    <message>
       <source>Download: {size}</source>
       <translation>Transferência: {size}</translation>
     </message>
@@ -1853,10 +1853,6 @@ Os detalhes estão em %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Japanese</source>
       <translation>Japonês</translation>
-    </message>
-    <message>
-      <source>Japanese uses MeikiOCR. The other listed languages share PaddleOCR Latin.</source>
-      <translation>O japonês usa MeikiOCR. As outras línguas listadas partilham o PaddleOCR Latin.</translation>
     </message>
     <message>
       <source>Keep setup running after closing Settings?</source>
@@ -2527,6 +2523,10 @@ Os detalhes estão em %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>A fila de recibos de preparação está cheia.</translation>
     </message>
     <message>
+      <source>Prepare model</source>
+      <translation>Preparar modelo</translation>
+    </message>
+    <message>
       <source>Prepare now? Choosing No keeps your previous assignments.</source>
       <translation>Preparar agora? Escolher Não mantém as suas atribuições anteriores.</translation>
     </message>
@@ -2957,10 +2957,6 @@ Transferências de modelos: até {size:.2f} GB; os ficheiros existentes são ver
     <message>
       <source>Select a window, then start capture.</source>
       <translation>Selecione uma janela e, em seguida, inicie a captura.</translation>
-    </message>
-    <message>
-      <source>Select the model for {label} to prepare it</source>
-      <translation>Selecione o modelo para {label} para o preparar</translation>
     </message>
     <message>
       <source>Selected classifier unavailable</source>
@@ -4109,6 +4105,10 @@ Arquitetura: {architecture} · Formato: {value}
     <message>
       <source>{name} modifiers</source>
       <translation>modificadores {name}</translation>
+    </message>
+    <message>
+      <source>{name} needs preparation for this runtime</source>
+      <translation>É necessário preparar {name} para este ambiente de execução</translation>
     </message>
     <message>
       <source>{name} output is unavailable with {models}.</source>

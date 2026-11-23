@@ -205,6 +205,10 @@ Repairs folder: {directory}</source>
       <translation>التسريع</translation>
     </message>
     <message>
+      <source>Acceleration options</source>
+      <translation>خيارات التسريع</translation>
+    </message>
+    <message>
       <source>Account models · list order is not a speed ranking.</source>
       <translation>نماذج الحساب · ترتيب القائمة ليس تصنيفًا للسرعة.</translation>
     </message>
@@ -1307,10 +1311,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>تنزيل النماذج</translation>
     </message>
     <message>
-      <source>Download or configure models in Settings → Models.</source>
-      <translation>نزّل النماذج أو اضبطها من الإعدادات ← النماذج.</translation>
-    </message>
-    <message>
       <source>Download: {size}</source>
       <translation>تنزيل: {size}</translation>
     </message>
@@ -1853,10 +1853,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Japanese</source>
       <translation>اليابانية</translation>
-    </message>
-    <message>
-      <source>Japanese uses MeikiOCR. The other listed languages share PaddleOCR Latin.</source>
-      <translation>اليابانية تستخدم MeikiOCR. أما اللغات الأخرى المدرجة فتتشارك PaddleOCR Latin.</translation>
     </message>
     <message>
       <source>Keep setup running after closing Settings?</source>
@@ -2527,6 +2523,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>قائمة إيصالات التحضير ممتلئة.</translation>
     </message>
     <message>
+      <source>Prepare model</source>
+      <translation>تحضير النموذج</translation>
+    </message>
+    <message>
       <source>Prepare now? Choosing No keeps your previous assignments.</source>
       <translation>التحضير الآن؟ اختيار لا يبقي تعييناتك السابقة.</translation>
     </message>
@@ -2957,10 +2957,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Select a window, then start capture.</source>
       <translation>حدد نافذة، ثم ابدأ الالتقاط.</translation>
-    </message>
-    <message>
-      <source>Select the model for {label} to prepare it</source>
-      <translation>حدد النموذج الخاص بـ {label} لتحضيره</translation>
     </message>
     <message>
       <source>Selected classifier unavailable</source>
@@ -4109,6 +4105,10 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>{name} modifiers</source>
       <translation>معدّلات {name}</translation>
+    </message>
+    <message>
+      <source>{name} needs preparation for this runtime</source>
+      <translation>يحتاج {name} إلى التحضير لبيئة التشغيل هذه</translation>
     </message>
     <message>
       <source>{name} output is unavailable with {models}.</source>

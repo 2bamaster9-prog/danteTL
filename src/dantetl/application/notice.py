@@ -33,6 +33,7 @@ class NoticeInput:
     target: TargetLanguage = ENGLISH
     ocr_model: str = "MeikiOCR"
     interface_language: str = ENGLISH.code
+    discovering: bool = False
     installed_runtime: tuple[str, Path] | None = None
 
 
@@ -103,6 +104,7 @@ class Notices:
     acceleration: SetupAdvice = SetupAdvice()
     model_destination: str = "models"
     language: LanguageAdvice = LanguageAdvice()
+    prepare_reference: str = ""
 
 
 @lru_cache(maxsize=1)
@@ -110,33 +112,56 @@ def project_notices(value: NoticeInput) -> Notices:
     options = {c.reference: c for c in value.options}
     active = tuple(options[k] for k in value.plan.active_models if k in options)
     cloud = tuple(c for c in active if not c.local)
-    cloud_ready = any(c.prepared for c in cloud)
     missing = []
+    model_action, model_destination, prepare_reference = tr("Models"), "models", ""
     if not value.ocr_ready:
         missing.append(tr("{ocr_model} is not downloaded", ocr_model=value.ocr_model))
     for label, key, enabled in (
         (tr("short labels"), value.plan.short, value.plan.short_enabled),
         (tr("long text"), value.plan.long, value.plan.long_enabled),
     ):
-        if not enabled:
+        if not enabled or value.discovering or value.preparing:
             continue
         choice = options.get(key)
+        first_issue = not missing
+        action, destination = tr("Choose model"), "selection"
         if not key:
             missing.append(tr("No translation model is selected for {label}", label=label))
         elif choice is None:
             missing.append(tr("The model for {label} is unavailable", label=label))
+            if key.startswith("cloud:"):
+                action, destination = tr("Cloud models"), "cloud"
         elif not choice.local and not choice.prepared:
             missing.append(tr("Connect the cloud model for {label} in Models", label=label))
+            action, destination = tr("Cloud models"), "cloud"
         elif choice.unavailable_reason:
             reason = display(choice.unavailable_reason).rstrip(".")
             if reason not in missing:
                 missing.append(reason)
+            action, destination = (
+                (tr("Models"), "models")
+                if choice.key.startswith("imported-")
+                else (tr("Acceleration options"), "runtime")
+            )
         elif choice.local and not choice.prepared:
-            missing.append(tr("Select the model for {label} to prepare it", label=label))
-    if not options:
+            message = tr(
+                "{name} needs preparation for this runtime",
+                name=display(choice.name).partition(" · ")[0],
+            )
+            if message not in missing:
+                missing.append(message)
+            action, destination = tr("Prepare model"), "prepare"
+        else:
+            continue
+        if first_issue:
+            model_action, model_destination = action, destination
+            if destination == "prepare":
+                prepare_reference = key
+    if not options and not value.discovering and model_destination != "cloud":
         missing.append(tr("No translation model is downloaded or configured"))
+        model_action, model_destination = tr("Download models"), "models"
     warning = ". ".join(missing)
-    if warning:
+    if warning and not any(c.prepared for c in active):
         warning += tr(". Capture can continue, but translation needs setup.")
     message, action, tone, destination = "", tr("Open settings"), "warning", "models"
     if value.saving_error:
@@ -146,9 +171,7 @@ def project_notices(value: NoticeInput) -> Notices:
     elif value.setup_busy:
         message = tr("Setup is running in the background. Open Settings for progress.")
         action, tone = tr("View setup"), "info"
-    elif cloud and not cloud_ready:
-        message, action, destination = warning, tr("Cloud models"), "cloud"
-    elif not value.ocr_ready or not options:
+    elif not value.ocr_ready:
         message, action = warning, tr("Download models")
     elif value.preparing:
         message, action, tone = (
@@ -163,7 +186,7 @@ def project_notices(value: NoticeInput) -> Notices:
         message, action = value.translation_message, ""
         tone = "error" if value.translation_state == "failed" else "info"
     elif missing:
-        message, action, destination = warning, tr("Choose model"), "selection"
+        message, action, destination = warning, model_action, model_destination
     elif value.rejected:
         message, action = value.translation_message, ""
         if any(p.provider == "chatgpt" for p in cloud):
@@ -184,18 +207,13 @@ def project_notices(value: NoticeInput) -> Notices:
         tone,
         destination,
         warning,
-        tr("Choose model")
-        if value.ocr_ready and any(c.local for c in value.options)
-        else tr("Models"),
+        model_action,
         tr("Settings could not be saved. Changes still apply to this session. ")
         + value.saving_error
         if value.saving_error
         else Notices.save_note,
         advice,
-        "cloud"
-        if cloud and not cloud_ready
-        else "selection"
-        if value.ocr_ready and options
-        else "models",
+        model_destination,
         _language_advice(value.target, value.plan, options),
+        prepare_reference,
     )

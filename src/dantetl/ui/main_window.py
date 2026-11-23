@@ -584,7 +584,14 @@ class MainWindow(QMainWindow):
             self._settings.models.category.setCurrentIndex(
                 self._settings.models.category.findData("cloud")
             )
+        elif self._notice_destination == "prepare":
+            notice = self.application.notices()
+            if notice.prepare_reference:
+                self._request_assignment(
+                    AssignmentChange(self.application.controls.assignment, notice.prepare_reference)
+                )
         elif self._notice_destination == "selection":
+            self._settings.hide()
             self.routing.focus_model()
         elif self._notice_destination == "settings":
             self._show_settings()

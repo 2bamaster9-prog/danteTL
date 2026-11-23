@@ -205,6 +205,10 @@ Reparaturordner: {directory}</translation>
       <translation>Beschleunigung</translation>
     </message>
     <message>
+      <source>Acceleration options</source>
+      <translation>Beschleunigungsoptionen</translation>
+    </message>
+    <message>
       <source>Account models · list order is not a speed ranking.</source>
       <translation>Konto-Modelle · Listenreihenfolge ist kein Geschwindigkeits-Ranking.</translation>
     </message>
@@ -1307,10 +1311,6 @@ Details finden Sie in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Modelle herunterladen</translation>
     </message>
     <message>
-      <source>Download or configure models in Settings → Models.</source>
-      <translation>Modelle in Einstellungen → Modelle herunterladen oder konfigurieren.</translation>
-    </message>
-    <message>
       <source>Download: {size}</source>
       <translation>Download: {size}</translation>
     </message>
@@ -1853,10 +1853,6 @@ Details finden Sie in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Japanese</source>
       <translation>Japanisch</translation>
-    </message>
-    <message>
-      <source>Japanese uses MeikiOCR. The other listed languages share PaddleOCR Latin.</source>
-      <translation>Japanisch verwendet MeikiOCR. Die anderen aufgeführten Sprachen nutzen PaddleOCR Latin gemeinsam.</translation>
     </message>
     <message>
       <source>Keep setup running after closing Settings?</source>
@@ -2527,6 +2523,10 @@ Details finden Sie in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Warteschlange für Vorbereitungsbelege ist voll.</translation>
     </message>
     <message>
+      <source>Prepare model</source>
+      <translation>Modell vorbereiten</translation>
+    </message>
+    <message>
       <source>Prepare now? Choosing No keeps your previous assignments.</source>
       <translation>Jetzt vorbereiten? Bei „Nein“ bleiben Ihre bisherigen Zuweisungen erhalten.</translation>
     </message>
@@ -2957,10 +2957,6 @@ Modell-Downloads: bis zu {size:.2f} GB; vorhandene Dateien werden geprüft und w
     <message>
       <source>Select a window, then start capture.</source>
       <translation>Wähle ein Fenster und starte dann die Aufnahme.</translation>
-    </message>
-    <message>
-      <source>Select the model for {label} to prepare it</source>
-      <translation>Wähle das Modell für {label}, um es vorzubereiten</translation>
     </message>
     <message>
       <source>Selected classifier unavailable</source>
@@ -4109,6 +4105,10 @@ Architektur: {architecture} · Format: {value}
     <message>
       <source>{name} modifiers</source>
       <translation>Modifikatoren {name}</translation>
+    </message>
+    <message>
+      <source>{name} needs preparation for this runtime</source>
+      <translation>{name} muss für diese Laufzeitumgebung vorbereitet werden</translation>
     </message>
     <message>
       <source>{name} output is unavailable with {models}.</source>

@@ -205,6 +205,10 @@ Repairs folder: {directory}</source>
       <translation>가속</translation>
     </message>
     <message>
+      <source>Acceleration options</source>
+      <translation>가속 옵션</translation>
+    </message>
+    <message>
       <source>Account models · list order is not a speed ranking.</source>
       <translation>계정 모델 · 목록 순서는 속도 순위가 아닙니다.</translation>
     </message>
@@ -1307,10 +1311,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>모델 다운로드</translation>
     </message>
     <message>
-      <source>Download or configure models in Settings → Models.</source>
-      <translation>설정 → 모델에서 모델을 다운로드하거나 구성하세요.</translation>
-    </message>
-    <message>
       <source>Download: {size}</source>
       <translation>다운로드: {size}</translation>
     </message>
@@ -1853,10 +1853,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Japanese</source>
       <translation>일본어</translation>
-    </message>
-    <message>
-      <source>Japanese uses MeikiOCR. The other listed languages share PaddleOCR Latin.</source>
-      <translation>일본어는 MeikiOCR을 사용합니다. 나열된 다른 언어는 PaddleOCR Latin을 공유합니다.</translation>
     </message>
     <message>
       <source>Keep setup running after closing Settings?</source>
@@ -2527,6 +2523,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>준비 영수증 대기열이 가득 찼습니다.</translation>
     </message>
     <message>
+      <source>Prepare model</source>
+      <translation>모델 준비</translation>
+    </message>
+    <message>
       <source>Prepare now? Choosing No keeps your previous assignments.</source>
       <translation>지금 준비하시겠습니까? 아니요를 선택하면 이전 할당이 유지됩니다.</translation>
     </message>
@@ -2957,10 +2957,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Select a window, then start capture.</source>
       <translation>창을 선택한 후 캡처를 시작하세요.</translation>
-    </message>
-    <message>
-      <source>Select the model for {label} to prepare it</source>
-      <translation>{label}의 모델을 선택하여 준비하세요</translation>
     </message>
     <message>
       <source>Selected classifier unavailable</source>
@@ -4109,6 +4105,10 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>{name} modifiers</source>
       <translation>{name} 한정자</translation>
+    </message>
+    <message>
+      <source>{name} needs preparation for this runtime</source>
+      <translation>이 런타임에서 사용하려면 {name} 모델을 준비해야 합니다</translation>
     </message>
     <message>
       <source>{name} output is unavailable with {models}.</source>

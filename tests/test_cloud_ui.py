@@ -630,6 +630,56 @@ def test_simple_local_preparation_commits_only_when_ready_and_reuses_worker(
         window.deleteLater()
 
 
+def test_mixed_route_prepares_assigned_gemma_once_and_restores_deepseek(app, tmp_path, monkeypatch):
+    from dantetl.runtime import model_store
+
+    monkeypatch.setattr(model_store, "state_root", lambda: tmp_path)
+    cloud = CloudProfile.new("deepseek")
+    catalog = CloudProfiles(tmp_path / "cloud.json")
+    catalog.update(cloud)
+    secrets = MemorySecrets()
+    secrets.values[cloud.key] = "fixture"
+    windows = Mock()
+    windows.list_targets.return_value = []
+    factory = Mock(return_value=Mock(cache_identity="fixture", batch_size=1))
+    gemma = BackendChoice("Gemma", factory, "gemma", preparation_id="test-runtime")
+    plan = TranslationPlan("local:gemma", model_reference(cloud))
+    path = tmp_path / "preferences.json"
+    PreferenceStore(path)._write(
+        replace(Preferences(), advanced_routing=True, short_model=plan.short, long_model=plan.long)
+    )
+    for first_launch in (True, False):
+        service = cloud_service(
+            catalog=catalog,
+            secrets=lambda: secrets,
+            connections=ChatGPTConnections(ProtectedStore(tmp_path / "accounts")),
+        )
+        window = MainWindow(windows, Mock(), (gemma,), cloud=service, preferences_path=path)
+        owner = app_owner(window)
+        try:
+            assert window.routing.selection == plan
+            if first_launch:
+                assert window.onboarding.action.text() == "Prepare model"
+                window.onboarding.action.click()
+                app.activeModalWidget().button(QMessageBox.StandardButton.Yes).click()
+                drain(app, lambda: model_store.is_prepared(gemma.preparation_id))
+            # A recovered setup intent must leave the cloud assignment in place.
+            owner.setup_completed("gemma", None)
+            window.driver.refresh(inspect=True)
+            assert window.routing.selection == plan and not owner.values.setup_model
+            assert not owner.notices().model_warning
+            assert factory.call_count == 1
+        finally:
+            window.close()
+            drain(
+                app,
+                lambda owner=owner: (
+                    owner.preferences.idle and not owner.cloud.busy and owner.inventory.finished
+                ),
+            )
+            window.deleteLater()
+
+
 def test_unconfigured_cloud_route_cannot_silently_use_local_or_start_network(
     app, tmp_path, monkeypatch
 ):
@@ -654,10 +704,9 @@ def test_unconfigured_cloud_route_cannot_silently_use_local_or_start_network(
         show_scene(window)
         assert not application.translation.lifecycle.publication and not local_factory.called
         assert "unavailable" in window.notice.text()
-        focus_model = Mock()
-        monkeypatch.setattr(window.routing, "focus_model", focus_model)
         window.onboarding.action.click()
-        focus_model.assert_called_once_with()
+        assert window._settings.models.category.currentData() == "cloud"
+        assert window.routing.selection.active_models == (missing,)
     finally:
         window.close()
         window.deleteLater()

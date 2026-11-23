@@ -272,6 +272,9 @@ class ApplicationSession:
             return outcome
         if outcome:
             self._desktop_action = outcome
+        elif self.values.setup_model and change.reference:
+            self.values = replace(self.values, setup_model="")
+            self.persist()
         return None
 
     def _apply_assignment(self, change: AssignmentChange) -> DesktopAction | None:
@@ -296,6 +299,8 @@ class ApplicationSession:
             if self.values.setup_model == choice.preference_key:
                 self.values = replace(self.values, setup_model="")
             self._setup_consent = None
+        elif accepted and self.values.setup_model:
+            self.values = replace(self.values, setup_model="")
         if accepted:
             self._invalidate_english()
         else:
@@ -383,11 +388,23 @@ class ApplicationSession:
             return
         if self.values.setup_model:
             key = "local:" + self.values.setup_model
-            if self.translation.resolve(key) is None or not self._can_assign:
-                # Setup can finish before its asynchronous inventory refresh. Keep the
-                # persisted intent and retry after discovery, including transient failures.
+            if not self._can_assign:
                 return
-            plan = replace(self.translation.plan, short=key, long=key)
+            current = self.translation.plan
+            # Completing a local download preserves independently configured cloud routes.
+            plan = replace(
+                current,
+                short=current.short if current.short.startswith("cloud:") else key,
+                long=current.long if current.long.startswith("cloud:") else key,
+            )
+            if key not in (plan.short, plan.long):
+                self.values = replace(self.values, setup_model="")
+                self.persist()
+                self._first_run_requested = False
+                return
+            # A completed download may still be waiting for inventory discovery.
+            if self.translation.resolve(key) is None:
+                return
             outcome = self._apply_assignment(AssignmentChange(plan, key))
             if outcome:
                 self._desktop_action = outcome
@@ -499,16 +516,16 @@ class ApplicationSession:
     def notices(self) -> Notices:
         ocr = self.view.ocr
         translation = self.view.translation
+        cloud = self.cloud.snapshot()
+        discovering = not self.translation.restored or (cloud.busy and not cloud.completion)
         return project_notices(
             NoticeInput(
                 self.translation.options(),
                 self.translation.plan,
                 self.inventory.snapshot().data.ocr_ready,
                 self.preferences.error,
-                self.setup.problem
-                or self.cloud.snapshot().problem
-                or self.inventory.snapshot().problem,
-                self.setup.busy or self.cloud.busy,
+                self.setup.problem or cloud.problem or self.inventory.snapshot().problem,
+                self.setup.busy or (cloud.busy and not discovering),
                 self.translation.lifecycle.preparation_message is not None,
                 str(ocr.state) if ocr else "",
                 self.view.ocr_status,
@@ -524,6 +541,7 @@ class ApplicationSession:
                 target=TARGET_LANGUAGES[self.values.output_language],
                 ocr_model=self._ocr_model,
                 interface_language=self.values.interface_language,
+                discovering=discovering,
                 installed_runtime=self.setup.installed_runtime,
             )
         )

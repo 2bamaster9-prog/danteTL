@@ -205,6 +205,10 @@ Folder perbaikan: {directory}</translation>
       <translation>Akselerasi</translation>
     </message>
     <message>
+      <source>Acceleration options</source>
+      <translation>Opsi akselerasi</translation>
+    </message>
+    <message>
       <source>Account models · list order is not a speed ranking.</source>
       <translation>Model akun · urutan daftar bukan peringkat kecepatan.</translation>
     </message>
@@ -1307,10 +1311,6 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Unduh model</translation>
     </message>
     <message>
-      <source>Download or configure models in Settings → Models.</source>
-      <translation>Unduh atau konfigurasikan model di Pengaturan → Model.</translation>
-    </message>
-    <message>
       <source>Download: {size}</source>
       <translation>Unduhan: {size}</translation>
     </message>
@@ -1853,10 +1853,6 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Japanese</source>
       <translation>Jepang</translation>
-    </message>
-    <message>
-      <source>Japanese uses MeikiOCR. The other listed languages share PaddleOCR Latin.</source>
-      <translation>Jepang menggunakan MeikiOCR. Bahasa lain yang terdaftar berbagi PaddleOCR Latin.</translation>
     </message>
     <message>
       <source>Keep setup running after closing Settings?</source>
@@ -2527,6 +2523,10 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Antrean penerimaan persiapan penuh.</translation>
     </message>
     <message>
+      <source>Prepare model</source>
+      <translation>Siapkan model</translation>
+    </message>
+    <message>
       <source>Prepare now? Choosing No keeps your previous assignments.</source>
       <translation>Persiapkan sekarang? Memilih Tidak akan mempertahankan penetapan Anda sebelumnya.</translation>
     </message>
@@ -2957,10 +2957,6 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
     <message>
       <source>Select a window, then start capture.</source>
       <translation>Pilih jendela, lalu mulai tangkapan.</translation>
-    </message>
-    <message>
-      <source>Select the model for {label} to prepare it</source>
-      <translation>Pilih model untuk {label} untuk menyiapkannya</translation>
     </message>
     <message>
       <source>Selected classifier unavailable</source>
@@ -4109,6 +4105,10 @@ Arsitektur: {architecture} · Format: {value}
     <message>
       <source>{name} modifiers</source>
       <translation>modifier {name}</translation>
+    </message>
+    <message>
+      <source>{name} needs preparation for this runtime</source>
+      <translation>{name} perlu disiapkan untuk runtime ini</translation>
     </message>
     <message>
       <source>{name} output is unavailable with {models}.</source>

@@ -205,6 +205,10 @@ Repairs folder: {directory}</source>
       <translation>অ্যাক্সিলারেশন</translation>
     </message>
     <message>
+      <source>Acceleration options</source>
+      <translation>অ্যাক্সিলারেশন বিকল্প</translation>
+    </message>
+    <message>
       <source>Account models · list order is not a speed ranking.</source>
       <translation>অ্যাকাউন্ট মডেল · তালিকার ক্রম গতির র‍্যাঙ্কিং নয়।</translation>
     </message>
@@ -1307,10 +1311,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>মডেল ডাউনলোড করুন</translation>
     </message>
     <message>
-      <source>Download or configure models in Settings → Models.</source>
-      <translation>Settings → Models-এ মডেল ডাউনলোড বা কনফিগার করুন।</translation>
-    </message>
-    <message>
       <source>Download: {size}</source>
       <translation>ডাউনলোড: {size}</translation>
     </message>
@@ -1853,10 +1853,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Japanese</source>
       <translation>জাপানি</translation>
-    </message>
-    <message>
-      <source>Japanese uses MeikiOCR. The other listed languages share PaddleOCR Latin.</source>
-      <translation>জাপানি MeikiOCR ব্যবহার করে। তালিকাভুক্ত অন্যান্য ভাষা PaddleOCR Latin শেয়ার করে।</translation>
     </message>
     <message>
       <source>Keep setup running after closing Settings?</source>
@@ -2527,6 +2523,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>প্রস্তুতি রসিদ সারি পূর্ণ।</translation>
     </message>
     <message>
+      <source>Prepare model</source>
+      <translation>মডেল প্রস্তুত করুন</translation>
+    </message>
+    <message>
       <source>Prepare now? Choosing No keeps your previous assignments.</source>
       <translation>এখনই প্রস্তুত করবেন? না বেছে নিলে আপনার আগের অ্যাসাইনমেন্ট সংরক্ষিত থাকবে।</translation>
     </message>
@@ -2957,10 +2957,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Select a window, then start capture.</source>
       <translation>একটি উইন্ডো নির্বাচন করুন, তারপর ক্যাপচার শুরু করুন।</translation>
-    </message>
-    <message>
-      <source>Select the model for {label} to prepare it</source>
-      <translation>{label} এর জন্য মডেল নির্বাচন করে প্রস্তুত করুন</translation>
     </message>
     <message>
       <source>Selected classifier unavailable</source>
@@ -4109,6 +4105,10 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>{name} modifiers</source>
       <translation>{name} পরিবর্তক</translation>
+    </message>
+    <message>
+      <source>{name} needs preparation for this runtime</source>
+      <translation>এই রানটাইমের জন্য {name} প্রস্তুত করতে হবে</translation>
     </message>
     <message>
       <source>{name} output is unavailable with {models}.</source>

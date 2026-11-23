@@ -122,7 +122,7 @@ def test_successful_preparation_updates_options_even_if_receipt_write_fails(tmp_
     [
         (Preferences(), TranslationPlan("local:base", "local:base")),
         (Preferences(model="none"), TranslationPlan()),
-        (Preferences(model="missing"), TranslationPlan()),
+        (Preferences(model="gemma"), TranslationPlan("local:gemma", "local:gemma")),
         (
             Preferences(short_model="local:absent", long_model="", translate_short=False),
             TranslationPlan("local:absent", "", False, True),

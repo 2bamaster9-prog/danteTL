@@ -205,6 +205,10 @@ Herstelmap: {directory}</translation>
       <translation>Acceleratie</translation>
     </message>
     <message>
+      <source>Acceleration options</source>
+      <translation>Acceleratie-opties</translation>
+    </message>
+    <message>
       <source>Account models · list order is not a speed ranking.</source>
       <translation>Accountmodellen · de volgorde is geen snelheidsranglijst.</translation>
     </message>
@@ -1307,10 +1311,6 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Modellen downloaden</translation>
     </message>
     <message>
-      <source>Download or configure models in Settings → Models.</source>
-      <translation>Download of configureer modellen in Instellingen → Modellen.</translation>
-    </message>
-    <message>
       <source>Download: {size}</source>
       <translation>Downloaden: {size}</translation>
     </message>
@@ -1853,10 +1853,6 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Japanese</source>
       <translation>Japans</translation>
-    </message>
-    <message>
-      <source>Japanese uses MeikiOCR. The other listed languages share PaddleOCR Latin.</source>
-      <translation>Japans gebruikt MeikiOCR. De andere vermelde talen delen PaddleOCR Latin.</translation>
     </message>
     <message>
       <source>Keep setup running after closing Settings?</source>
@@ -2527,6 +2523,10 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Wachtrij voor voorbereidingsbewijs is vol.</translation>
     </message>
     <message>
+      <source>Prepare model</source>
+      <translation>Model voorbereiden</translation>
+    </message>
+    <message>
       <source>Prepare now? Choosing No keeps your previous assignments.</source>
       <translation>Nu voorbereiden? Als je Nee kiest, blijven je vorige toewijzingen behouden.</translation>
     </message>
@@ -2957,10 +2957,6 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
     <message>
       <source>Select a window, then start capture.</source>
       <translation>Selecteer een venster en start vervolgens de opname.</translation>
-    </message>
-    <message>
-      <source>Select the model for {label} to prepare it</source>
-      <translation>Selecteer het model voor {label} om het voor te bereiden</translation>
     </message>
     <message>
       <source>Selected classifier unavailable</source>
@@ -4109,6 +4105,10 @@ Architectuur: {architecture} · Formaat: {value}
     <message>
       <source>{name} modifiers</source>
       <translation>{name}-modificatietoetsen</translation>
+    </message>
+    <message>
+      <source>{name} needs preparation for this runtime</source>
+      <translation>{name} moet voor deze runtime worden voorbereid</translation>
     </message>
     <message>
       <source>{name} output is unavailable with {models}.</source>

@@ -85,14 +85,14 @@ class RoutingControls(QWidget):
         self.long_enabled = localized(Switch(), text=mark("Long text & dialogue"))
         localized(
             self.short_enabled,
-            toolTip=mark(
+            accessibleDescription=mark(
                 "Translate short menus, buttons and names. Turning this off keeps the "
                 "original text."
             ),
         )
         localized(
             self.long_enabled,
-            toolTip=mark(
+            accessibleDescription=mark(
                 "Translate grouped paragraphs and text over 40 characters, including dialogue, "
                 "skill and item descriptions. This is a length/layout category, not a speaker "
                 "detector."
@@ -167,7 +167,6 @@ class RoutingControls(QWidget):
         localized(combo, accessibleName=name)
         combo.setMinimumContentsLength(18)
         combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-        localized(combo, toolTip=mark("Download or configure models in Settings → Models."))
         return combo
 
     @property
@@ -339,7 +338,13 @@ class RoutingControls(QWidget):
         self.model_requested.emit(AssignmentChange(plan))
 
     def focus_model(self) -> None:
-        combo = self.long_model if self.advanced.isChecked() else self.simple
+        combo = self.simple
+        if self.advanced.isChecked():
+            combo = (
+                self.short_model
+                if self.selection.short_enabled and not self.resolve(self.selection.short)
+                else self.long_model
+            )
         combo.setFocus()
         combo.showPopup()
 

@@ -68,12 +68,6 @@ class SourceLanguageCombo(QComboBox):
     def __init__(self, active: str) -> None:
         super().__init__()
         localized(self, accessibleName=mark("Game text language"))
-        localized(
-            self,
-            toolTip=mark(
-                "Japanese uses MeikiOCR. The other listed languages share PaddleOCR Latin."
-            ),
-        )
         for language in SOURCE_LANGUAGES.values():
             localized_item(self, language.name, language.code, capitalize=True)
         self.setCurrentIndex(self.findData(active))

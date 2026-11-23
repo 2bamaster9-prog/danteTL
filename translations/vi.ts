@@ -205,6 +205,10 @@ Thư mục sửa chữa: {directory}</translation>
       <translation>Tăng tốc</translation>
     </message>
     <message>
+      <source>Acceleration options</source>
+      <translation>Tùy chọn tăng tốc</translation>
+    </message>
+    <message>
       <source>Account models · list order is not a speed ranking.</source>
       <translation>Mô hình tài khoản · thứ tự danh sách không phải là xếp hạng tốc độ.</translation>
     </message>
@@ -1307,10 +1311,6 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Tải xuống mô hình</translation>
     </message>
     <message>
-      <source>Download or configure models in Settings → Models.</source>
-      <translation>Tải xuống hoặc cấu hình mô hình trong Cài đặt → Mô hình.</translation>
-    </message>
-    <message>
       <source>Download: {size}</source>
       <translation>Tải xuống: {size}</translation>
     </message>
@@ -1853,10 +1853,6 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Japanese</source>
       <translation>Tiếng Nhật</translation>
-    </message>
-    <message>
-      <source>Japanese uses MeikiOCR. The other listed languages share PaddleOCR Latin.</source>
-      <translation>Tiếng Nhật dùng MeikiOCR. Các ngôn ngữ khác trong danh sách dùng chung PaddleOCR Latin.</translation>
     </message>
     <message>
       <source>Keep setup running after closing Settings?</source>
@@ -2527,6 +2523,10 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Hàng đợi biên nhận chuẩn bị đã đầy.</translation>
     </message>
     <message>
+      <source>Prepare model</source>
+      <translation>Chuẩn bị mô hình</translation>
+    </message>
+    <message>
       <source>Prepare now? Choosing No keeps your previous assignments.</source>
       <translation>Chuẩn bị ngay? Chọn Không sẽ giữ nguyên các bài tập trước đó của bạn.</translation>
     </message>
@@ -2957,10 +2957,6 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
     <message>
       <source>Select a window, then start capture.</source>
       <translation>Chọn một cửa sổ, sau đó bắt đầu chụp.</translation>
-    </message>
-    <message>
-      <source>Select the model for {label} to prepare it</source>
-      <translation>Chọn mô hình cho {label} để chuẩn bị</translation>
     </message>
     <message>
       <source>Selected classifier unavailable</source>
@@ -4109,6 +4105,10 @@ Kiến trúc: {architecture} · Định dạng: {value}
     <message>
       <source>{name} modifiers</source>
       <translation>phím bổ trợ {name}</translation>
+    </message>
+    <message>
+      <source>{name} needs preparation for this runtime</source>
+      <translation>Cần chuẩn bị {name} cho môi trường chạy này</translation>
     </message>
     <message>
       <source>{name} output is unavailable with {models}.</source>

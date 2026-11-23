@@ -205,6 +205,10 @@ Repairs folder: {directory}</source>
       <translation>การเร่งความเร็ว</translation>
     </message>
     <message>
+      <source>Acceleration options</source>
+      <translation>ตัวเลือกการเร่งความเร็ว</translation>
+    </message>
+    <message>
       <source>Account models · list order is not a speed ranking.</source>
       <translation>โมเดลบัญชี · ลำดับรายการไม่ใช่การจัดอันดับความเร็ว</translation>
     </message>
@@ -1307,10 +1311,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>ดาวน์โหลดโมเดล</translation>
     </message>
     <message>
-      <source>Download or configure models in Settings → Models.</source>
-      <translation>ดาวน์โหลดหรือกำหนดค่าโมเดลได้ที่ การตั้งค่า → โมเดล</translation>
-    </message>
-    <message>
       <source>Download: {size}</source>
       <translation>ดาวน์โหลด: {size}</translation>
     </message>
@@ -1853,10 +1853,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Japanese</source>
       <translation>ญี่ปุ่น</translation>
-    </message>
-    <message>
-      <source>Japanese uses MeikiOCR. The other listed languages share PaddleOCR Latin.</source>
-      <translation>ภาษาญี่ปุ่นใช้ MeikiOCR ภาษาอื่นที่ระบุใช้ PaddleOCR Latin ร่วมกัน</translation>
     </message>
     <message>
       <source>Keep setup running after closing Settings?</source>
@@ -2527,6 +2523,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>คิวใบรับการเตรียมการเต็ม</translation>
     </message>
     <message>
+      <source>Prepare model</source>
+      <translation>เตรียมโมเดล</translation>
+    </message>
+    <message>
       <source>Prepare now? Choosing No keeps your previous assignments.</source>
       <translation>เตรียมการตอนนี้หรือไม่? การเลือกไม่ จะคงการกำหนดก่อนหน้าของคุณไว้</translation>
     </message>
@@ -2957,10 +2957,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Select a window, then start capture.</source>
       <translation>เลือกหน้าต่าง แล้วเริ่มการจับภาพ</translation>
-    </message>
-    <message>
-      <source>Select the model for {label} to prepare it</source>
-      <translation>เลือกโมเดลสำหรับ {label} เพื่อเตรียมพร้อม</translation>
     </message>
     <message>
       <source>Selected classifier unavailable</source>
@@ -4109,6 +4105,10 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>{name} modifiers</source>
       <translation>ตัวปรับแต่ง {name}</translation>
+    </message>
+    <message>
+      <source>{name} needs preparation for this runtime</source>
+      <translation>ต้องเตรียม {name} สำหรับรันไทม์นี้</translation>
     </message>
     <message>
       <source>{name} output is unavailable with {models}.</source>

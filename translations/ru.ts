@@ -205,6 +205,10 @@ Repairs folder: {directory}</source>
       <translation>Ускорение</translation>
     </message>
     <message>
+      <source>Acceleration options</source>
+      <translation>Параметры ускорения</translation>
+    </message>
+    <message>
       <source>Account models · list order is not a speed ranking.</source>
       <translation>Модели аккаунта · порядок в списке не отражает скорость.</translation>
     </message>
@@ -1307,10 +1311,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>Загрузить модели</translation>
     </message>
     <message>
-      <source>Download or configure models in Settings → Models.</source>
-      <translation>Загрузите или настройте модели в разделе Настройки → Модели.</translation>
-    </message>
-    <message>
       <source>Download: {size}</source>
       <translation>Загрузка: {size}</translation>
     </message>
@@ -1853,10 +1853,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Japanese</source>
       <translation>Японский</translation>
-    </message>
-    <message>
-      <source>Japanese uses MeikiOCR. The other listed languages share PaddleOCR Latin.</source>
-      <translation>Для японского используется MeikiOCR. Остальные перечисленные языки используют PaddleOCR Latin.</translation>
     </message>
     <message>
       <source>Keep setup running after closing Settings?</source>
@@ -2527,6 +2523,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>Очередь квитанций подготовки заполнена.</translation>
     </message>
     <message>
+      <source>Prepare model</source>
+      <translation>Подготовить модель</translation>
+    </message>
+    <message>
       <source>Prepare now? Choosing No keeps your previous assignments.</source>
       <translation>Подготовить сейчас? Выбор «Нет» сохранит ваши предыдущие назначения.</translation>
     </message>
@@ -2957,10 +2957,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Select a window, then start capture.</source>
       <translation>Выберите окно, затем запустите захват.</translation>
-    </message>
-    <message>
-      <source>Select the model for {label} to prepare it</source>
-      <translation>Выберите модель для {label}, чтобы подготовить ее</translation>
     </message>
     <message>
       <source>Selected classifier unavailable</source>
@@ -4109,6 +4105,10 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>{name} modifiers</source>
       <translation>модификаторы {name}</translation>
+    </message>
+    <message>
+      <source>{name} needs preparation for this runtime</source>
+      <translation>Для этой среды выполнения требуется подготовить {name}</translation>
     </message>
     <message>
       <source>{name} output is unavailable with {models}.</source>

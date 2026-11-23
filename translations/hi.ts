@@ -205,6 +205,10 @@ Repairs folder: {directory}</source>
       <translation>एक्सेलेरेशन</translation>
     </message>
     <message>
+      <source>Acceleration options</source>
+      <translation>एक्सेलेरेशन विकल्प</translation>
+    </message>
+    <message>
       <source>Account models · list order is not a speed ranking.</source>
       <translation>खाता मॉडल · सूची क्रम गति रैंकिंग नहीं है।</translation>
     </message>
@@ -1307,10 +1311,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>मॉडल डाउनलोड करें</translation>
     </message>
     <message>
-      <source>Download or configure models in Settings → Models.</source>
-      <translation>सेटिंग्स → मॉडल में मॉडल डाउनलोड या कॉन्फ़िगर करें।</translation>
-    </message>
-    <message>
       <source>Download: {size}</source>
       <translation>डाउनलोड: {size}</translation>
     </message>
@@ -1853,10 +1853,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Japanese</source>
       <translation>जापानी</translation>
-    </message>
-    <message>
-      <source>Japanese uses MeikiOCR. The other listed languages share PaddleOCR Latin.</source>
-      <translation>जापानी MeikiOCR का उपयोग करता है। अन्य सूचीबद्ध भाषाएँ PaddleOCR Latin साझा करती हैं।</translation>
     </message>
     <message>
       <source>Keep setup running after closing Settings?</source>
@@ -2527,6 +2523,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>तैयारी रसीद कतार भरी है।</translation>
     </message>
     <message>
+      <source>Prepare model</source>
+      <translation>मॉडल तैयार करें</translation>
+    </message>
+    <message>
       <source>Prepare now? Choosing No keeps your previous assignments.</source>
       <translation>अभी तैयार करें? नहीं चुनने पर आपके पिछले असाइनमेंट बने रहेंगे।</translation>
     </message>
@@ -2957,10 +2957,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Select a window, then start capture.</source>
       <translation>कोई विंडो चुनें, फिर कैप्चर शुरू करें।</translation>
-    </message>
-    <message>
-      <source>Select the model for {label} to prepare it</source>
-      <translation>{label} के लिए मॉडल चुनें ताकि इसे तैयार किया जा सके</translation>
     </message>
     <message>
       <source>Selected classifier unavailable</source>
@@ -4109,6 +4105,10 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>{name} modifiers</source>
       <translation>{name} संशोधक</translation>
+    </message>
+    <message>
+      <source>{name} needs preparation for this runtime</source>
+      <translation>इस रनटाइम के लिए {name} को तैयार करना होगा</translation>
     </message>
     <message>
       <source>{name} output is unavailable with {models}.</source>

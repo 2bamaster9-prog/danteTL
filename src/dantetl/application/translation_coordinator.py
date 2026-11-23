@@ -90,13 +90,14 @@ class TranslationCoordinator:
         if self._restored or not self.inventory.snapshot().loaded:
             return
         p = self._preferences
+        local_key = p.model
         initial = next((c for c in self.choices if c.preference_key == p.model), None)
         if p.model == "auto":
             initial = next((c for c in self.choices if self._lifecycle.is_prepared(c)), None)
-        selected = initial if initial and self._lifecycle.is_prepared(initial) else None
+            local_key = initial.preference_key if initial else ""
         legacy = TranslationPlan.legacy(
             p.translation_route,
-            selected.preference_key if selected else "",
+            local_key,
             p.cloud_model,
         )
         plan = TranslationPlan(

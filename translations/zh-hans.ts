@@ -205,6 +205,10 @@ Repairs folder: {directory}</source>
       <translation>加速</translation>
     </message>
     <message>
+      <source>Acceleration options</source>
+      <translation>加速选项</translation>
+    </message>
+    <message>
       <source>Account models · list order is not a speed ranking.</source>
       <translation>账户模型 · 列表顺序并非速度排名。</translation>
     </message>
@@ -1307,10 +1311,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>下载模型</translation>
     </message>
     <message>
-      <source>Download or configure models in Settings → Models.</source>
-      <translation>在设置 → 模型中下载或配置模型。</translation>
-    </message>
-    <message>
       <source>Download: {size}</source>
       <translation>下载：{size}</translation>
     </message>
@@ -1853,10 +1853,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Japanese</source>
       <translation>日语</translation>
-    </message>
-    <message>
-      <source>Japanese uses MeikiOCR. The other listed languages share PaddleOCR Latin.</source>
-      <translation>日语使用 MeikiOCR。其他列出的语言共用 PaddleOCR Latin。</translation>
     </message>
     <message>
       <source>Keep setup running after closing Settings?</source>
@@ -2527,6 +2523,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>准备回执队列已满。</translation>
     </message>
     <message>
+      <source>Prepare model</source>
+      <translation>准备模型</translation>
+    </message>
+    <message>
       <source>Prepare now? Choosing No keeps your previous assignments.</source>
       <translation>现在准备？选择"否"将保留你之前的分配。</translation>
     </message>
@@ -2957,10 +2957,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Select a window, then start capture.</source>
       <translation>选择一个窗口，然后开始捕获。</translation>
-    </message>
-    <message>
-      <source>Select the model for {label} to prepare it</source>
-      <translation>为 {label} 选择模型以准备</translation>
     </message>
     <message>
       <source>Selected classifier unavailable</source>
@@ -4109,6 +4105,10 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>{name} modifiers</source>
       <translation>{name} 修饰键</translation>
+    </message>
+    <message>
+      <source>{name} needs preparation for this runtime</source>
+      <translation>需要为当前运行环境准备 {name}</translation>
     </message>
     <message>
       <source>{name} output is unavailable with {models}.</source>

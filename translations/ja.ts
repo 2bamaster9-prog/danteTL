@@ -205,6 +205,10 @@ Repairs folder: {directory}</source>
       <translation>アクセラレーション</translation>
     </message>
     <message>
+      <source>Acceleration options</source>
+      <translation>アクセラレーションオプション</translation>
+    </message>
+    <message>
       <source>Account models · list order is not a speed ranking.</source>
       <translation>アカウントモデル · リスト順は速度ランキングではありません。</translation>
     </message>
@@ -1307,10 +1311,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>モデルをダウンロード</translation>
     </message>
     <message>
-      <source>Download or configure models in Settings → Models.</source>
-      <translation>設定→モデルでモデルをダウンロードまたは設定してください。</translation>
-    </message>
-    <message>
       <source>Download: {size}</source>
       <translation>ダウンロード: {size}</translation>
     </message>
@@ -1853,10 +1853,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Japanese</source>
       <translation>日本語</translation>
-    </message>
-    <message>
-      <source>Japanese uses MeikiOCR. The other listed languages share PaddleOCR Latin.</source>
-      <translation>日本語はMeikiOCRを使用します。その他の言語はPaddleOCR Latinを共有します。</translation>
     </message>
     <message>
       <source>Keep setup running after closing Settings?</source>
@@ -2527,6 +2523,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>準備受信キューが満杯です。</translation>
     </message>
     <message>
+      <source>Prepare model</source>
+      <translation>モデルを準備</translation>
+    </message>
+    <message>
       <source>Prepare now? Choosing No keeps your previous assignments.</source>
       <translation>今すぐ準備しますか？いいえを選択すると以前の割り当てが維持されます。</translation>
     </message>
@@ -2957,10 +2957,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Select a window, then start capture.</source>
       <translation>ウィンドウを選択してからキャプチャを開始します。</translation>
-    </message>
-    <message>
-      <source>Select the model for {label} to prepare it</source>
-      <translation>{label}のモデルを選択して準備します</translation>
     </message>
     <message>
       <source>Selected classifier unavailable</source>
@@ -4109,6 +4105,10 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>{name} modifiers</source>
       <translation>{name} モディファイア</translation>
+    </message>
+    <message>
+      <source>{name} needs preparation for this runtime</source>
+      <translation>このランタイムで使用するには {name} の準備が必要です</translation>
     </message>
     <message>
       <source>{name} output is unavailable with {models}.</source>

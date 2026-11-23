@@ -102,7 +102,9 @@ stale replies cannot adopt new proposals. Setup has three bounded lanes: models/
 and guide. Import probes wait for both translator and classifier cleanup. The skippable guide offers
 downloadable bundles, not imported GGUF registrations. Its saved choice survives delayed discovery
 and goes through the ordinary assignment and consent flow even if the picker already displays it.
-Postponing a runtime switch defers guide-model preparation.
+The guide preserves cloud assignments. Postponing a runtime switch defers guide-model preparation.
+Restored assignments use exact preparation receipts. A missing receipt offers preparation directly
+on the assigned model. Discovery must settle before the UI reports a missing assignment.
 The application acknowledges the choice on assignment or when the user answers the preparation prompt.
 After review, the guide runs one model installer and one runtime installer concurrently and publishes
 progress for each. The guide owns both until they drain. Settings can also install a model and a runtime

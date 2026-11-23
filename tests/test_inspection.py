@@ -1739,15 +1739,15 @@ def test_saved_model_choice_survives_runtime_change_without_implicit_preparation
     monkeypatch.setattr("dantetl.runtime.model_store.is_prepared", lambda key: prepared or not key)
     window = MainWindow(windows, factory, (base, gemma), preferences_path=path)
     application = app_owner(window)
-    assert window.backend_combo.currentData() == (
-        window.routing.resolve(model_reference(gemma if prepared else None))
-    )
+    selected = window.routing.resolve(model_reference(gemma))
+    assert selected and window.backend_combo.currentData() == selected
     assert not visible_messages(window)
     factory.assert_not_called()
     if not prepared:
-        window.backend_combo.setCurrentIndex(find_model(window.backend_combo, gemma))
+        assert window.onboarding.action.text() == "Prepare model"
+        window.onboarding.action.click()
         answer_dialog(window, QMessageBox.StandardButton.No)
-        assert window.backend_combo.currentData() is None
+        assert window.backend_combo.currentData() == selected
     settings(window).opacity.setValue(63)
     drain(window, lambda: application.preferences.idle)
     assert PreferenceStore(path).initial.model == key
