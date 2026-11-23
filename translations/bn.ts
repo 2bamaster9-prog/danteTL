@@ -1679,10 +1679,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>হিস্ট্রি প্যানেল কনটেক্সট তার সীমা ছাড়িয়ে গেছে।</translation>
     </message>
     <message>
-      <source>Hold to show original</source>
-      <translation>মূল দেখতে চেপে ধরুন</translation>
-    </message>
-    <message>
       <source>Hotkey unavailable: {value}. Choose another shortcut in Settings.</source>
       <translation>হটকি উপলব্ধ নয়: {value}। সেটিংসে অন্য শর্টকাট বেছে নিন।</translation>
     </message>
@@ -3271,10 +3267,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Tagalog</source>
       <translation>তাগালগ</translation>
-    </message>
-    <message>
-      <source>Temporarily hides the overlay while the shortcut is held. Releasing any key restores its current visibility setting immediately. OCR and translation continue; nothing is restarted. Focus loss cancels the hold.</source>
-      <translation>শর্টকাট চেপে ধরে থাকার সময় ওভারলে সাময়িকভাবে লুকায়। যেকোনো কী ছাড়লে এর বর্তমান দৃশ্যমানতা সেটিং তাৎক্ষণিকভাবে ফিরে আসে। OCR এবং অনুবাদ চলতে থাকে; কিছুই পুনরায় চালু হয় না। ফোকাস হারালে হোল্ড বাতিল হয়।</translation>
     </message>
     <message>
       <source>Test cancelled.</source>

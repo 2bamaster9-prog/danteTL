@@ -1679,10 +1679,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>履歴パネルのコンテキストが上限を超えています。</translation>
     </message>
     <message>
-      <source>Hold to show original</source>
-      <translation>押している間は原文を表示</translation>
-    </message>
-    <message>
       <source>Hotkey unavailable: {value}. Choose another shortcut in Settings.</source>
       <translation>ホットキーが利用できません {value} を設定で別のショートカットにしてください。</translation>
     </message>
@@ -3271,10 +3267,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Tagalog</source>
       <translation>タガログ語</translation>
-    </message>
-    <message>
-      <source>Temporarily hides the overlay while the shortcut is held. Releasing any key restores its current visibility setting immediately. OCR and translation continue; nothing is restarted. Focus loss cancels the hold.</source>
-      <translation>ショートカットキーを押している間、オーバーレイを一時的に非表示にします。任意のキーを離すと、現在の表示設定が即座に復元されます。OCRと翻訳は継続され、再起動は行われません。フォーカスを失うとホールドが解除されます。</translation>
     </message>
     <message>
       <source>Test cancelled.</source>

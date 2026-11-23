@@ -1679,10 +1679,6 @@ Os detalhes estão em %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>O contexto do painel de histórico excede seu limite.</translation>
     </message>
     <message>
-      <source>Hold to show original</source>
-      <translation>Segure para mostrar o original</translation>
-    </message>
-    <message>
       <source>Hotkey unavailable: {value}. Choose another shortcut in Settings.</source>
       <translation>Atalho indisponível: {value}. Escolha outro atalho em Configurações.</translation>
     </message>
@@ -3271,10 +3267,6 @@ Downloads de modelos: até {size:.2f} GB; arquivos existentes são verificados e
     <message>
       <source>Tagalog</source>
       <translation>Tagalo</translation>
-    </message>
-    <message>
-      <source>Temporarily hides the overlay while the shortcut is held. Releasing any key restores its current visibility setting immediately. OCR and translation continue; nothing is restarted. Focus loss cancels the hold.</source>
-      <translation>Oculta temporariamente a sobreposição enquanto o atalho estiver pressionado. Soltar qualquer tecla restaura imediatamente a configuração de visibilidade atual. OCR e tradução continuam; nada é reiniciado. A perda de foco cancela a retenção.</translation>
     </message>
     <message>
       <source>Test cancelled.</source>

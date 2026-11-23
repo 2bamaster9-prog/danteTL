@@ -1679,10 +1679,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>기록 패널 컨텍스트가 한도를 초과했습니다.</translation>
     </message>
     <message>
-      <source>Hold to show original</source>
-      <translation>길게 눌러 원문 보기</translation>
-    </message>
-    <message>
       <source>Hotkey unavailable: {value}. Choose another shortcut in Settings.</source>
       <translation>단축키 사용 불가: {value}. 설정에서 다른 단축키를 선택하세요.</translation>
     </message>
@@ -3271,10 +3267,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Tagalog</source>
       <translation>타갈로그어</translation>
-    </message>
-    <message>
-      <source>Temporarily hides the overlay while the shortcut is held. Releasing any key restores its current visibility setting immediately. OCR and translation continue; nothing is restarted. Focus loss cancels the hold.</source>
-      <translation>단축키를 누르고 있는 동안 오버레이를 일시적으로 숨깁니다. 아무 키나 놓으면 현재 표시 설정이 즉시 복원됩니다. OCR과 번역은 계속되며 아무것도 다시 시작되지 않습니다. 포커스를 잃으면 유지가 취소됩니다.</translation>
     </message>
     <message>
       <source>Test cancelled.</source>

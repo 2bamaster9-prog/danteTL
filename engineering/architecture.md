@@ -176,8 +176,7 @@ Retired surfaces hide immediately and can be reused until
 the overlay hides or blur is disabled. Surfaces share the overlay's recording preference.
 Native setup failures use the configured background opacity.
 
-Shortcuts use RegisterHotKey on Qt; no hooks or idle polling. Only a held show-original chord polls
-for release. This transient paint mask clears on focus loss/stop/close without resetting processing.
+Overlay and capture shortcuts use RegisterHotKey on Qt without keyboard hooks or polling.
 Rebinding is transactional and rejects stale messages. Only the explicit capture shortcut may choose
 an eligible foreground HWND/PID; Start uses the selected target. Both honor modal/shutdown guards.
 

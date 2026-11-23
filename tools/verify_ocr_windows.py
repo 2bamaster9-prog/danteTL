@@ -692,27 +692,20 @@ def main() -> int:
                         application.translation.lifecycle.publication,
                     )
                     english = window._overlay._translations
-                    window._original_changed(True)
-                    assert not window._overlay.isVisible()
+                    window.overlay_check.setChecked(False)
                     window._tick()
                     assert not window._overlay.isVisible()
-                    window._original_changed(False)
-                    assert window._overlay.isVisible(), (
-                        "Release did not immediately restore overlay"
-                    )
+                    window.overlay_check.setChecked(True)
+                    window._tick()
+                    assert window._overlay.isVisible()
                     assert window._overlay._translations == english
                     assert workers == (
                         application.live.capture,
                         application.live.ocr,
                         application.live.visual,
                         application.translation.lifecycle.publication,
-                    ), "Original hold replaced processing workers"
-                    window.overlay_check.setChecked(False)
-                    window._original_changed(True)
-                    window._original_changed(False)
-                    assert not window._overlay.isVisible(), "Release overrode the visibility switch"
-                    window.overlay_check.setChecked(True)
-                    evidence["original_hold_restores_english_without_worker_restart"] = True
+                    ), "Toggling the overlay replaced processing workers"
+                    evidence["overlay_toggle_restores_english_without_worker_restart"] = True
                 assert application.live.capture is not None
                 captured = application.live.capture.snapshot().frame
                 assert captured and frozen and captured.sequence > frozen.frame.sequence

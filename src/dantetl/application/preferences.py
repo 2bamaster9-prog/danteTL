@@ -59,7 +59,7 @@ def decode_preferences(value: object) -> Preferences:
             and not (key == "model" and re.fullmatch(r"imported-[0-9a-f]{64}", candidate))
         ):
             continue
-        if key in ("overlay_hotkey", "capture_hotkey", "original_hotkey"):
+        if key in ("overlay_hotkey", "capture_hotkey"):
             try:
                 parse_shortcut(candidate)
             except ValueError:

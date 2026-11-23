@@ -103,10 +103,12 @@ and limited recent dialogue context to the selected provider.
 | --- | --- |
 | **Ctrl+Alt+F8** | Show or hide the overlay while processing continues. |
 | **Ctrl+Alt+F9** | Start capture of the focused window, or stop the current capture. |
-| **Hold Ctrl+Alt+F10** | Show the original text until released. |
 
 Change shortcuts in **Settings → Hotkeys**. The main **Start capture** button uses the selected
 window; the capture shortcut uses the focused window by default.
+
+To read the original game text, press **Show / hide overlay** once, then press it again to restore
+translations. Capture and translation continue while the overlay is hidden.
 
 - **Settings → Appearance** adjusts text size, background opacity and **Blur behind translated text**.
   Blur starts enabled on a fresh setup. You can turn it off in the welcome guide or in Appearance.

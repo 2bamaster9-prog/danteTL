@@ -1679,10 +1679,6 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Context van het geschiedenisvenster overschrijdt de limiet.</translation>
     </message>
     <message>
-      <source>Hold to show original</source>
-      <translation>Ingedrukt houden om origineel te tonen</translation>
-    </message>
-    <message>
       <source>Hotkey unavailable: {value}. Choose another shortcut in Settings.</source>
       <translation>Sneltoets niet beschikbaar: {value}. Kies een andere sneltoets in Instellingen.</translation>
     </message>
@@ -3271,10 +3267,6 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
     <message>
       <source>Tagalog</source>
       <translation>Tagalog</translation>
-    </message>
-    <message>
-      <source>Temporarily hides the overlay while the shortcut is held. Releasing any key restores its current visibility setting immediately. OCR and translation continue; nothing is restarted. Focus loss cancels the hold.</source>
-      <translation>Verbergt de overlay tijdelijk terwijl de sneltoets wordt ingehouden. Bij het loslaten van een toets wordt de huidige zichtbaarheidsinstelling direct hersteld. OCR en vertaling gaan door; niets wordt herstart. Verlies van focus annuleert het vasthouden.</translation>
     </message>
     <message>
       <source>Test cancelled.</source>

@@ -89,7 +89,6 @@ class ApplicationSession:
         self._ocr_model = ocr_model_for(source_language(self.values.source_language))
         self.cloud.test_target = TARGET_LANGUAGES[self.values.output_language]
         self.view = ApplicationView()
-        self.original = False
         self.raw_boxes = False
         self.debug = False
         self._desktop_action: DesktopAction | None = None
@@ -146,7 +145,6 @@ class ApplicationSession:
         self.live.change_language(language, self.translation.lifecycle.publication)
         self.values = replace(self.values, source_language=code)
         self.persist()
-        self.original = False
         self.cloud.language = language
         self.translation.language = language
         self.capture.set_choices(models.ocr)
@@ -347,7 +345,6 @@ class ApplicationSession:
     def stop(self, message: str = "Capture stopped.") -> None:
         if self._source_change:
             self._source_change = SourceChange(None, True)
-        self.original = False
         self.translation.lifecycle.stop_capture(closing=self.shutdown.active)
         self.capture.stop(tr(message), self.translation.lifecycle.publication)
         self.view = reset_scene(self.view)
@@ -427,7 +424,6 @@ class ApplicationSession:
     def request_close(self, target: Path | None = None) -> None:
         if self.shutdown.active:
             return
-        self.original = False
         self._setup_consent = None
         self._desktop_action = None
         self._source_change = None
@@ -473,18 +469,6 @@ class ApplicationSession:
     def take_desktop_action(self) -> DesktopAction | None:
         action, self._desktop_action = self._desktop_action, None
         return action
-
-    def show_original(self, held: bool, *, modal: bool = False) -> bool:
-        capture = self.live.capture
-        self.original = bool(
-            held
-            and not modal
-            and not self.closing
-            and capture is not None
-            and not capture.finished
-            and self.windows.is_foreground(capture.target)
-        )
-        return self.original
 
     def foreground_target(self) -> WindowTarget | None:
         if self.closing or self.live.capture:
@@ -769,7 +753,6 @@ class ApplicationSession:
             geometry.client
             if (
                 self.values.show_overlay
-                and not self.original
                 and (self.values.translation or self.raw_boxes or self.debug)
                 and (scene.tracks or self.debug)
                 and frame is not None

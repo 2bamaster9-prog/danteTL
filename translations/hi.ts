@@ -1679,10 +1679,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>इतिहास पैनल संदर्भ अपनी सीमा से अधिक है।</translation>
     </message>
     <message>
-      <source>Hold to show original</source>
-      <translation>मूल दिखाने के लिए दबाए रखें</translation>
-    </message>
-    <message>
       <source>Hotkey unavailable: {value}. Choose another shortcut in Settings.</source>
       <translation>हॉटकी उपलब्ध नहीं: {value}। सेटिंग्स में दूसरा शॉर्टकट चुनें।</translation>
     </message>
@@ -3271,10 +3267,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Tagalog</source>
       <translation>तागालोग</translation>
-    </message>
-    <message>
-      <source>Temporarily hides the overlay while the shortcut is held. Releasing any key restores its current visibility setting immediately. OCR and translation continue; nothing is restarted. Focus loss cancels the hold.</source>
-      <translation>शॉर्टकट दबाए रखने के दौरान ओवरले को अस्थायी रूप से छिपाता है। कोई भी कुंजी छोड़ने पर इसकी वर्तमान दृश्यता सेटिंग तुरंत बहाल हो जाती है। OCR और अनुवाद जारी रहते हैं; कुछ भी पुनः आरंभ नहीं होता। फ़ोकस खोने पर होल्ड रद्द हो जाता है।</translation>
     </message>
     <message>
       <source>Test cancelled.</source>

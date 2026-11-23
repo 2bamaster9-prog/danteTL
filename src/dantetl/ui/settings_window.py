@@ -221,7 +221,6 @@ class SettingsWindow(QDialog):
         self.hotkeys = HotkeySettings(
             preferences.overlay_hotkey,
             preferences.capture_hotkey,
-            preferences.original_hotkey,
             preferences.capture_focused_window,
             hotkeys,
         )
@@ -357,7 +356,6 @@ class SettingsWindow(QDialog):
         self._edit(
             overlay_hotkey=self.hotkeys.rows[HotkeyAction.OVERLAY].committed,
             capture_hotkey=self.hotkeys.rows[HotkeyAction.CAPTURE].committed,
-            original_hotkey=self.hotkeys.rows[HotkeyAction.ORIGINAL].committed,
             capture_focused_window=self.hotkeys.capture_focused.isChecked(),
         )
 

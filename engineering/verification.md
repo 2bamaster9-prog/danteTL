@@ -284,7 +284,7 @@ before recursive cleanup. Artifact size must not grow without a deliberate reaso
    including paused inspection, while backend-specific disk caches remain reusable when returning.
 5. Move, minimize/restore, change focus, stop/restart, then close the source and app. Nothing stale
    should reappear; progress remains responsive while workers drain. Test failed restart recovery.
-6. Exercise configured shortcuts and hold-to-show-original against the fixture; release restores
-   translations without restarting processing. Registration conflicts preserve previous bindings.
+6. Exercise both configured shortcuts against the fixture. Hiding and restoring the overlay preserves
+   capture and translation. Registration conflicts preserve previous bindings.
 7. Separately test the intended game and record resolution, DPI, HDR and window mode. Demo results
    do not establish game approval, anti-cheat, exclusive fullscreen or mixed-DPI compatibility.

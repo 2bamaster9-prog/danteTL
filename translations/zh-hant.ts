@@ -1679,10 +1679,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>歷史面板內容超出其限制。</translation>
     </message>
     <message>
-      <source>Hold to show original</source>
-      <translation>按住以顯示原文</translation>
-    </message>
-    <message>
       <source>Hotkey unavailable: {value}. Choose another shortcut in Settings.</source>
       <translation>快速鍵無法使用：{value}。請在設定中選擇其他快速鍵。</translation>
     </message>
@@ -3271,10 +3267,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Tagalog</source>
       <translation>菲律賓語</translation>
-    </message>
-    <message>
-      <source>Temporarily hides the overlay while the shortcut is held. Releasing any key restores its current visibility setting immediately. OCR and translation continue; nothing is restarted. Focus loss cancels the hold.</source>
-      <translation>按住快速鍵時暫時隱藏疊加層。放開任一鍵會立即恢復目前的顯示設定。OCR 與翻譯會繼續進行；不會重新啟動任何項目。失去焦點會取消按住狀態。</translation>
     </message>
     <message>
       <source>Test cancelled.</source>

@@ -1679,10 +1679,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>Контекст панели истории превышает лимит.</translation>
     </message>
     <message>
-      <source>Hold to show original</source>
-      <translation>Удерживайте, чтобы показать оригинал</translation>
-    </message>
-    <message>
       <source>Hotkey unavailable: {value}. Choose another shortcut in Settings.</source>
       <translation>Горячая клавиша недоступна: {value}. Выберите другой ярлык в Настройках.</translation>
     </message>
@@ -3271,10 +3267,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Tagalog</source>
       <translation>Тагальский</translation>
-    </message>
-    <message>
-      <source>Temporarily hides the overlay while the shortcut is held. Releasing any key restores its current visibility setting immediately. OCR and translation continue; nothing is restarted. Focus loss cancels the hold.</source>
-      <translation>Временно скрывает оверлей, пока удерживается сочетание клавиш. Отпускание любой клавиши немедленно восстанавливает текущую настройку видимости. OCR и перевод продолжаются; ничего не перезапускается. Потеря фокуса отменяет удержание.</translation>
     </message>
     <message>
       <source>Test cancelled.</source>

@@ -1679,10 +1679,6 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Ngữ cảnh bảng lịch sử vượt quá giới hạn.</translation>
     </message>
     <message>
-      <source>Hold to show original</source>
-      <translation>Giữ để hiện bản gốc</translation>
-    </message>
-    <message>
       <source>Hotkey unavailable: {value}. Choose another shortcut in Settings.</source>
       <translation>Phím tắt không khả dụng: {value}. Chọn phím tắt khác trong Cài đặt.</translation>
     </message>
@@ -3271,10 +3267,6 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
     <message>
       <source>Tagalog</source>
       <translation>Tiếng Tagalog</translation>
-    </message>
-    <message>
-      <source>Temporarily hides the overlay while the shortcut is held. Releasing any key restores its current visibility setting immediately. OCR and translation continue; nothing is restarted. Focus loss cancels the hold.</source>
-      <translation>Tạm thời ẩn lớp phủ khi giữ phím tắt. Thả phím bất kỳ sẽ khôi phục ngay cài đặt hiển thị hiện tại. OCR và dịch vẫn tiếp tục; không có gì bị khởi động lại. Mất tiêu điểm sẽ hủy thao tác giữ.</translation>
     </message>
     <message>
       <source>Test cancelled.</source>

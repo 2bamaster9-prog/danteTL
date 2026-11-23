@@ -61,7 +61,6 @@ class HotkeySettings(QWidget):
         self,
         overlay: str,
         capture: str,
-        original: str,
         capture_focused: bool,
         service: Hotkeys | None,
     ) -> None:
@@ -111,16 +110,6 @@ class HotkeySettings(QWidget):
                     "Stopping ends processing; hiding the overlay keeps it running."
                 ),
                 capture,
-            ),
-            HotkeyAction.ORIGINAL: _ShortcutRow(
-                mark("Hold to show original"),
-                mark(
-                    "Temporarily hides the overlay while the shortcut is held. Releasing any key "
-                    "restores its current visibility setting immediately. "
-                    "OCR and translation continue; "
-                    "nothing is restarted. Focus loss cancels the hold."
-                ),
-                original,
             ),
         }
         for action, row in self.rows.items():

@@ -1679,10 +1679,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>يتجاوز سياق لوحة السجل حدّه.</translation>
     </message>
     <message>
-      <source>Hold to show original</source>
-      <translation>اضغط باستمرار لإظهار الأصل</translation>
-    </message>
-    <message>
       <source>Hotkey unavailable: {value}. Choose another shortcut in Settings.</source>
       <translation>الاختصار غير متاح: {value}. اختر اختصارًا آخر في الإعدادات.</translation>
     </message>
@@ -3271,10 +3267,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Tagalog</source>
       <translation>التاغالوغية</translation>
-    </message>
-    <message>
-      <source>Temporarily hides the overlay while the shortcut is held. Releasing any key restores its current visibility setting immediately. OCR and translation continue; nothing is restarted. Focus loss cancels the hold.</source>
-      <translation>يخفي التراكب مؤقتًا أثناء الضغط على الاختصار. يؤدي تحرير أي مفتاح إلى استعادة إعداد الظهور الحالي فورًا. يستمر التعرف الضوئي على الحروف والترجمة؛ لا يتم إعادة تشغيل أي شيء. فقدان التركيز يلغي الاستمرار.</translation>
     </message>
     <message>
       <source>Test cancelled.</source>

@@ -107,7 +107,6 @@ class MainWindow(QMainWindow):
             self.windows_combo.setCurrentIndex(0)
         if self._hotkeys:
             self._hotkeys.activated = self._hotkey_activated
-            self._hotkeys.hold_changed = self._original_changed
         self._settings.hotkeys.activate()
         self._update_notice()
 
@@ -542,21 +541,6 @@ class MainWindow(QMainWindow):
             # Use the button's existing lifecycle guard, including asynchronous stop/drain.
             self.start_button.click()
 
-    def _original_changed(self, held: bool) -> None:
-        before = self.application.original
-        showing = self.application.show_original(
-            held, modal=QApplication.activeModalWidget() is not None
-        )
-        if showing:
-            self._overlay.hide()
-        elif before and not self.application.closing:
-            self._tick()
-
-    def _cancel_original(self) -> None:
-        self.application.show_original(False)
-        if self._hotkeys:
-            self._hotkeys.end_hold()
-
     def _advanced_changed(self, expanded: bool) -> None:
         maximized = self.isMaximized() or self.isFullScreen()
         if expanded and not maximized:
@@ -716,7 +700,6 @@ class MainWindow(QMainWindow):
         self._render_application(False)
 
     def _stop(self, message: str) -> None:
-        self._cancel_original()
         self.application.stop(message)
         self._render_application(False)
 
@@ -894,10 +877,6 @@ class MainWindow(QMainWindow):
             self.close()
             return
         self.output_language.set_language(self.application.values.output_language)
-        if self.application.original and not self.application.show_original(
-            True, modal=QApplication.activeModalWidget() is not None
-        ):
-            self._cancel_original()
         with self.inspector.defer_rendering():
             self._render_scene()
         controls = self.application.controls
@@ -979,7 +958,7 @@ class MainWindow(QMainWindow):
             if self.debug_check.isChecked() and value.ocr
             else None
         )
-        if value.overlay_bounds is not None and not self.application.original:
+        if value.overlay_bounds is not None:
             if error := self._overlay.align(value.overlay_bounds):
                 self._show_overlay_error(error)
         else:
@@ -1028,7 +1007,6 @@ class MainWindow(QMainWindow):
         self._settings.set_capture_active(False)
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        self._cancel_original()
         self.history_panel.hide()
         self.application.request_close()
         self._overlay.hide()

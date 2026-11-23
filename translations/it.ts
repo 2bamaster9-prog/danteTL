@@ -1679,10 +1679,6 @@ I dettagli sono in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Il contesto del pannello cronologia supera il limite.</translation>
     </message>
     <message>
-      <source>Hold to show original</source>
-      <translation>Tieni premuto per mostrare l'originale</translation>
-    </message>
-    <message>
       <source>Hotkey unavailable: {value}. Choose another shortcut in Settings.</source>
       <translation>Scorciatoia non disponibile: {value}. Scegli un'altra scorciatoia nelle Impostazioni.</translation>
     </message>
@@ -3271,10 +3267,6 @@ Download dei modelli: fino a {size:.2f} GB; i file esistenti vengono verificati 
     <message>
       <source>Tagalog</source>
       <translation>Tagalog</translation>
-    </message>
-    <message>
-      <source>Temporarily hides the overlay while the shortcut is held. Releasing any key restores its current visibility setting immediately. OCR and translation continue; nothing is restarted. Focus loss cancels the hold.</source>
-      <translation>Nasconde temporaneamente l'overlay mentre la scorciatoia è tenuta premuta. Il rilascio di qualsiasi tasto ripristina subito l'impostazione di visibilità corrente. OCR e traduzione continuano; nulla viene riavviato. La perdita di focus annulla la pressione.</translation>
     </message>
     <message>
       <source>Test cancelled.</source>

@@ -1679,10 +1679,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>บริบทของแผงประวัติเกินขีดจำกัด</translation>
     </message>
     <message>
-      <source>Hold to show original</source>
-      <translation>กดค้างเพื่อแสดงต้นฉบับ</translation>
-    </message>
-    <message>
       <source>Hotkey unavailable: {value}. Choose another shortcut in Settings.</source>
       <translation>ทางลัดไม่พร้อมใช้งาน: {value} เลือกทางลัดอื่นในการตั้งค่า</translation>
     </message>
@@ -3271,10 +3267,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Tagalog</source>
       <translation>ภาษาตากาล็อก</translation>
-    </message>
-    <message>
-      <source>Temporarily hides the overlay while the shortcut is held. Releasing any key restores its current visibility setting immediately. OCR and translation continue; nothing is restarted. Focus loss cancels the hold.</source>
-      <translation>ซ่อนโอเวอร์เลย์ชั่วคราวขณะกดปุ่มลัดค้างไว้ การปล่อยปุ่มใดก็ตามจะคืนค่าการแสดงผลปัจจุบันทันที OCR และการแปลยังคงดำเนินต่อ ไม่มีการรีสตาร์ทใดๆ การสูญเสียโฟกัสจะยกเลิกการกดค้าง</translation>
     </message>
     <message>
       <source>Test cancelled.</source>

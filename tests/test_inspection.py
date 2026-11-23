@@ -648,9 +648,11 @@ def test_hotkey_settings_apply_conflict_disable_and_persistence(app, tmp_path):
     windows.list_targets.return_value = []
     hotkeys = Hotkeys(Mock())
     path = tmp_path / "preferences.json"
+    path.write_text('{"version": 1, "original_hotkey": "Ctrl+Shift+F7"}')
     window = MainWindow(windows, Mock(), hotkeys=hotkeys, preferences_path=path)
     application = app_owner(window)
     panel = settings(window).hotkeys
+    assert set(panel.rows) == {HotkeyAction.OVERLAY, HotkeyAction.CAPTURE}
     overlay, capture = panel.rows[HotkeyAction.OVERLAY], panel.rows[HotkeyAction.CAPTURE]
     overlay.modifiers.setCurrentText("Ctrl+Shift")
     overlay.key.setCurrentIndex(overlay.key.findData("F7"))
@@ -860,85 +862,6 @@ def test_capture_hotkey_picks_focused_window_but_never_retargets_running_capture
     application.live.capture = None
     window.close()
     window.deleteLater()
-
-
-def test_original_hold_is_transient_and_focus_loss_cancels_it(app, tmp_path):
-    from dantetl.application.hotkeys import Hotkeys
-
-    windows = Mock()
-    windows.list_targets.return_value = []
-    registrar = Mock()
-    hotkeys = Hotkeys(registrar)
-    window = MainWindow(windows, Mock(), hotkeys=hotkeys, cache_path=tmp_path / "cache")
-    application = app_owner(window)
-    window.driver.timer.stop()
-    application.advance = Mock()
-    application.live.capture = Mock(finished=False)
-    workers = (
-        application.live.capture,
-        application.live.ocr,
-        application.translation.lifecycle.publication,
-    )
-    before = application.view.reset
-    window._overlay.show()
-    hotkeys.hold_changed(True)
-    assert application.original and not window._overlay.isVisible()
-    assert window.overlay_check.isChecked() and window.translate_check.isChecked()
-    assert (
-        application.live.capture,
-        application.live.ocr,
-        application.translation.lifecycle.publication,
-    ) == workers
-    hotkeys.hold_changed(False)
-    assert not application.original
-    application.advance.assert_called_once()  # Re-evaluate current visibility on release.
-    window.overlay_check.setChecked(False)
-    hotkeys.hold_changed(True)
-    hotkeys.hold_changed(False)
-    assert not window.overlay_check.isChecked()  # Does not override the user's hidden setting.
-    hotkeys.hold_changed(True)
-    windows.is_foreground.return_value = False
-    window.driver.refresh(inspect=True)
-    assert not application.original and not hotkeys.holding_original
-    hotkeys.hold_changed(True)
-    assert not application.original
-    assert application.view.reset == before
-    windows.is_foreground.return_value = True
-    hotkeys.dispatch(*registrar.register.call_args.args)
-    assert hotkeys.holding_original and application.original
-    window.start_button.click()
-    assert not hotkeys.holding_original and not application.original
-    application.live.capture = None
-    window.close()
-    window.deleteLater()
-
-
-def test_native_hold_checks_release_only_while_active_and_stops_after_release(app):
-    import ctypes
-    from ctypes import wintypes
-
-    from dantetl.application.hotkeys import HotkeyAction, Hotkeys
-    from dantetl.ui.hotkeys_windows import WindowsHotkeyEvents
-
-    registrar = Mock()
-    hotkeys = Hotkeys(registrar)
-    hotkeys.hold_changed = Mock()
-    down = {17, 18, 0x79}
-    events = WindowsHotkeyEvents(app, hotkeys, key_down=lambda key: key in down)
-    hotkeys.bind(HotkeyAction.ORIGINAL, "Ctrl+Alt+F10")
-    identifier = registrar.register.call_args.args[0]
-    message = wintypes.MSG(message=0x0312, wParam=identifier, lParam=(0x79 << 16) | 3)
-    assert not events._release_timer.isActive()
-    events.nativeEventFilter(b"windows_generic_MSG", ctypes.addressof(message))
-    assert hotkeys.holding_original and events._release_timer.isActive()
-    down.remove(17)  # Releasing a modifier before the main key restores English too.
-    events._check_release()
-    assert not hotkeys.holding_original and not events._release_timer.isActive()
-    assert [call.args for call in hotkeys.hold_changed.call_args_list] == [(True,), (False,)]
-    # A delayed notification after release must not briefly hide anything.
-    events.nativeEventFilter(b"windows_generic_MSG", ctypes.addressof(message))
-    assert hotkeys.hold_changed.call_count == 2 and not events._release_timer.isActive()
-    events.close()
 
 
 def cell(panel: OcrInspector, row: int, column: int):

@@ -1679,10 +1679,6 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Konteks panel riwayat melebihi batasnya.</translation>
     </message>
     <message>
-      <source>Hold to show original</source>
-      <translation>Tahan untuk menampilkan asli</translation>
-    </message>
-    <message>
       <source>Hotkey unavailable: {value}. Choose another shortcut in Settings.</source>
       <translation>Pintasan tidak tersedia: {value}. Pilih pintasan lain di Pengaturan.</translation>
     </message>
@@ -3271,10 +3267,6 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
     <message>
       <source>Tagalog</source>
       <translation>Tagalog</translation>
-    </message>
-    <message>
-      <source>Temporarily hides the overlay while the shortcut is held. Releasing any key restores its current visibility setting immediately. OCR and translation continue; nothing is restarted. Focus loss cancels the hold.</source>
-      <translation>Menyembunyikan overlay sementara saat pintasan ditahan. Melepaskan tombol apa pun langsung memulihkan pengaturan visibilitas saat ini. OCR dan terjemahan tetap berjalan; tidak ada yang dimulai ulang. Kehilangan fokus membatalkan penahanan.</translation>
     </message>
     <message>
       <source>Test cancelled.</source>

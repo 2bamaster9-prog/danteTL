@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Protocol, TypedDict, Unpack
 
-from dantetl.application.hotkeys import DEFAULT_CAPTURE, DEFAULT_ORIGINAL, DEFAULT_OVERLAY
+from dantetl.application.hotkeys import DEFAULT_CAPTURE, DEFAULT_OVERLAY
 from dantetl.languages.target import ENGLISH
 
 # Numeric targets use the full range supported by Qt's integer editor. Zero is unlimited.
@@ -24,7 +24,6 @@ class Preferences:
     model: str = "auto"
     overlay_hotkey: str = DEFAULT_OVERLAY
     capture_hotkey: str = DEFAULT_CAPTURE
-    original_hotkey: str = DEFAULT_ORIGINAL
     capture_focused_window: bool = True
     setup_seen: bool = False
     setup_model: str = ""
@@ -61,7 +60,6 @@ class SettingsEdit(TypedDict, total=False):
     capture_rate: int
     overlay_hotkey: str
     capture_hotkey: str
-    original_hotkey: str
     capture_focused_window: bool
     game_hint: str
     advanced_routing: bool

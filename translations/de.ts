@@ -1679,10 +1679,6 @@ Details finden Sie in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Kontext des Verlaufsfensters überschreitet sein Limit.</translation>
     </message>
     <message>
-      <source>Hold to show original</source>
-      <translation>Gedrückt halten, um Original anzuzeigen</translation>
-    </message>
-    <message>
       <source>Hotkey unavailable: {value}. Choose another shortcut in Settings.</source>
       <translation>Tastenkürzel nicht verfügbar: {value}. Wähle ein anderes Kürzel in den Einstellungen.</translation>
     </message>
@@ -3271,10 +3267,6 @@ Modell-Downloads: bis zu {size:.2f} GB; vorhandene Dateien werden geprüft und w
     <message>
       <source>Tagalog</source>
       <translation>Tagalog</translation>
-    </message>
-    <message>
-      <source>Temporarily hides the overlay while the shortcut is held. Releasing any key restores its current visibility setting immediately. OCR and translation continue; nothing is restarted. Focus loss cancels the hold.</source>
-      <translation>Blendet das Overlay vorübergehend aus, solange die Tastenkombination gehalten wird. Das Loslassen einer beliebigen Taste stellt die aktuelle Sichtbarkeitseinstellung sofort wieder her. OCR und Übersetzung laufen weiter; nichts wird neu gestartet. Fokusverlust bricht das Halten ab.</translation>
     </message>
     <message>
       <source>Test cancelled.</source>
