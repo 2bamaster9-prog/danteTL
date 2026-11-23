@@ -351,10 +351,6 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Automatisch · GPU met CPU-terugval</translation>
     </message>
     <message>
-      <source>Avoid combinations used by your game. Windows shortcuts and F12 are reserved. Toggle shortcuts do not repeat while held.</source>
-      <translation>Vermijd combinaties die door je game worden gebruikt. Windows-sneltoetsen en F12 zijn gereserveerd. Wisselsneltoetsen herhalen niet zolang ze ingedrukt worden gehouden.</translation>
-    </message>
-    <message>
       <source>Back</source>
       <translation>Terug</translation>
     </message>
@@ -3059,10 +3055,6 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
     <message>
       <source>Short labels</source>
       <translation>Korte labels</translation>
-    </message>
-    <message>
-      <source>Shortcuts work while the game has focus or DanteTL is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
-      <translation>Sneltoetsen werken terwijl de game focus heeft of DanteTL is geminimaliseerd. Kies een combinatie en klik op Toepassen. Selecteer Uitgeschakeld om een actie uit te schakelen.</translation>
     </message>
     <message>
       <source>Show / hide overlay</source>

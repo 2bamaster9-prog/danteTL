@@ -351,10 +351,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>تلقائي · GPU مع الرجوع إلى CPU</translation>
     </message>
     <message>
-      <source>Avoid combinations used by your game. Windows shortcuts and F12 are reserved. Toggle shortcuts do not repeat while held.</source>
-      <translation>تجنب المجموعات المستخدمة في لعبتك. اختصارات Windows وF12 محجوزة. لا تتكرر اختصارات التبديل أثناء الضغط عليها.</translation>
-    </message>
-    <message>
       <source>Back</source>
       <translation>رجوع</translation>
     </message>
@@ -3059,10 +3055,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Short labels</source>
       <translation>تسميات قصيرة</translation>
-    </message>
-    <message>
-      <source>Shortcuts work while the game has focus or DanteTL is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
-      <translation>تعمل الاختصارات عندما تكون اللعبة في المقدمة أو تكون DanteTL مصغّرة. اختر تركيبة، ثم اضغط تطبيق. اختر معطّل لإيقاف إجراء.</translation>
     </message>
     <message>
       <source>Show / hide overlay</source>

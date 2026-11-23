@@ -351,10 +351,6 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Tự động · GPU với dự phòng CPU</translation>
     </message>
     <message>
-      <source>Avoid combinations used by your game. Windows shortcuts and F12 are reserved. Toggle shortcuts do not repeat while held.</source>
-      <translation>Tránh các tổ hợp được trò chơi của bạn sử dụng. Phím tắt Windows và F12 được dành riêng. Phím tắt bật/tắt không lặp lại khi giữ.</translation>
-    </message>
-    <message>
       <source>Back</source>
       <translation>Quay lại</translation>
     </message>
@@ -3059,10 +3055,6 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
     <message>
       <source>Short labels</source>
       <translation>Nhãn ngắn</translation>
-    </message>
-    <message>
-      <source>Shortcuts work while the game has focus or DanteTL is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
-      <translation>Phím tắt hoạt động khi trò chơi đang được chọn hoặc DanteTL thu nhỏ. Chọn tổ hợp, rồi nhấn Áp dụng. Chọn Tắt để vô hiệu hóa một hành động.</translation>
     </message>
     <message>
       <source>Show / hide overlay</source>

@@ -68,15 +68,6 @@ class HotkeySettings(QWidget):
         self._service = service
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        intro = localized(
-            QLabel(),
-            text=mark(
-                "Shortcuts work while the game has focus or DanteTL is minimized. "
-                "Choose a combination, then Apply. Select Disabled to turn an action off."
-            ),
-        )
-        intro.setWordWrap(True)
-        layout.addWidget(intro)
         focused = QHBoxLayout()
         self.capture_focused = localized(Switch(), text=mark("Capture the focused window"))
         self.capture_focused.setChecked(capture_focused)
@@ -116,16 +107,6 @@ class HotkeySettings(QWidget):
             layout.addWidget(row)
             row.apply.clicked.connect(lambda _, action=action: self._apply(action))
             row.apply.setEnabled(service is not None)
-        note = localized(
-            QLabel(),
-            text=mark(
-                "Avoid combinations used by your game. Windows shortcuts and F12 are reserved. "
-                "Toggle shortcuts do not repeat while held."
-            ),
-        )
-        note.setWordWrap(True)
-        note.setObjectName("muted")
-        layout.addWidget(note)
         layout.addStretch()
         on_language_change(self, self._refresh_status)
 

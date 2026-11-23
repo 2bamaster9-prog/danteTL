@@ -351,10 +351,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>Автоматически · GPU с откатом на CPU</translation>
     </message>
     <message>
-      <source>Avoid combinations used by your game. Windows shortcuts and F12 are reserved. Toggle shortcuts do not repeat while held.</source>
-      <translation>Избегайте сочетаний, используемых вашей игрой. Сочетания Windows и F12 зарезервированы. Сочетания переключения не повторяются при удержании.</translation>
-    </message>
-    <message>
       <source>Back</source>
       <translation>Назад</translation>
     </message>
@@ -3059,10 +3055,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Short labels</source>
       <translation>Короткие метки</translation>
-    </message>
-    <message>
-      <source>Shortcuts work while the game has focus or DanteTL is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
-      <translation>Горячие клавиши работают, когда игра в фокусе или DanteTL свёрнут. Выберите комбинацию, затем нажмите «Применить». Выберите «Отключено», чтобы выключить действие.</translation>
     </message>
     <message>
       <source>Show / hide overlay</source>

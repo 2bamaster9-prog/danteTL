@@ -351,10 +351,6 @@ Details finden Sie in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Automatisch · GPU mit CPU-Fallback</translation>
     </message>
     <message>
-      <source>Avoid combinations used by your game. Windows shortcuts and F12 are reserved. Toggle shortcuts do not repeat while held.</source>
-      <translation>Vermeide Kombinationen, die dein Spiel verwendet. Windows-Tastenkürzel und F12 sind reserviert. Umschalt-Tastenkürzel werden beim Gedrückthalten nicht wiederholt.</translation>
-    </message>
-    <message>
       <source>Back</source>
       <translation>Zurück</translation>
     </message>
@@ -3059,10 +3055,6 @@ Modell-Downloads: bis zu {size:.2f} GB; vorhandene Dateien werden geprüft und w
     <message>
       <source>Short labels</source>
       <translation>Kurze Beschriftungen</translation>
-    </message>
-    <message>
-      <source>Shortcuts work while the game has focus or DanteTL is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
-      <translation>Tastenkürzel funktionieren, solange das Spiel den Fokus hat oder DanteTL minimiert ist. Wähle eine Kombination und klicke dann auf Anwenden. Wähle Deaktiviert, um eine Aktion auszuschalten.</translation>
     </message>
     <message>
       <source>Show / hide overlay</source>

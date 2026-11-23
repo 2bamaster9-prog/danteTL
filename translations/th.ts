@@ -351,10 +351,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>อัตโนมัติ · GPU พร้อม CPU สำรอง</translation>
     </message>
     <message>
-      <source>Avoid combinations used by your game. Windows shortcuts and F12 are reserved. Toggle shortcuts do not repeat while held.</source>
-      <translation>หลีกเลี่ยงชุดคีย์ผสมที่เกมของคุณใช้ ทางลัดของ Windows และ F12 ถูกสงวนไว้ ทางลัดสลับสถานะจะไม่ทำซ้ำขณะกดค้าง</translation>
-    </message>
-    <message>
       <source>Back</source>
       <translation>ย้อนกลับ</translation>
     </message>
@@ -3059,10 +3055,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Short labels</source>
       <translation>ป้ายกำกับแบบสั้น</translation>
-    </message>
-    <message>
-      <source>Shortcuts work while the game has focus or DanteTL is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
-      <translation>ปุ่มลัดทำงานขณะเกมมีโฟกัสหรือ DanteTL ย่ออยู่ เลือกชุดปุ่ม แล้วกดนำไปใช้ เลือกปิดใช้งานเพื่อปิดการทำงาน</translation>
     </message>
     <message>
       <source>Show / hide overlay</source>

@@ -351,10 +351,6 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Otomatis · GPU dengan fallback CPU</translation>
     </message>
     <message>
-      <source>Avoid combinations used by your game. Windows shortcuts and F12 are reserved. Toggle shortcuts do not repeat while held.</source>
-      <translation>Hindari kombinasi yang digunakan oleh game Anda. Pintasan Windows dan F12 dicadangkan. Pintasan toggle tidak berulang saat ditahan.</translation>
-    </message>
-    <message>
       <source>Back</source>
       <translation>Kembali</translation>
     </message>
@@ -3059,10 +3055,6 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
     <message>
       <source>Short labels</source>
       <translation>Label pendek</translation>
-    </message>
-    <message>
-      <source>Shortcuts work while the game has focus or DanteTL is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
-      <translation>Pintasan berfungsi saat game memiliki fokus atau DanteTL diminimalkan. Pilih kombinasi, lalu Terapkan. Pilih Nonaktif untuk mematikan suatu tindakan.</translation>
     </message>
     <message>
       <source>Show / hide overlay</source>

@@ -351,10 +351,6 @@ I dettagli sono in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Automatico · GPU con fallback su CPU</translation>
     </message>
     <message>
-      <source>Avoid combinations used by your game. Windows shortcuts and F12 are reserved. Toggle shortcuts do not repeat while held.</source>
-      <translation>Evita combinazioni usate dal tuo gioco. Le scorciatoie di Windows e F12 sono riservate. Le scorciatoie a interruttore non si ripetono mentre sono tenute premute.</translation>
-    </message>
-    <message>
       <source>Back</source>
       <translation>Indietro</translation>
     </message>
@@ -3059,10 +3055,6 @@ Download dei modelli: fino a {size:.2f} GB; i file esistenti vengono verificati 
     <message>
       <source>Short labels</source>
       <translation>Etichette brevi</translation>
-    </message>
-    <message>
-      <source>Shortcuts work while the game has focus or DanteTL is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
-      <translation>Le scorciatoie funzionano quando il gioco è in primo piano o DanteTL è ridotto a icona. Scegli una combinazione, poi Applica. Seleziona Disattivato per disattivare un'azione.</translation>
     </message>
     <message>
       <source>Show / hide overlay</source>

@@ -351,10 +351,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>स्वचालित · CPU फ़ॉलबैक के साथ GPU</translation>
     </message>
     <message>
-      <source>Avoid combinations used by your game. Windows shortcuts and F12 are reserved. Toggle shortcuts do not repeat while held.</source>
-      <translation>आपके गेम द्वारा उपयोग किए जाने वाले संयोजनों से बचें। Windows शॉर्टकट और F12 आरक्षित हैं। दबाए रखने पर टॉगल शॉर्टकट दोहराए नहीं जाते।</translation>
-    </message>
-    <message>
       <source>Back</source>
       <translation>वापस</translation>
     </message>
@@ -3059,10 +3055,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Short labels</source>
       <translation>संक्षिप्त लेबल</translation>
-    </message>
-    <message>
-      <source>Shortcuts work while the game has focus or DanteTL is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
-      <translation>शॉर्टकट तब काम करते हैं जब गेम पर फ़ोकस हो या DanteTL मिनिमाइज़ हो। एक संयोजन चुनें, फिर लागू करें। किसी क्रिया को बंद करने के लिए अक्षम चुनें।</translation>
     </message>
     <message>
       <source>Show / hide overlay</source>

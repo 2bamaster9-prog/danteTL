@@ -351,10 +351,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>স্বয়ংক্রিয় · GPU সহ CPU ফলব্যাক</translation>
     </message>
     <message>
-      <source>Avoid combinations used by your game. Windows shortcuts and F12 are reserved. Toggle shortcuts do not repeat while held.</source>
-      <translation>আপনার গেমে ব্যবহৃত সমন্বয়গুলি এড়িয়ে চলুন। Windows শর্টকাট এবং F12 সংরক্ষিত। টগল শর্টকাট চেপে ধরার সময় পুনরাবৃত্তি হয় না।</translation>
-    </message>
-    <message>
       <source>Back</source>
       <translation>পিছনে</translation>
     </message>
@@ -3059,10 +3055,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Short labels</source>
       <translation>সংক্ষিপ্ত লেবেল</translation>
-    </message>
-    <message>
-      <source>Shortcuts work while the game has focus or DanteTL is minimized. Choose a combination, then Apply. Select Disabled to turn an action off.</source>
-      <translation>গেমে ফোকাস থাকলে বা DanteTL মিনিমাইজ থাকলে শর্টকাট কাজ করে। একটি সমন্বয় বেছে নিয়ে Apply করুন। কোনো অ্যাকশন বন্ধ করতে Disabled নির্বাচন করুন।</translation>
     </message>
     <message>
       <source>Show / hide overlay</source>
