@@ -90,7 +90,7 @@ class SpecialistBackend:
                 flash_attn=device == "cuda",
                 verbose=True,
             )
-            from llama_cpp.llama_chat_format import Jinja2ChatFormatter
+            from llama_cpp.llama_chat_format import Jinja2ChatFormatter  # pyright: ignore[reportMissingImports]
 
             def token_text(token: int) -> str:
                 return self._model.detokenize([token], special=True).decode() if token >= 0 else ""

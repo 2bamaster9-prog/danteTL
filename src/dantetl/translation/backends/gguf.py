@@ -170,7 +170,7 @@ class GgufBackend:
                 **flash_attention_options(runtime, device),
                 verbose=verbose,
             )
-            from llama_cpp.llama_chat_format import (
+            from llama_cpp.llama_chat_format import (  # pyright: ignore[reportMissingImports]
                 CHATML_CHAT_TEMPLATE,
                 LLAMA3_INSTRUCT_CHAT_TEMPLATE,
                 Jinja2ChatFormatter,

@@ -60,7 +60,7 @@ def menu_sequence_width(device: str) -> int:
     from ctypes import CDLL, CFUNCTYPE, c_char_p, c_void_p
 
     try:
-        from llama_cpp import _ggml
+        from llama_cpp import _ggml  # pyright: ignore[reportMissingImports]
 
         # DXGI order can differ from llama.cpp, especially with Vulkan device filtering.
         find = CFUNCTYPE(c_void_p, c_char_p)(("ggml_backend_dev_by_name", _ggml.libggml))
