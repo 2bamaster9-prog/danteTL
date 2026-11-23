@@ -237,6 +237,86 @@ def test_models_setup_saves_secret_off_gui_and_does_not_make_a_request(app, tmp_
         panel.deleteLater()
 
 
+@pytest.mark.parametrize("phase", ["welcome", "downloading", "finished-with-draft"])
+def test_welcome_shares_cloud_editor_and_preserves_pending_download_and_restart(
+    app, tmp_path, monkeypatch, phase
+):
+    from dantetl.runtime.hardware_values import HardwareStatus
+    from dantetl.runtime.model_store import model_catalog
+
+    entered, release = threading.Event(), threading.Event()
+
+    def install(plan, root, report, cancel):
+        entered.set()
+        assert release.wait(4)
+        return tmp_path / "verified-runtime"
+
+    monkeypatch.setattr("dantetl.runtime.first_run.run_setup", install)
+    secrets = MemorySecrets()
+    catalog = CloudProfiles(tmp_path / "profiles.json")
+    service = cloud_service(
+        catalog=catalog,
+        secrets=lambda: secrets,
+        connections=ChatGPTConnections(ProtectedStore(tmp_path / "accounts")),
+    )
+    windows, hardware = Mock(), Mock()
+    windows.list_targets.return_value = []
+    hardware.snapshot.return_value = HardwareStatus(llama_device="cpu")
+    models = tuple(
+        replace(b, directory=tmp_path / b.key, bundled_directory=None) for b in model_catalog()
+    )
+    window = MainWindow(windows, Mock(), models=models, hardware=hardware, cloud=service)
+    window.show()
+    window.offer_first_run()
+    guide = window._setup_assistant
+    assert guide
+    try:
+        if phase != "welcome":
+            for _ in range(2):
+                guide.next.click()
+            guide.runtime.setCurrentIndex(
+                next(
+                    i
+                    for i in range(guide.runtime.count())
+                    if guide.runtime.itemData(i).key == "nvidia"
+                )
+            )
+            guide.next.click()
+            guide.next.click()
+            assert entered.wait(2) and guide.busy
+        guide.add_cloud.click()
+        panel = window_settings(window).models.cloud
+        editor = panel.editor
+        assert editor and editor.parentWidget() is guide and app.activeModalWidget() is editor
+        editor.provider.setCurrentIndex(editor.provider.findData("deepseek"))
+        editor.key.setText("fixture-secret")
+        if phase == "finished-with-draft":
+            release.set()
+            drain(app, lambda: guide.next.text() == "Restart now")
+            assert app.activeModalWidget() is editor and editor.key.text() == "fixture-secret"
+        editor.model.setCurrentIndex(1)
+        assert editor.save.isEnabled()
+        editor.save.click()
+        drain(app, lambda: panel.editor is None)
+        assert len(panel.profiles) == 1 and panel.profiles[0].provider == "deepseek"
+        assert service.allowance(panel.profiles[0].key).snapshot().requests == 0
+        assert guide.cloud_note.isVisible()
+        if phase == "welcome":
+            assert guide.skip.text() == "Finish" and not entered.is_set()
+        else:
+            if phase == "downloading":
+                assert guide.busy
+                release.set()
+            drain(app, lambda: isinstance(app.activeModalWidget(), QMessageBox))
+            app.activeModalWidget().reject()
+        guide.skip.click()
+        assert not guide.isVisible() and app_owner(window).values.setup_seen
+    finally:
+        release.set()
+        window.close()
+        window.deleteLater()
+
+
 def test_cloud_only_needs_no_local_model_and_keeps_english_until_real_change(
     app, tmp_path, monkeypatch
 ):

@@ -229,6 +229,10 @@ Folder perbaikan: {directory}</translation>
       <translation>Rata-rata sesi aktual / sampel yang diminta per detik.</translation>
     </message>
     <message>
+      <source>Add a cloud model here, or choose Next to set up a local model and optional GPU acceleration. You can also add cloud models while files download.</source>
+      <translation>Tambahkan model cloud di sini, atau pilih Berikutnya untuk menyiapkan model lokal dan akselerasi GPU opsional. Anda juga dapat menambahkan model cloud saat file sedang diunduh.</translation>
+    </message>
+    <message>
       <source>Add cloud model</source>
       <translation>Tambah model cloud</translation>
     </message>
@@ -3317,12 +3321,8 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Pengenalan teks (OCR)</translation>
     </message>
     <message>
-      <source>Text recognition is included with DanteTL. This guide helps you choose a translation model and optional GPU acceleration.
-
-</source>
-      <translation>Pengenalan teks sudah termasuk dalam DanteTL. Panduan ini membantu Anda memilih model terjemahan dan akselerasi GPU opsional.
-
-</translation>
+      <source>Text recognition is included with DanteTL.</source>
+      <translation>Pengenalan teks sudah disertakan dalam DanteTL.</translation>
     </message>
     <message>
       <source>Text recognition model files</source>
@@ -3477,6 +3477,10 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Koneksi ini tidak lagi tersedia.</translation>
     </message>
     <message>
+      <source>This guide can set up local text recognition.</source>
+      <translation>Panduan ini dapat membantu Anda menyiapkan pengenalan teks lokal.</translation>
+    </message>
+    <message>
       <source>This is a different model. Import it separately; the original registration was kept.</source>
       <translation>Ini model yang berbeda. Impor secara terpisah; registrasi asli tetap dipertahankan.</translation>
     </message>
@@ -3535,14 +3539,6 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
     <message>
       <source>Translate and cover recognized text. Turn off to leave the original game text visible.</source>
       <translation>Terjemahkan dan tutupi teks yang dikenali. Matikan untuk membiarkan teks game asli tetap terlihat.</translation>
-    </message>
-    <message>
-      <source>Translate game text locally. This guide sets up text recognition, a translation model and optional GPU acceleration.
-
-</source>
-      <translation>Terjemahkan teks game secara lokal. Panduan ini menyiapkan pengenalan teks, model terjemahan, dan akselerasi GPU opsional.
-
-</translation>
     </message>
     <message>
       <source>Translate grouped paragraphs and text over 40 characters, including dialogue, skill and item descriptions. This is a length/layout category, not a speaker detector.</source>
@@ -3991,14 +3987,6 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
     <message>
       <source>Yes</source>
       <translation>Ya</translation>
-    </message>
-    <message>
-      <source>You choose what to download before anything starts. CPU support works without a GPU. Processing stays on your PC after setup.
-
-You can skip this and reopen Setup assistant from Settings.</source>
-      <translation>Anda memilih apa yang akan diunduh sebelum semuanya dimulai. Dukungan CPU berfungsi tanpa GPU. Pemrosesan tetap di PC Anda setelah penyiapan.
-
-Anda dapat melewati ini dan membuka kembali Asisten penyiapan dari Pengaturan.</translation>
     </message>
     <message>
       <source>You're using your ChatGPT plan</source>

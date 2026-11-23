@@ -13,10 +13,11 @@ For Windows x64. Windows 11 is the current validation target; use windowed or bo
 
 1. Extract **DanteTL-windows-x64.zip** and open **DanteTL.exe**. Keep the `_internal` folder beside
    the EXE. The standalone app needs no separate Python installation.
-2. Follow the **Setup assistant** to choose and download a local translator, or skip it and
-   configure a cloud model under **Settings → Models**. Downloads require your confirmation.
-   The assistant downloads the local model and runtime together and shows progress for each.
-   Interrupted downloads resume from saved bytes when the server supports it.
+2. In the **Setup assistant**, choose **Add cloud model…** to connect a provider, or **Next** to
+   set up a local translator. You can finish after saving a cloud model or add more while the
+   local model and runtime download. Cloud models also appear in **Settings → Models**.
+   The assistant downloads both together and shows progress for each. Interrupted downloads resume
+   from the saved bytes when the server supports it, including after reopening DanteTL.
 3. Select your translator in the main window, choose the game window, and click **Start capture**.
    Return to the game to see the overlay. Models load in the background; first use may ask you to
    prepare a local model before continuing.

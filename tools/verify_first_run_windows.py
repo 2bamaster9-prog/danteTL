@@ -163,12 +163,28 @@ def main() -> int:
                 assert runtime_cancelled.is_set() and next(state.rglob("*.part")).stat().st_size > 0
                 assert not list(state.rglob("*.tmp"))
                 guide.next.click()
+                guide.add_cloud.click()
+                editor = window._settings.models.cloud.editor
+                assert guide.busy and editor and editor.parentWidget() is guide
+                editor.provider.setCurrentIndex(editor.provider.findData("deepseek"))
+                editor.name.setText("First-run draft")
+                editor.grab().save(str(args.output / "cloud-editor.png"))
                 stage = 3
             elif stage == 3:
                 if guide.busy:
                     return
                 assert guide._finished and models[0].present() and models[1].present()
                 assert not models[2].present()
+                editor = window._settings.models.cloud.editor
+                assert (
+                    editor
+                    and app.activeModalWidget() is editor
+                    and editor.name.text() == "First-run draft"
+                )
+                editor.reject()
+                evidence["downloads_finished_while_editing_cloud_model"] = True
+                stage = 6
+            elif stage == 6:
                 prompt = app.activeModalWidget()
                 if prompt is None or prompt is guide:
                     return

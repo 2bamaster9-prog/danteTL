@@ -229,6 +229,10 @@ Herstelmap: {directory}</translation>
       <translation>Werkelijk sessiegemiddelde / gevraagde samples per seconde.</translation>
     </message>
     <message>
+      <source>Add a cloud model here, or choose Next to set up a local model and optional GPU acceleration. You can also add cloud models while files download.</source>
+      <translation>Voeg hier een cloudmodel toe of kies Volgende om een lokaal model en eventueel GPU-versnelling in te stellen. Ook tijdens het downloaden kun je cloudmodellen toevoegen.</translation>
+    </message>
+    <message>
       <source>Add cloud model</source>
       <translation>Cloudmodel toevoegen</translation>
     </message>
@@ -3317,12 +3321,8 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
       <translation>Tekstherkenning (OCR)</translation>
     </message>
     <message>
-      <source>Text recognition is included with DanteTL. This guide helps you choose a translation model and optional GPU acceleration.
-
-</source>
-      <translation>Tekstherkenning is inbegrepen bij DanteTL. Deze handleiding helpt u bij het kiezen van een vertaalmodel en optionele GPU-versnelling.
-
-</translation>
+      <source>Text recognition is included with DanteTL.</source>
+      <translation>Tekstherkenning is inbegrepen bij DanteTL.</translation>
     </message>
     <message>
       <source>Text recognition model files</source>
@@ -3477,6 +3477,10 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
       <translation>Deze verbinding is niet meer beschikbaar.</translation>
     </message>
     <message>
+      <source>This guide can set up local text recognition.</source>
+      <translation>Met deze wizard kun je lokale tekstherkenning instellen.</translation>
+    </message>
+    <message>
       <source>This is a different model. Import it separately; the original registration was kept.</source>
       <translation>Dit is een ander model. Importeer het apart; de oorspronkelijke registratie is behouden.</translation>
     </message>
@@ -3535,14 +3539,6 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
     <message>
       <source>Translate and cover recognized text. Turn off to leave the original game text visible.</source>
       <translation>Herkende tekst vertalen en bedekken. Zet uit om de originele gametekst zichtbaar te laten.</translation>
-    </message>
-    <message>
-      <source>Translate game text locally. This guide sets up text recognition, a translation model and optional GPU acceleration.
-
-</source>
-      <translation>Vertaal gametekst lokaal. Deze handleiding stelt tekstherkenning, een vertaalmodel en optionele GPU-versnelling in.
-
-</translation>
     </message>
     <message>
       <source>Translate grouped paragraphs and text over 40 characters, including dialogue, skill and item descriptions. This is a length/layout category, not a speaker detector.</source>
@@ -3991,14 +3987,6 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
     <message>
       <source>Yes</source>
       <translation>Ja</translation>
-    </message>
-    <message>
-      <source>You choose what to download before anything starts. CPU support works without a GPU. Processing stays on your PC after setup.
-
-You can skip this and reopen Setup assistant from Settings.</source>
-      <translation>Je kiest wat je downloadt voordat er iets begint. CPU-ondersteuning werkt zonder GPU. Na de installatie blijft de verwerking op je pc.
-
-Je kunt dit overslaan en de Installatieassistent opnieuw openen via Instellingen.</translation>
     </message>
     <message>
       <source>You're using your ChatGPT plan</source>

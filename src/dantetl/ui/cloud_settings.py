@@ -214,13 +214,15 @@ class CloudSettings(QWidget):
         if profile:
             self.open_editor(profile)
 
-    def open_editor(self, profile: CloudProfile | None = None) -> None:
+    def open_editor(
+        self, profile: CloudProfile | None = None, *, parent: QWidget | None = None
+    ) -> CloudModelDialog | None:
         if self.busy:
             return
         if self.editor:
             self.editor.raise_()
-            return
-        editor = self.editor = CloudModelDialog(profile, self.window())
+            return self.editor
+        editor = self.editor = CloudModelDialog(profile, parent or self.window())
         editor.refresh_connections(
             self._view.accounts,
             self._view.api,
@@ -242,6 +244,7 @@ class CloudSettings(QWidget):
         editor.finished.connect(self._editor_finished)
         self._selection_changed()
         editor.open()
+        return editor
 
     def _editor_finished(self, _: int) -> None:
         editor, self.editor = self.editor, None

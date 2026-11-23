@@ -15,6 +15,7 @@ from test_setup_ownership import configured  # noqa: E402
 from dantetl.runtime.hardware_values import HardwareStatus  # noqa: E402
 from dantetl.runtime.setup_values import DownloadProgress, ModelProgress, RuntimeStatus, SetupLane  # noqa: E402
 from dantetl.translation.models.values import ImportedModel, ProbeResult  # noqa: E402
+from dantetl.ui.cloud_settings import CloudSettings  # noqa: E402
 from dantetl.ui.model_import_dialog import ModelImportDialog  # noqa: E402
 from dantetl.ui.runtime_dialog import RuntimeSetupDialog  # noqa: E402
 from dantetl.ui.setup_assistant import SetupAssistant  # noqa: E402
@@ -145,7 +146,9 @@ def test_recreated_guide_observes_same_review_and_completion(app, tmp_path):
         review = replay.setup.review("model", "cpu", HardwareStatus(llama_device="cpu"))
         assert replay.setup.start_review(review.token)
         for _ in range(2):
-            view = SetupAssistant(replay.setup, None, parent)
+            view = SetupAssistant(
+                replay.setup, None, parent, cloud=CloudSettings(replay.cloud, parent)
+            )
             try:
                 assert view.pages.currentIndex() == 4
                 assert view.model.currentData() == "model"
@@ -157,7 +160,7 @@ def test_recreated_guide_observes_same_review_and_completion(app, tmp_path):
                 shiboken6.delete(view)
         replay.operations[0].finish()
         replay.setup.advance()
-        view = SetupAssistant(replay.setup, None, parent)
+        view = SetupAssistant(replay.setup, None, parent, cloud=CloudSettings(replay.cloud, parent))
         try:
             assert view.pages.currentIndex() == 4 and view.next.isEnabled()
             assert len(replay.operations) == 1
@@ -166,7 +169,9 @@ def test_recreated_guide_observes_same_review_and_completion(app, tmp_path):
             view.completed.connect(lambda key, target: completed.append((key, target)))
             view.next.click()
             assert completed == [("model", None)]
-            reopened = SetupAssistant(replay.setup, None, parent)
+            reopened = SetupAssistant(
+                replay.setup, None, parent, cloud=CloudSettings(replay.cloud, parent)
+            )
             try:
                 assert reopened.pages.currentIndex() == 0
                 assert len(replay.operations) == 1
@@ -186,7 +191,7 @@ def test_guide_offers_only_models_it_can_review_and_keeps_imports_elsewhere(app,
         data = replay.inventory.snapshot().data
         imported = replace(data.files[-1], key="imported:user", name="User GGUF")
         replay.discover(replace(data, files=(*data.files, imported)))
-        view = SetupAssistant(replay.setup, None, parent)
+        view = SetupAssistant(replay.setup, None, parent, cloud=CloudSettings(replay.cloud, parent))
         try:
             assert imported in replay.setup.files
             assert [view.model.itemData(i) for i in range(view.model.count())] == ["model"]

@@ -229,6 +229,10 @@ Repairs folder: {directory}</source>
       <translation>实际会话平均速率 / 每秒请求的样本数。</translation>
     </message>
     <message>
+      <source>Add a cloud model here, or choose Next to set up a local model and optional GPU acceleration. You can also add cloud models while files download.</source>
+      <translation>在此添加云端模型，或选择“下一步”设置本地模型，也可按需启用 GPU 加速。下载文件时也可以添加云端模型。</translation>
+    </message>
+    <message>
       <source>Add cloud model</source>
       <translation>添加云端模型</translation>
     </message>
@@ -3317,12 +3321,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>文字识别 (OCR)</translation>
     </message>
     <message>
-      <source>Text recognition is included with DanteTL. This guide helps you choose a translation model and optional GPU acceleration.
-
-</source>
-      <translation>文字识别已包含在 DanteTL 中。本指南可帮助您选择翻译模型和可选的 GPU 加速。
-
-</translation>
+      <source>Text recognition is included with DanteTL.</source>
+      <translation>DanteTL 已内置文字识别功能。</translation>
     </message>
     <message>
       <source>Text recognition model files</source>
@@ -3477,6 +3477,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>此连接已不再可用。</translation>
     </message>
     <message>
+      <source>This guide can set up local text recognition.</source>
+      <translation>本向导可以帮你设置本地文字识别。</translation>
+    </message>
+    <message>
       <source>This is a different model. Import it separately; the original registration was kept.</source>
       <translation>这是不同的模型。请单独导入；原始注册已保留。</translation>
     </message>
@@ -3535,14 +3539,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Translate and cover recognized text. Turn off to leave the original game text visible.</source>
       <translation>翻译并遮盖识别到的文本。关闭后保留原始游戏文本可见。</translation>
-    </message>
-    <message>
-      <source>Translate game text locally. This guide sets up text recognition, a translation model and optional GPU acceleration.
-
-</source>
-      <translation>在本地翻译游戏文本。本指南将设置文本识别、翻译模型和可选的 GPU 加速。
-
-</translation>
     </message>
     <message>
       <source>Translate grouped paragraphs and text over 40 characters, including dialogue, skill and item descriptions. This is a length/layout category, not a speaker detector.</source>
@@ -3991,14 +3987,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Yes</source>
       <translation>是</translation>
-    </message>
-    <message>
-      <source>You choose what to download before anything starts. CPU support works without a GPU. Processing stays on your PC after setup.
-
-You can skip this and reopen Setup assistant from Settings.</source>
-      <translation>在开始任何操作前，由你选择要下载的内容。CPU 支持无需 GPU 即可运行。完成设置后，处理过程将留在你的电脑上。
-
-你可以跳过此步骤，之后从“设置”中重新打开“设置助手”。</translation>
     </message>
     <message>
       <source>You're using your ChatGPT plan</source>

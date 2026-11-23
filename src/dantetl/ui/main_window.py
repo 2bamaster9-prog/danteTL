@@ -476,6 +476,7 @@ class MainWindow(QMainWindow):
             self.application.setup,
             self._hardware,
             self,
+            cloud=self._settings.models.cloud,
             interface_language=self.application.values.interface_language,
         )
         self._setup_assistant.interface_language.currentIndexChanged.connect(

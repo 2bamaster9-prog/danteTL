@@ -229,6 +229,10 @@ Dossier des réparations : {directory}</translation>
       <translation>Moyenne réelle de la session / échantillons par seconde demandés.</translation>
     </message>
     <message>
+      <source>Add a cloud model here, or choose Next to set up a local model and optional GPU acceleration. You can also add cloud models while files download.</source>
+      <translation>Ajoutez un modèle cloud ici ou choisissez Suivant pour configurer un modèle local et, si vous le souhaitez, l’accélération GPU. Vous pouvez aussi ajouter des modèles cloud pendant les téléchargements.</translation>
+    </message>
+    <message>
       <source>Add cloud model</source>
       <translation>Ajouter un modèle cloud</translation>
     </message>
@@ -3317,12 +3321,8 @@ Téléchargements de modèles : jusqu'à {size:.2f} Go ; les fichiers existants 
       <translation>Reconnaissance de texte (OCR)</translation>
     </message>
     <message>
-      <source>Text recognition is included with DanteTL. This guide helps you choose a translation model and optional GPU acceleration.
-
-</source>
-      <translation>La reconnaissance de texte est incluse avec DanteTL. Ce guide vous aide à choisir un modèle de traduction et une accélération GPU facultative.
-
-</translation>
+      <source>Text recognition is included with DanteTL.</source>
+      <translation>La reconnaissance de texte est incluse dans DanteTL.</translation>
     </message>
     <message>
       <source>Text recognition model files</source>
@@ -3477,6 +3477,10 @@ Téléchargements de modèles : jusqu'à {size:.2f} Go ; les fichiers existants 
       <translation>Cette connexion n'est plus disponible.</translation>
     </message>
     <message>
+      <source>This guide can set up local text recognition.</source>
+      <translation>Cet assistant permet de configurer la reconnaissance de texte locale.</translation>
+    </message>
+    <message>
       <source>This is a different model. Import it separately; the original registration was kept.</source>
       <translation>Il s'agit d'un modèle différent. Importez-le séparément ; l'inscription d'origine a été conservée.</translation>
     </message>
@@ -3535,14 +3539,6 @@ Téléchargements de modèles : jusqu'à {size:.2f} Go ; les fichiers existants 
     <message>
       <source>Translate and cover recognized text. Turn off to leave the original game text visible.</source>
       <translation>Traduit et recouvre le texte reconnu. Désactivez pour laisser le texte original du jeu visible.</translation>
-    </message>
-    <message>
-      <source>Translate game text locally. This guide sets up text recognition, a translation model and optional GPU acceleration.
-
-</source>
-      <translation>Traduisez le texte du jeu localement. Ce guide configure la reconnaissance de texte, un modèle de traduction et l'accélération GPU facultative.
-
-</translation>
     </message>
     <message>
       <source>Translate grouped paragraphs and text over 40 characters, including dialogue, skill and item descriptions. This is a length/layout category, not a speaker detector.</source>
@@ -3991,14 +3987,6 @@ Téléchargements de modèles : jusqu'à {size:.2f} Go ; les fichiers existants 
     <message>
       <source>Yes</source>
       <translation>Oui</translation>
-    </message>
-    <message>
-      <source>You choose what to download before anything starts. CPU support works without a GPU. Processing stays on your PC after setup.
-
-You can skip this and reopen Setup assistant from Settings.</source>
-      <translation>Vous choisissez ce qu'il faut télécharger avant que quoi que ce soit ne démarre. La prise en charge du CPU fonctionne sans GPU. Le traitement reste sur votre PC après l'installation.
-
-Vous pouvez ignorer cela et rouvrir l'assistant de configuration depuis les Paramètres.</translation>
     </message>
     <message>
       <source>You're using your ChatGPT plan</source>

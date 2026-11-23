@@ -229,6 +229,10 @@ Repairs folder: {directory}</source>
       <translation>متوسط الجلسة الفعلي / العينات المطلوبة في الثانية.</translation>
     </message>
     <message>
+      <source>Add a cloud model here, or choose Next to set up a local model and optional GPU acceleration. You can also add cloud models while files download.</source>
+      <translation>أضف نموذجًا سحابيًا هنا، أو اختر «التالي» لإعداد نموذج محلي وتفعيل تسريع وحدة معالجة الرسومات إن أردت. يمكنك أيضًا إضافة نماذج سحابية أثناء تنزيل الملفات.</translation>
+    </message>
+    <message>
       <source>Add cloud model</source>
       <translation>إضافة نموذج سحابي</translation>
     </message>
@@ -3317,12 +3321,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>التعرف على النص (OCR)</translation>
     </message>
     <message>
-      <source>Text recognition is included with DanteTL. This guide helps you choose a translation model and optional GPU acceleration.
-
-</source>
-      <translation>التعرف على النص مضمّن مع DanteTL. يساعدك هذا الدليل على اختيار نموذج ترجمة وتسريع اختياري بوحدة معالجة الرسومات.
-
-</translation>
+      <source>Text recognition is included with DanteTL.</source>
+      <translation>يتضمّن DanteTL ميزة التعرّف على النصوص.</translation>
     </message>
     <message>
       <source>Text recognition model files</source>
@@ -3477,6 +3477,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>هذا الاتصال لم يعد متاحًا.</translation>
     </message>
     <message>
+      <source>This guide can set up local text recognition.</source>
+      <translation>يمكنك إعداد التعرّف المحلي على النصوص باستخدام هذا الدليل.</translation>
+    </message>
+    <message>
       <source>This is a different model. Import it separately; the original registration was kept.</source>
       <translation>هذا نموذج مختلف. استورده بشكل منفصل؛ تم الاحتفاظ بالتسجيل الأصلي.</translation>
     </message>
@@ -3535,14 +3539,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Translate and cover recognized text. Turn off to leave the original game text visible.</source>
       <translation>ترجمة النص المُتعرَّف عليه وتغطيته. أوقف الخيار لإبقاء نص اللعبة الأصلي ظاهراً.</translation>
-    </message>
-    <message>
-      <source>Translate game text locally. This guide sets up text recognition, a translation model and optional GPU acceleration.
-
-</source>
-      <translation>ترجمة نص اللعبة محلياً. يُعدّ هذا الدليل التعرف الضوئي على النص ونموذج ترجمة وتسريع GPU اختياري.
-
-</translation>
     </message>
     <message>
       <source>Translate grouped paragraphs and text over 40 characters, including dialogue, skill and item descriptions. This is a length/layout category, not a speaker detector.</source>
@@ -3991,14 +3987,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Yes</source>
       <translation>نعم</translation>
-    </message>
-    <message>
-      <source>You choose what to download before anything starts. CPU support works without a GPU. Processing stays on your PC after setup.
-
-You can skip this and reopen Setup assistant from Settings.</source>
-      <translation>أنت تختار ما سيتم تنزيله قبل بدء أي شيء. يعمل دعم CPU دون GPU. تبقى المعالجة على جهاز الكمبيوتر بعد الإعداد.
-
-يمكنك تخطي ذلك وإعادة فتح معالج الإعداد من الإعدادات.</translation>
     </message>
     <message>
       <source>You're using your ChatGPT plan</source>

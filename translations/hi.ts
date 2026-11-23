@@ -229,6 +229,10 @@ Repairs folder: {directory}</source>
       <translation>वास्तविक सत्र औसत / अनुरोधित नमूने प्रति सेकंड।</translation>
     </message>
     <message>
+      <source>Add a cloud model here, or choose Next to set up a local model and optional GPU acceleration. You can also add cloud models while files download.</source>
+      <translation>यहाँ क्लाउड मॉडल जोड़ें या स्थानीय मॉडल और वैकल्पिक GPU त्वरण सेट अप करने के लिए अगला चुनें। फ़ाइलें डाउनलोड होते समय भी आप क्लाउड मॉडल जोड़ सकते हैं।</translation>
+    </message>
+    <message>
       <source>Add cloud model</source>
       <translation>क्लाउड मॉडल जोड़ें</translation>
     </message>
@@ -3317,12 +3321,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>टेक्स्ट पहचान (OCR)</translation>
     </message>
     <message>
-      <source>Text recognition is included with DanteTL. This guide helps you choose a translation model and optional GPU acceleration.
-
-</source>
-      <translation>टेक्स्ट पहचान DanteTL के साथ शामिल है। यह गाइड अनुवाद मॉडल और वैकल्पिक GPU त्वरण चुनने में मदद करती है।
-
-</translation>
+      <source>Text recognition is included with DanteTL.</source>
+      <translation>DanteTL में टेक्स्ट पहचान की सुविधा शामिल है।</translation>
     </message>
     <message>
       <source>Text recognition model files</source>
@@ -3477,6 +3477,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>यह कनेक्शन अब उपलब्ध नहीं है।</translation>
     </message>
     <message>
+      <source>This guide can set up local text recognition.</source>
+      <translation>इस गाइड से आप अपने डिवाइस पर टेक्स्ट पहचान सेट अप कर सकते हैं।</translation>
+    </message>
+    <message>
       <source>This is a different model. Import it separately; the original registration was kept.</source>
       <translation>यह एक भिन्न मॉडल है। इसे अलग से आयात करें; मूल पंजीकरण रखा गया था।</translation>
     </message>
@@ -3535,14 +3539,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Translate and cover recognized text. Turn off to leave the original game text visible.</source>
       <translation>पहचाने गए टेक्स्ट का अनुवाद करें और उसे ढकें। मूल गेम टेक्स्ट दिखाते रहने के लिए बंद करें।</translation>
-    </message>
-    <message>
-      <source>Translate game text locally. This guide sets up text recognition, a translation model and optional GPU acceleration.
-
-</source>
-      <translation>गेम टेक्स्ट का स्थानीय रूप से अनुवाद करें। यह गाइड टेक्स्ट पहचान, अनुवाद मॉडल और वैकल्पिक GPU त्वरण सेट अप करती है।
-
-</translation>
     </message>
     <message>
       <source>Translate grouped paragraphs and text over 40 characters, including dialogue, skill and item descriptions. This is a length/layout category, not a speaker detector.</source>
@@ -3991,14 +3987,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Yes</source>
       <translation>हाँ</translation>
-    </message>
-    <message>
-      <source>You choose what to download before anything starts. CPU support works without a GPU. Processing stays on your PC after setup.
-
-You can skip this and reopen Setup assistant from Settings.</source>
-      <translation>कुछ भी शुरू होने से पहले आप तय करते हैं कि क्या डाउनलोड करना है। CPU समर्थन GPU के बिना काम करता है। सेटअप के बाद प्रोसेसिंग आपके PC पर ही रहती है।
-
-आप इसे छोड़ सकते हैं और सेटिंग्स से सेटअप सहायक फिर से खोल सकते हैं।</translation>
     </message>
     <message>
       <source>You're using your ChatGPT plan</source>

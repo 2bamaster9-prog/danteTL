@@ -103,6 +103,9 @@ and guide. Import probes wait for both translator and classifier cleanup. The sk
 downloadable bundles, not imported GGUF registrations. Its saved choice survives delayed discovery
 and goes through the ordinary assignment and consent flow even if the picker already displays it.
 The guide preserves cloud assignments. Postponing a runtime switch defers guide-model preparation.
+The guide opens the Settings cloud editor as its own child. The same cloud service owns drafts,
+credentials and operations while local downloads continue. Saving a profile makes it available
+for explicit selection on the main screen. The guide waits for editing to finish before offering restart.
 Restored assignments use exact preparation receipts. A missing receipt offers preparation directly
 on the assigned model. Discovery must settle before the UI reports a missing assignment.
 The application acknowledges the choice on assignment or when the user answers the preparation prompt.

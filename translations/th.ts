@@ -229,6 +229,10 @@ Repairs folder: {directory}</source>
       <translation>ค่าเฉลี่ยเซสชันจริง / จำนวนตัวอย่างที่ร้องขอต่อวินาที</translation>
     </message>
     <message>
+      <source>Add a cloud model here, or choose Next to set up a local model and optional GPU acceleration. You can also add cloud models while files download.</source>
+      <translation>เพิ่มโมเดลคลาวด์ที่นี่ หรือเลือก «ถัดไป» เพื่อตั้งค่าโมเดลในเครื่องและเปิดใช้การเร่งด้วย GPU หากต้องการ คุณยังเพิ่มโมเดลคลาวด์ระหว่างดาวน์โหลดไฟล์ได้ด้วย</translation>
+    </message>
+    <message>
       <source>Add cloud model</source>
       <translation>เพิ่มโมเดลคลาวด์</translation>
     </message>
@@ -3317,12 +3321,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>การจดจำข้อความ (OCR)</translation>
     </message>
     <message>
-      <source>Text recognition is included with DanteTL. This guide helps you choose a translation model and optional GPU acceleration.
-
-</source>
-      <translation>การจดจำข้อความรวมอยู่ใน DanteTL คู่มือนี้ช่วยคุณเลือกโมเดลการแปลและการเร่งด้วย GPU แบบเลือกได้
-
-</translation>
+      <source>Text recognition is included with DanteTL.</source>
+      <translation>DanteTL มีระบบรู้จำข้อความในตัว</translation>
     </message>
     <message>
       <source>Text recognition model files</source>
@@ -3477,6 +3477,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>การเชื่อมต่อนี้ไม่พร้อมใช้งานอีกต่อไป</translation>
     </message>
     <message>
+      <source>This guide can set up local text recognition.</source>
+      <translation>คู่มือนี้ช่วยให้คุณตั้งค่าการรู้จำข้อความในเครื่องได้</translation>
+    </message>
+    <message>
       <source>This is a different model. Import it separately; the original registration was kept.</source>
       <translation>นี่เป็นโมเดลที่แตกต่างออกไป โปรดนำเข้าแยกต่างหาก การลงทะเบียนเดิมยังถูกเก็บไว้</translation>
     </message>
@@ -3535,14 +3539,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Translate and cover recognized text. Turn off to leave the original game text visible.</source>
       <translation>แปลและปิดทับข้อความที่รู้จำได้ ปิดเพื่อให้ข้อความเกมต้นฉบับมองเห็นได้</translation>
-    </message>
-    <message>
-      <source>Translate game text locally. This guide sets up text recognition, a translation model and optional GPU acceleration.
-
-</source>
-      <translation>แปลข้อความเกมภายในเครื่อง คู่มือนี้จะตั้งค่าการรู้จำข้อความ โมเดลการแปล และการเร่งด้วย GPU แบบเลือกได้
-
-</translation>
     </message>
     <message>
       <source>Translate grouped paragraphs and text over 40 characters, including dialogue, skill and item descriptions. This is a length/layout category, not a speaker detector.</source>
@@ -3991,14 +3987,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Yes</source>
       <translation>ใช่</translation>
-    </message>
-    <message>
-      <source>You choose what to download before anything starts. CPU support works without a GPU. Processing stays on your PC after setup.
-
-You can skip this and reopen Setup assistant from Settings.</source>
-      <translation>คุณเลือกสิ่งที่ต้องการดาวน์โหลดก่อนเริ่มต้นใดๆ การรองรับ CPU ทำงานได้โดยไม่ต้องมี GPU การประมวลผลอยู่บนพีซีของคุณหลังการตั้งค่า
-
-คุณสามารถข้ามขั้นตอนนี้และเปิด Setup assistant ใหม่ได้จาก Settings</translation>
     </message>
     <message>
       <source>You're using your ChatGPT plan</source>

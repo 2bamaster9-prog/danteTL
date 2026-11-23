@@ -229,6 +229,10 @@ Repairs folder: {directory}</source>
       <translation>実際のセッション平均 / リクエストされた秒間サンプル数</translation>
     </message>
     <message>
+      <source>Add a cloud model here, or choose Next to set up a local model and optional GPU acceleration. You can also add cloud models while files download.</source>
+      <translation>ここでクラウドモデルを追加できます。ローカルモデルを設定するには「次へ」を選んでください。必要に応じて GPU アクセラレーションも設定できます。ファイルのダウンロード中にもクラウドモデルを追加できます。</translation>
+    </message>
+    <message>
       <source>Add cloud model</source>
       <translation>クラウドモデルを追加</translation>
     </message>
@@ -3317,12 +3321,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>テキスト認識 (OCR)</translation>
     </message>
     <message>
-      <source>Text recognition is included with DanteTL. This guide helps you choose a translation model and optional GPU acceleration.
-
-</source>
-      <translation>DanteTLには文字認識機能が同梱されています。ここでは翻訳モデルを選び、必要に応じてGPUアクセラレーションを設定できます。
-
-</translation>
+      <source>Text recognition is included with DanteTL.</source>
+      <translation>DanteTL には文字認識機能が含まれています。</translation>
     </message>
     <message>
       <source>Text recognition model files</source>
@@ -3477,6 +3477,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>この接続は利用できなくなりました。</translation>
     </message>
     <message>
+      <source>This guide can set up local text recognition.</source>
+      <translation>このガイドでは、ローカルでの文字認識を設定できます。</translation>
+    </message>
+    <message>
       <source>This is a different model. Import it separately; the original registration was kept.</source>
       <translation>これは別のモデルです。個別にインポートしてください。元の登録は保持されます。</translation>
     </message>
@@ -3535,14 +3539,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Translate and cover recognized text. Turn off to leave the original game text visible.</source>
       <translation>認識したテキストを翻訳して覆います。オフにすると元のゲームテキストが表示されたままになります。</translation>
-    </message>
-    <message>
-      <source>Translate game text locally. This guide sets up text recognition, a translation model and optional GPU acceleration.
-
-</source>
-      <translation>ゲームテキストをローカルで翻訳します。このガイドでは、テキスト認識、翻訳モデル、およびオプションのGPUアクセラレーションを設定します。
-
-</translation>
     </message>
     <message>
       <source>Translate grouped paragraphs and text over 40 characters, including dialogue, skill and item descriptions. This is a length/layout category, not a speaker detector.</source>
@@ -3991,14 +3987,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Yes</source>
       <translation>はい</translation>
-    </message>
-    <message>
-      <source>You choose what to download before anything starts. CPU support works without a GPU. Processing stays on your PC after setup.
-
-You can skip this and reopen Setup assistant from Settings.</source>
-      <translation>ダウンロードする内容は事前に選べます。GPUがなくてもCPUで動作します。セットアップ後の処理はお使いのPC上で行われます。
-
-今はスキップして、後から設定でセットアップアシスタントを開くこともできます。</translation>
     </message>
     <message>
       <source>You're using your ChatGPT plan</source>

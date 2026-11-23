@@ -229,6 +229,10 @@ Repairs folder: {directory}</source>
       <translation>實際工作階段平均值 / 每秒要求的樣本數。</translation>
     </message>
     <message>
+      <source>Add a cloud model here, or choose Next to set up a local model and optional GPU acceleration. You can also add cloud models while files download.</source>
+      <translation>在此新增雲端模型，或選擇「下一步」設定本機模型，也可視需要啟用 GPU 加速。下載檔案時也能新增雲端模型。</translation>
+    </message>
+    <message>
       <source>Add cloud model</source>
       <translation>新增雲端模型</translation>
     </message>
@@ -3317,12 +3321,8 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>文字辨識 (OCR)</translation>
     </message>
     <message>
-      <source>Text recognition is included with DanteTL. This guide helps you choose a translation model and optional GPU acceleration.
-
-</source>
-      <translation>文字辨識已包含在 DanteTL 中。本指南可協助您選擇翻譯模型與選用的 GPU 加速。
-
-</translation>
+      <source>Text recognition is included with DanteTL.</source>
+      <translation>DanteTL 已內建文字辨識功能。</translation>
     </message>
     <message>
       <source>Text recognition model files</source>
@@ -3477,6 +3477,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>此連線已無法使用。</translation>
     </message>
     <message>
+      <source>This guide can set up local text recognition.</source>
+      <translation>本指南可協助您設定本機文字辨識。</translation>
+    </message>
+    <message>
       <source>This is a different model. Import it separately; the original registration was kept.</source>
       <translation>這是不同的模型。請單獨匯入；原始註冊已保留。</translation>
     </message>
@@ -3535,14 +3539,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Translate and cover recognized text. Turn off to leave the original game text visible.</source>
       <translation>翻譯並覆蓋辨識出的文字。關閉後可保留原始遊戲文字可見。</translation>
-    </message>
-    <message>
-      <source>Translate game text locally. This guide sets up text recognition, a translation model and optional GPU acceleration.
-
-</source>
-      <translation>在本機翻譯遊戲文字。本指南會設定文字辨識、翻譯模型及選用的 GPU 加速。
-
-</translation>
     </message>
     <message>
       <source>Translate grouped paragraphs and text over 40 characters, including dialogue, skill and item descriptions. This is a length/layout category, not a speaker detector.</source>
@@ -3991,14 +3987,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Yes</source>
       <translation>是</translation>
-    </message>
-    <message>
-      <source>You choose what to download before anything starts. CPU support works without a GPU. Processing stays on your PC after setup.
-
-You can skip this and reopen Setup assistant from Settings.</source>
-      <translation>您可以在任何動作開始前選擇要下載的項目。CPU 支援無需 GPU 即可運作。設定完成後，處理程序會留在您的電腦上。
-
-您可以略過此步驟，之後再從設定中重新開啟設定助理。</translation>
     </message>
     <message>
       <source>You're using your ChatGPT plan</source>

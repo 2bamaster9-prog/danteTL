@@ -21,6 +21,7 @@ from dantetl.application.services import SetupCommands
 from dantetl.i18n import display, mark, tr
 from dantetl.runtime.hardware_values import HardwareReader, HardwareStatus, recommended_profile
 from dantetl.runtime.setup_values import ModelProgress, SetupLane, SetupReview
+from dantetl.ui.cloud_settings import CloudSettings
 from dantetl.ui.localization import (
     InterfaceLanguageCombo,
     localized,
@@ -42,6 +43,7 @@ class SetupAssistant(QDialog):
         hardware: HardwareReader | None,
         parent: QWidget,
         *,
+        cloud: CloudSettings,
         interface_language: str = "en",
     ) -> None:
         super().__init__(parent)
@@ -49,6 +51,7 @@ class SetupAssistant(QDialog):
         self.setWindowModality(Qt.WindowModality.WindowModal)
         self.resize(640, 510)
         self.service = service
+        self.cloud = cloud
         self._pending_restart: Path | None = None
         self.models = {model.key: model for model in service.files}
         ocr = self.models["ocr"]
@@ -77,22 +80,15 @@ class SetupAssistant(QDialog):
                 self._label(""),
                 text=lambda: (
                     (
-                        tr(
-                            "Text recognition is included with DanteTL. This guide helps you "
-                            "choose "
-                            "a translation model and optional GPU acceleration.\n\n"
-                        )
+                        tr("Text recognition is included with DanteTL.")
                         if self.models["ocr"].included
-                        else tr(
-                            "Translate game text locally. This guide sets up text recognition, "
-                            "a translation model and optional GPU acceleration.\n\n"
-                        )
+                        else tr("This guide can set up local text recognition.")
                     )
+                    + "\n\n"
                     + tr(
-                        "You choose what to download before anything starts. "
-                        "CPU support works without a GPU. "
-                        "Processing stays on your PC after setup.\n\n"
-                        "You can skip this and reopen Setup assistant from Settings."
+                        "Add a cloud model here, or choose Next to set up a local model and "
+                        "optional GPU acceleration. You can also add cloud models while "
+                        "files download."
                     )
                 ),
             )
@@ -161,6 +157,14 @@ class SetupAssistant(QDialog):
         self.result_note = self._label("")
         page.addWidget(self.result_note)
         page.addStretch()
+        self.add_cloud = localized(QPushButton(), text=mark("Add cloud model…"))
+        self.add_cloud.clicked.connect(self._add_cloud)
+        layout.addWidget(self.add_cloud, 0, Qt.AlignmentFlag.AlignLeading)
+        self.cloud_note = localized(
+            self._label(""), text=mark("Model saved. Select it on the main screen to use it.")
+        )
+        self.cloud_note.hide()
+        layout.addWidget(self.cloud_note)
         buttons = QHBoxLayout()
         self.skip = localized(QPushButton(), text=mark("Skip for now"))
         self.back = localized(QPushButton(), text=mark("Back"))
@@ -188,6 +192,16 @@ class SetupAssistant(QDialog):
             self.next.setEnabled(False)
             localized(self.skip, text=mark("Cancel setup"))
         self.refresh_view()
+
+    def _add_cloud(self) -> None:
+        editor = self.cloud.open_editor(parent=self)
+        if editor is not None:
+            editor.accepted.connect(self._cloud_saved)
+
+    def _cloud_saved(self) -> None:
+        self.cloud_note.show()
+        if self.pages.currentIndex() < 4:
+            self.skip.setText(tr("Finish"))
 
     def _model_labels(self) -> None:
         for i in range(self.model.count()):
@@ -248,6 +262,10 @@ class SetupAssistant(QDialog):
 
     def _show(self, page: int) -> None:
         self.pages.setCurrentIndex(page)
+        self.add_cloud.setVisible(page in (0, 1, 4))
+        if page < 4:
+            self.skip.setText(tr("Skip for now") if self.cloud_note.isHidden() else tr("Finish"))
+            self.skip.setEnabled(True)
         self.heading.setText(
             (
                 tr("Welcome to DanteTL"),
@@ -336,6 +354,8 @@ class SetupAssistant(QDialog):
         if (
             self._pending_restart
             and self.isVisible()
+            and self.cloud.editor is None
+            and not self.cloud.busy
             and QApplication.activeModalWidget() in (None, self)
         ):
             target, self._pending_restart = self._pending_restart, None
@@ -347,6 +367,7 @@ class SetupAssistant(QDialog):
                 )
 
     def refresh_view(self) -> None:
+        self.add_cloud.setEnabled(not self.cloud.busy and self.cloud.editor is None)
         self._prompt_if_ready()
         if self.hardware_status is None:
             status = (

@@ -255,7 +255,9 @@ def test_first_run_is_explicit_skippable_and_does_not_change_manual_cpu_choice(a
     windows = Mock()
     windows.list_targets.return_value = []
     parent = MainWindow(windows, Mock(), models=models)
-    guide = SetupAssistant(parent.application.setup, hardware, parent)
+    guide = SetupAssistant(
+        parent.application.setup, hardware, parent, cloud=settings(parent).models.cloud
+    )
     guide.show()
     assert guide.model.currentData() == "gemma"
     assert guide.model.findData("ocr") == -1
@@ -353,6 +355,7 @@ def test_first_run_skip_persists_and_settings_can_reopen_it(app, tmp_path):
     assert guide.isVisible() and guide.pages.currentIndex() == 0
     assert guide.heading.text() == tr("Welcome to DanteTL") != "Welcome to DanteTL"
     assert guide.next.text() == tr("Next") != "Next"
+    assert guide.add_cloud.text() == tr("Add cloud model…") != "Add cloud model…"
     assert window.refresh_button.text() == tr("Refresh") != "Refresh"
     assert settings(window).tabs.tabText(0) == tr("Appearance") != "Appearance"
     guide.skip.click()

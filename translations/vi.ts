@@ -229,6 +229,10 @@ Thư mục sửa chữa: {directory}</translation>
       <translation>Trung bình phiên thực tế / số mẫu yêu cầu mỗi giây.</translation>
     </message>
     <message>
+      <source>Add a cloud model here, or choose Next to set up a local model and optional GPU acceleration. You can also add cloud models while files download.</source>
+      <translation>Thêm mô hình đám mây tại đây hoặc chọn Tiếp theo để thiết lập mô hình cục bộ và bật tăng tốc GPU nếu muốn. Bạn cũng có thể thêm mô hình đám mây trong khi tải tệp.</translation>
+    </message>
+    <message>
       <source>Add cloud model</source>
       <translation>Thêm mô hình đám mây</translation>
     </message>
@@ -3317,12 +3321,8 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Nhận dạng văn bản (OCR)</translation>
     </message>
     <message>
-      <source>Text recognition is included with DanteTL. This guide helps you choose a translation model and optional GPU acceleration.
-
-</source>
-      <translation>Nhận dạng văn bản được tích hợp sẵn trong DanteTL. Hướng dẫn này giúp bạn chọn mô hình dịch và tăng tốc GPU tùy chọn.
-
-</translation>
+      <source>Text recognition is included with DanteTL.</source>
+      <translation>DanteTL có sẵn tính năng nhận dạng văn bản.</translation>
     </message>
     <message>
       <source>Text recognition model files</source>
@@ -3477,6 +3477,10 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Kết nối này không còn khả dụng.</translation>
     </message>
     <message>
+      <source>This guide can set up local text recognition.</source>
+      <translation>Hướng dẫn này giúp bạn thiết lập tính năng nhận dạng văn bản cục bộ.</translation>
+    </message>
+    <message>
       <source>This is a different model. Import it separately; the original registration was kept.</source>
       <translation>Đây là một mô hình khác. Hãy nhập riêng; đăng ký ban đầu đã được giữ lại.</translation>
     </message>
@@ -3535,14 +3539,6 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
     <message>
       <source>Translate and cover recognized text. Turn off to leave the original game text visible.</source>
       <translation>Dịch và che văn bản đã nhận dạng. Tắt để giữ nguyên văn bản gốc của trò chơi.</translation>
-    </message>
-    <message>
-      <source>Translate game text locally. This guide sets up text recognition, a translation model and optional GPU acceleration.
-
-</source>
-      <translation>Dịch văn bản trò chơi cục bộ. Hướng dẫn này thiết lập nhận dạng văn bản, mô hình dịch và tăng tốc GPU tùy chọn.
-
-</translation>
     </message>
     <message>
       <source>Translate grouped paragraphs and text over 40 characters, including dialogue, skill and item descriptions. This is a length/layout category, not a speaker detector.</source>
@@ -3991,14 +3987,6 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
     <message>
       <source>Yes</source>
       <translation>Có</translation>
-    </message>
-    <message>
-      <source>You choose what to download before anything starts. CPU support works without a GPU. Processing stays on your PC after setup.
-
-You can skip this and reopen Setup assistant from Settings.</source>
-      <translation>Bạn chọn nội dung tải xuống trước khi mọi thứ bắt đầu. Hỗ trợ CPU hoạt động mà không cần GPU. Quá trình xử lý vẫn ở trên PC của bạn sau khi thiết lập.
-
-Bạn có thể bỏ qua bước này và mở lại Trợ lý thiết lập từ Cài đặt.</translation>
     </message>
     <message>
       <source>You're using your ChatGPT plan</source>
