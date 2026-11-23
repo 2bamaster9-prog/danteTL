@@ -606,6 +606,8 @@ Both installers share `download_transport`: one contained child per transfer, pa
 deadline across DNS/connection/headers/body and cancellation polling at 100 ms. A worker lock
 protects each digest-named partial through transfer, verification and publication. Transient errors
 get bounded retries. Later attempts resume from the saved byte offset, including after app exit.
+Transfer and checksum reads request Windows background I/O priority. The receiver coalesces network
+fragments, flushes its user-space buffer before reporting progress and syncs at the end of a response.
 Appending requires a matching HTTP range. A full response replaces the partial. The parent verifies
 the complete file against the pinned SHA-256 before atomic replacement.
 Bundled restoration and verified cache reuse stay offline without a downloader child.

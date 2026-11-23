@@ -14,10 +14,12 @@ from urllib.request import Request, urlopen
 
 from dantetl.i18n import CatalogText, tr
 from dantetl.paths import module_command, resource_root
+from dantetl.runtime.background_io import background_io
 from dantetl.runtime.owned_process import restore_child_output
 from dantetl.runtime.setup_process import clean_runtime_environment, run_setup_command
 
 DOWNLOAD_TIMEOUT = 1800.0
+_READ_SIZE = 256 * 1024
 
 
 def download_file(
@@ -103,16 +105,21 @@ def _transfer(url: str, destination: Path, size: int, offset: int) -> bool:
             raise RuntimeError(CatalogText("Download exceeded its size limit."))
         received = offset
         print(json.dumps({"received": received, "total": total}), flush=True)
-        with destination.open("ab" if offset else "wb", buffering=0) as output:
-            while chunk := response.read1(256 * 1024):
+        with destination.open("ab" if offset else "wb", buffering=_READ_SIZE) as output:
+            while chunk := response.read1(_READ_SIZE):
                 received += len(chunk)
                 if received > (response_end or limit):
                     raise RuntimeError(CatalogText("Download exceeded its size limit."))
                 output.write(chunk)
                 now = time.monotonic()
                 if now - reported >= 0.1:
+                    # A hard-cancelled child must leave every reported byte available for resume.
+                    output.flush()
                     print(json.dumps({"received": received, "total": total}), flush=True)
                     reported = now
+            if received > offset:
+                output.flush()
+                os.fsync(output.fileno())
         if response_end and received != response_end:
             raise ConnectionError(CatalogText("Download interrupted. Retry setup to resume."))
         print(json.dumps({"received": received, "total": total}), flush=True)
@@ -123,6 +130,7 @@ def _transfer(url: str, destination: Path, size: int, offset: int) -> bool:
         return True
 
 
+@background_io()
 def _receive(url: str, destination: Path, size: int) -> None:
     use_range = True
     for attempt in range(3):

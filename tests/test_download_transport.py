@@ -1,6 +1,7 @@
 """Actual installer/HTTP cancellation replays; no remote servers or model files."""
 
 import hashlib
+import os
 import threading
 import time
 from contextlib import contextmanager, suppress
@@ -133,6 +134,34 @@ def test_real_transfer_verifies_publishes_and_reports_exact_bytes(tmp_path, monk
         assert destination.read_bytes() == data
         assert any(p.download and p.download.received == len(data) for p in progress)
         assert not list(tmp_path.rglob("*.part"))
+
+
+def test_unknown_length_transfer_syncs_the_complete_response_once(tmp_path, monkeypatch):
+    sizes = []
+    destination = tmp_path / "asset.part"
+    monkeypatch.setattr(
+        download_transport.os, "fsync", lambda fd: sizes.append(os.fstat(fd).st_size)
+    )
+    data = b"abcdefg" * 200_000
+    with server("complete", data) as (url, _, _):
+        download_transport._receive(url, destination, 0)
+    assert sizes == [len(data)]
+    assert destination.read_bytes() == data
+
+
+def test_cancelling_after_progress_keeps_even_a_small_reported_prefix(tmp_path):
+    destination = tmp_path / "asset.part"
+    cancel = threading.Event()
+    reported = []
+
+    def stop_after_progress(received, _total):
+        if received:
+            reported.append(received)
+            cancel.set()
+
+    with server("body") as (url, _, _), pytest.raises(Cancelled):
+        download_transport.download_file(url, destination, 1000000, stop_after_progress, cancel)
+    assert reported and destination.stat().st_size >= max(reported)
 
 
 @pytest.mark.parametrize(
