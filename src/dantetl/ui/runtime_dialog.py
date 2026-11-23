@@ -1,5 +1,6 @@
 """Explicit runtime installation UI; detection, processes and disk work stay on a worker."""
 
+from html import escape
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
@@ -8,7 +9,6 @@ from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QDialog,
-    QHBoxLayout,
     QLabel,
     QPushButton,
     QVBoxLayout,
@@ -47,11 +47,12 @@ class RuntimeSetupDialog(QDialog):
         self.hardware = localized(QLabel(), text=mark("Checking installed graphics adapters…"))
         self.hardware.setWordWrap(True)
         layout.addWidget(self.hardware)
-        header = QHBoxLayout()
-        header.addWidget(localized(QLabel(), text=mark("Runtime")))
-        header.addStretch()
-        layout.addLayout(header)
+        layout.addSpacing(12)
+        runtime_label = localized(QLabel(), text=mark("Runtime"))
+        runtime_label.setObjectName("sectionTitle")
+        layout.addWidget(runtime_label)
         self.choice = QComboBox()
+        runtime_label.setBuddy(self.choice)
         for profile in service.profiles:
             localized_item(self.choice, profile.name, profile)
         self.choice.setEnabled(False)
@@ -104,19 +105,16 @@ class RuntimeSetupDialog(QDialog):
 
     def _show_hardware(self) -> None:
         adapters = self.service.runtime.adapters
-        self.hardware.setText(
-            tr("Detected: ")
-            + "; ".join(
-                tr(
-                    "{name} ({value:.1f} GB dedicated)",
-                    name=a.name,
-                    value=a.dedicated_bytes / 2**30,
-                )
-                for a in adapters
+        if not adapters:
+            self.hardware.setText(
+                tr("GPU detection unavailable. CPU is the default; you can choose manually.")
             )
-            if adapters
-            else tr("GPU detection unavailable. CPU is the default; you can choose manually.")
+            return
+        details = "; ".join(
+            tr("{name} ({value:.1f} GB dedicated)", name=a.name, value=a.dedicated_bytes / 2**30)
+            for a in adapters
         )
+        self.hardware.setText(f"<b>{escape(tr('Detected: '))}</b>{escape(details)}")
 
     def _refresh_language(self) -> None:
         if self.choice.isEnabled():
