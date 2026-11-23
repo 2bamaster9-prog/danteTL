@@ -72,6 +72,23 @@ and real capture checks are separate; see [verification](verification.md).
 
 ## GitHub Actions and releases
 
+Official Windows releases embed an Ed25519 public key. Before the first updater-enabled tag,
+generate a signing key pair on a trusted machine outside the checkout. With OpenSSL and GitHub CLI:
+
+```sh
+openssl genpkey -algorithm Ed25519 -out update-private.pem
+openssl pkey -in update-private.pem -pubout -out update-public.pem
+gh secret set DANTETL_UPDATE_PRIVATE_KEY --repo nhmelo/dantejp < update-private.pem
+gh variable set DANTETL_UPDATE_PUBLIC_KEY --repo nhmelo/dantejp < update-public.pem
+```
+
+Keep the private key in protected storage. Use the same key for subsequent tags so installed
+copies can verify newer releases. The tag job signs `DanteTL-update.json`, binding the stable
+version, Windows ZIP name, byte count and SHA-256 digest. Only the release job reads the
+private key. For a local build, set the `DANTETL_UPDATE_PUBLIC_KEY` environment variable to
+the public PEM text to enable in-place updates. Without it, About offers release notes and
+manual release downloads. Existing versions predating the updater require one manual upgrade.
+
 `check.yml` runs the same fast gate on pushes and pull requests: Ruff formatting/lint, Pyright,
 Import Linter ownership contracts and model-free tests. `security.yml` adds dependency and secret
 scans on pushes/PRs and weekly. `build.yml` requires both workflows, builds on

@@ -232,6 +232,13 @@ Only committed display changes should request repaint; Qt may still repaint on n
 
 ## Runtime and packaging acceptance
 
+For portable updater changes, run `tests/test_release_updates.py`, rebuild the portable ZIP
+and run `tools/verify_update_windows.py --output artifacts/<slice>/update`. The native check
+uses a disposable signing key, a loopback release server, an old fixture installation and the
+actual helper and replacement GUI. Check skip, seven-day reminders, manual override, interrupted
+transfers, bad signatures, extraction limits, busy installations and rollback. Set
+`DANTETL_DISABLE_UPDATE_CHECK=1` in native fixtures that launch the packaged GUI.
+
 Use `.venv-gpu/Scripts/python.exe` for strict NVIDIA checks with `--device cuda`; fail rather than
 accept fallback. Normal automatic mode must report CPU fallback. Keep `.venv` CPU, `.venv-gpu`
 CUDA and `.venv-amd` Vulkan/experimental DirectML isolated; never co-install ONNX distributions or

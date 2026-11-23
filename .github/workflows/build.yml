@@ -11,6 +11,7 @@ on:
       - ".gitignore"
       - "tools/build.ps1"
       - "tools/verify_standalone_windows.py"
+      - "tools/verify_update_windows.py"
       - "tools/verification_isolation.py"
       - "tests/fixtures/**"
       - "src/**"
@@ -60,9 +61,15 @@ jobs:
           uv run --locked --offline python -c "import os,tomllib; v=tomllib.load(open('pyproject.toml','rb'))['project']['version']; assert os.environ['RELEASE_TAG']=='v'+v, 'Tag must equal v'+v"
       - name: Build standard distributions and explicitly prepare bundled OCR
         shell: powershell
-        run: ./tools/build.ps1 -DownloadOcr
+        env:
+          DANTETL_UPDATE_PUBLIC_KEY: ${{ vars.DANTETL_UPDATE_PUBLIC_KEY }}
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/*' -and -not $env:DANTETL_UPDATE_PUBLIC_KEY) { throw 'Configure DANTETL_UPDATE_PUBLIC_KEY before publishing.' }
+          ./tools/build.ps1 -DownloadOcr
       - name: Verify relocated executable and offline bundled OCR
         run: uv run --no-sync python tools/verify_standalone_windows.py --headless --output artifacts/ci-standalone
+      - name: Verify signed in-place update and replacement GUI acknowledgement
+        run: uv run --no-sync python tools/verify_update_windows.py --output artifacts/ci-update
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: DanteTL-windows-x64
@@ -101,6 +108,27 @@ jobs:
       - name: Verify artifact checksums
         working-directory: release
         run: sha256sum --check --strict *.sha256
+      - name: Sign the portable update manifest
+        working-directory: release
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.DANTETL_UPDATE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})$ ]]
+          file=DanteTL-windows-x64.zip
+          manifest=DanteTL-update.json
+          read -r digest _ < "$file.sha256"
+          jq -n --arg version "${RELEASE_TAG#v}" --arg file "$file" --arg sha256 "$digest" \
+            --argjson size "$(stat -c '%s' "$file")" '{ $version, $file, $sha256, $size }' > "$manifest"
+          openssl pkeyutl -sign -rawin -inkey <(printf '%s\n' "$UPDATE_SIGNING_KEY") -in "$manifest" -out "$manifest.sig"
+          python3 - "$file" "$RUNNER_TEMP/update-public.pem" <<'PY'
+          import sys, zipfile
+          from pathlib import Path
+          with zipfile.ZipFile(sys.argv[1]) as bundle:
+              key, = (p for p in bundle.namelist() if p.replace("\\", "/") == "DanteTL/_internal/app/update-public.pem")
+              Path(sys.argv[2]).write_bytes(bundle.read(key))
+          PY
+          openssl pkeyutl -verify -rawin -pubin -inkey "$RUNNER_TEMP/update-public.pem" -in "$manifest" -sigfile "$manifest.sig"
       - name: Publish downloadable GitHub Release
         working-directory: release
-        run: gh release create "$RELEASE_TAG" ./*.zip ./*.whl ./*.tar.gz ./*.sha256 --verify-tag --generate-notes --title "DanteTL $RELEASE_TAG"
+        run: gh release create "$RELEASE_TAG" ./*.zip ./*.whl ./*.tar.gz ./*.sha256 DanteTL-update.json DanteTL-update.json.sig --verify-tag --generate-notes --title "DanteTL $RELEASE_TAG"
