@@ -181,10 +181,6 @@ Repairs folder: {directory}</source>
       <translation>Текстовый блок должен содержать хотя бы одну строку.</translation>
     </message>
     <message>
-      <source>AMD GPU detected · GPU translation is not enabled in this runtime. Vulkan acceleration is optional; translation and OCR can run on CPU.</source>
-      <translation>Обнаружен GPU AMD · Перевод на GPU не включён в этом runtime. Ускорение Vulkan опционально; перевод и OCR могут работать на CPU.</translation>
-    </message>
-    <message>
       <source>API connection settings are too large.</source>
       <translation>Параметры подключения к API слишком велики.</translation>
     </message>
@@ -207,10 +203,6 @@ Repairs folder: {directory}</source>
     <message>
       <source>Acceleration</source>
       <translation>Ускорение</translation>
-    </message>
-    <message>
-      <source>Acceleration options</source>
-      <translation>Параметры ускорения</translation>
     </message>
     <message>
       <source>Account models · list order is not a speed ranking.</source>
@@ -401,10 +393,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>CAPTURE &amp; STABILITY</source>
       <translation>ЗАХВАТ И СТАБИЛЬНОСТЬ</translation>
-    </message>
-    <message>
-      <source>CPU OCR is still active. Your new OCR device applies after restarting capture.</source>
-      <translation>CPU OCR всё ещё активен. Новое OCR-устройство применится после перезапуска захвата.</translation>
     </message>
     <message>
       <source>CPU execution is supported; larger models can be slow.</source>
@@ -2235,16 +2223,8 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>Видеокарта NVIDIA</translation>
     </message>
     <message>
-      <source>NVIDIA GPU detected · GPU OCR is not enabled in this runtime. Open Acceleration to install or activate NVIDIA support.</source>
-      <translation>Обнаружена видеокарта NVIDIA · GPU OCR не включён в этой среде. Откройте Ускорение, чтобы установить или включить поддержку NVIDIA.</translation>
-    </message>
-    <message>
       <source>NVIDIA GPU — CUDA</source>
       <translation>Видеокарта NVIDIA — CUDA</translation>
-    </message>
-    <message>
-      <source>NVIDIA acceleration is installed, but CPU is selected. Choose Automatic in Recognition; the change applies next time capture starts.</source>
-      <translation>Ускорение NVIDIA установлено, но выбрано CPU. Выберите «Автоматически» в Распознавании; изменение применится при следующем запуске захвата.</translation>
     </message>
     <message>
       <source>Needs working memory in addition to downloaded weights.</source>
@@ -2361,10 +2341,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>OCR running: {value:.1f}s</source>
       <translation>Работа OCR: {value:.1f} с</translation>
-    </message>
-    <message>
-      <source>OCR settings</source>
-      <translation>Настройки OCR</translation>
     </message>
     <message>
       <source>OCR source capture to worker start, including scheduling.</source>
@@ -2737,10 +2713,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>Рекомендуемый баланс игровой терминологии, качества и скорости.</translation>
     </message>
     <message>
-      <source>Recommended from detected hardware. You can choose a different runtime.</source>
-      <translation>Рекомендовано на основе обнаруженного оборудования. Вы можете выбрать другую среду выполнения.</translation>
-    </message>
-    <message>
       <source>Recommended when more memory is available; good game terminology.</source>
       <translation>Рекомендуется при наличии большего объёма памяти; хорошая игровая терминология.</translation>
     </message>
@@ -2835,6 +2807,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Restart DanteTL before changing more shortcuts.</source>
       <translation>Перезапустите DanteTL, прежде чем менять другие сочетания клавиш.</translation>
+    </message>
+    <message>
+      <source>Restart DanteTL to use {name}.</source>
+      <translation>Перезапустите DanteTL, чтобы использовать {name}.</translation>
     </message>
     <message>
       <source>Restart cancelled. Current runtime retained.</source>
@@ -4317,10 +4293,6 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>✓ Supported · In use</source>
       <translation>✓ Поддерживается · Используется</translation>
-    </message>
-    <message>
-      <source>✓ Supported · Restart to use</source>
-      <translation>✓ Поддерживается · Перезапустите для использования</translation>
     </message>
     <message>
       <source>✓ Test successful ({name}): {result}</source>

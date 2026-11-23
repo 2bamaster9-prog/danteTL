@@ -362,14 +362,17 @@ class ApplicationSession:
         self.persist()
         self.refresh_models()
 
-    def setup_completed(self, model: str, target: Path | None) -> None:
+    def setup_completed(
+        self, model: str, target: Path | None, *, defer_preparation: bool = False
+    ) -> None:
         self.values = replace(self.values, setup_seen=True, setup_model=model)
         self.persist()
         self.refresh_models()
         if target:
             self.request_close(target)
         else:
-            self._first_run_requested = True
+            # A postponed guide restart should prepare the model in the chosen runtime.
+            self._first_run_requested = not defer_preparation
 
     def _first_run(self) -> None:
         if (
@@ -516,13 +519,12 @@ class ApplicationSession:
                 self.capture.ocr_choice.key
                 if self.live.capture and self.capture.ocr_choice
                 else self.values.ocr_device,
-                self.values.ocr_device,
                 ocr.provider if ocr else "",
                 ocr.message if ocr else "",
-                self.live.capture is not None,
                 target=TARGET_LANGUAGES[self.values.output_language],
                 ocr_model=self._ocr_model,
                 interface_language=self.values.interface_language,
+                installed_runtime=self.setup.installed_runtime,
             )
         )
 

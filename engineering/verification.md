@@ -248,7 +248,8 @@ and actual inference success are separate evidence.
 explanation and cannot load without an engine. Ordinary setup checks explicit consent, decline,
 failure rollback, reuse of the prepared worker and closing during setup. First-run checks require
 explicit confirmation, skippable setup, concurrent model and runtime progress, cancellation of both,
-retry from a saved prefix.
+retry from a saved prefix and postponement of the restart prompt. The packaged download helper must
+recover a truncated local HTTP response and request the remaining bytes.
 
 `tools/verify_runtime_windows.py --profile cpu|nvidia|amd --output ...` operates only in a disposable
 extracted distribution/state root. Use `--offline --cache-root <verified-cache>` when available.

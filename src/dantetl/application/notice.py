@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, replace
 from functools import lru_cache
+from pathlib import Path
 
 from dantetl.application.setup_status import SetupAdvice, acceleration_advice
 from dantetl.i18n import display, mark, tr
@@ -27,13 +28,12 @@ class NoticeInput:
     rejected: bool = False
     hardware: HardwareStatus | None = None
     ocr_device: str = "cpu"
-    requested_device: str = "cpu"
     provider: str = ""
     fallback: str = ""
-    capturing: bool = False
     target: TargetLanguage = ENGLISH
     ocr_model: str = "MeikiOCR"
     interface_language: str = ENGLISH.code
+    installed_runtime: tuple[str, Path] | None = None
 
 
 @dataclass(frozen=True)
@@ -168,22 +168,15 @@ def project_notices(value: NoticeInput) -> Notices:
         message, action = value.translation_message, ""
         if any(p.provider == "chatgpt" for p in cloud):
             action, destination = tr("Manage usage"), "usage"
-    elif notice := next(
-        (c.performance_notice for c in active if c.local and c.performance_notice), ""
-    ):
-        message, action, destination = display(notice), tr("Acceleration options"), "runtime"
     advice = acceleration_advice(
         value.hardware, value.ocr_device, actual_provider=value.provider, fallback=value.fallback
     )
-    if (
-        value.capturing
-        and advice.destination == "recognition"
-        and value.requested_device != value.ocr_device
-    ):
+    if value.installed_runtime:
+        name, target = value.installed_runtime
         advice = SetupAdvice(
-            tr("CPU OCR is still active. Your new OCR device applies after restarting capture."),
-            "recognition",
-            tr("OCR settings"),
+            tr("Restart DanteTL to use {name}.", name=tr(name)),
+            action=mark("Restart now"),
+            restart_target=target,
         )
     return Notices(
         message,

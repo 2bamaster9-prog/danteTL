@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import shiboken6
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
@@ -150,7 +150,13 @@ def main() -> int:
                 evidence["responsive_polls"] = busy_ticks
                 evidence["intermediate_download_bytes"] = download_samples
                 dialog.grab().save(str(args.output / "installed.png"))
-                dialog.restart.click()
+                prompt = app.activeModalWidget()
+                assert (
+                    isinstance(prompt, QMessageBox) and dialog.choice.currentText() in prompt.text()
+                )
+                prompt.grab().save(str(args.output / "restart-prompt.png"))
+                prompt.defaultButton().click()
+                evidence["restart_from_confirmation"] = True
                 stage = 2
             elif stage == 2:
                 if window.isVisible():

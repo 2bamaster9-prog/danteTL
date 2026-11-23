@@ -181,10 +181,6 @@ Repairs folder: {directory}</source>
       <translation>يحتاج كتلة النص إلى سطر واحد على الأقل.</translation>
     </message>
     <message>
-      <source>AMD GPU detected · GPU translation is not enabled in this runtime. Vulkan acceleration is optional; translation and OCR can run on CPU.</source>
-      <translation>تم اكتشاف GPU من AMD · ترجمة GPU غير مفعلة في وقت التشغيل هذا. تسريع Vulkan اختياري؛ يمكن تشغيل الترجمة وOCR على CPU.</translation>
-    </message>
-    <message>
       <source>API connection settings are too large.</source>
       <translation>إعدادات اتصال API كبيرة جدًا.</translation>
     </message>
@@ -207,10 +203,6 @@ Repairs folder: {directory}</source>
     <message>
       <source>Acceleration</source>
       <translation>التسريع</translation>
-    </message>
-    <message>
-      <source>Acceleration options</source>
-      <translation>خيارات التسريع</translation>
     </message>
     <message>
       <source>Account models · list order is not a speed ranking.</source>
@@ -401,10 +393,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>CAPTURE &amp; STABILITY</source>
       <translation>الالتقاط والاستقرار</translation>
-    </message>
-    <message>
-      <source>CPU OCR is still active. Your new OCR device applies after restarting capture.</source>
-      <translation>لا يزال OCR الخاص بـ CPU نشطًا. يُطبق جهاز OCR الجديد بعد إعادة تشغيل الالتقاط.</translation>
     </message>
     <message>
       <source>CPU execution is supported; larger models can be slow.</source>
@@ -2235,16 +2223,8 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>GPU من NVIDIA</translation>
     </message>
     <message>
-      <source>NVIDIA GPU detected · GPU OCR is not enabled in this runtime. Open Acceleration to install or activate NVIDIA support.</source>
-      <translation>تم اكتشاف GPU من NVIDIA · OCR عبر GPU غير مفعّل في بيئة التشغيل هذه. افتح التسريع لتثبيت دعم NVIDIA أو تفعيله.</translation>
-    </message>
-    <message>
       <source>NVIDIA GPU — CUDA</source>
       <translation>NVIDIA GPU — CUDA</translation>
-    </message>
-    <message>
-      <source>NVIDIA acceleration is installed, but CPU is selected. Choose Automatic in Recognition; the change applies next time capture starts.</source>
-      <translation>تسريع NVIDIA مثبّت، لكن المعالج محدد. اختر تلقائي في التعرّف؛ يُطبّق التغيير عند بدء الالتقاط التالي.</translation>
     </message>
     <message>
       <source>Needs working memory in addition to downloaded weights.</source>
@@ -2361,10 +2341,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>OCR running: {value:.1f}s</source>
       <translation>OCR قيد التشغيل: {value:.1f}ث</translation>
-    </message>
-    <message>
-      <source>OCR settings</source>
-      <translation>إعدادات OCR</translation>
     </message>
     <message>
       <source>OCR source capture to worker start, including scheduling.</source>
@@ -2737,10 +2713,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>توازن موصى به بين مصطلحات اللعبة والجودة والسرعة.</translation>
     </message>
     <message>
-      <source>Recommended from detected hardware. You can choose a different runtime.</source>
-      <translation>موصى به من العتاد المكتشف. يمكنك اختيار بيئة تشغيل مختلفة.</translation>
-    </message>
-    <message>
       <source>Recommended when more memory is available; good game terminology.</source>
       <translation>موصى به عند توفر ذاكرة أكبر؛ مصطلحات لعبة جيدة.</translation>
     </message>
@@ -2835,6 +2807,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Restart DanteTL before changing more shortcuts.</source>
       <translation>أعد تشغيل DanteTL قبل تغيير المزيد من الاختصارات.</translation>
+    </message>
+    <message>
+      <source>Restart DanteTL to use {name}.</source>
+      <translation>أعِد تشغيل DanteTL لاستخدام {name}.</translation>
     </message>
     <message>
       <source>Restart cancelled. Current runtime retained.</source>
@@ -4317,10 +4293,6 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>✓ Supported · In use</source>
       <translation>✓ مدعوم · قيد الاستخدام</translation>
-    </message>
-    <message>
-      <source>✓ Supported · Restart to use</source>
-      <translation>✓ مدعوم · أعد التشغيل للاستخدام</translation>
     </message>
     <message>
       <source>✓ Test successful ({name}): {result}</source>

@@ -63,7 +63,8 @@ game. Model downloads have their own license terms.
 
 CPU support is included in the standalone app. **Settings → Acceleration** offers optional NVIDIA
 CUDA acceleration for supported OCR/translation engines, or Vulkan acceleration for translation
-with CPU OCR. Follow setup's restart prompt when installing a runtime. GPU compatibility depends
+with CPU OCR. Choosing an installed runtime or finishing its installation opens a restart prompt
+once other setup downloads finish. GPU compatibility depends
 on your hardware and drivers; downloaded weights alone do not mean GPU support is installed.
 Local translation works offline after setup.
 

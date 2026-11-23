@@ -29,7 +29,6 @@ from PySide6.QtWidgets import (
 from dantetl.application.api import ApplicationCommands
 from dantetl.application.hotkeys import HotkeyAction, Hotkeys
 from dantetl.application.preference_values import SettingsEdit
-from dantetl.application.setup_status import SetupAdvice
 from dantetl.application.values import ApplicationControls, ModelConsent, ShutdownPhase
 from dantetl.capture.windows import Windows
 from dantetl.domain import WindowTarget
@@ -80,7 +79,6 @@ class MainWindow(QMainWindow):
         self.application, self.driver = application, driver
         self._windows, self._hardware, self._hotkeys = windows, hardware, hotkeys
         self._notice_destination = "models"
-        self._acceleration_advice = SetupAdvice()
         self._model_manager: ModelManager | None = None
         self._runtime_dialog: RuntimeSetupDialog | None = None
         self._setup_assistant: SetupAssistant | None = None
@@ -490,8 +488,8 @@ class MainWindow(QMainWindow):
     def _setup_skipped(self) -> None:
         self.application.setup_skipped()
 
-    def _setup_completed(self, model: str, target: Path | None) -> None:
-        self.application.setup_completed(model, target)
+    def _setup_completed(self, model: str, target: Path | None, deferred: bool) -> None:
+        self.application.setup_completed(model, target, defer_preparation=deferred)
         self.driver.refresh(inspect=False)
 
     def _edit_settings(self, **changes: Unpack[SettingsEdit]) -> None:
@@ -599,8 +597,12 @@ class MainWindow(QMainWindow):
             self._manage_models()
 
     def _show_acceleration_advice(self) -> None:
-        if self._acceleration_advice.destination == "recognition":
-            self._settings.show_recognition()
+        advice = self.application.notices().acceleration
+        if advice != self._last_notices.acceleration:
+            self._update_notice()
+            return
+        if target := advice.restart_target:
+            self._request_restart(target)
         else:
             self._manage_runtime()
 
@@ -636,7 +638,6 @@ class MainWindow(QMainWindow):
             )
         value = self.application.notices()
         self._notice_destination = value.destination
-        self._acceleration_advice = value.acceleration
         if value == getattr(self, "_last_notices", None):
             return
         self._last_notices = value
@@ -647,7 +648,11 @@ class MainWindow(QMainWindow):
         self._settings.save_note.setVisible(bool(value.save_note))
         self.onboarding.set_message(value.message, tone=value.tone, action=value.action)
         for banner in (self.acceleration_notice, self._settings.acceleration_notice):
-            banner.set_message(value.acceleration.message, action=tr(value.acceleration.action))
+            banner.set_message(
+                value.acceleration.message,
+                tone="info" if value.acceleration.restart_target else "warning",
+                action=tr(value.acceleration.action),
+            )
 
     def refresh_windows(self) -> None:
         if self.application.controls.capture_active:

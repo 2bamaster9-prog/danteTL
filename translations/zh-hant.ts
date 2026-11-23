@@ -181,10 +181,6 @@ Repairs folder: {directory}</source>
       <translation>文字區塊至少需要一行。</translation>
     </message>
     <message>
-      <source>AMD GPU detected · GPU translation is not enabled in this runtime. Vulkan acceleration is optional; translation and OCR can run on CPU.</source>
-      <translation>偵測到 AMD GPU · 此執行階段未啟用 GPU 翻譯。Vulkan 加速為選用項目；翻譯與 OCR 可於 CPU 上執行。</translation>
-    </message>
-    <message>
       <source>API connection settings are too large.</source>
       <translation>API 連線設定過大。</translation>
     </message>
@@ -207,10 +203,6 @@ Repairs folder: {directory}</source>
     <message>
       <source>Acceleration</source>
       <translation>加速</translation>
-    </message>
-    <message>
-      <source>Acceleration options</source>
-      <translation>加速選項</translation>
     </message>
     <message>
       <source>Account models · list order is not a speed ranking.</source>
@@ -401,10 +393,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>CAPTURE &amp; STABILITY</source>
       <translation>擷取與穩定性</translation>
-    </message>
-    <message>
-      <source>CPU OCR is still active. Your new OCR device applies after restarting capture.</source>
-      <translation>CPU OCR 仍在運作中。新的 OCR 裝置會在重新啟動擷取後套用。</translation>
     </message>
     <message>
       <source>CPU execution is supported; larger models can be slow.</source>
@@ -2235,16 +2223,8 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>NVIDIA GPU</translation>
     </message>
     <message>
-      <source>NVIDIA GPU detected · GPU OCR is not enabled in this runtime. Open Acceleration to install or activate NVIDIA support.</source>
-      <translation>已偵測到 NVIDIA GPU · 此執行階段未啟用 GPU OCR。開啟加速以安裝或啟用 NVIDIA 支援。</translation>
-    </message>
-    <message>
       <source>NVIDIA GPU — CUDA</source>
       <translation>NVIDIA GPU — CUDA</translation>
-    </message>
-    <message>
-      <source>NVIDIA acceleration is installed, but CPU is selected. Choose Automatic in Recognition; the change applies next time capture starts.</source>
-      <translation>已安裝 NVIDIA 加速，但目前選取 CPU。在辨識中選擇自動；變更將於下次開始擷取時套用。</translation>
     </message>
     <message>
       <source>Needs working memory in addition to downloaded weights.</source>
@@ -2361,10 +2341,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>OCR running: {value:.1f}s</source>
       <translation>OCR 執行中：{value:.1f}s</translation>
-    </message>
-    <message>
-      <source>OCR settings</source>
-      <translation>OCR 設定</translation>
     </message>
     <message>
       <source>OCR source capture to worker start, including scheduling.</source>
@@ -2737,10 +2713,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>在遊戲術語、品質與速度之間取得建議的平衡。</translation>
     </message>
     <message>
-      <source>Recommended from detected hardware. You can choose a different runtime.</source>
-      <translation>根據偵測到的硬體建議。您可以選擇不同的執行環境。</translation>
-    </message>
-    <message>
       <source>Recommended when more memory is available; good game terminology.</source>
       <translation>記憶體較充足時建議使用；遊戲術語表現良好。</translation>
     </message>
@@ -2835,6 +2807,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Restart DanteTL before changing more shortcuts.</source>
       <translation>變更更多快速鍵前，請先重新啟動 DanteTL。</translation>
+    </message>
+    <message>
+      <source>Restart DanteTL to use {name}.</source>
+      <translation>重新啟動 DanteTL 以使用 {name}。</translation>
     </message>
     <message>
       <source>Restart cancelled. Current runtime retained.</source>
@@ -4317,10 +4293,6 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>✓ Supported · In use</source>
       <translation>✓ 支援 · 使用中</translation>
-    </message>
-    <message>
-      <source>✓ Supported · Restart to use</source>
-      <translation>✓ 支援 · 重新啟動以使用</translation>
     </message>
     <message>
       <source>✓ Test successful ({name}): {result}</source>

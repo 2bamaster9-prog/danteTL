@@ -66,6 +66,7 @@ class SetupCoordinator:
         self._probe_result: ProbeResult | None = None
         self._runtime = RuntimeStatus()
         self._runtime_result: RuntimeStatus | None = None
+        self._installed_runtime: tuple[str, Path] | None = None
         self._review: SetupReview | None = None
         self._plan: SetupPlan | None = None
         self._guide_target: Path | None = None
@@ -214,6 +215,10 @@ class SetupCoordinator:
     def runtime(self) -> RuntimeStatus:
         return self._runtime
 
+    @property
+    def installed_runtime(self) -> tuple[str, Path] | None:
+        return self._installed_runtime
+
     def detect_runtime(self) -> bool:
         def work(progress: Progress, cancel: threading.Event) -> None:
             self._runtime_result = self._dependencies.runtime_status()
@@ -358,6 +363,17 @@ class SetupCoordinator:
             del self._operations[lane]
             if succeeded and lane == SetupLane.GUIDE and self._review is not None:
                 self._completed_review = self._review.token
+                if self._guide_target:
+                    profile = next(p for p in self.profiles if p.key == self._review.runtime)
+                    self._installed_runtime = profile.name, self._guide_target
+            if succeeded and lane == SetupLane.RUNTIME:
+                if job.action == "install":
+                    target = self._runtime.target(job.key)
+                    if target and target != self._runtime.current:
+                        profile = next(p for p in self.profiles if p.key == job.key)
+                        self._installed_runtime = profile.name, target
+                elif job.action == "select":
+                    self._installed_runtime = None
             if succeeded and lane == SetupLane.MODELS and job.action == "register":
                 self._probe_result = None
             # Multi-file downloads and setup can commit verified files before a later

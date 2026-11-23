@@ -181,10 +181,6 @@ Thư mục sửa chữa: {directory}</translation>
       <translation>Một khối văn bản cần ít nhất một dòng.</translation>
     </message>
     <message>
-      <source>AMD GPU detected · GPU translation is not enabled in this runtime. Vulkan acceleration is optional; translation and OCR can run on CPU.</source>
-      <translation>Đã phát hiện GPU AMD · Dịch bằng GPU không được bật trong runtime này. Tăng tốc Vulkan là tùy chọn; dịch và OCR có thể chạy trên CPU.</translation>
-    </message>
-    <message>
       <source>API connection settings are too large.</source>
       <translation>Cài đặt kết nối API quá lớn.</translation>
     </message>
@@ -207,10 +203,6 @@ Thư mục sửa chữa: {directory}</translation>
     <message>
       <source>Acceleration</source>
       <translation>Tăng tốc</translation>
-    </message>
-    <message>
-      <source>Acceleration options</source>
-      <translation>Tùy chọn tăng tốc</translation>
     </message>
     <message>
       <source>Account models · list order is not a speed ranking.</source>
@@ -401,10 +393,6 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>CAPTURE &amp; STABILITY</source>
       <translation>CHỤP &amp; ỔN ĐỊNH</translation>
-    </message>
-    <message>
-      <source>CPU OCR is still active. Your new OCR device applies after restarting capture.</source>
-      <translation>OCR CPU vẫn đang hoạt động. Thiết bị OCR mới của bạn sẽ áp dụng sau khi khởi động lại chụp.</translation>
     </message>
     <message>
       <source>CPU execution is supported; larger models can be slow.</source>
@@ -2235,16 +2223,8 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>GPU NVIDIA</translation>
     </message>
     <message>
-      <source>NVIDIA GPU detected · GPU OCR is not enabled in this runtime. Open Acceleration to install or activate NVIDIA support.</source>
-      <translation>Đã phát hiện GPU NVIDIA · OCR GPU chưa bật trong runtime này. Mở Tăng tốc để cài đặt hoặc kích hoạt hỗ trợ NVIDIA.</translation>
-    </message>
-    <message>
       <source>NVIDIA GPU — CUDA</source>
       <translation>GPU NVIDIA — CUDA</translation>
-    </message>
-    <message>
-      <source>NVIDIA acceleration is installed, but CPU is selected. Choose Automatic in Recognition; the change applies next time capture starts.</source>
-      <translation>Đã cài tăng tốc NVIDIA nhưng đang chọn CPU. Chọn Tự động trong Nhận dạng; thay đổi áp dụng khi bắt đầu chụp lần tới.</translation>
     </message>
     <message>
       <source>Needs working memory in addition to downloaded weights.</source>
@@ -2361,10 +2341,6 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>OCR running: {value:.1f}s</source>
       <translation>OCR đang chạy: {value:.1f}s</translation>
-    </message>
-    <message>
-      <source>OCR settings</source>
-      <translation>Cài đặt OCR</translation>
     </message>
     <message>
       <source>OCR source capture to worker start, including scheduling.</source>
@@ -2737,10 +2713,6 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Cân bằng được khuyến nghị giữa thuật ngữ trò chơi, chất lượng và tốc độ.</translation>
     </message>
     <message>
-      <source>Recommended from detected hardware. You can choose a different runtime.</source>
-      <translation>Được khuyến nghị dựa trên phần cứng phát hiện được. Bạn có thể chọn môi trường chạy khác.</translation>
-    </message>
-    <message>
       <source>Recommended when more memory is available; good game terminology.</source>
       <translation>Được khuyến nghị khi có nhiều bộ nhớ hơn; thuật ngữ trò chơi tốt.</translation>
     </message>
@@ -2835,6 +2807,10 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
     <message>
       <source>Restart DanteTL before changing more shortcuts.</source>
       <translation>Khởi động lại DanteTL trước khi thay đổi thêm phím tắt.</translation>
+    </message>
+    <message>
+      <source>Restart DanteTL to use {name}.</source>
+      <translation>Khởi động lại DanteTL để dùng {name}.</translation>
     </message>
     <message>
       <source>Restart cancelled. Current runtime retained.</source>
@@ -4317,10 +4293,6 @@ Kiến trúc: {architecture} · Định dạng: {value}
     <message>
       <source>✓ Supported · In use</source>
       <translation>✓ Được hỗ trợ · Đang dùng</translation>
-    </message>
-    <message>
-      <source>✓ Supported · Restart to use</source>
-      <translation>✓ Được hỗ trợ · Khởi động lại để dùng</translation>
     </message>
     <message>
       <source>✓ Test successful ({name}): {result}</source>

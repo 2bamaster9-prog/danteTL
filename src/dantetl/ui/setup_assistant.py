@@ -5,6 +5,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
     QDialog,
     QHBoxLayout,
@@ -27,11 +28,12 @@ from dantetl.ui.localization import (
     on_language_change,
 )
 from dantetl.ui.model_summary import ModelSummary
+from dantetl.ui.runtime_restart_prompt import ask_restart
 from dantetl.ui.setup_progress import SetupProgressView
 
 
 class SetupAssistant(QDialog):
-    completed = Signal(str, object)  # desired model ID, optional verified runtime to restart
+    completed = Signal(str, object, bool)  # model ID, restart target, preparation deferred
     skipped = Signal()
 
     def __init__(
@@ -47,9 +49,11 @@ class SetupAssistant(QDialog):
         self.setWindowModality(Qt.WindowModality.WindowModal)
         self.resize(640, 510)
         self.service = service
+        self._pending_restart: Path | None = None
         self.models = {model.key: model for model in service.files}
         ocr = self.models["ocr"]
         self._completion = 0
+        self._started_token = 0
         self.hardware = hardware
         self.hardware_status: HardwareStatus | None = None
         self._closing = self._finished = self._reported = False
@@ -304,6 +308,7 @@ class SetupAssistant(QDialog):
     def _start(self) -> None:
         if self._review is None or not self.service.start_review(self._review.token):
             return
+        self._started_token = self.service.job(SetupLane.GUIDE).token
         self._show(4)
         self.next.setEnabled(False)
         self.skip.setText(tr("Cancel setup"))
@@ -327,7 +332,22 @@ class SetupAssistant(QDialog):
                 tr("Cancelling… waiting for the current read or installer to stop.")
             )
 
+    def _prompt_if_ready(self) -> None:
+        if (
+            self._pending_restart
+            and self.isVisible()
+            and QApplication.activeModalWidget() in (None, self)
+        ):
+            target, self._pending_restart = self._pending_restart, None
+            if target == self.target:
+                ask_restart(
+                    self,
+                    self.runtime.currentData().name,
+                    lambda: self._finish(target) if self.target == target else None,
+                )
+
     def refresh_view(self) -> None:
+        self._prompt_if_ready()
         if self.hardware_status is None:
             status = (
                 self.hardware.snapshot()
@@ -377,12 +397,19 @@ class SetupAssistant(QDialog):
         )
         self.back.setVisible(not self._finished)
         self.result_note.setText(
-            tr("Your chosen model will be selected next. Language models ask before preparation.")
+            tr("Restart DanteTL to use {name}.", name=tr(self.runtime.currentData().name))
+            if self._finished and self.target
+            else tr(
+                "Your chosen model will be selected next. Language models ask before preparation."
+            )
             if self._finished
             else tr("Verified files and your previous runtime were kept.")
         )
         if self._closing:
             self.close()
+        elif job.token == self._started_token and self._finished and (target := self.target):
+            self._pending_restart = target
+            self._prompt_if_ready()
 
     def _finish(self, target: Path | None) -> None:
         self._report_completion(target)
@@ -392,9 +419,10 @@ class SetupAssistant(QDialog):
     def _report_completion(self, target: Path | None) -> None:
         self._reported = True
         if self._review is not None:
+            deferred = self.target is not None and target is None
             key = self.service.acknowledge_review(self._review.token)
             if key is not None:
-                self.completed.emit(key, target)
+                self.completed.emit(key, target, deferred)
 
     def _skip(self) -> None:
         if self.busy:

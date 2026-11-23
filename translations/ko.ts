@@ -181,10 +181,6 @@ Repairs folder: {directory}</source>
       <translation>텍스트 블록에는 최소 한 줄이 필요합니다.</translation>
     </message>
     <message>
-      <source>AMD GPU detected · GPU translation is not enabled in this runtime. Vulkan acceleration is optional; translation and OCR can run on CPU.</source>
-      <translation>AMD GPU 감지됨 · 이 런타임에서는 GPU 번역이 활성화되지 않았습니다. Vulkan 가속은 선택 사항이며, 번역과 OCR은 CPU에서 실행할 수 있습니다.</translation>
-    </message>
-    <message>
       <source>API connection settings are too large.</source>
       <translation>API 연결 설정이 너무 큽니다.</translation>
     </message>
@@ -207,10 +203,6 @@ Repairs folder: {directory}</source>
     <message>
       <source>Acceleration</source>
       <translation>가속</translation>
-    </message>
-    <message>
-      <source>Acceleration options</source>
-      <translation>가속 옵션</translation>
     </message>
     <message>
       <source>Account models · list order is not a speed ranking.</source>
@@ -401,10 +393,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>CAPTURE &amp; STABILITY</source>
       <translation>캡처 및 안정성</translation>
-    </message>
-    <message>
-      <source>CPU OCR is still active. Your new OCR device applies after restarting capture.</source>
-      <translation>CPU OCR이 여전히 활성 상태입니다. 새 OCR 장치는 캡처를 다시 시작한 후 적용됩니다.</translation>
     </message>
     <message>
       <source>CPU execution is supported; larger models can be slow.</source>
@@ -2235,16 +2223,8 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>NVIDIA GPU</translation>
     </message>
     <message>
-      <source>NVIDIA GPU detected · GPU OCR is not enabled in this runtime. Open Acceleration to install or activate NVIDIA support.</source>
-      <translation>NVIDIA GPU 감지됨 · 이 런타임에서는 GPU OCR이 활성화되지 않았습니다. 가속을 열어 NVIDIA 지원을 설치하거나 활성화하세요.</translation>
-    </message>
-    <message>
       <source>NVIDIA GPU — CUDA</source>
       <translation>NVIDIA GPU — CUDA</translation>
-    </message>
-    <message>
-      <source>NVIDIA acceleration is installed, but CPU is selected. Choose Automatic in Recognition; the change applies next time capture starts.</source>
-      <translation>NVIDIA 가속이 설치되었지만 CPU가 선택되어 있습니다. 인식에서 자동을 선택하세요. 변경 사항은 다음 캡처 시작 시 적용됩니다.</translation>
     </message>
     <message>
       <source>Needs working memory in addition to downloaded weights.</source>
@@ -2361,10 +2341,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>OCR running: {value:.1f}s</source>
       <translation>OCR 실행 중: {value:.1f}s</translation>
-    </message>
-    <message>
-      <source>OCR settings</source>
-      <translation>OCR 설정</translation>
     </message>
     <message>
       <source>OCR source capture to worker start, including scheduling.</source>
@@ -2737,10 +2713,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>게임 용어, 품질 및 속도의 권장 균형.</translation>
     </message>
     <message>
-      <source>Recommended from detected hardware. You can choose a different runtime.</source>
-      <translation>감지된 하드웨어 기준 권장 사항. 다른 런타임을 선택할 수 있습니다.</translation>
-    </message>
-    <message>
       <source>Recommended when more memory is available; good game terminology.</source>
       <translation>메모리가 더 많을 때 권장되며 게임 용어 품질이 우수합니다.</translation>
     </message>
@@ -2835,6 +2807,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Restart DanteTL before changing more shortcuts.</source>
       <translation>더 많은 단축키를 변경하기 전에 DanteTL를 재시작하세요.</translation>
+    </message>
+    <message>
+      <source>Restart DanteTL to use {name}.</source>
+      <translation>{name}을(를) 사용하려면 DanteTL을 다시 시작하세요.</translation>
     </message>
     <message>
       <source>Restart cancelled. Current runtime retained.</source>
@@ -4317,10 +4293,6 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>✓ Supported · In use</source>
       <translation>✓ 지원됨 · 사용 중</translation>
-    </message>
-    <message>
-      <source>✓ Supported · Restart to use</source>
-      <translation>✓ 지원됨 · 사용하려면 재시작</translation>
     </message>
     <message>
       <source>✓ Test successful ({name}): {result}</source>

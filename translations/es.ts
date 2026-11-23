@@ -181,10 +181,6 @@ Carpeta de reparaciones: {directory}</translation>
       <translation>Un bloque de texto necesita al menos una línea.</translation>
     </message>
     <message>
-      <source>AMD GPU detected · GPU translation is not enabled in this runtime. Vulkan acceleration is optional; translation and OCR can run on CPU.</source>
-      <translation>GPU AMD detectada · La traducción por GPU no está habilitada en este runtime. La aceleración Vulkan es opcional; la traducción y el OCR pueden ejecutarse en CPU.</translation>
-    </message>
-    <message>
       <source>API connection settings are too large.</source>
       <translation>Los ajustes de conexión de la API son demasiado grandes.</translation>
     </message>
@@ -207,10 +203,6 @@ Carpeta de reparaciones: {directory}</translation>
     <message>
       <source>Acceleration</source>
       <translation>Aceleración</translation>
-    </message>
-    <message>
-      <source>Acceleration options</source>
-      <translation>Opciones de aceleración</translation>
     </message>
     <message>
       <source>Account models · list order is not a speed ranking.</source>
@@ -401,10 +393,6 @@ Los detalles están en %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>CAPTURE &amp; STABILITY</source>
       <translation>CAPTURA Y ESTABILIDAD</translation>
-    </message>
-    <message>
-      <source>CPU OCR is still active. Your new OCR device applies after restarting capture.</source>
-      <translation>El OCR de CPU sigue activo. Tu nuevo dispositivo de OCR se aplicará tras reiniciar la captura.</translation>
     </message>
     <message>
       <source>CPU execution is supported; larger models can be slow.</source>
@@ -2235,16 +2223,8 @@ Los detalles están en %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>GPU NVIDIA</translation>
     </message>
     <message>
-      <source>NVIDIA GPU detected · GPU OCR is not enabled in this runtime. Open Acceleration to install or activate NVIDIA support.</source>
-      <translation>GPU NVIDIA detectada · La OCR por GPU no está habilitada en este entorno. Abre Aceleración para instalar o activar la compatibilidad con NVIDIA.</translation>
-    </message>
-    <message>
       <source>NVIDIA GPU — CUDA</source>
       <translation>GPU NVIDIA — CUDA</translation>
-    </message>
-    <message>
-      <source>NVIDIA acceleration is installed, but CPU is selected. Choose Automatic in Recognition; the change applies next time capture starts.</source>
-      <translation>La aceleración NVIDIA está instalada, pero está seleccionada la CPU. Elige Automático en Reconocimiento; el cambio se aplicará la próxima vez que se inicie la captura.</translation>
     </message>
     <message>
       <source>Needs working memory in addition to downloaded weights.</source>
@@ -2361,10 +2341,6 @@ Los detalles están en %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>OCR running: {value:.1f}s</source>
       <translation>OCR en ejecución: {value:.1f}s</translation>
-    </message>
-    <message>
-      <source>OCR settings</source>
-      <translation>Ajustes de OCR</translation>
     </message>
     <message>
       <source>OCR source capture to worker start, including scheduling.</source>
@@ -2737,10 +2713,6 @@ Descargas de modelos: hasta {size:.2f} GB; los archivos existentes se verifican 
       <translation>Equilibrio recomendado entre terminología de juego, calidad y velocidad.</translation>
     </message>
     <message>
-      <source>Recommended from detected hardware. You can choose a different runtime.</source>
-      <translation>Recomendado según el hardware detectado. Puedes elegir otro entorno de ejecución.</translation>
-    </message>
-    <message>
       <source>Recommended when more memory is available; good game terminology.</source>
       <translation>Recomendado cuando hay más memoria disponible; buena terminología de juego.</translation>
     </message>
@@ -2835,6 +2807,10 @@ Descargas de modelos: hasta {size:.2f} GB; los archivos existentes se verifican 
     <message>
       <source>Restart DanteTL before changing more shortcuts.</source>
       <translation>Reinicia DanteTL antes de cambiar más atajos.</translation>
+    </message>
+    <message>
+      <source>Restart DanteTL to use {name}.</source>
+      <translation>Reinicia DanteTL para usar {name}.</translation>
     </message>
     <message>
       <source>Restart cancelled. Current runtime retained.</source>
@@ -4317,10 +4293,6 @@ Arquitectura: {architecture} · Formato: {value}
     <message>
       <source>✓ Supported · In use</source>
       <translation>✓ Compatible · En uso</translation>
-    </message>
-    <message>
-      <source>✓ Supported · Restart to use</source>
-      <translation>✓ Compatible · Reinicia para usar</translation>
     </message>
     <message>
       <source>✓ Test successful ({name}): {result}</source>

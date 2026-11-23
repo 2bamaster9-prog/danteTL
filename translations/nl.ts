@@ -181,10 +181,6 @@ Herstelmap: {directory}</translation>
       <translation>Een tekstblok heeft minstens één regel nodig.</translation>
     </message>
     <message>
-      <source>AMD GPU detected · GPU translation is not enabled in this runtime. Vulkan acceleration is optional; translation and OCR can run on CPU.</source>
-      <translation>AMD-GPU gedetecteerd · GPU-vertaling is niet ingeschakeld in deze runtime. Vulkan-versnelling is optioneel; vertaling en OCR kunnen op de CPU draaien.</translation>
-    </message>
-    <message>
       <source>API connection settings are too large.</source>
       <translation>API-verbindingsinstellingen zijn te groot.</translation>
     </message>
@@ -207,10 +203,6 @@ Herstelmap: {directory}</translation>
     <message>
       <source>Acceleration</source>
       <translation>Acceleratie</translation>
-    </message>
-    <message>
-      <source>Acceleration options</source>
-      <translation>Acceleratie-opties</translation>
     </message>
     <message>
       <source>Account models · list order is not a speed ranking.</source>
@@ -401,10 +393,6 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>CAPTURE &amp; STABILITY</source>
       <translation>CAPTURE &amp; STABILITEIT</translation>
-    </message>
-    <message>
-      <source>CPU OCR is still active. Your new OCR device applies after restarting capture.</source>
-      <translation>CPU-OCR is nog actief. Je nieuwe OCR-apparaat wordt toegepast na het herstarten van de capture.</translation>
     </message>
     <message>
       <source>CPU execution is supported; larger models can be slow.</source>
@@ -2235,16 +2223,8 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>NVIDIA GPU</translation>
     </message>
     <message>
-      <source>NVIDIA GPU detected · GPU OCR is not enabled in this runtime. Open Acceleration to install or activate NVIDIA support.</source>
-      <translation>NVIDIA GPU gedetecteerd · GPU-OCR is niet ingeschakeld in deze runtime. Open Acceleratie om NVIDIA-ondersteuning te installeren of activeren.</translation>
-    </message>
-    <message>
       <source>NVIDIA GPU — CUDA</source>
       <translation>NVIDIA GPU — CUDA</translation>
-    </message>
-    <message>
-      <source>NVIDIA acceleration is installed, but CPU is selected. Choose Automatic in Recognition; the change applies next time capture starts.</source>
-      <translation>NVIDIA-versnelling is geïnstalleerd, maar CPU is geselecteerd. Kies Automatisch bij Herkenning; de wijziging geldt bij de volgende opnamestart.</translation>
     </message>
     <message>
       <source>Needs working memory in addition to downloaded weights.</source>
@@ -2361,10 +2341,6 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>OCR running: {value:.1f}s</source>
       <translation>OCR actief: {value:.1f}s</translation>
-    </message>
-    <message>
-      <source>OCR settings</source>
-      <translation>OCR-instellingen</translation>
     </message>
     <message>
       <source>OCR source capture to worker start, including scheduling.</source>
@@ -2737,10 +2713,6 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
       <translation>Aanbevolen balans tussen spelterminologie, kwaliteit en snelheid.</translation>
     </message>
     <message>
-      <source>Recommended from detected hardware. You can choose a different runtime.</source>
-      <translation>Aanbevolen op basis van gedetecteerde hardware. U kunt een andere runtime kiezen.</translation>
-    </message>
-    <message>
       <source>Recommended when more memory is available; good game terminology.</source>
       <translation>Aanbevolen wanneer meer geheugen beschikbaar is; goede spelterminologie.</translation>
     </message>
@@ -2835,6 +2807,10 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
     <message>
       <source>Restart DanteTL before changing more shortcuts.</source>
       <translation>Herstart DanteTL voordat je meer sneltoetsen wijzigt.</translation>
+    </message>
+    <message>
+      <source>Restart DanteTL to use {name}.</source>
+      <translation>Start DanteTL opnieuw om {name} te gebruiken.</translation>
     </message>
     <message>
       <source>Restart cancelled. Current runtime retained.</source>
@@ -4317,10 +4293,6 @@ Architectuur: {architecture} · Formaat: {value}
     <message>
       <source>✓ Supported · In use</source>
       <translation>✓ Ondersteund · In gebruik</translation>
-    </message>
-    <message>
-      <source>✓ Supported · Restart to use</source>
-      <translation>✓ Ondersteund · Herstart om te gebruiken</translation>
     </message>
     <message>
       <source>✓ Test successful ({name}): {result}</source>

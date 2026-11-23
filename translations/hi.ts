@@ -181,10 +181,6 @@ Repairs folder: {directory}</source>
       <translation>टेक्स्ट ब्लॉक में कम से कम एक पंक्ति होनी चाहिए।</translation>
     </message>
     <message>
-      <source>AMD GPU detected · GPU translation is not enabled in this runtime. Vulkan acceleration is optional; translation and OCR can run on CPU.</source>
-      <translation>AMD GPU पाया गया · इस रनटाइम में GPU अनुवाद सक्षम नहीं है। Vulkan एक्सेलेरेशन वैकल्पिक है; अनुवाद और OCR CPU पर चल सकते हैं।</translation>
-    </message>
-    <message>
       <source>API connection settings are too large.</source>
       <translation>API कनेक्शन सेटिंग्स बहुत बड़ी हैं।</translation>
     </message>
@@ -207,10 +203,6 @@ Repairs folder: {directory}</source>
     <message>
       <source>Acceleration</source>
       <translation>एक्सेलेरेशन</translation>
-    </message>
-    <message>
-      <source>Acceleration options</source>
-      <translation>एक्सेलेरेशन विकल्प</translation>
     </message>
     <message>
       <source>Account models · list order is not a speed ranking.</source>
@@ -401,10 +393,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>CAPTURE &amp; STABILITY</source>
       <translation>कैप्चर और स्थिरता</translation>
-    </message>
-    <message>
-      <source>CPU OCR is still active. Your new OCR device applies after restarting capture.</source>
-      <translation>CPU OCR अभी भी सक्रिय है। आपका नया OCR डिवाइस कैप्चर पुनःप्रारंभ करने के बाद लागू होगा।</translation>
     </message>
     <message>
       <source>CPU execution is supported; larger models can be slow.</source>
@@ -2235,16 +2223,8 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>NVIDIA GPU</translation>
     </message>
     <message>
-      <source>NVIDIA GPU detected · GPU OCR is not enabled in this runtime. Open Acceleration to install or activate NVIDIA support.</source>
-      <translation>NVIDIA GPU का पता चला · इस रनटाइम में GPU OCR सक्षम नहीं है। NVIDIA समर्थन इंस्टॉल या सक्रिय करने के लिए Acceleration खोलें।</translation>
-    </message>
-    <message>
       <source>NVIDIA GPU — CUDA</source>
       <translation>NVIDIA GPU — CUDA</translation>
-    </message>
-    <message>
-      <source>NVIDIA acceleration is installed, but CPU is selected. Choose Automatic in Recognition; the change applies next time capture starts.</source>
-      <translation>NVIDIA एक्सेलेरेशन इंस्टॉल है, लेकिन CPU चयनित है। Recognition में Automatic चुनें; परिवर्तन अगली बार कैप्चर शुरू होने पर लागू होगा।</translation>
     </message>
     <message>
       <source>Needs working memory in addition to downloaded weights.</source>
@@ -2361,10 +2341,6 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>OCR running: {value:.1f}s</source>
       <translation>OCR चल रहा है: {value:.1f}s</translation>
-    </message>
-    <message>
-      <source>OCR settings</source>
-      <translation>OCR सेटिंग्स</translation>
     </message>
     <message>
       <source>OCR source capture to worker start, including scheduling.</source>
@@ -2737,10 +2713,6 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>गेम शब्दावली, गुणवत्ता और गति का अनुशंसित संतुलन।</translation>
     </message>
     <message>
-      <source>Recommended from detected hardware. You can choose a different runtime.</source>
-      <translation>पहचाने गए हार्डवेयर से अनुशंसित। आप कोई भिन्न रनटाइम चुन सकते हैं।</translation>
-    </message>
-    <message>
       <source>Recommended when more memory is available; good game terminology.</source>
       <translation>जब अधिक मेमोरी उपलब्ध हो तो अनुशंसित; अच्छी गेम शब्दावली।</translation>
     </message>
@@ -2835,6 +2807,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Restart DanteTL before changing more shortcuts.</source>
       <translation>अधिक शॉर्टकट बदलने से पहले DanteTL पुनः आरंभ करें।</translation>
+    </message>
+    <message>
+      <source>Restart DanteTL to use {name}.</source>
+      <translation>{name} का उपयोग करने के लिए DanteTL फिर से शुरू करें।</translation>
     </message>
     <message>
       <source>Restart cancelled. Current runtime retained.</source>
@@ -4317,10 +4293,6 @@ Architecture: {architecture} · Format: {value}
     <message>
       <source>✓ Supported · In use</source>
       <translation>✓ समर्थित · उपयोग में</translation>
-    </message>
-    <message>
-      <source>✓ Supported · Restart to use</source>
-      <translation>✓ समर्थित · उपयोग के लिए पुनः आरंभ करें</translation>
     </message>
     <message>
       <source>✓ Test successful ({name}): {result}</source>

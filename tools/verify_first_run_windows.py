@@ -12,7 +12,7 @@ from uuid import uuid4
 
 import shiboken6
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
@@ -169,8 +169,15 @@ def main() -> int:
                     return
                 assert guide._finished and models[0].present() and models[1].present()
                 assert not models[2].present()
+                prompt = app.activeModalWidget()
+                if prompt is None or prompt is guide:
+                    return
                 guide.grab().save(str(args.output / "complete.png"))
+                assert isinstance(prompt, QMessageBox) and "NVIDIA" in prompt.text()
+                prompt.grab().save(str(args.output / "restart.png"))
+                prompt.button(QMessageBox.StandardButton.Cancel).click()
                 guide.skip.click()
+                evidence["deferred_restart"] = True
                 stage = 4
             elif stage == 4:
                 if not application.preferences.idle or not any(

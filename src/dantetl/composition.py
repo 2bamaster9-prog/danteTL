@@ -118,10 +118,12 @@ def application_session(
 
 def setup_coordinator(inventory: ModelInventory, models: tuple[ModelBundle, ...], root: Path):
     from dantetl.application.setup_coordinator import SetupCoordinator, SetupDependencies
-    from dantetl.runtime.first_run import run_setup
+    from dantetl.runtime.first_run import needs_runtime, run_setup
     from dantetl.runtime.hardware import detect_adapters
-    from dantetl.runtime.hardware_values import recommended_profile
+    from dantetl.runtime.hardware_values import HardwareStatus, recommended_profile
+    from dantetl.runtime.llama import installed_device
     from dantetl.runtime.model_store import ModelOperation, install_model
+    from dantetl.runtime.ocr import gpu_runtime_installed
     from dantetl.runtime.setup import install_runtime, ready_runtime, select_runtime
     from dantetl.runtime.setup_values import RuntimeStatus
     from dantetl.runtime.values import PROFILES
@@ -130,11 +132,13 @@ def setup_coordinator(inventory: ModelInventory, models: tuple[ModelBundle, ...]
 
     def status() -> RuntimeStatus:
         adapters = detect_adapters()
+        hardware = HardwareStatus(adapters, gpu_runtime_installed(), installed_device())
         return RuntimeStatus(
             adapters,
             tuple((p.key, ready_runtime(root, p.key)) for p in PROFILES),
             Path(sys.prefix).resolve(),
             recommended_profile(adapters),
+            next((p.key for p in PROFILES if not needs_runtime(p, hardware, upgrade=False)), ""),
         )
 
     return SetupCoordinator(

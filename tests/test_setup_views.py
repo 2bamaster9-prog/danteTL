@@ -1,6 +1,7 @@
 """Recreated views observe existing application operations without restarting them."""
 
 import os
+import threading
 from dataclasses import replace
 from unittest.mock import Mock
 
@@ -8,11 +9,11 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest  # noqa: E402
 import shiboken6  # noqa: E402
-from PySide6.QtWidgets import QWidget  # noqa: E402
+from PySide6.QtWidgets import QMessageBox, QWidget  # noqa: E402
 from test_setup_ownership import configured  # noqa: E402
 
 from dantetl.runtime.hardware_values import HardwareStatus  # noqa: E402
-from dantetl.runtime.setup_values import DownloadProgress, ModelProgress, SetupLane  # noqa: E402
+from dantetl.runtime.setup_values import DownloadProgress, ModelProgress, RuntimeStatus, SetupLane  # noqa: E402
 from dantetl.translation.models.values import ImportedModel, ProbeResult  # noqa: E402
 from dantetl.ui.model_import_dialog import ModelImportDialog  # noqa: E402
 from dantetl.ui.runtime_dialog import RuntimeSetupDialog  # noqa: E402
@@ -33,6 +34,60 @@ def test_unmeasured_setup_step_animates_until_bytes_arrive_or_work_stops(app):
         assert view.download.isHidden() and view.overall.format() == "Stopped"
     finally:
         shiboken6.delete(view)
+
+
+def test_runtime_picker_opens_on_active_profile_and_surfaces_verified_switch(app, tmp_path):
+    replay = configured(tmp_path)
+    target = tmp_path / "vulkan"
+    status = RuntimeStatus(current=tmp_path / "cpu", recommendation="nvidia", active_profile="cpu")
+    detect = replay.dependencies.runtime_status
+    select = replay.dependencies.select_runtime
+    assert isinstance(detect, Mock) and isinstance(select, Mock)
+    detect.return_value = status
+    view = RuntimeSetupDialog(replay.setup)
+
+    def finish():
+        operation = replay.operations[-1]
+        operation.work(lambda _: None, threading.Event())
+        operation.finish()
+        replay.setup.advance()
+        view.refresh_view()
+
+    try:
+        finish()
+        assert view.choice.currentData().key == "cpu" and "In use" in view.status.text()
+        assert app.activeModalWidget() is None
+        index = next(i for i in range(view.choice.count()) if view.choice.itemData(i).key == "amd")
+        view.choice.setCurrentIndex(index)
+        assert replay.setup.download("model")
+        model_download = replay.operations[-1]
+        view.install.click()
+        detect.return_value = replace(status, targets=(("amd", target),))
+        finish()
+        assert not view.restart.isHidden() and "Vulkan" in view.status.text()
+        assert replay.setup.installed_runtime == (view.choice.currentData().name, target)
+        assert app.activeModalWidget() is None
+        model_download.finish()
+        replay.setup.advance()
+        view.refresh_view()
+        prompt = app.activeModalWidget()
+        assert isinstance(prompt, QMessageBox) and "Vulkan" in prompt.text()
+        prompt.button(QMessageBox.StandardButton.Cancel).click()
+        select.assert_not_called()
+        emitted = []
+        view.restart_requested.connect(emitted.append)
+        view.choice.activated.emit(index)
+        prompt = app.activeModalWidget()
+        assert isinstance(prompt, QMessageBox)
+        prompt.defaultButton().click()
+        assert emitted == [target]
+        view.later.click()
+        finish()
+        select.assert_called_once_with(target)
+        assert replay.setup.installed_runtime is None
+    finally:
+        shiboken6.delete(view)
+        replay.close()
 
 
 def test_local_download_cancel_only_signals_the_model_lane(app, tmp_path, monkeypatch):

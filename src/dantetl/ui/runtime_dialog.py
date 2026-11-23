@@ -1,8 +1,11 @@
 """Explicit runtime installation UI; detection, processes and disk work stay on a worker."""
 
+from pathlib import Path
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
     QDialog,
     QHBoxLayout,
@@ -15,8 +18,8 @@ from PySide6.QtWidgets import (
 from dantetl.application.services import SetupCommands
 from dantetl.i18n import mark, tr
 from dantetl.runtime.setup_values import SetupLane
-from dantetl.ui.controls import InfoButton
 from dantetl.ui.localization import localized, localized_item, on_language_change
+from dantetl.ui.runtime_restart_prompt import ask_restart
 from dantetl.ui.setup_progress import SetupProgressView
 
 
@@ -33,6 +36,8 @@ class RuntimeSetupDialog(QDialog):
         self.error_message = ""
         self.service = service
         self._completion = 0
+        self._pending_restart: Path | None = None
+        self._install_token = 0
         localized(self, windowTitle=mark("Runtime setup"))
         self.resize(660, 460)
         self._closing = False
@@ -44,26 +49,21 @@ class RuntimeSetupDialog(QDialog):
         layout.addWidget(self.hardware)
         header = QHBoxLayout()
         header.addWidget(localized(QLabel(), text=mark("Runtime")))
-        header.addWidget(
-            InfoButton(
-                mark("Runtime"),
-                mark("Switching runtimes keeps your models and requires a restart."),
-            )
-        )
         header.addStretch()
         layout.addLayout(header)
         self.choice = QComboBox()
         for profile in service.profiles:
             localized_item(self.choice, profile.name, profile)
         self.choice.setEnabled(False)
-        localized(
-            self.choice,
-            toolTip=mark("Recommended from detected hardware. You can choose a different runtime."),
-        )
         layout.addWidget(self.choice)
         self.description = QLabel()
         self.description.setWordWrap(True)
         layout.addWidget(self.description)
+        explanation = localized(
+            QLabel(), text=mark("Switching runtimes keeps your models and requires a restart.")
+        )
+        explanation.setWordWrap(True)
+        layout.addWidget(explanation)
         self.progress_view = SetupProgressView()
         self.status = self.progress_view.status
         self.progress = self.progress_view.overall
@@ -71,25 +71,27 @@ class RuntimeSetupDialog(QDialog):
         self.install = localized(QPushButton(), text=mark("Install runtime"))
         self.install.setEnabled(False)
         self.install.clicked.connect(self._install)
-        layout.addWidget(self.install)
         self.restart = localized(QPushButton(), text=mark("Restart now"))
+        self.restart.setObjectName("primary")
         localized(
             self.restart,
             toolTip=mark("Stops capture and waits for active workers, then opens the new runtime."),
         )
         self.restart.setEnabled(False)
-        self.restart.clicked.connect(self._restart)
+        self.restart.clicked.connect(lambda: self._restart())
         layout.addWidget(self.restart)
         self.later = localized(QPushButton(), text=mark("Use on next launch"))
         self.later.setEnabled(False)
         self.later.clicked.connect(self._later)
         layout.addWidget(self.later)
+        layout.addWidget(self.install)
         self.cancel_button = localized(QPushButton(), text=mark("Cancel"))
         self.cancel_button.clicked.connect(self.cancel_operation if embedded else self.close)
         if embedded:
             localized(self.cancel_button, text=mark("Cancel setup"))
         layout.addWidget(self.cancel_button)
         self.choice.currentIndexChanged.connect(self._selected)
+        self.choice.activated.connect(self._offer_restart)
         active = service.job(SetupLane.RUNTIME)
         if active.key:
             for index, profile in enumerate(service.profiles):
@@ -131,10 +133,16 @@ class RuntimeSetupDialog(QDialog):
             return
         self.description.setText(tr(profile.description))
         ready = self.service.runtime.target(profile.key)
-        current = ready is not None and ready == self.service.runtime.current
+        current = (
+            ready == self.service.runtime.current
+            if ready
+            else profile.key == self.service.runtime.active_profile
+        )
         idle = not self.busy
         self.install.setEnabled(idle)
-        self.install.setText(tr("Verify / repair runtime") if ready else tr("Install runtime"))
+        self.install.setText(
+            tr("Verify / repair runtime") if ready or current else tr("Install runtime")
+        )
         self.restart.setEnabled(idle and bool(ready) and not current)
         self.later.setEnabled(self.restart.isEnabled())
         self.restart.setVisible(self.restart.isEnabled())
@@ -152,7 +160,7 @@ class RuntimeSetupDialog(QDialog):
             self.status.setText(
                 tr("✓ Supported · In use")
                 if current
-                else tr("✓ Supported · Restart to use")
+                else tr("Restart DanteTL to use {name}.", name=tr(profile.name))
                 if ready
                 else tr("Ready to install")
             )
@@ -161,6 +169,8 @@ class RuntimeSetupDialog(QDialog):
         profile = self.choice.currentData()
         if profile is None or not self.service.install_runtime(profile.key):
             return
+        self._pending_restart = None
+        self._install_token = self.service.job(SetupLane.RUNTIME).token
         self._closing = False
         self.error_message = ""
         self.choice.setEnabled(False)
@@ -175,6 +185,7 @@ class RuntimeSetupDialog(QDialog):
     def refresh_view(self) -> None:
         job = self.service.job(SetupLane.RUNTIME)
         if not job.token or self._completion == job.token:
+            self._prompt_when_ready()
             return
         value = job.progress
         self.progress_view.update_progress(value)
@@ -192,7 +203,7 @@ class RuntimeSetupDialog(QDialog):
         self.choice.setEnabled(True)
         if job.action == "detect":
             self._show_hardware()
-            key = self.service.runtime.recommendation
+            key = self.service.runtime.active_profile or self.service.runtime.recommendation
             self.choice.setCurrentIndex(
                 next(i for i, p in enumerate(self.service.profiles) if p.key == key)
             )
@@ -210,11 +221,31 @@ class RuntimeSetupDialog(QDialog):
             )
         if self._closing:
             self.close()
+        elif job.token == self._install_token and not (value.cancelled or value.error):
+            self._offer_restart()
 
-    def _restart(self) -> None:
+    def _offer_restart(self) -> None:
+        self._pending_restart = self.service.runtime.target(self.choice.currentData().key)
+        self._prompt_when_ready()
+
+    def _prompt_when_ready(self) -> None:
+        target = self._pending_restart
+        modal = QApplication.activeModalWidget()
+        if target is None or self.service.busy or modal not in (None, self.window()):
+            return
+        self._pending_restart = None
+        profile = self.choice.currentData()
+        if (
+            target == self.service.runtime.target(profile.key)
+            and target != self.service.runtime.current
+        ):
+            ask_restart(self, profile.name, lambda: self._restart(target))
+
+    def _restart(self, expected: Path | None = None) -> None:
         profile = self.choice.currentData()
         ready = self.service.runtime.target(profile.key)
-        if ready and not self.busy:
+        if ready and not self.busy and (expected is None or expected == ready):
+            self._pending_restart = None
             if not self._embedded:
                 self.hide()
             self.restart_requested.emit(ready)
@@ -222,6 +253,7 @@ class RuntimeSetupDialog(QDialog):
     def _later(self) -> None:
         profile = self.choice.currentData()
         if profile is not None and self.service.use_next_launch(profile.key):
+            self._pending_restart = None
             self._selected()
 
     def reject(self) -> None:

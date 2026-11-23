@@ -181,10 +181,6 @@ Folder perbaikan: {directory}</translation>
       <translation>Blok teks memerlukan setidaknya satu baris.</translation>
     </message>
     <message>
-      <source>AMD GPU detected · GPU translation is not enabled in this runtime. Vulkan acceleration is optional; translation and OCR can run on CPU.</source>
-      <translation>GPU AMD terdeteksi · Terjemahan GPU tidak diaktifkan dalam runtime ini. Akselerasi Vulkan bersifat opsional; terjemahan dan OCR dapat berjalan di CPU.</translation>
-    </message>
-    <message>
       <source>API connection settings are too large.</source>
       <translation>Pengaturan koneksi API terlalu besar.</translation>
     </message>
@@ -207,10 +203,6 @@ Folder perbaikan: {directory}</translation>
     <message>
       <source>Acceleration</source>
       <translation>Akselerasi</translation>
-    </message>
-    <message>
-      <source>Acceleration options</source>
-      <translation>Opsi akselerasi</translation>
     </message>
     <message>
       <source>Account models · list order is not a speed ranking.</source>
@@ -401,10 +393,6 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>CAPTURE &amp; STABILITY</source>
       <translation>PENGAMBILAN &amp; STABILITAS</translation>
-    </message>
-    <message>
-      <source>CPU OCR is still active. Your new OCR device applies after restarting capture.</source>
-      <translation>OCR CPU masih aktif. Perangkat OCR baru Anda berlaku setelah memulai ulang pengambilan.</translation>
     </message>
     <message>
       <source>CPU execution is supported; larger models can be slow.</source>
@@ -2235,16 +2223,8 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>GPU NVIDIA</translation>
     </message>
     <message>
-      <source>NVIDIA GPU detected · GPU OCR is not enabled in this runtime. Open Acceleration to install or activate NVIDIA support.</source>
-      <translation>GPU NVIDIA terdeteksi · OCR GPU tidak diaktifkan di runtime ini. Buka Akselerasi untuk memasang atau mengaktifkan dukungan NVIDIA.</translation>
-    </message>
-    <message>
       <source>NVIDIA GPU — CUDA</source>
       <translation>GPU NVIDIA — CUDA</translation>
-    </message>
-    <message>
-      <source>NVIDIA acceleration is installed, but CPU is selected. Choose Automatic in Recognition; the change applies next time capture starts.</source>
-      <translation>Akselerasi NVIDIA sudah terpasang, tetapi CPU dipilih. Pilih Otomatis di Pengenalan; perubahan berlaku saat pengambilan berikutnya dimulai.</translation>
     </message>
     <message>
       <source>Needs working memory in addition to downloaded weights.</source>
@@ -2361,10 +2341,6 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>OCR running: {value:.1f}s</source>
       <translation>OCR berjalan: {value:.1f}s</translation>
-    </message>
-    <message>
-      <source>OCR settings</source>
-      <translation>Pengaturan OCR</translation>
     </message>
     <message>
       <source>OCR source capture to worker start, including scheduling.</source>
@@ -2737,10 +2713,6 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Keseimbangan yang direkomendasikan antara terminologi game, kualitas, dan kecepatan.</translation>
     </message>
     <message>
-      <source>Recommended from detected hardware. You can choose a different runtime.</source>
-      <translation>Direkomendasikan dari perangkat keras yang terdeteksi. Anda dapat memilih runtime lain.</translation>
-    </message>
-    <message>
       <source>Recommended when more memory is available; good game terminology.</source>
       <translation>Direkomendasikan saat memori lebih tersedia; terminologi game yang baik.</translation>
     </message>
@@ -2835,6 +2807,10 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
     <message>
       <source>Restart DanteTL before changing more shortcuts.</source>
       <translation>Mulai ulang DanteTL sebelum mengubah pintasan lainnya.</translation>
+    </message>
+    <message>
+      <source>Restart DanteTL to use {name}.</source>
+      <translation>Mulai ulang DanteTL untuk menggunakan {name}.</translation>
     </message>
     <message>
       <source>Restart cancelled. Current runtime retained.</source>
@@ -4317,10 +4293,6 @@ Arsitektur: {architecture} · Format: {value}
     <message>
       <source>✓ Supported · In use</source>
       <translation>✓ Didukung · Sedang digunakan</translation>
-    </message>
-    <message>
-      <source>✓ Supported · Restart to use</source>
-      <translation>✓ Didukung · Mulai ulang untuk menggunakan</translation>
     </message>
     <message>
       <source>✓ Test successful ({name}): {result}</source>

@@ -1102,7 +1102,7 @@ def test_model_download_badges_and_missing_selection_warnings_are_distinct(
     assert "Download required" in manager.download_badge.text()
     assert manager.download_badge.property("tone") == "warning"
     assert window.onboarding.property("tone") == "warning"
-    assert "NVIDIA GPU detected" in window.acceleration_notice.label.text()
+    assert window.acceleration_notice.isHidden()
     (tmp_path / "weights").write_bytes(b"good")
     settings(window).show_models()
     drain(window, lambda: manager.download_badge.text() == "✓  Downloaded")
@@ -1139,8 +1139,7 @@ def test_cpu_model_selection_is_usable_and_notice_does_not_request_setup(app, mo
         application.translation.lifecycle.snapshot().selected == choice
         and window.translate_check.isEnabled()
     )
-    assert choice.performance_notice in window.notice.text()
-    assert window.models_button.text() == "Acceleration options"
+    assert window.onboarding.isHidden()
     setup.assert_not_called()
     factory.assert_not_called()  # No capture/worker until requested.
     window.close()

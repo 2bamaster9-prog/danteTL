@@ -16,8 +16,9 @@ AMD = Adapter("AMD fixture", 0x1002, 8 * 2**30)
     [
         (None, "cpu", "", "", "runtime"),
         (HardwareStatus(), "cpu", "", "", "runtime"),
-        (HardwareStatus((NVIDIA, AMD)), "cpu", "", "NVIDIA GPU detected", "runtime"),
-        (HardwareStatus((NVIDIA,), True, "cuda"), "cpu", "", "CPU is selected", "recognition"),
+        (HardwareStatus((NVIDIA, AMD)), "cpu", "", "", "runtime"),
+        (HardwareStatus((NVIDIA,), True, "cuda"), "cpu", "", "", "runtime"),
+        (HardwareStatus((NVIDIA,), False, "vulkan"), "auto", "CPUExecutionProvider", "", "runtime"),
         (HardwareStatus((NVIDIA,), True, "cuda"), "auto", "CUDAExecutionProvider", "", "runtime"),
         (
             HardwareStatus((NVIDIA,), True, "cuda"),
@@ -26,7 +27,7 @@ AMD = Adapter("AMD fixture", 0x1002, 8 * 2**30)
             "fell back",
             "runtime",
         ),
-        (HardwareStatus((AMD,)), "cpu", "", "AMD GPU detected", "runtime"),
+        (HardwareStatus((AMD,)), "cpu", "", "", "runtime"),
         (HardwareStatus((AMD,), False, "vulkan"), "cpu", "CPUExecutionProvider", "", "runtime"),
         (HardwareStatus(error="DXGI unavailable"), "cpu", "", "could not be checked", "runtime"),
     ],

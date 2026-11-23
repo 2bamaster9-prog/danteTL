@@ -102,10 +102,12 @@ stale replies cannot adopt new proposals. Setup has three bounded lanes: models/
 and guide. Import probes wait for both translator and classifier cleanup. The skippable guide offers
 downloadable bundles, not imported GGUF registrations. Its saved choice survives delayed discovery
 and goes through the ordinary assignment and consent flow even if the picker already displays it.
+Postponing a runtime switch defers guide-model preparation.
 The application acknowledges the choice on assignment or when the user answers the preparation prompt.
 After review, the guide runs one model installer and one runtime installer concurrently and publishes
 progress for each. The guide owns both until they drain. Settings can also install a model and a runtime
-concurrently.
+concurrently. Choosing a verified inactive runtime or finishing its install offers a restart once
+other setup work finishes. Detecting hardware or restoring a picker never triggers the prompt.
 A cancellation request leaves the lane busy until its worker reports an outcome. Committed changes
 refresh inventory even when cancellation arrives before the application observes completion. Discovery
 also reconciles verified files kept by a partially completed setup.

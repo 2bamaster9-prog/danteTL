@@ -59,6 +59,7 @@ class RuntimeStatus:
     targets: tuple[tuple[str, Path | None], ...] = ()
     current: Path | None = None
     recommendation: str = "cpu"
+    active_profile: str = ""
 
     def target(self, key: str) -> Path | None:
         return next((path for name, path in self.targets if name == key), None)
