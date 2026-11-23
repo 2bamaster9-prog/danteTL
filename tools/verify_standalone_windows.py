@@ -192,6 +192,7 @@ def main() -> None:
         PATH=str(Path(os.environ["SYSTEMROOT"]) / "System32"),
         LOCALAPPDATA=str(output / "AppData"),
         PYINSTALLER_RESET_ENVIRONMENT="1",
+        DANTETL_DISABLE_UPDATE_CHECK="1",
     )
     state = output / "AppData/DanteTL"
     saved = {"profile": "nvidia", "environment": "nvidia-" + "0" * 32}

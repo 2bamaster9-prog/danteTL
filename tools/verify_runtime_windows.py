@@ -3,6 +3,7 @@
 import argparse
 import ctypes
 import json
+import os
 import sys
 import time
 from contextlib import nullcontext
@@ -42,6 +43,7 @@ def main() -> int:
         "--cache-root", type=Path, help="Reuse a development project's uv/Python cache"
     )
     args = parser.parse_args()
+    os.environ["DANTETL_DISABLE_UPDATE_CHECK"] = "1"
     root = runtime_setup.project_root()
     if "artifacts" not in root.parts:
         raise SystemExit(

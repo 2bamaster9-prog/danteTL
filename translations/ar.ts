@@ -197,6 +197,10 @@ Repairs folder: {directory}</source>
       <translation>مفتاح API مطلوب</translation>
     </message>
     <message>
+      <source>About</source>
+      <translation>حول</translation>
+    </message>
+    <message>
       <source>About {name}</source>
       <translation>حول {name}</translation>
     </message>
@@ -317,6 +321,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Apply {name} shortcut</source>
       <translation>تطبيق اختصار {name}</translation>
+    </message>
+    <message>
+      <source>Ask me later</source>
+      <translation>اسألني لاحقًا</translation>
     </message>
     <message>
       <source>Ask this provider for its model catalog. No translation request is sent.</source>
@@ -735,6 +743,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>تحقق من استيراد التطبيق فقط</translation>
     </message>
     <message>
+      <source>Check for updates</source>
+      <translation>التحقق من وجود تحديثات</translation>
+    </message>
+    <message>
       <source>Check the acceleration setup.</source>
       <translation>تحقق من إعداد التسريع.</translation>
     </message>
@@ -745,6 +757,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Checking dialogue…</source>
       <translation>جارٍ فحص الحوار…</translation>
+    </message>
+    <message>
+      <source>Checking for updates…</source>
+      <translation>جارٍ التحقق من وجود تحديثات…</translation>
     </message>
     <message>
       <source>Checking graphics hardware…</source>
@@ -1161,6 +1177,14 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>DanteTL currently requires Windows.</source>
       <translation>يتطلب DanteTL حاليًا نظام Windows.</translation>
+    </message>
+    <message>
+      <source>DanteTL is up to date.</source>
+      <translation>DanteTL مُحدّث.</translation>
+    </message>
+    <message>
+      <source>DanteTL {version} is available.</source>
+      <translation>يتوفر DanteTL {version}.</translation>
     </message>
     <message>
       <source>DanteTL · Settings</source>
@@ -2551,6 +2575,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>جارٍ تحضير نموذج الترجمة لهذا الكمبيوتر…</translation>
     </message>
     <message>
+      <source>Preparing update… {percent}%</source>
+      <translation>جارٍ تجهيز التحديث… {percent}%</translation>
+    </message>
+    <message>
       <source>Preview zoom</source>
       <translation>تكبير المعاينة</translation>
     </message>
@@ -2735,6 +2763,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Regions held</source>
       <translation>المناطق المحتفظ بها</translation>
+    </message>
+    <message>
+      <source>Release notes</source>
+      <translation>ملاحظات الإصدار</translation>
     </message>
     <message>
       <source>Remove</source>
@@ -3737,8 +3769,20 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>تنسيق إعدادات غير مدعوم؛ يتم استخدام الإعدادات الافتراضية.</translation>
     </message>
     <message>
+      <source>Update failed: {detail}</source>
+      <translation>فشل التحديث: {detail}</translation>
+    </message>
+    <message>
+      <source>Update from {current} to {version} and restart?</source>
+      <translation>هل تريد التحديث من {current} إلى {version} وإعادة التشغيل؟</translation>
+    </message>
+    <message>
       <source>Update location</source>
       <translation>موقع التحديث</translation>
+    </message>
+    <message>
+      <source>Update to {version}</source>
+      <translation>التحديث إلى {version}</translation>
     </message>
     <message>
       <source>Use on next launch</source>

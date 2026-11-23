@@ -197,6 +197,10 @@ Folder perbaikan: {directory}</translation>
       <translation>Kunci API diperlukan</translation>
     </message>
     <message>
+      <source>About</source>
+      <translation>Tentang</translation>
+    </message>
+    <message>
       <source>About {name}</source>
       <translation>Tentang {name}</translation>
     </message>
@@ -317,6 +321,10 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Apply {name} shortcut</source>
       <translation>Terapkan pintasan {name}</translation>
+    </message>
+    <message>
+      <source>Ask me later</source>
+      <translation>Tanyakan nanti</translation>
     </message>
     <message>
       <source>Ask this provider for its model catalog. No translation request is sent.</source>
@@ -735,6 +743,10 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Periksa hanya impor aplikasi</translation>
     </message>
     <message>
+      <source>Check for updates</source>
+      <translation>Periksa pembaruan</translation>
+    </message>
+    <message>
       <source>Check the acceleration setup.</source>
       <translation>Periksa penyiapan akselerasi.</translation>
     </message>
@@ -745,6 +757,10 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Checking dialogue…</source>
       <translation>Memeriksa dialog…</translation>
+    </message>
+    <message>
+      <source>Checking for updates…</source>
+      <translation>Memeriksa pembaruan…</translation>
     </message>
     <message>
       <source>Checking graphics hardware…</source>
@@ -1161,6 +1177,14 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>DanteTL currently requires Windows.</source>
       <translation>DanteTL saat ini memerlukan Windows.</translation>
+    </message>
+    <message>
+      <source>DanteTL is up to date.</source>
+      <translation>DanteTL sudah mutakhir.</translation>
+    </message>
+    <message>
+      <source>DanteTL {version} is available.</source>
+      <translation>DanteTL {version} tersedia.</translation>
     </message>
     <message>
       <source>DanteTL · Settings</source>
@@ -2551,6 +2575,10 @@ Detail ada di %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Menyiapkan model terjemahan untuk PC ini…</translation>
     </message>
     <message>
+      <source>Preparing update… {percent}%</source>
+      <translation>Menyiapkan pembaruan… {percent}%</translation>
+    </message>
+    <message>
       <source>Preview zoom</source>
       <translation>Zoom pratinjau</translation>
     </message>
@@ -2735,6 +2763,10 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
     <message>
       <source>Regions held</source>
       <translation>Wilayah yang dipegang</translation>
+    </message>
+    <message>
+      <source>Release notes</source>
+      <translation>Catatan rilis</translation>
     </message>
     <message>
       <source>Remove</source>
@@ -3737,8 +3769,20 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Format pengaturan tidak didukung; default sedang digunakan.</translation>
     </message>
     <message>
+      <source>Update failed: {detail}</source>
+      <translation>Pembaruan gagal: {detail}</translation>
+    </message>
+    <message>
+      <source>Update from {current} to {version} and restart?</source>
+      <translation>Perbarui dari {current} ke {version} dan mulai ulang?</translation>
+    </message>
+    <message>
       <source>Update location</source>
       <translation>Lokasi pembaruan</translation>
+    </message>
+    <message>
+      <source>Update to {version}</source>
+      <translation>Perbarui ke {version}</translation>
     </message>
     <message>
       <source>Use on next launch</source>

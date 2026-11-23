@@ -197,6 +197,10 @@ Herstelmap: {directory}</translation>
       <translation>API-sleutel vereist</translation>
     </message>
     <message>
+      <source>About</source>
+      <translation>Over</translation>
+    </message>
+    <message>
       <source>About {name}</source>
       <translation>Over {name}</translation>
     </message>
@@ -317,6 +321,10 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Apply {name} shortcut</source>
       <translation>Sneltoets {name} toepassen</translation>
+    </message>
+    <message>
+      <source>Ask me later</source>
+      <translation>Vraag het later</translation>
     </message>
     <message>
       <source>Ask this provider for its model catalog. No translation request is sent.</source>
@@ -735,6 +743,10 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Alleen app-import testen</translation>
     </message>
     <message>
+      <source>Check for updates</source>
+      <translation>Controleren op updates</translation>
+    </message>
+    <message>
       <source>Check the acceleration setup.</source>
       <translation>Controleer de acceleratie-instelling.</translation>
     </message>
@@ -745,6 +757,10 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Checking dialogue…</source>
       <translation>Dialoog controleren…</translation>
+    </message>
+    <message>
+      <source>Checking for updates…</source>
+      <translation>Zoeken naar updates…</translation>
     </message>
     <message>
       <source>Checking graphics hardware…</source>
@@ -1161,6 +1177,14 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>DanteTL currently requires Windows.</source>
       <translation>DanteTL vereist momenteel Windows.</translation>
+    </message>
+    <message>
+      <source>DanteTL is up to date.</source>
+      <translation>DanteTL is bijgewerkt.</translation>
+    </message>
+    <message>
+      <source>DanteTL {version} is available.</source>
+      <translation>DanteTL {version} is beschikbaar.</translation>
     </message>
     <message>
       <source>DanteTL · Settings</source>
@@ -2551,6 +2575,10 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Vertaalmodel voor deze pc voorbereiden…</translation>
     </message>
     <message>
+      <source>Preparing update… {percent}%</source>
+      <translation>Update voorbereiden… {percent}%</translation>
+    </message>
+    <message>
       <source>Preview zoom</source>
       <translation>Voorbeeldzoom</translation>
     </message>
@@ -2735,6 +2763,10 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
     <message>
       <source>Regions held</source>
       <translation>Vastgehouden regio's</translation>
+    </message>
+    <message>
+      <source>Release notes</source>
+      <translation>Versie-informatie</translation>
     </message>
     <message>
       <source>Remove</source>
@@ -3737,8 +3769,20 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
       <translation>Niet-ondersteund instellingenformaat; standaardwaarden worden gebruikt.</translation>
     </message>
     <message>
+      <source>Update failed: {detail}</source>
+      <translation>Update mislukt: {detail}</translation>
+    </message>
+    <message>
+      <source>Update from {current} to {version} and restart?</source>
+      <translation>Bijwerken van {current} naar {version} en opnieuw starten?</translation>
+    </message>
+    <message>
       <source>Update location</source>
       <translation>Locatie bijwerken</translation>
+    </message>
+    <message>
+      <source>Update to {version}</source>
+      <translation>Bijwerken naar {version}</translation>
     </message>
     <message>
       <source>Use on next launch</source>

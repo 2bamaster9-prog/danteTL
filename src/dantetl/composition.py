@@ -17,6 +17,7 @@ from dantetl.application.session import ApplicationSession
 from dantetl.application.setup_coordinator import SetupCoordinator
 from dantetl.application.shutdown import ShutdownCoordinator
 from dantetl.application.translation_coordinator import TranslationCoordinator
+from dantetl.application.updates import Updates
 from dantetl.capture.windows import Windows
 from dantetl.capture.worker import CaptureSession
 from dantetl.languages.selection import DEFAULT_SOURCE
@@ -173,3 +174,15 @@ def model_inventory(models: SourceModels) -> ModelInventory:
     inventory = ModelInventory(models.inspect, mark_prepared)
     inventory.advance(0)
     return inventory
+
+
+def release_updates(installed: str) -> Updates:
+    from dantetl.paths import is_standalone, resource_root
+    from dantetl.runtime.release_feed import fetch_release
+    from dantetl.runtime.update_install import publisher_key
+    from dantetl.runtime.update_launcher import install_release
+
+    project, state = resource_root(), state_root()
+    key = publisher_key(project) if is_standalone() else None
+    install = partial(install_release, project=project, state=state, key=key) if key else None
+    return Updates(installed, state, fetch=fetch_release, install=install)

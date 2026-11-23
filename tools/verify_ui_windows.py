@@ -4,19 +4,21 @@ import argparse
 import json
 import time
 from dataclasses import replace
+from importlib.metadata import version
 from pathlib import Path
 
 import shiboken6
 from PySide6.QtCore import QPoint, Qt, QTimer
 from PySide6.QtGui import QAccessible
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QLabel
 from verification_isolation import app_owner
 from verification_isolation import create_window as MainWindow
 
 from dantetl.application.model_discovery import translation_backends
 from dantetl.application.model_factories import create_recognizer, ocr_backends
 from dantetl.application.preferences import PreferenceStore
+from dantetl.application.updates import Updates
 from dantetl.capture.windows import Windows
 from dantetl.runtime.hardware import HardwareCheck
 from dantetl.runtime.model_store import model_catalog
@@ -53,6 +55,7 @@ def main() -> int:
             replace(b, directory=args.output / "not-installed" / b.key, bundled_directory=None)
             for b in models
         )
+    updates = Updates("0.1.0", args.output, fetch=lambda cancel: None, install=None)
     window = MainWindow(
         windows,
         create_recognizer,
@@ -62,6 +65,7 @@ def main() -> int:
         preferences_path=preferences_path,
         cache_path=cache_path,
         hardware=hardware,
+        updates=updates,
     )
     application = app_owner(window)
     # Show only our fixture name in screenshots, never another application's title.
@@ -139,6 +143,35 @@ def main() -> int:
                 assert settings.runtime is None  # Merely opening Settings does not start setup.
                 assert window.stabilize_check.isChecked() and window.automatic_font.isChecked()
                 settings.grab().save(str(args.output / "appearance.png"))
+                info = window.about_button
+                assert info.accessibleName() == "About" and not info.icon().pixmap(16).isNull()
+                QTest.keyClick(info, Qt.Key.Key_Space)
+                assert window.about.isVisible()
+                version_label = next(
+                    label
+                    for label in window.about.findChildren(QLabel)
+                    if label.text() == f"v{version('dantetl')}"
+                )
+                button_bounds = window.about.check.geometry()
+                assert version_label.isVisible() and version_label.x() > button_bounds.right()
+                label_center_y = version_label.geometry().center().y()
+                assert button_bounds.top() <= label_center_y <= button_bounds.bottom()
+                credits = next(
+                    label
+                    for label in window.about.findChildren(QLabel)
+                    if label.openExternalLinks()
+                )
+                assert credits.isVisible() and "© 2026 Nuno Melo" in credits.text()
+                assert 'href="https://github.com/nhmelo"' in credits.text()
+                assert 'href="https://www.apache.org/licenses/LICENSE-2.0"' in credits.text()
+                assert window.about.check.isEnabled()
+                window.about.check.click()
+                stage = 102
+            elif stage == 102:
+                if window.about.status.text() != "DanteTL is up to date.":
+                    return
+                window.about.grab().save(str(args.output / "about.png"))
+                window.about.close()
                 settings.tabs.setCurrentWidget(settings.cache)
                 stage = 101
             elif stage == 101:
@@ -397,6 +430,7 @@ def main() -> int:
     timer.timeout.connect(tick)
     timer.start()
     app.exec()
+    updates.finish()
     demo.close()
     shiboken6.delete(app)
     return int(failed)

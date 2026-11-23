@@ -197,6 +197,10 @@ Repairs folder: {directory}</source>
       <translation>需要 API 金鑰</translation>
     </message>
     <message>
+      <source>About</source>
+      <translation>關於</translation>
+    </message>
+    <message>
       <source>About {name}</source>
       <translation>關於 {name}</translation>
     </message>
@@ -317,6 +321,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Apply {name} shortcut</source>
       <translation>套用 {name} 快速鍵</translation>
+    </message>
+    <message>
+      <source>Ask me later</source>
+      <translation>稍後提醒我</translation>
     </message>
     <message>
       <source>Ask this provider for its model catalog. No translation request is sent.</source>
@@ -735,6 +743,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>僅檢查應用程式匯入</translation>
     </message>
     <message>
+      <source>Check for updates</source>
+      <translation>檢查更新</translation>
+    </message>
+    <message>
       <source>Check the acceleration setup.</source>
       <translation>檢查加速設定。</translation>
     </message>
@@ -745,6 +757,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Checking dialogue…</source>
       <translation>正在檢查對話…</translation>
+    </message>
+    <message>
+      <source>Checking for updates…</source>
+      <translation>正在檢查更新…</translation>
     </message>
     <message>
       <source>Checking graphics hardware…</source>
@@ -1161,6 +1177,14 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>DanteTL currently requires Windows.</source>
       <translation>DanteTL 目前需要 Windows。</translation>
+    </message>
+    <message>
+      <source>DanteTL is up to date.</source>
+      <translation>DanteTL 已是最新版本。</translation>
+    </message>
+    <message>
+      <source>DanteTL {version} is available.</source>
+      <translation>DanteTL {version} 已發布。</translation>
     </message>
     <message>
       <source>DanteTL · Settings</source>
@@ -2551,6 +2575,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>正在為此電腦準備翻譯模型…</translation>
     </message>
     <message>
+      <source>Preparing update… {percent}%</source>
+      <translation>正在準備更新… {percent}%</translation>
+    </message>
+    <message>
       <source>Preview zoom</source>
       <translation>預覽縮放</translation>
     </message>
@@ -2735,6 +2763,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Regions held</source>
       <translation>保留的區域</translation>
+    </message>
+    <message>
+      <source>Release notes</source>
+      <translation>版本資訊</translation>
     </message>
     <message>
       <source>Remove</source>
@@ -3737,8 +3769,20 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>不支援的設定格式；正在使用預設值。</translation>
     </message>
     <message>
+      <source>Update failed: {detail}</source>
+      <translation>更新失敗：{detail}</translation>
+    </message>
+    <message>
+      <source>Update from {current} to {version} and restart?</source>
+      <translation>從 {current} 更新至 {version} 並重新啟動？</translation>
+    </message>
+    <message>
       <source>Update location</source>
       <translation>更新位置</translation>
+    </message>
+    <message>
+      <source>Update to {version}</source>
+      <translation>更新至 {version}</translation>
     </message>
     <message>
       <source>Use on next launch</source>

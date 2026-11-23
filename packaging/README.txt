@@ -87,7 +87,10 @@ Downloads and settings are kept per Windows user at:
   .uv-cache\    dependency download cache
   logs\         diagnostic logs (no captured game images)
 
-Updating: close DanteTL, extract a new version into a new folder, and run its EXE.
+Open About (the info button beside Settings) to check GitHub for a stable release.
+The portable app also checks at startup. Yes downloads the signed update and restarts.
+Ask me later reminds you after a week. No skips that version until you check manually.
+For a manual update, close DanteTL, extract a new version into a new folder, and run its EXE.
 Your AppData is reused. App-only updates automatically install the small bundled app
 wheel offline and keep your existing CPU/CUDA/Vulkan dependencies. No setup is needed.
 Only a change to the required dependencies needs setup under Settings > Acceleration;

@@ -197,6 +197,10 @@ Repairs folder: {directory}</source>
       <translation>APIキーが必要です</translation>
     </message>
     <message>
+      <source>About</source>
+      <translation>このアプリについて</translation>
+    </message>
+    <message>
       <source>About {name}</source>
       <translation>{name}について</translation>
     </message>
@@ -317,6 +321,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Apply {name} shortcut</source>
       <translation>{name} ショートカットを適用</translation>
+    </message>
+    <message>
+      <source>Ask me later</source>
+      <translation>後で通知する</translation>
     </message>
     <message>
       <source>Ask this provider for its model catalog. No translation request is sent.</source>
@@ -735,6 +743,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>アプリのインポートのみを確認してください</translation>
     </message>
     <message>
+      <source>Check for updates</source>
+      <translation>更新を確認</translation>
+    </message>
+    <message>
       <source>Check the acceleration setup.</source>
       <translation>アクセラレーション設定を確認</translation>
     </message>
@@ -745,6 +757,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Checking dialogue…</source>
       <translation>会話を判定中…</translation>
+    </message>
+    <message>
+      <source>Checking for updates…</source>
+      <translation>更新を確認しています…</translation>
     </message>
     <message>
       <source>Checking graphics hardware…</source>
@@ -1161,6 +1177,14 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>DanteTL currently requires Windows.</source>
       <translation>DanteTL は現在 Windows を必要とします。</translation>
+    </message>
+    <message>
+      <source>DanteTL is up to date.</source>
+      <translation>DanteTL は最新です。</translation>
+    </message>
+    <message>
+      <source>DanteTL {version} is available.</source>
+      <translation>DanteTL {version} が利用できます。</translation>
     </message>
     <message>
       <source>DanteTL · Settings</source>
@@ -2551,6 +2575,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>このPC用の翻訳モデルを準備中…</translation>
     </message>
     <message>
+      <source>Preparing update… {percent}%</source>
+      <translation>更新を準備しています… {percent}%</translation>
+    </message>
+    <message>
       <source>Preview zoom</source>
       <translation>プレビューズーム</translation>
     </message>
@@ -2735,6 +2763,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Regions held</source>
       <translation>保持中の領域</translation>
+    </message>
+    <message>
+      <source>Release notes</source>
+      <translation>リリースノート</translation>
     </message>
     <message>
       <source>Remove</source>
@@ -3737,8 +3769,20 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>サポートされていない設定形式 デフォルトが使用されます。</translation>
     </message>
     <message>
+      <source>Update failed: {detail}</source>
+      <translation>更新に失敗しました: {detail}</translation>
+    </message>
+    <message>
+      <source>Update from {current} to {version} and restart?</source>
+      <translation>{current} から {version} に更新して再起動しますか？</translation>
+    </message>
+    <message>
       <source>Update location</source>
       <translation>更新場所</translation>
+    </message>
+    <message>
+      <source>Update to {version}</source>
+      <translation>{version} に更新</translation>
     </message>
     <message>
       <source>Use on next launch</source>

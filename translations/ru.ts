@@ -197,6 +197,10 @@ Repairs folder: {directory}</source>
       <translation>Требуется ключ API</translation>
     </message>
     <message>
+      <source>About</source>
+      <translation>О программе</translation>
+    </message>
+    <message>
       <source>About {name}</source>
       <translation>О программе {name}</translation>
     </message>
@@ -317,6 +321,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Apply {name} shortcut</source>
       <translation>Применить сочетание {name}</translation>
+    </message>
+    <message>
+      <source>Ask me later</source>
+      <translation>Спросить позже</translation>
     </message>
     <message>
       <source>Ask this provider for its model catalog. No translation request is sent.</source>
@@ -735,6 +743,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>Проверить только импорт приложения</translation>
     </message>
     <message>
+      <source>Check for updates</source>
+      <translation>Проверить обновления</translation>
+    </message>
+    <message>
       <source>Check the acceleration setup.</source>
       <translation>Проверьте настройку ускорения.</translation>
     </message>
@@ -745,6 +757,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Checking dialogue…</source>
       <translation>Проверка диалога…</translation>
+    </message>
+    <message>
+      <source>Checking for updates…</source>
+      <translation>Проверка обновлений…</translation>
     </message>
     <message>
       <source>Checking graphics hardware…</source>
@@ -1161,6 +1177,14 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>DanteTL currently requires Windows.</source>
       <translation>Для DanteTL в настоящее время требуется Windows.</translation>
+    </message>
+    <message>
+      <source>DanteTL is up to date.</source>
+      <translation>Установлена последняя версия DanteTL.</translation>
+    </message>
+    <message>
+      <source>DanteTL {version} is available.</source>
+      <translation>Доступна версия DanteTL {version}.</translation>
     </message>
     <message>
       <source>DanteTL · Settings</source>
@@ -2551,6 +2575,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>Подготовка модели перевода для этого ПК…</translation>
     </message>
     <message>
+      <source>Preparing update… {percent}%</source>
+      <translation>Подготовка обновления… {percent}%</translation>
+    </message>
+    <message>
       <source>Preview zoom</source>
       <translation>Масштаб предпросмотра</translation>
     </message>
@@ -2735,6 +2763,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Regions held</source>
       <translation>Удерживаемые регионы</translation>
+    </message>
+    <message>
+      <source>Release notes</source>
+      <translation>Примечания к выпуску</translation>
     </message>
     <message>
       <source>Remove</source>
@@ -3737,8 +3769,20 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>Неподдерживаемый формат настроек; используются значения по умолчанию.</translation>
     </message>
     <message>
+      <source>Update failed: {detail}</source>
+      <translation>Ошибка обновления: {detail}</translation>
+    </message>
+    <message>
+      <source>Update from {current} to {version} and restart?</source>
+      <translation>Обновить {current} до {version} и перезапустить?</translation>
+    </message>
+    <message>
       <source>Update location</source>
       <translation>Расположение обновления</translation>
+    </message>
+    <message>
+      <source>Update to {version}</source>
+      <translation>Обновить до {version}</translation>
     </message>
     <message>
       <source>Use on next launch</source>

@@ -3,6 +3,7 @@
 import logging
 import subprocess
 import time
+from importlib.metadata import version
 from pathlib import Path
 from typing import Unpack
 
@@ -29,6 +30,7 @@ from PySide6.QtWidgets import (
 from dantetl.application.api import ApplicationCommands
 from dantetl.application.hotkeys import HotkeyAction, Hotkeys
 from dantetl.application.preference_values import SettingsEdit
+from dantetl.application.updates import Updates
 from dantetl.application.values import ApplicationControls, ModelConsent, ShutdownPhase
 from dantetl.capture.windows import Windows
 from dantetl.domain import WindowTarget
@@ -36,6 +38,7 @@ from dantetl.i18n import display, mark, tr
 from dantetl.paths import gui_executable, module_command
 from dantetl.runtime.hardware_values import HardwareReader
 from dantetl.translation.selection import ModelOption
+from dantetl.ui.about import AboutDialog
 from dantetl.ui.controls import (
     CaptureButton,
     OutputLanguageCombo,
@@ -74,9 +77,13 @@ class MainWindow(QMainWindow):
         *,
         hardware: HardwareReader | None = None,
         hotkeys: Hotkeys | None = None,
+        updates: Updates | None = None,
     ) -> None:
         super().__init__()
         self.application, self.driver = application, driver
+        self._updates = updates
+        self.about = AboutDialog(version("dantetl"), updates, self)
+        self.about.restart.connect(self.close)
         self._windows, self._hardware, self._hotkeys = windows, hardware, hotkeys
         self._notice_destination = "models"
         self._model_manager: ModelManager | None = None
@@ -183,6 +190,13 @@ class MainWindow(QMainWindow):
         localized(self.settings_button, toolTip=mark("Settings"))
         self.settings_button.clicked.connect(self._show_settings)
         header.addWidget(self.settings_button)
+        self.about_button = localized(
+            QPushButton(QIcon(str(ICON_DIR / "about.svg")), ""),
+            accessibleName=mark("About"),
+            toolTip=mark("About"),
+        )
+        self.about_button.clicked.connect(self.about.open_about)
+        header.addWidget(self.about_button)
         layout.addLayout(header)
         self.sections = MainSections()
         layout.addWidget(self.sections)
@@ -887,6 +901,16 @@ class MainWindow(QMainWindow):
         if self.application.closing:
             self.close()
             return
+        if self._updates:
+            self.about.show_update(self._updates.snapshot())
+            if self.application.closing:
+                return
+            if (
+                not QApplication.activeModalWidget()
+                and not (self._setup_assistant and self._setup_assistant.isVisible())
+                and (offer := self._updates.take_offer())
+            ):
+                self.about.offer(offer)
         self.output_language.set_language(self.application.values.output_language)
         with self.inspector.defer_rendering():
             self._render_scene()
@@ -1018,6 +1042,9 @@ class MainWindow(QMainWindow):
         self._settings.set_capture_active(False)
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        if self._updates:
+            self._updates.cancel()
+        self.about.hide()
         self.history_panel.hide()
         self.application.request_close()
         self._overlay.hide()

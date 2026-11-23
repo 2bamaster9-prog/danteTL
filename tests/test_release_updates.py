@@ -85,6 +85,41 @@ def test_feed_ignores_prereleases_and_binds_names_to_one_repository():
     assert parse_release(data | {"draft": True}) is None
 
 
+@pytest.mark.parametrize(
+    "button,phase", [("Yes", "restart"), ("Ask me later", "available"), ("No", "available")]
+)
+def test_about_prompt_buttons(app, tmp_path, button, phase):
+    from PySide6.QtWidgets import QMessageBox, QWidget
+
+    from dantetl.ui.about import AboutDialog
+
+    release = Release("1.2.0", 100, 90, 64)
+    installs = []
+    service = Updates(
+        "1.1.0",
+        tmp_path,
+        fetch=lambda _: release,
+        install=lambda candidate, *_: installs.append(candidate),
+    )
+    window = QWidget()
+    dialog = AboutDialog("1.1.0", service, window)
+    try:
+        service.check(automatic=True)
+        dialog.show_update(settled(service))
+        assert service.take_offer() == release
+        dialog.offer(release)
+        question = window.findChild(QMessageBox)
+        assert question and "1.1.0" in question.text() and "1.2.0" in question.text()
+        assert release.notes in question.informativeText()
+        next(item for item in question.buttons() if item.text().replace("&", "") == button).click()
+        assert settled(service).phase == phase
+        assert installs == ([release] if button == "Yes" else [])
+    finally:
+        window.close()
+        window.deleteLater()
+        service.finish()
+
+
 def test_failed_check_can_retry_and_never_offers_an_older_version(tmp_path):
     responses = iter((OSError("offline"), Release("1.9.0", 100, 90, 64)))
 

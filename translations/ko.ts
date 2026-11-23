@@ -197,6 +197,10 @@ Repairs folder: {directory}</source>
       <translation>API 키 필요</translation>
     </message>
     <message>
+      <source>About</source>
+      <translation>앱 정보</translation>
+    </message>
+    <message>
       <source>About {name}</source>
       <translation>{name} 정보</translation>
     </message>
@@ -317,6 +321,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Apply {name} shortcut</source>
       <translation>{name} 단축키 적용</translation>
+    </message>
+    <message>
+      <source>Ask me later</source>
+      <translation>나중에 알림</translation>
     </message>
     <message>
       <source>Ask this provider for its model catalog. No translation request is sent.</source>
@@ -735,6 +743,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>앱 가져오기만 확인</translation>
     </message>
     <message>
+      <source>Check for updates</source>
+      <translation>업데이트 확인</translation>
+    </message>
+    <message>
       <source>Check the acceleration setup.</source>
       <translation>가속 설정을 확인하세요.</translation>
     </message>
@@ -745,6 +757,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Checking dialogue…</source>
       <translation>대화 확인 중…</translation>
+    </message>
+    <message>
+      <source>Checking for updates…</source>
+      <translation>업데이트 확인 중…</translation>
     </message>
     <message>
       <source>Checking graphics hardware…</source>
@@ -1161,6 +1177,14 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>DanteTL currently requires Windows.</source>
       <translation>DanteTL는 현재 Windows가 필요합니다.</translation>
+    </message>
+    <message>
+      <source>DanteTL is up to date.</source>
+      <translation>DanteTL이 최신 버전입니다.</translation>
+    </message>
+    <message>
+      <source>DanteTL {version} is available.</source>
+      <translation>DanteTL {version} 버전을 사용할 수 있습니다.</translation>
     </message>
     <message>
       <source>DanteTL · Settings</source>
@@ -2551,6 +2575,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>이 PC용 번역 모델 준비 중…</translation>
     </message>
     <message>
+      <source>Preparing update… {percent}%</source>
+      <translation>업데이트 준비 중… {percent}%</translation>
+    </message>
+    <message>
       <source>Preview zoom</source>
       <translation>미리보기 확대/축소</translation>
     </message>
@@ -2735,6 +2763,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Regions held</source>
       <translation>유지된 영역</translation>
+    </message>
+    <message>
+      <source>Release notes</source>
+      <translation>릴리스 노트</translation>
     </message>
     <message>
       <source>Remove</source>
@@ -3737,8 +3769,20 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>지원되지 않는 설정 형식입니다. 기본값이 사용됩니다.</translation>
     </message>
     <message>
+      <source>Update failed: {detail}</source>
+      <translation>업데이트 실패: {detail}</translation>
+    </message>
+    <message>
+      <source>Update from {current} to {version} and restart?</source>
+      <translation>{current}에서 {version}(으)로 업데이트하고 다시 시작할까요?</translation>
+    </message>
+    <message>
       <source>Update location</source>
       <translation>위치 업데이트</translation>
+    </message>
+    <message>
+      <source>Update to {version}</source>
+      <translation>{version}(으)로 업데이트</translation>
     </message>
     <message>
       <source>Use on next launch</source>

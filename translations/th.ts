@@ -197,6 +197,10 @@ Repairs folder: {directory}</source>
       <translation>ต้องระบุคีย์ API</translation>
     </message>
     <message>
+      <source>About</source>
+      <translation>เกี่ยวกับ</translation>
+    </message>
+    <message>
       <source>About {name}</source>
       <translation>เกี่ยวกับ {name}</translation>
     </message>
@@ -317,6 +321,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Apply {name} shortcut</source>
       <translation>ใช้ทางลัด {name}</translation>
+    </message>
+    <message>
+      <source>Ask me later</source>
+      <translation>ถามฉันภายหลัง</translation>
     </message>
     <message>
       <source>Ask this provider for its model catalog. No translation request is sent.</source>
@@ -735,6 +743,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>ตรวจสอบเฉพาะการนำเข้าแอป</translation>
     </message>
     <message>
+      <source>Check for updates</source>
+      <translation>ตรวจสอบการอัปเดต</translation>
+    </message>
+    <message>
       <source>Check the acceleration setup.</source>
       <translation>ตรวจสอบการตั้งค่าการเร่งความเร็ว</translation>
     </message>
@@ -745,6 +757,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Checking dialogue…</source>
       <translation>กำลังตรวจสอบบทสนทนา…</translation>
+    </message>
+    <message>
+      <source>Checking for updates…</source>
+      <translation>กำลังตรวจสอบการอัปเดต…</translation>
     </message>
     <message>
       <source>Checking graphics hardware…</source>
@@ -1161,6 +1177,14 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>DanteTL currently requires Windows.</source>
       <translation>DanteTL ต้องใช้ Windows ในขณะนี้</translation>
+    </message>
+    <message>
+      <source>DanteTL is up to date.</source>
+      <translation>DanteTL เป็นเวอร์ชันล่าสุดแล้ว</translation>
+    </message>
+    <message>
+      <source>DanteTL {version} is available.</source>
+      <translation>DanteTL {version} พร้อมใช้งาน</translation>
     </message>
     <message>
       <source>DanteTL · Settings</source>
@@ -2551,6 +2575,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>กำลังเตรียมโมเดลการแปลสำหรับพีซีเครื่องนี้…</translation>
     </message>
     <message>
+      <source>Preparing update… {percent}%</source>
+      <translation>กำลังเตรียมการอัปเดต… {percent}%</translation>
+    </message>
+    <message>
       <source>Preview zoom</source>
       <translation>ซูมตัวอย่าง</translation>
     </message>
@@ -2735,6 +2763,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Regions held</source>
       <translation>ภูมิภาคที่เก็บไว้</translation>
+    </message>
+    <message>
+      <source>Release notes</source>
+      <translation>บันทึกประจำรุ่น</translation>
     </message>
     <message>
       <source>Remove</source>
@@ -3737,8 +3769,20 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>รูปแบบการตั้งค่าที่ไม่รองรับ กำลังใช้ค่าเริ่มต้น</translation>
     </message>
     <message>
+      <source>Update failed: {detail}</source>
+      <translation>อัปเดตไม่สำเร็จ: {detail}</translation>
+    </message>
+    <message>
+      <source>Update from {current} to {version} and restart?</source>
+      <translation>อัปเดตจาก {current} เป็น {version} แล้วเริ่มใหม่หรือไม่</translation>
+    </message>
+    <message>
       <source>Update location</source>
       <translation>ตำแหน่งที่ตั้งการอัปเดต</translation>
+    </message>
+    <message>
+      <source>Update to {version}</source>
+      <translation>อัปเดตเป็น {version}</translation>
     </message>
     <message>
       <source>Use on next launch</source>

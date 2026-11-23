@@ -197,6 +197,10 @@ Carpeta de reparaciones: {directory}</translation>
       <translation>Se requiere clave de API</translation>
     </message>
     <message>
+      <source>About</source>
+      <translation>Acerca de</translation>
+    </message>
+    <message>
       <source>About {name}</source>
       <translation>Acerca de {name}</translation>
     </message>
@@ -317,6 +321,10 @@ Los detalles están en %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Apply {name} shortcut</source>
       <translation>Aplicar atajo {name}</translation>
+    </message>
+    <message>
+      <source>Ask me later</source>
+      <translation>Preguntarme más tarde</translation>
     </message>
     <message>
       <source>Ask this provider for its model catalog. No translation request is sent.</source>
@@ -735,6 +743,10 @@ Los detalles están en %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Comprobar solo la importación de la aplicación</translation>
     </message>
     <message>
+      <source>Check for updates</source>
+      <translation>Buscar actualizaciones</translation>
+    </message>
+    <message>
       <source>Check the acceleration setup.</source>
       <translation>Comprobar la configuración de aceleración.</translation>
     </message>
@@ -745,6 +757,10 @@ Los detalles están en %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Checking dialogue…</source>
       <translation>Comprobando diálogo…</translation>
+    </message>
+    <message>
+      <source>Checking for updates…</source>
+      <translation>Buscando actualizaciones…</translation>
     </message>
     <message>
       <source>Checking graphics hardware…</source>
@@ -1161,6 +1177,14 @@ Los detalles están en %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>DanteTL currently requires Windows.</source>
       <translation>DanteTL actualmente requiere Windows.</translation>
+    </message>
+    <message>
+      <source>DanteTL is up to date.</source>
+      <translation>DanteTL está al día.</translation>
+    </message>
+    <message>
+      <source>DanteTL {version} is available.</source>
+      <translation>DanteTL {version} está disponible.</translation>
     </message>
     <message>
       <source>DanteTL · Settings</source>
@@ -2551,6 +2575,10 @@ Los detalles están en %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Preparando el modelo de traducción para este PC…</translation>
     </message>
     <message>
+      <source>Preparing update… {percent}%</source>
+      <translation>Preparando la actualización… {percent}%</translation>
+    </message>
+    <message>
       <source>Preview zoom</source>
       <translation>Zoom de vista previa</translation>
     </message>
@@ -2735,6 +2763,10 @@ Descargas de modelos: hasta {size:.2f} GB; los archivos existentes se verifican 
     <message>
       <source>Regions held</source>
       <translation>Regiones retenidas</translation>
+    </message>
+    <message>
+      <source>Release notes</source>
+      <translation>Notas de la versión</translation>
     </message>
     <message>
       <source>Remove</source>
@@ -3737,8 +3769,20 @@ Descargas de modelos: hasta {size:.2f} GB; los archivos existentes se verifican 
       <translation>Formato de configuración no compatible; se están usando los valores predeterminados.</translation>
     </message>
     <message>
+      <source>Update failed: {detail}</source>
+      <translation>Error de actualización: {detail}</translation>
+    </message>
+    <message>
+      <source>Update from {current} to {version} and restart?</source>
+      <translation>¿Actualizar de {current} a {version} y reiniciar?</translation>
+    </message>
+    <message>
       <source>Update location</source>
       <translation>Ubicación de actualización</translation>
+    </message>
+    <message>
+      <source>Update to {version}</source>
+      <translation>Actualizar a {version}</translation>
     </message>
     <message>
       <source>Use on next launch</source>

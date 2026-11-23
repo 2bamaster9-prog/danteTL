@@ -47,6 +47,7 @@ def create_window(*args, **kwargs):
     root = Path(temporary.name)
     kwargs.setdefault("preferences_path", root / "preferences.json")
     kwargs.setdefault("cache_path", root / "cache.sqlite3")
+    updates = kwargs.pop("updates", None)
     inventory, source_models = create_inventory(args, kwargs)
     driver = DesktopDriver()
     options = {
@@ -65,7 +66,12 @@ def create_window(*args, **kwargs):
     )
     weakref.finalize(application, temporary.cleanup)
     return MainWindow(
-        application, args[0], driver, hardware=kwargs.get("hardware"), hotkeys=kwargs.get("hotkeys")
+        application,
+        args[0],
+        driver,
+        hardware=kwargs.get("hardware"),
+        hotkeys=kwargs.get("hotkeys"),
+        updates=updates,
     )
 
 

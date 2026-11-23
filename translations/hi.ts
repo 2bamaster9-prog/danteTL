@@ -197,6 +197,10 @@ Repairs folder: {directory}</source>
       <translation>API कुंजी आवश्यक</translation>
     </message>
     <message>
+      <source>About</source>
+      <translation>परिचय</translation>
+    </message>
+    <message>
       <source>About {name}</source>
       <translation>{name} के बारे में</translation>
     </message>
@@ -317,6 +321,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Apply {name} shortcut</source>
       <translation>{name} शॉर्टकट लागू करें</translation>
+    </message>
+    <message>
+      <source>Ask me later</source>
+      <translation>बाद में पूछें</translation>
     </message>
     <message>
       <source>Ask this provider for its model catalog. No translation request is sent.</source>
@@ -735,6 +743,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>केवल ऐप आयात जाँचें</translation>
     </message>
     <message>
+      <source>Check for updates</source>
+      <translation>अपडेट देखें</translation>
+    </message>
+    <message>
       <source>Check the acceleration setup.</source>
       <translation>त्वरण सेटअप जाँचें।</translation>
     </message>
@@ -745,6 +757,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Checking dialogue…</source>
       <translation>संवाद जाँचा जा रहा है…</translation>
+    </message>
+    <message>
+      <source>Checking for updates…</source>
+      <translation>अपडेट खोजे जा रहे हैं…</translation>
     </message>
     <message>
       <source>Checking graphics hardware…</source>
@@ -1161,6 +1177,14 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>DanteTL currently requires Windows.</source>
       <translation>DanteTL को वर्तमान में Windows की आवश्यकता है।</translation>
+    </message>
+    <message>
+      <source>DanteTL is up to date.</source>
+      <translation>DanteTL अप टू डेट है।</translation>
+    </message>
+    <message>
+      <source>DanteTL {version} is available.</source>
+      <translation>DanteTL {version} उपलब्ध है।</translation>
     </message>
     <message>
       <source>DanteTL · Settings</source>
@@ -2551,6 +2575,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>इस PC के लिए अनुवाद मॉडल तैयार किया जा रहा है…</translation>
     </message>
     <message>
+      <source>Preparing update… {percent}%</source>
+      <translation>अपडेट तैयार हो रहा है… {percent}%</translation>
+    </message>
+    <message>
       <source>Preview zoom</source>
       <translation>पूर्वावलोकन ज़ूम</translation>
     </message>
@@ -2735,6 +2763,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Regions held</source>
       <translation>रखे गए क्षेत्र</translation>
+    </message>
+    <message>
+      <source>Release notes</source>
+      <translation>रिलीज़ नोट्स</translation>
     </message>
     <message>
       <source>Remove</source>
@@ -3737,8 +3769,20 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>असमर्थित सेटिंग्स प्रारूप; डिफ़ॉल्ट का उपयोग किया जा रहा है।</translation>
     </message>
     <message>
+      <source>Update failed: {detail}</source>
+      <translation>अपडेट विफल: {detail}</translation>
+    </message>
+    <message>
+      <source>Update from {current} to {version} and restart?</source>
+      <translation>{current} से {version} पर अपडेट करके फिर शुरू करें?</translation>
+    </message>
+    <message>
       <source>Update location</source>
       <translation>स्थान अपडेट करें</translation>
+    </message>
+    <message>
+      <source>Update to {version}</source>
+      <translation>{version} पर अपडेट करें</translation>
     </message>
     <message>
       <source>Use on next launch</source>

@@ -632,6 +632,17 @@ without import registration. Preserve built-in prompts and distinct IDs; separat
 
 ## Packaging, updates and persistence
 
+The main window's About button shows the installed version and submits update commands.
+On portable startup a bounded worker checks the public GitHub release metadata. AppData stores
+the latest checked version and the offered version, choice and reminder deadline under a
+cross-process lock. No skips one version. Ask me later allows the same version after seven days.
+Manual checks bypass prompt suppression. Source checkouts support manual discovery.
+Only an explicit update downloads the signed manifest and ZIP. The updater verifies them with
+the installed publisher key, bounds extraction and stages a sibling folder. A separate helper
+waits for shutdown, validates the old revision and swaps a dedicated installation. It restores
+the previous folder if the replacement GUI fails to acknowledge its version. Settings, runtime
+receipts and models stay in per-user state. See [release signing](building.md#github-actions-and-releases).
+
 PyInstaller owns the folder release/EXE; uv/Hatchling own wheel/source archives. See [building](building.md).
 Bundle verified MeikiOCR and PaddleOCR assets/notices, CPU ONNX/llama and the app wheel, never translation
 weights, preferences/caches or development/GPU environments. `resource_root()` is read-only; `state_root()`

@@ -197,6 +197,10 @@ Cartella riparazioni: {directory}</translation>
       <translation>Chiave API richiesta</translation>
     </message>
     <message>
+      <source>About</source>
+      <translation>Informazioni</translation>
+    </message>
+    <message>
       <source>About {name}</source>
       <translation>Informazioni su {name}</translation>
     </message>
@@ -317,6 +321,10 @@ I dettagli sono in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Apply {name} shortcut</source>
       <translation>Applica scorciatoia {name}</translation>
+    </message>
+    <message>
+      <source>Ask me later</source>
+      <translation>Chiedimelo più tardi</translation>
     </message>
     <message>
       <source>Ask this provider for its model catalog. No translation request is sent.</source>
@@ -735,6 +743,10 @@ I dettagli sono in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Verifica solo l'importazione dell'app</translation>
     </message>
     <message>
+      <source>Check for updates</source>
+      <translation>Controlla aggiornamenti</translation>
+    </message>
+    <message>
       <source>Check the acceleration setup.</source>
       <translation>Verifica la configurazione dell'accelerazione.</translation>
     </message>
@@ -745,6 +757,10 @@ I dettagli sono in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Checking dialogue…</source>
       <translation>Verifica del dialogo…</translation>
+    </message>
+    <message>
+      <source>Checking for updates…</source>
+      <translation>Ricerca di aggiornamenti…</translation>
     </message>
     <message>
       <source>Checking graphics hardware…</source>
@@ -1161,6 +1177,14 @@ I dettagli sono in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>DanteTL currently requires Windows.</source>
       <translation>DanteTL richiede attualmente Windows.</translation>
+    </message>
+    <message>
+      <source>DanteTL is up to date.</source>
+      <translation>DanteTL è aggiornato.</translation>
+    </message>
+    <message>
+      <source>DanteTL {version} is available.</source>
+      <translation>DanteTL {version} è disponibile.</translation>
     </message>
     <message>
       <source>DanteTL · Settings</source>
@@ -2551,6 +2575,10 @@ I dettagli sono in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Preparazione del modello di traduzione per questo PC…</translation>
     </message>
     <message>
+      <source>Preparing update… {percent}%</source>
+      <translation>Preparazione aggiornamento… {percent}%</translation>
+    </message>
+    <message>
       <source>Preview zoom</source>
       <translation>Zoom anteprima</translation>
     </message>
@@ -2735,6 +2763,10 @@ Download dei modelli: fino a {size:.2f} GB; i file esistenti vengono verificati 
     <message>
       <source>Regions held</source>
       <translation>Regioni mantenute</translation>
+    </message>
+    <message>
+      <source>Release notes</source>
+      <translation>Note di rilascio</translation>
     </message>
     <message>
       <source>Remove</source>
@@ -3737,8 +3769,20 @@ Download dei modelli: fino a {size:.2f} GB; i file esistenti vengono verificati 
       <translation>Formato impostazioni non supportato; vengono usati i valori predefiniti.</translation>
     </message>
     <message>
+      <source>Update failed: {detail}</source>
+      <translation>Aggiornamento non riuscito: {detail}</translation>
+    </message>
+    <message>
+      <source>Update from {current} to {version} and restart?</source>
+      <translation>Aggiornare da {current} a {version} e riavviare?</translation>
+    </message>
+    <message>
       <source>Update location</source>
       <translation>Aggiorna posizione</translation>
+    </message>
+    <message>
+      <source>Update to {version}</source>
+      <translation>Aggiorna a {version}</translation>
     </message>
     <message>
       <source>Use on next launch</source>

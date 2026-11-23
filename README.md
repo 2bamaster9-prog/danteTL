@@ -60,8 +60,11 @@ supported local translators and keeps OCR on CPU.
 
 ## Updates and recovery
 
-Close DanteTL and extract the new ZIP into a fresh folder. The standalone app reuses your models
-and settings in `%LOCALAPPDATA%\DanteTL`. If a GPU runtime fails to start, launch
+The portable app checks GitHub for a stable release at startup. Choose **Yes** to download,
+verify, and restart into an update. **Ask me later** reminds you after a week. **No** skips
+that release. Use the **About** ⓘ button beside Settings to check again or update a skipped version.
+You can also close DanteTL and extract a release ZIP into a fresh folder. The standalone app
+reuses your models and settings in `%LOCALAPPDATA%\DanteTL`. If a GPU runtime fails to start, launch
 `DanteTL.exe --cpu`.
 
 ## Run from source

@@ -3,7 +3,9 @@
 import logging
 import os
 import sys
+from contextlib import nullcontext
 from functools import partial
+from importlib.metadata import version
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from types import TracebackType
@@ -12,7 +14,7 @@ from dantetl.application.model_factories import create_recognizer
 from dantetl.application.preferences import PreferenceStore
 from dantetl.i18n import tr
 from dantetl.languages.selection import source_language
-from dantetl.paths import is_standalone, state_root
+from dantetl.paths import is_standalone, resource_root, state_root
 
 
 def configure_logging() -> None:
@@ -54,12 +56,14 @@ def main() -> None:
         application_session,
         cloud_services,
         model_inventory,
+        release_updates,
         setup_coordinator,
         source_models_for,
     )
     from dantetl.runtime.hardware import HardwareCheck
     from dantetl.runtime.restart import acknowledge_startup
     from dantetl.runtime.setup import project_root
+    from dantetl.runtime.update_swap import acknowledge_update, bundle_lease
     from dantetl.ui.desktop_driver import DesktopDriver
     from dantetl.ui.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
     from dantetl.ui.icons import APP_ICON
@@ -117,13 +121,28 @@ def main() -> None:
         hardware=hardware,
         hotkeys=hotkeys,
     )
-    window = MainWindow(application, windows, driver, hardware=hardware, hotkeys=hotkeys)
+    updates = release_updates(version("dantetl"))
+    window = MainWindow(
+        application, windows, driver, hardware=hardware, hotkeys=hotkeys, updates=updates
+    )
     window.show()
     QTimer.singleShot(0, window.offer_first_run)
     if notice := os.environ.pop("DANTETL_STARTUP_NOTICE", ""):
         window.status.setText(notice)
     QTimer.singleShot(0, acknowledge_startup)
-    exit_code = app.exec()
+    QTimer.singleShot(0, lambda: acknowledge_update(state_root(), updates.installed))
+    if is_standalone() and os.environ.get("DANTETL_DISABLE_UPDATE_CHECK") != "1":
+        QTimer.singleShot(0, lambda: updates.check(automatic=True))
+    lease = (
+        bundle_lease(resource_root().parent.parent, state_root())
+        if is_standalone()
+        else nullcontext()
+    )
+    with lease:
+        try:
+            exit_code = app.exec()
+        finally:
+            updates.finish()
     hotkey_events.close()
     # Tear down Qt while its native dependencies are still loaded, before Python finalization.
     shiboken6.delete(app)

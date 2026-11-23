@@ -197,6 +197,10 @@ Dossier des réparations : {directory}</translation>
       <translation>Clé API requise</translation>
     </message>
     <message>
+      <source>About</source>
+      <translation>À propos</translation>
+    </message>
+    <message>
       <source>About {name}</source>
       <translation>À propos de {name}</translation>
     </message>
@@ -317,6 +321,10 @@ Les détails se trouvent dans %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Apply {name} shortcut</source>
       <translation>Appliquer le raccourci {name}</translation>
+    </message>
+    <message>
+      <source>Ask me later</source>
+      <translation>Me le rappeler plus tard</translation>
     </message>
     <message>
       <source>Ask this provider for its model catalog. No translation request is sent.</source>
@@ -735,6 +743,10 @@ Les détails se trouvent dans %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Vérifier uniquement l'importation de l'application</translation>
     </message>
     <message>
+      <source>Check for updates</source>
+      <translation>Rechercher des mises à jour</translation>
+    </message>
+    <message>
       <source>Check the acceleration setup.</source>
       <translation>Vérifier la configuration de l'accélération.</translation>
     </message>
@@ -745,6 +757,10 @@ Les détails se trouvent dans %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Checking dialogue…</source>
       <translation>Vérification du dialogue…</translation>
+    </message>
+    <message>
+      <source>Checking for updates…</source>
+      <translation>Recherche de mises à jour…</translation>
     </message>
     <message>
       <source>Checking graphics hardware…</source>
@@ -1161,6 +1177,14 @@ Les détails se trouvent dans %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>DanteTL currently requires Windows.</source>
       <translation>DanteTL nécessite actuellement Windows.</translation>
+    </message>
+    <message>
+      <source>DanteTL is up to date.</source>
+      <translation>DanteTL est à jour.</translation>
+    </message>
+    <message>
+      <source>DanteTL {version} is available.</source>
+      <translation>DanteTL {version} est disponible.</translation>
     </message>
     <message>
       <source>DanteTL · Settings</source>
@@ -2551,6 +2575,10 @@ Les détails se trouvent dans %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Préparation du modèle de traduction pour ce PC…</translation>
     </message>
     <message>
+      <source>Preparing update… {percent}%</source>
+      <translation>Préparation de la mise à jour… {percent} %</translation>
+    </message>
+    <message>
       <source>Preview zoom</source>
       <translation>Zoom de l'aperçu</translation>
     </message>
@@ -2735,6 +2763,10 @@ Téléchargements de modèles : jusqu'à {size:.2f} Go ; les fichiers existants 
     <message>
       <source>Regions held</source>
       <translation>Régions conservées</translation>
+    </message>
+    <message>
+      <source>Release notes</source>
+      <translation>Notes de version</translation>
     </message>
     <message>
       <source>Remove</source>
@@ -3737,8 +3769,20 @@ Téléchargements de modèles : jusqu'à {size:.2f} Go ; les fichiers existants 
       <translation>Format de paramètres non pris en charge ; les valeurs par défaut sont utilisées.</translation>
     </message>
     <message>
+      <source>Update failed: {detail}</source>
+      <translation>Échec de la mise à jour : {detail}</translation>
+    </message>
+    <message>
+      <source>Update from {current} to {version} and restart?</source>
+      <translation>Passer de {current} à {version} et redémarrer ?</translation>
+    </message>
+    <message>
       <source>Update location</source>
       <translation>Emplacement de la mise à jour</translation>
+    </message>
+    <message>
+      <source>Update to {version}</source>
+      <translation>Mettre à jour vers {version}</translation>
     </message>
     <message>
       <source>Use on next launch</source>
