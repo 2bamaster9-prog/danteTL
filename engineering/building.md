@@ -137,8 +137,10 @@ helper, while the old top-level setup/hardware shortcuts and custom packagers ha
 
 CPU compilation is needed only on developer/CI machines. `tools/build.ps1 -CpuWheelOnly` prepares
 just the wheel used by source-checkout in-app CPU setup. Standalone releases include it and install
-it offline with its checksum, without a compiler. CUDA and Vulkan use unmodified upstream 0.3.37
-Windows wheels directly from the URLs and hashes in `uv.lock`. CPU cannot use the older published
+it offline with its checksum, without a compiler. NVIDIA setup downloads the JamePeng CUDA 13.0
+wheel for the managed Python ABI. The wheel includes CPU backends ranging from baseline x64 to
+AVX-512. ggml selects a supported backend at model startup. Vulkan uses abetlen's Windows wheel.
+Both downloads use the URLs and hashes in `uv.lock`. CPU cannot use the older published
 0.3.36 wheel because it lacks PLaMo's tokenizer. The deleted `native_runtime.py` assembler and
 `setup_native_runtime.py` helper are not used anywhere.
 

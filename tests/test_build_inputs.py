@@ -13,6 +13,7 @@ from unittest.mock import Mock
 import pytest
 
 from dantetl.runtime import probe
+from dantetl.runtime.downloads import locked_wheels
 from dantetl.runtime.values import PROFILES
 
 
@@ -97,5 +98,8 @@ def test_locked_runtime_exports_keep_their_ocr_and_translation_engines(tmp_path,
     if profile.key == "cpu":
         assert "sdist" in engine
     else:
-        backend = "cu130" if profile.key == "nvidia" else "vulkan"
-        assert f"-{backend}/" in engine["archive"]["url"]
+        (wheel,) = (w for w in locked_wheels(export) if w.name == "llama-cpp-python")
+        if profile.key == "nvidia":
+            assert "+cu130-cp312-cp312-win_amd64.whl" in wheel.filename
+        else:
+            assert "-vulkan/" in wheel.url

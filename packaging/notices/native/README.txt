@@ -1,5 +1,7 @@
-llama.cpp is the a956a852c9c8bc1fb07206364838ddef299178c0 revision vendored by
-upstream llama-cpp-python v0.3.37. Its MIT notice is in llama.cpp.txt.
+The bundled CPU and optional Vulkan engines use the llama.cpp revision
+a956a852c9c8bc1fb07206364838ddef299178c0 vendored by abetlen/llama-cpp-python
+v0.3.37. The optional NVIDIA engine uses JamePeng/llama-cpp-python v0.4.8+cu130.
+The llama.cpp MIT notice is in llama.cpp.txt.
 The Python binding's MIT notice is retained in its installed dist-info directory.
 
 CPU wheels built with LLVM-MinGW may also contain LLVM libc++, libunwind,

@@ -244,7 +244,10 @@ accept fallback. Normal automatic mode must report CPU fallback. Keep `.venv` CP
 CUDA and `.venv-amd` Vulkan/experimental DirectML isolated; never co-install ONNX distributions or
 native llama wheels. The NVIDIA profile pins ONNX 1.30 and shared CUDA 13 libraries; preserve the
 legacy ONNX 1.26/CUDA 12 loader. Test both import/initialization orders and loaded DLL identities
-when changing dependencies. First-use compilation and warm inference are separate measurements.
+when changing dependencies. For NVIDIA translation, verify Gemma context creation and the
+selected CPU backend on both AVX2-only and AVX-512 systems. `tools/verify_shared_cuda.py` records
+the loaded CPU variant alongside the CUDA libraries. First-use compilation and warm inference are
+separate measurements.
 
 AMD in-app setup intentionally uses Vulkan translation with CPU OCR. Strict experimental DirectML
 must run the numerical compatibility probe and fail on mismatch; `auto-directml` reports fallback.

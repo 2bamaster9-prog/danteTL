@@ -55,7 +55,10 @@ gpu = [
 gemma = [
   { include-group = "cuda" },
   { include-group = "llm-common" },
-  "llama-cpp-python @ https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.37-cu130/llama_cpp_python-0.3.37-py3-none-win_amd64.whl ; sys_platform == 'win32'",
+  # One CUDA build per Python ABI. ggml selects the CPU instruction set at runtime.
+  "llama-cpp-python @ https://github.com/JamePeng/llama-cpp-python/releases/download/v0.4.8-cu130-win-20261122/llama_cpp_python-0.4.8%2Bcu130-cp312-cp312-win_amd64.whl ; sys_platform == 'win32' and python_version < '3.13'",
+  "llama-cpp-python @ https://github.com/JamePeng/llama-cpp-python/releases/download/v0.4.8-cu130-win-20261122/llama_cpp_python-0.4.8%2Bcu130-cp313-cp313-win_amd64.whl ; sys_platform == 'win32' and python_version == '3.13'",
+  "llama-cpp-python @ https://github.com/JamePeng/llama-cpp-python/releases/download/v0.4.8-cu130-win-20261122/llama_cpp_python-0.4.8%2Bcu130-cp314-cp314-win_amd64.whl ; sys_platform == 'win32' and python_version >= '3.14'",
 ]
 
 [tool.uv]

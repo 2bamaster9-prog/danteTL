@@ -48,7 +48,7 @@ def loaded_libraries() -> dict[str, str]:
             raise ctypes.WinError(ctypes.get_last_error())
         name = Path(buffer.value).name.lower()
         if name.startswith(
-            ("cublas", "cudart", "cudnn", "ggml-cuda", "onnxruntime_providers_cuda")
+            ("cublas", "cudart", "cudnn", "ggml-cpu", "ggml-cuda", "onnxruntime_providers_cuda")
         ):
             paths[name] = buffer.value
     return paths
@@ -81,11 +81,14 @@ def main() -> None:
             assert "adventure" in answer.lower()
             assert translator.translate(("設定",))[0].strip()
             libraries = loaded_libraries()
+            (cpu_backend,) = [name for name in libraries if name.startswith("ggml-cpu-")]
+            assert "ggml-cpu.dll" not in libraries and "ggml-cuda.dll" in libraries
             assert "cublas64_13.dll" in libraries and "cudart64_13.dll" in libraries
             assert "cublas64_12.dll" not in libraries and "cudart64_12.dll" not in libraries
             result = {
                 "order": args.order,
                 "ocr_provider": ocr.provider,
+                "translation_cpu_backend": cpu_backend,
                 "translation": answer,
                 "cuda12_packages": False,
                 "libraries": libraries,
