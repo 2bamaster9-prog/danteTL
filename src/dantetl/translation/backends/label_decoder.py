@@ -25,13 +25,23 @@ class Sampling:
     top_p: float = 0.95
     seed: int | None = None
 
-    def sampler(self, model: Any) -> Any:
-        if self.seed is not None:
-            model.set_seed(self.seed)
-        # Use the binding's completion sampler chain, including its min-p default.
-        return model._init_sampler(
-            temp=self.temperature, top_k=self.top_k, top_p=self.top_p, repeat_penalty=1.0
-        )
+    def sampler(self, api: Any, resources: ExitStack) -> Any:
+        if self.temperature == 0:
+            sampler = api.llama_sampler_init_greedy()
+            resources.callback(api.llama_sampler_free, sampler)
+            return sampler
+
+        # Both bindings expose the same llama.cpp sampler API. Each slot owns its
+        # chain and seed, including the completion sampler's default min-p filter.
+        chain = api.llama_sampler_chain_init(api.llama_sampler_chain_default_params())
+        resources.callback(api.llama_sampler_free, chain)
+        api.llama_sampler_chain_add(chain, api.llama_sampler_init_top_k(self.top_k))
+        api.llama_sampler_chain_add(chain, api.llama_sampler_init_top_p(self.top_p, 1))
+        api.llama_sampler_chain_add(chain, api.llama_sampler_init_min_p(0.05, 1))
+        api.llama_sampler_chain_add(chain, api.llama_sampler_init_temp(self.temperature))
+        seed = self.seed if self.seed is not None else api.LLAMA_DEFAULT_SEED
+        api.llama_sampler_chain_add(chain, api.llama_sampler_init_dist(seed))
+        return chain
 
 
 class LlamaLabelDecoder:
@@ -88,11 +98,7 @@ class LlamaLabelDecoder:
                 raise RuntimeError("Runtime did not allocate the requested menu sequences")
             self._batch = api.llama_batch_init(width, 0, 1)
             self._resources.callback(api.llama_batch_free, self._batch)
-            self._samplers = []
-            for _ in range(width):
-                sampler = sampling.sampler(model)
-                self._resources.callback(sampler.close)
-                self._samplers.append(sampler.sampler)
+            self._samplers = [sampling.sampler(api, self._resources) for _ in range(width)]
             self._prepare_prefix(target, sample)
         except BaseException:
             self.close()

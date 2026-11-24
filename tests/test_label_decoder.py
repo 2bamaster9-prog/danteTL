@@ -21,7 +21,7 @@ def test_independent_labels_survive_full_sequence_resets_and_prompt_prefix_chang
     model.tokenize.side_effect = lambda data, **_: list(data)
     model.detokenize.side_effect = lambda tokens, **_: bytes(tokens)
     model.longest_token_prefix.side_effect = lambda a, b: len(commonprefix((a, b)))
-    model._init_sampler.side_effect = lambda **_: Mock()
+    api.llama_sampler_init_greedy.side_effect = object
     api.llama_model_has_encoder.return_value = False
     api.llama_model_is_recurrent.return_value = True
     api.llama_n_seq_max.return_value = 3

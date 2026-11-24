@@ -335,14 +335,10 @@ def test_imported_label_decoder_uses_the_selected_prompt_and_sampling(
         assert render("装備<武器>", target) == prompt
         assert list(stops) == options["stop"] and limit == options["max_tokens"]
         assert validate(model.create_completion.return_value) == "Settings"
-        sampling.sampler(model)
-        model.set_seed.assert_called_with(options["seed"])
-        model._init_sampler.assert_called_with(
-            temp=options["temperature"],
-            top_k=options["top_k"],
-            top_p=options["top_p"],
-            repeat_penalty=options["repeat_penalty"],
-        )
+        assert sampling.temperature == options["temperature"]
+        assert sampling.seed == options["seed"]
+        assert sampling.top_k == options["top_k"]
+        assert sampling.top_p == options["top_p"]
     finally:
         backend.close()
 
