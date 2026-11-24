@@ -153,7 +153,7 @@ def test_first_show_failure_offers_one_working_retry_while_capture_continues(app
 
     replay = Replay(tmp_path)
     replay.windows.list_targets.return_value = []
-    replay.windows.set_overlay_capture.side_effect = OSError("Fixture affinity error")
+    replay.windows.set_overlay_capture.side_effect = OSError("Fixture error in <capture>")
     driver = DesktopDriver()
     window = View(replay.app, replay.windows, driver)
     try:
@@ -164,7 +164,8 @@ def test_first_show_failure_offers_one_working_retry_while_capture_continues(app
         driver.refresh(inspect=False)
         driver.refresh(inspect=False)
         dialogs = window.findChildren(QMessageBox)
-        assert len(dialogs) == 1 and dialogs[0].text() == "Fixture affinity error"
+        assert len(dialogs) == 1 and dialogs[0].text() == "Fixture error in &lt;capture&gt;"
+        assert 'href="https://github.com/nhmelo/danteTL/issues"' in dialogs[0].informativeText()
         assert not window._overlay.isVisible() and replay.app.controls.capture_active
         replay.windows.set_overlay_capture.assert_called_once()
         replay.windows.set_overlay_capture.side_effect = None
@@ -233,12 +234,13 @@ def test_capture_visibility_ui_remembers_choice_and_rolls_back_native_failure(ap
         assert preferences.save.call_args.args[0].include_overlay_in_capture
         preferences.save.reset_mock()
         windows.set_overlay_capture.side_effect = RuntimeError("Fixture native failure")
-        warning = Mock()
-        monkeypatch.setattr(QMessageBox, "warning", warning)
         window.capture_overlay_check.setChecked(False)
         assert window.capture_overlay_check.isChecked()
         preferences.save.assert_not_called()
-        assert "Fixture native failure" in warning.call_args.args[-1]
+        warning = window.findChild(QMessageBox)
+        assert warning is not None and warning.isVisible()
+        assert "Fixture native failure" in warning.text()
+        warning.accept()
     finally:
         window.close()
         window.deleteLater()

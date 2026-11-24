@@ -2817,6 +2817,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>एकल मॉडल चयनकर्ता को प्रत्येक टेक्स्ट श्रेणी के लिए एक मॉडल से बदलें। यह दृश्य बदलने से आपके असाइनमेंट नहीं बदलते।</translation>
     </message>
     <message>
+      <source>Report a bug on GitHub</source>
+      <translation>GitHub पर बग की रिपोर्ट करें</translation>
+    </message>
+    <message>
       <source>Request rate</source>
       <translation>अनुरोध दर</translation>
     </message>

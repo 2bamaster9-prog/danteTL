@@ -2817,6 +2817,10 @@ Transferências de modelos: até {size:.2f} GB; os ficheiros existentes são ver
       <translation>Substituir o seletor único de modelo por um modelo para cada categoria de texto. Alterar esta vista não altera as tuas atribuições.</translation>
     </message>
     <message>
+      <source>Report a bug on GitHub</source>
+      <translation>Comunicar um erro no GitHub</translation>
+    </message>
+    <message>
       <source>Request rate</source>
       <translation>Taxa de pedidos</translation>
     </message>

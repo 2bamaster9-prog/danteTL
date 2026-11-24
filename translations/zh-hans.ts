@@ -2817,6 +2817,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>将单一模型选择器替换为每个文本类别各自的模型。更改此视图不会更改您的分配。</translation>
     </message>
     <message>
+      <source>Report a bug on GitHub</source>
+      <translation>在 GitHub 上报告问题</translation>
+    </message>
+    <message>
       <source>Request rate</source>
       <translation>请求速率</translation>
     </message>

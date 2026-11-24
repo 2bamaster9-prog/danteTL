@@ -64,6 +64,7 @@ def main() -> None:
     from dantetl.runtime.restart import acknowledge_startup
     from dantetl.runtime.setup import project_root
     from dantetl.runtime.update_swap import acknowledge_update, bundle_lease
+    from dantetl.ui.bug_reports import error_dialog
     from dantetl.ui.desktop_driver import DesktopDriver
     from dantetl.ui.hotkeys_windows import WindowsHotkeyEvents, WindowsHotkeyRegistrar
     from dantetl.ui.icons import APP_ICON
@@ -85,7 +86,7 @@ def main() -> None:
         logging.getLogger(__name__).error(
             tr("Unhandled application error"), exc_info=(kind, error, traceback)
         )
-        QMessageBox.critical(
+        error_dialog(
             None,
             "DanteTL",
             tr(
@@ -93,7 +94,8 @@ def main() -> None:
                 "%LOCALAPPDATA%/DanteTL/logs/app.log.",
                 error=error,
             ),
-        )
+            icon=QMessageBox.Icon.Critical,
+        ).exec()
 
     sys.excepthook = report_exception
     hardware = HardwareCheck()

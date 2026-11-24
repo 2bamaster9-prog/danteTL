@@ -2817,6 +2817,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>단일 모델 선택기를 각 텍스트 카테고리별 모델로 교체합니다. 이 보기를 변경해도 할당은 변경되지 않습니다.</translation>
     </message>
     <message>
+      <source>Report a bug on GitHub</source>
+      <translation>GitHub에 버그 신고</translation>
+    </message>
+    <message>
       <source>Request rate</source>
       <translation>요청 속도</translation>
     </message>

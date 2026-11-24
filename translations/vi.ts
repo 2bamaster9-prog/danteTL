@@ -2817,6 +2817,10 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Thay bộ chọn mô hình đơn bằng một mô hình cho mỗi danh mục văn bản. Thay đổi chế độ xem này không thay đổi các gán của bạn.</translation>
     </message>
     <message>
+      <source>Report a bug on GitHub</source>
+      <translation>Báo lỗi trên GitHub</translation>
+    </message>
+    <message>
       <source>Request rate</source>
       <translation>Tốc độ yêu cầu</translation>
     </message>

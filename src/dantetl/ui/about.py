@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 from dantetl.application.updates import Updates, UpdateView
 from dantetl.i18n import mark, tr
 from dantetl.runtime.release_values import Release
+from dantetl.ui.bug_reports import bug_report_link
 from dantetl.ui.localization import localized, on_language_change
 
 
@@ -43,6 +44,10 @@ class AboutDialog(QDialog):
         credits.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         credits.setOpenExternalLinks(True)
         layout.addWidget(credits)
+        report = localized(QLabel(), text=bug_report_link)
+        report.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        report.setOpenExternalLinks(True)
+        layout.addWidget(report)
         self.status = QLabel()
         self.status.setWordWrap(True)
         layout.addWidget(self.status)

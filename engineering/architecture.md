@@ -128,6 +128,8 @@ frames or observations. A persistently invalid capture clears its scene once per
 ## UI, identity and coordinates
 
 The public app name is DanteTL.
+About and error dialogs link to the project's GitHub issue tracker. Opening the tracker is an
+explicit user action. Native startup and update error boxes show the address as plain text.
 The interface locale is a separate preference from game source and translation target.
 Changing the interface language replaces the app-owned Qt catalogs and updates text on existing widgets. Capture, model workers and editable values keep their state. English is the fallback. Mark app-authored copy
 with `tr` and static metadata with `mark`, then translate that metadata for display.

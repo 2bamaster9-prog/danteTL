@@ -2817,6 +2817,10 @@ Modell-Downloads: bis zu {size:.2f} GB; vorhandene Dateien werden geprüft und w
       <translation>Ersetze die einzelne Modellauswahl durch ein Modell pro Textkategorie. Diese Ansicht zu ändern, ändert nicht deine Zuordnungen.</translation>
     </message>
     <message>
+      <source>Report a bug on GitHub</source>
+      <translation>Fehler auf GitHub melden</translation>
+    </message>
+    <message>
       <source>Request rate</source>
       <translation>Anfragefrequenz</translation>
     </message>

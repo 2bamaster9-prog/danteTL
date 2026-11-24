@@ -9,6 +9,7 @@ import traceback
 
 from dantetl.i18n import tr
 from dantetl.paths import state_root
+from dantetl.runtime.release_values import ISSUES_URL
 
 
 def main() -> None:
@@ -58,7 +59,10 @@ def run() -> None:
         log.write_text(traceback.format_exc(), encoding="utf-8")
         if not helper:
             ctypes.windll.user32.MessageBoxW(
-                None, f"DanteTL could not start. Details were saved to:\n{log}", "DanteTL", 0x10
+                None,
+                f"DanteTL could not start. Details were saved to:\n{log}\n\n{ISSUES_URL}",
+                "DanteTL",
+                0x10,
             )
         raise SystemExit(1) from None
 

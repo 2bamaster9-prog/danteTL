@@ -2817,6 +2817,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>استبدال محدّد النموذج الواحد بنموذج لكل فئة نصية. تغيير هذا العرض لا يغيّر إسناداتك.</translation>
     </message>
     <message>
+      <source>Report a bug on GitHub</source>
+      <translation>الإبلاغ عن خلل على GitHub</translation>
+    </message>
+    <message>
       <source>Request rate</source>
       <translation>معدل الطلبات</translation>
     </message>

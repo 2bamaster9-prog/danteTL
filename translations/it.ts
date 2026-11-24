@@ -2817,6 +2817,10 @@ Download dei modelli: fino a {size:.2f} GB; i file esistenti vengono verificati 
       <translation>Sostituisci il selettore modello unico con un modello per ogni categoria di testo. Cambiare questa vista non modifica le tue assegnazioni.</translation>
     </message>
     <message>
+      <source>Report a bug on GitHub</source>
+      <translation>Segnala un bug su GitHub</translation>
+    </message>
+    <message>
       <source>Request rate</source>
       <translation>Frequenza richieste</translation>
     </message>

@@ -2817,6 +2817,10 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
       <translation>Vervang de enkele modelkiezer door een model per tekstcategorie. Deze weergave wijzigen verandert je toewijzingen niet.</translation>
     </message>
     <message>
+      <source>Report a bug on GitHub</source>
+      <translation>Een bug melden op GitHub</translation>
+    </message>
+    <message>
       <source>Request rate</source>
       <translation>Aanvraagsnelheid</translation>
     </message>

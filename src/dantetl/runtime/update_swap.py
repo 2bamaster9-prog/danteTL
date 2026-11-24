@@ -16,7 +16,7 @@ from packaging.version import Version
 from dantetl.file_lock import file_lock
 from dantetl.runtime.owned_process import OwnedProcess
 from dantetl.runtime.package import bundled_application, check_portable_folder
-from dantetl.runtime.release_values import MANIFEST, SIGNATURE
+from dantetl.runtime.release_values import ISSUES_URL, MANIFEST, SIGNATURE
 
 
 @contextmanager
@@ -184,7 +184,7 @@ def main() -> None:
                 return
             except (OSError, RuntimeError, ValueError):
                 pass
-        ctypes.windll.user32.MessageBoxW(None, message, "DanteTL", 0x10)
+        ctypes.windll.user32.MessageBoxW(None, f"{message}\n\n{ISSUES_URL}", "DanteTL", 0x10)
 
 
 def acknowledge_update(state: Path, version: str) -> None:

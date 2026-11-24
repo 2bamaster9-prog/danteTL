@@ -2817,6 +2817,10 @@ Downloads de modelos: até {size:.2f} GB; arquivos existentes são verificados e
       <translation>Substituir o seletor único de modelo por um modelo para cada categoria de texto. Alterar esta visualização não altera suas atribuições.</translation>
     </message>
     <message>
+      <source>Report a bug on GitHub</source>
+      <translation>Relatar um erro no GitHub</translation>
+    </message>
+    <message>
       <source>Request rate</source>
       <translation>Taxa de requisições</translation>
     </message>

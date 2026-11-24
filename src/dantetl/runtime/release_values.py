@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 REPOSITORY = "https://github.com/nhmelo/dantejp"
+ISSUES_URL = "https://github.com/nhmelo/danteTL/issues"
 ARCHIVE = "DanteTL-windows-x64.zip"
 MANIFEST = "DanteTL-update.json"
 SIGNATURE = MANIFEST + ".sig"

@@ -2817,6 +2817,10 @@ Unduhan model: hingga {size:.2f} GB; file yang ada diverifikasi dan digunakan ul
       <translation>Ganti pemilih model tunggal dengan satu model untuk setiap kategori teks. Mengubah tampilan ini tidak mengubah penetapan Anda.</translation>
     </message>
     <message>
+      <source>Report a bug on GitHub</source>
+      <translation>Laporkan bug di GitHub</translation>
+    </message>
+    <message>
       <source>Request rate</source>
       <translation>Laju permintaan</translation>
     </message>

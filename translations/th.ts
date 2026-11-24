@@ -2817,6 +2817,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>แทนที่ตัวเลือกโมเดลเดี่ยวด้วยโมเดลสำหรับแต่ละหมวดข้อความ การเปลี่ยนมุมมองนี้ไม่เปลี่ยนการกำหนดของคุณ</translation>
     </message>
     <message>
+      <source>Report a bug on GitHub</source>
+      <translation>รายงานบั๊กบน GitHub</translation>
+    </message>
+    <message>
       <source>Request rate</source>
       <translation>อัตราคำขอ</translation>
     </message>

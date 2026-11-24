@@ -2817,6 +2817,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>একক মডেল নির্বাচককে প্রতিটি টেক্সট বিভাগের জন্য একটি মডেল দিয়ে প্রতিস্থাপন করুন। এই ভিউ পরিবর্তন করলে আপনার অ্যাসাইনমেন্ট পরিবর্তন হয় না।</translation>
     </message>
     <message>
+      <source>Report a bug on GitHub</source>
+      <translation>GitHub-এ বাগ রিপোর্ট করুন</translation>
+    </message>
+    <message>
       <source>Request rate</source>
       <translation>অনুরোধের হার</translation>
     </message>

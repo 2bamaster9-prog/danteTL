@@ -39,6 +39,7 @@ from dantetl.paths import gui_executable, module_command
 from dantetl.runtime.hardware_values import HardwareReader
 from dantetl.translation.selection import ModelOption
 from dantetl.ui.about import AboutDialog
+from dantetl.ui.bug_reports import error_dialog
 from dantetl.ui.controls import (
     CaptureButton,
     OutputLanguageCombo,
@@ -527,7 +528,7 @@ class MainWindow(QMainWindow):
         except (OSError, RuntimeError) as error:
             with QSignalBlocker(self.capture_overlay_check):
                 self.capture_overlay_check.setChecked(not included)
-            QMessageBox.warning(self, tr("Screen capture setting"), str(error))
+            self._open_warning(tr("Screen capture setting"), str(error))
             return
         self.application.configure(include_overlay_in_capture=included)
 
@@ -873,7 +874,7 @@ class MainWindow(QMainWindow):
             )
 
     def _open_warning(self, title: str, message: str) -> None:
-        dialog = QMessageBox(QMessageBox.Icon.Warning, title, message, parent=self)
+        dialog = error_dialog(self, title, message)
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.open()
 
@@ -1000,12 +1001,11 @@ class MainWindow(QMainWindow):
             self._overlay.hide()
 
     def _show_overlay_error(self, error: str) -> None:
-        dialog = QMessageBox(
-            QMessageBox.Icon.Warning,
+        dialog = error_dialog(
+            self,
             tr("Screen capture setting"),
             error,
-            QMessageBox.StandardButton.Close,
-            self,
+            button=QMessageBox.StandardButton.Close,
         )
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         retry = dialog.addButton(tr("Retry setup"), QMessageBox.ButtonRole.ActionRole)

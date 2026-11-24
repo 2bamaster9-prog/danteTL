@@ -2817,6 +2817,10 @@ Téléchargements de modèles : jusqu'à {size:.2f} Go ; les fichiers existants 
       <translation>Remplacer le sélecteur de modèle unique par un modèle pour chaque catégorie de texte. Changer cette vue ne modifie pas vos attributions.</translation>
     </message>
     <message>
+      <source>Report a bug on GitHub</source>
+      <translation>Signaler un bug sur GitHub</translation>
+    </message>
+    <message>
       <source>Request rate</source>
       <translation>Taux de requêtes</translation>
     </message>

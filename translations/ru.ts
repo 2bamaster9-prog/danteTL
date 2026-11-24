@@ -2817,6 +2817,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>Заменить единый выбор модели отдельной моделью для каждой текстовой категории. Изменение этого представления не влияет на ваши назначения.</translation>
     </message>
     <message>
+      <source>Report a bug on GitHub</source>
+      <translation>Сообщить об ошибке на GitHub</translation>
+    </message>
+    <message>
       <source>Request rate</source>
       <translation>Частота запросов</translation>
     </message>

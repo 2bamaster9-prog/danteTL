@@ -2817,6 +2817,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>単一のモデルセレクタを各テキストカテゴリのモデルに置き換えます。このビューの変更は割り当てを変更しません。</translation>
     </message>
     <message>
+      <source>Report a bug on GitHub</source>
+      <translation>GitHub で不具合を報告</translation>
+    </message>
+    <message>
       <source>Request rate</source>
       <translation>リクエストレート</translation>
     </message>
