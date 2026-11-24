@@ -27,7 +27,7 @@ def wait_for(predicate):
         time.sleep(0.01)
 
 
-def native_fixture(monkeypatch, *, fail_borderless=False):
+def native_fixture(monkeypatch, *, fail_borderless=False, start_error=None):
     instances = []
     release = threading.Event()
 
@@ -50,6 +50,9 @@ def native_fixture(monkeypatch, *, fail_borderless=False):
             return callback
 
         def start_free_threaded(self):
+            if start_error and (error := start_error(self.options)):
+                self.stopped = True  # Startup failed before returning a native control.
+                raise Exception(error)
             self.on_frame_arrived(
                 SimpleNamespace(
                     width=8, height=8, frame_buffer=np.zeros((8, 8, 4), dtype=np.uint8)
@@ -158,6 +161,13 @@ def test_padded_native_rows_publish_only_owned_client_pixels(monkeypatch):
         wait_for(lambda: session.finished)
 
 
+UNSUPPORTED_INTERVAL = (
+    "Capture session threw an exception: Graphics capture error: Setting a minimum update "
+    "interval is not supported by the Graphics Capture API on this platform."
+)
+
+
+@pytest.mark.parametrize("supports_interval", [True, False])
 @pytest.mark.parametrize(
     ("fps", "interval_ms", "callbacks"),
     [
@@ -167,26 +177,47 @@ def test_padded_native_rows_publish_only_owned_client_pixels(monkeypatch):
     ],
 )
 def test_capture_sampling_paces_numeric_targets_and_accepts_all_unlimited_callbacks(
-    monkeypatch, fps, interval_ms, callbacks
+    monkeypatch, fps, interval_ms, callbacks, supports_interval
 ):
-    instances, release = native_fixture(monkeypatch)
+    def require_supported(options):
+        if not supports_interval and options["minimum_update_interval"] is not None:
+            return UNSUPPORTED_INTERVAL
+
+    instances, release = native_fixture(monkeypatch, start_error=require_supported)
     now = 0.0
     session = CaptureSession(WindowTarget(12, 34, "fixture"), Windows(), fps=fps, clock=lambda: now)
     session.start()
     try:
         wait_for(lambda: session.snapshot().frame is not None)
-        native = instances[0]
-        assert native.options["minimum_update_interval"] == interval_ms
+        native = instances[-1]
+        expected_intervals = [interval_ms] if supports_interval else [interval_ms, None]
+        assert [i.options["minimum_update_interval"] for i in instances] == expected_intervals
+        assert all(i.options["window_hwnd"] == 12 for i in instances)
         data = SimpleNamespace(width=8, height=8, frame_buffer=np.zeros((8, 8, 4), dtype=np.uint8))
         for timestamp, expected in callbacks:
             now = timestamp
             native.on_frame_arrived(data, native)
             frame = session.snapshot().frame
             assert frame and frame.sequence == expected
+        if not supports_interval:
+            release.set()
+            session.set_border(False)
+            wait_for(lambda: len(instances) >= 3)
+            assert instances[2].options == {**native.options, "draw_border": False}
     finally:
         release.set()
         session.request_stop()
         wait_for(lambda: session.finished)
+
+
+@pytest.mark.parametrize("error,attempts", [("Access denied", 1), (UNSUPPORTED_INTERVAL, 2)])
+def test_capture_start_failure_retries_only_unsupported_interval_once(monkeypatch, error, attempts):
+    instances, _ = native_fixture(monkeypatch, start_error=lambda _: error)
+    session = CaptureSession(WindowTarget(12, 34, "fixture"), Windows())
+    session.start()
+    wait_for(lambda: session.finished)
+    assert len(instances) == attempts
+    assert session.snapshot().state == CaptureState.FAILED and session.snapshot().message == error
 
 
 @pytest.mark.parametrize("action", ["close", "failure", "cancel"])

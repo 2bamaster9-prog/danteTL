@@ -19,6 +19,12 @@ from dantetl.i18n import tr
 
 logger = logging.getLogger(__name__)
 
+# windows-capture exposes this WGC capability error as a plain Python Exception.
+_INTERVAL_UNSUPPORTED = (
+    "Setting a minimum update interval is not supported "
+    "by the Graphics Capture API on this platform."
+)
+
 
 class GeometrySource(Protocol):
     def geometry(self, target: WindowTarget) -> WindowGeometry: ...
@@ -80,6 +86,7 @@ class CaptureSession:
         self.mailbox = FrameMailbox(on_change)
         self._windows = windows
         self._fps = fps
+        self._native_interval_ms: int | None = 1000 // fps if fps else 0
         self._clock = clock
         self._stop = threading.Event()
         self._done = threading.Event()
@@ -118,7 +125,7 @@ class CaptureSession:
     def _run(self) -> None:
         try:
             while self._capture():
-                pass  # Reopen only the same HWND after a requested border change.
+                pass  # Reopen only the same HWND, rechecking its identity on every attempt.
         except WindowClosed:
             return  # The target can disappear before native startup or a border reopen.
         except Exception as error:
@@ -144,7 +151,7 @@ class CaptureSession:
             window_hwnd=self.target.hwnd,
             cursor_capture=False,
             draw_border=None if border else False,
-            minimum_update_interval=1000 // self._fps if self._fps else 0,
+            minimum_update_interval=self._native_interval_ms,
         )
 
         @capture.event
@@ -153,8 +160,8 @@ class CaptureSession:
                 control.stop()
                 return
             now = self._clock()
-            # WGC already paces callbacks. A slightly early delivery belongs to
-            # this slot; dropping it adds a full capture interval at menu changes.
+            # Admit a slightly early delivery in its scheduled slot, including
+            # when Windows supplies frames at its default cadence.
             if period and now < self._next_sample - jitter:
                 return
             try:
@@ -188,7 +195,14 @@ class CaptureSession:
 
         if self._stop.is_set():
             return False
-        control = capture.start_free_threaded()
+        try:
+            control = capture.start_free_threaded()
+        except Exception as error:
+            if self._native_interval_ms is None or not str(error).endswith(_INTERVAL_UNSUPPORTED):
+                raise
+            logger.info("WGC does not support a custom frame interval; using its default cadence")
+            self._native_interval_ms = None
+            return True
         started = self._clock()
         try:
             while not self._stop.wait(0.05):

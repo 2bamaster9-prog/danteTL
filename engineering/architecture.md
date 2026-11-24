@@ -158,8 +158,10 @@ pixels before callbacks return; use bounded mailboxes and generations to reject 
 Static WGC windows need not deliver repeated frames; frame age alone is not failure evidence.
 Users can set a sampling target or select Unlimited to accept each native callback.
 At a numeric target, the rate guard admits slightly early callbacks in their scheduled slot.
-Unlimited disables both pacing limits. Both modes replace the latest frame in one mailbox,
-and OCR keeps its independent request cadence and coverage policy.
+When WGC rejects the optional native update interval, the session retries the same target once
+using Windows' default cadence and retains that choice across border edits. The rate guard still
+enforces numeric targets. Unlimited accepts every delivered callback. Both modes replace the latest
+frame in one mailbox, and OCR keeps its independent request cadence and coverage policy.
 Capture copies packed BGRA rows from the mapped client area. The owned frame excludes row
 padding and window chrome and remains valid after the native callback returns.
 
