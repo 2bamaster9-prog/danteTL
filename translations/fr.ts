@@ -1059,6 +1059,10 @@ Les détails se trouvent dans %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Continuer en arrière-plan</translation>
     </message>
     <message>
+      <source>Continue on CPU</source>
+      <translation>Continuer avec le CPU</translation>
+    </message>
+    <message>
       <source>Continue with ChatGPT</source>
       <translation>Continuer avec ChatGPT</translation>
     </message>
@@ -1181,6 +1185,10 @@ Les détails se trouvent dans %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>DanteTL is up to date.</source>
       <translation>DanteTL est à jour.</translation>
+    </message>
+    <message>
+      <source>DanteTL needs to update CUDA to use your NVIDIA graphics card again.</source>
+      <translation>DanteTL doit mettre à jour CUDA pour utiliser à nouveau votre carte graphique NVIDIA.</translation>
     </message>
     <message>
       <source>DanteTL {version} is available.</source>
@@ -3077,6 +3085,10 @@ Téléchargements de modèles : jusqu'à {size:.2f} Go ; les fichiers existants 
       <translation>La configuration est toujours en cours</translation>
     </message>
     <message>
+      <source>Setup keeps your downloaded models. You can also update later in Settings → Acceleration.</source>
+      <translation>Vos modèles téléchargés seront conservés. Vous pouvez aussi effectuer la mise à jour plus tard dans Paramètres → Accélération.</translation>
+    </message>
+    <message>
       <source>Setup needs attention: </source>
       <translation>La configuration nécessite votre attention : </translation>
     </message>
@@ -3771,6 +3783,10 @@ Téléchargements de modèles : jusqu'à {size:.2f} Go ; les fichiers existants 
     <message>
       <source>Unsupported settings format; defaults are being used.</source>
       <translation>Format de paramètres non pris en charge ; les valeurs par défaut sont utilisées.</translation>
+    </message>
+    <message>
+      <source>Update CUDA</source>
+      <translation>Mettre à jour CUDA</translation>
     </message>
     <message>
       <source>Update failed: {detail}</source>

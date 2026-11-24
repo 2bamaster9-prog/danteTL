@@ -473,6 +473,32 @@ class MainWindow(QMainWindow):
         self.application.advance(time.monotonic())
         self._handle_desktop_action()
 
+    def offer_cuda_update(self) -> None:
+        dialog = QMessageBox(self)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.setIcon(QMessageBox.Icon.Information)
+        dialog.setWindowTitle(tr("Update CUDA"))
+        dialog.setText(tr("DanteTL needs to update CUDA to use your NVIDIA graphics card again."))
+        dialog.setInformativeText(
+            tr(
+                "Setup keeps your downloaded models. "
+                "You can also update later in Settings → Acceleration."
+            )
+        )
+        update = dialog.addButton(tr("Update CUDA"), QMessageBox.ButtonRole.AcceptRole)
+        cpu = dialog.addButton(tr("Continue on CPU"), QMessageBox.ButtonRole.RejectRole)
+        assert isinstance(update, QPushButton)
+        dialog.setDefaultButton(update)
+        dialog.setEscapeButton(cpu)
+        dialog.finished.connect(
+            lambda _: (
+                self._settings.show_runtime(install_profile="nvidia")
+                if dialog.clickedButton() is update
+                else None
+            )
+        )
+        dialog.open()
+
     def _show_setup_assistant(self) -> None:
         if not self.application.can_setup:
             return

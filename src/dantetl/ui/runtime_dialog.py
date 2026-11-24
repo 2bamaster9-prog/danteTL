@@ -36,6 +36,7 @@ class RuntimeSetupDialog(QDialog):
         self.error_message = ""
         self.service = service
         self._completion = 0
+        self._install_after_detection: str | None = None
         self._pending_restart: Path | None = None
         self._install_token = 0
         localized(self, windowTitle=mark("Runtime setup"))
@@ -95,13 +96,25 @@ class RuntimeSetupDialog(QDialog):
         self.choice.activated.connect(self._offer_restart)
         active = service.job(SetupLane.RUNTIME)
         if active.key:
-            for index, profile in enumerate(service.profiles):
-                if profile.key == active.key:
-                    self.choice.setCurrentIndex(index)
-                    break
+            self._select_profile(active.key)
         self._selected()
         self.refresh_view()
         on_language_change(self, self._refresh_language)
+
+    def _select_profile(self, key: str) -> None:
+        self.choice.setCurrentIndex(
+            next(i for i, p in enumerate(self.service.profiles) if p.key == key)
+        )
+
+    def start_install(self, key: str) -> None:
+        job = self.service.job(SetupLane.RUNTIME)
+        if job.action == "detect" and job.token != self._completion:
+            self._select_profile(key)
+            self._install_after_detection = key
+            self.refresh_view()
+        elif not job.busy:
+            self._select_profile(key)
+            self._install()
 
     def _show_hardware(self) -> None:
         adapters = self.service.runtime.adapters
@@ -201,10 +214,17 @@ class RuntimeSetupDialog(QDialog):
         self.choice.setEnabled(True)
         if job.action == "detect":
             self._show_hardware()
-            key = self.service.runtime.active_profile or self.service.runtime.recommendation
-            self.choice.setCurrentIndex(
-                next(i for i, p in enumerate(self.service.profiles) if p.key == key)
+            requested = self._install_after_detection
+            self._install_after_detection = None
+            self._select_profile(
+                requested
+                or self.service.runtime.active_profile
+                or self.service.runtime.recommendation
             )
+            if requested and not (value.cancelled or value.error or self._closing):
+                self._install()
+                if self.busy:
+                    return
         self._selected()
         if value.error or value.cancelled or job.action == "select":
             self.status.setText(

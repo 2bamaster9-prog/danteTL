@@ -1059,6 +1059,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>ব্যাকগ্রাউন্ডে চালিয়ে যান</translation>
     </message>
     <message>
+      <source>Continue on CPU</source>
+      <translation>CPU ব্যবহার চালিয়ে যান</translation>
+    </message>
+    <message>
       <source>Continue with ChatGPT</source>
       <translation>ChatGPT দিয়ে চালিয়ে যান</translation>
     </message>
@@ -1181,6 +1185,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>DanteTL is up to date.</source>
       <translation>DanteTL হালনাগাদ আছে।</translation>
+    </message>
+    <message>
+      <source>DanteTL needs to update CUDA to use your NVIDIA graphics card again.</source>
+      <translation>আপনার NVIDIA গ্রাফিক্স কার্ড আবার ব্যবহার করতে DanteTL-এর CUDA আপডেট করা প্রয়োজন।</translation>
     </message>
     <message>
       <source>DanteTL {version} is available.</source>
@@ -3077,6 +3085,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>সেটআপ এখনও চলছে</translation>
     </message>
     <message>
+      <source>Setup keeps your downloaded models. You can also update later in Settings → Acceleration.</source>
+      <translation>সেটআপের পরও আপনার ডাউনলোড করা মডেলগুলো থাকবে। চাইলে পরে সেটিংস → অ্যাক্সিলারেশন থেকে আপডেট করতে পারেন।</translation>
+    </message>
+    <message>
       <source>Setup needs attention: </source>
       <translation>সেটআপে মনোযোগ প্রয়োজন: </translation>
     </message>
@@ -3771,6 +3783,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Unsupported settings format; defaults are being used.</source>
       <translation>অসমর্থিত সেটিংস ফরম্যাট; ডিফল্ট ব্যবহার করা হচ্ছে।</translation>
+    </message>
+    <message>
+      <source>Update CUDA</source>
+      <translation>CUDA আপডেট করুন</translation>
     </message>
     <message>
       <source>Update failed: {detail}</source>

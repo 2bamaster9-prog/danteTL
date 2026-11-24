@@ -1059,6 +1059,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>バックグラウンドで続行</translation>
     </message>
     <message>
+      <source>Continue on CPU</source>
+      <translation>CPU で続行</translation>
+    </message>
+    <message>
       <source>Continue with ChatGPT</source>
       <translation>ChatGPTで続行</translation>
     </message>
@@ -1181,6 +1185,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>DanteTL is up to date.</source>
       <translation>DanteTL は最新です。</translation>
+    </message>
+    <message>
+      <source>DanteTL needs to update CUDA to use your NVIDIA graphics card again.</source>
+      <translation>NVIDIA グラフィックスカードを再び使うには、DanteTL の CUDA を更新する必要があります。</translation>
     </message>
     <message>
       <source>DanteTL {version} is available.</source>
@@ -3077,6 +3085,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>セットアップはまだ実行中です</translation>
     </message>
     <message>
+      <source>Setup keeps your downloaded models. You can also update later in Settings → Acceleration.</source>
+      <translation>ダウンロード済みのモデルはそのまま使えます。後から「設定 → アクセラレーション」で更新することもできます。</translation>
+    </message>
+    <message>
       <source>Setup needs attention: </source>
       <translation>セットアップの対応が必要です: </translation>
     </message>
@@ -3771,6 +3783,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Unsupported settings format; defaults are being used.</source>
       <translation>サポートされていない設定形式 デフォルトが使用されます。</translation>
+    </message>
+    <message>
+      <source>Update CUDA</source>
+      <translation>CUDA を更新</translation>
     </message>
     <message>
       <source>Update failed: {detail}</source>

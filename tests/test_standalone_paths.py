@@ -238,6 +238,7 @@ def test_app_update_and_relocation_reuse_legacy_dependencies(
     (moved / "uv.lock").write_text("changed application metadata")
     assert runtime_setup.selected_runtime(state) == ready
     assert runtime_setup.ready_runtime(state, profile.key) == ready
+    assert not runtime_setup.runtime_selection(state).cuda_update
     before = len(calls)
     current_app = runtime_application.prepare_application(
         state, ready / "Scripts/python.exe", threading.Event()
@@ -261,7 +262,18 @@ def test_app_update_and_relocation_reuse_legacy_dependencies(
     lock = moved / "runtime-locks" / f"pylock.{profile.key}.toml"
     lock.write_text(lock.read_text().replace("a" * 64, "b" * 64))
     assert runtime_setup.selected_runtime(state) is None
+    assert runtime_setup.runtime_selection(state).cuda_update == (profile.key == "nvidia")
+    from dantetl import bootstrap, desktop
+
+    launches = []
+    monkeypatch.setattr(bootstrap, "main", lambda *, cuda_update: launches.append(cuda_update))
+    monkeypatch.setenv("DANTETL_STARTUP_NOTICE", "")
+    monkeypatch.setattr(sys, "argv", ["DanteTL.exe"])
+    desktop.main()
+    assert launches == [profile.key == "nvidia"]
     assert (state / "data/runtime.json").read_bytes() == selection
+    (ready / "verified-wheels.txt").write_text("damaged record")
+    assert not runtime_setup.runtime_selection(state).cuda_update
 
 
 @pytest.mark.parametrize("failure", ["install", "cancel", "release_changed"])

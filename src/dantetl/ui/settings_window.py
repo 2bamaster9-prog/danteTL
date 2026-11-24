@@ -391,12 +391,14 @@ class SettingsWindow(QDialog):
         self.show()
         self.raise_()
 
-    def show_runtime(self) -> None:
+    def show_runtime(self, *, install_profile: str | None = None) -> None:
         self.tabs.setCurrentWidget(self._pages["Acceleration"])
         if self.runtime:
             self.runtime.show()
         self.show()
         self.raise_()
+        if self.runtime and install_profile:
+            self.runtime.start_install(install_profile)
 
     def _tab_changed(self, index: int) -> None:
         if self.tabs.widget(index) is self._pages["Models"]:

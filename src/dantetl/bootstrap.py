@@ -41,7 +41,7 @@ def configure_logging() -> None:
     )
 
 
-def main() -> None:
+def main(*, cuda_update: bool = False) -> None:
     if sys.platform != "win32":
         raise SystemExit(tr("DanteTL currently requires Windows."))
     configure_logging()
@@ -128,7 +128,7 @@ def main() -> None:
         application, windows, driver, hardware=hardware, hotkeys=hotkeys, updates=updates
     )
     window.show()
-    QTimer.singleShot(0, window.offer_first_run)
+    QTimer.singleShot(0, window.offer_cuda_update if cuda_update else window.offer_first_run)
     if notice := os.environ.pop("DANTETL_STARTUP_NOTICE", ""):
         window.status.setText(notice)
     QTimer.singleShot(0, acknowledge_startup)

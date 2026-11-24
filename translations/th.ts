@@ -1059,6 +1059,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>ดำเนินการต่อในเบื้องหลัง</translation>
     </message>
     <message>
+      <source>Continue on CPU</source>
+      <translation>ใช้ CPU ต่อไป</translation>
+    </message>
+    <message>
       <source>Continue with ChatGPT</source>
       <translation>ดำเนินการต่อด้วย ChatGPT</translation>
     </message>
@@ -1181,6 +1185,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>DanteTL is up to date.</source>
       <translation>DanteTL เป็นเวอร์ชันล่าสุดแล้ว</translation>
+    </message>
+    <message>
+      <source>DanteTL needs to update CUDA to use your NVIDIA graphics card again.</source>
+      <translation>DanteTL ต้องอัปเดต CUDA เพื่อกลับมาใช้การ์ดจอ NVIDIA ของคุณอีกครั้ง</translation>
     </message>
     <message>
       <source>DanteTL {version} is available.</source>
@@ -3077,6 +3085,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>การตั้งค่ายังคงทำงานอยู่</translation>
     </message>
     <message>
+      <source>Setup keeps your downloaded models. You can also update later in Settings → Acceleration.</source>
+      <translation>การตั้งค่าจะเก็บโมเดลที่ดาวน์โหลดไว้ คุณสามารถอัปเดตภายหลังได้ที่ การตั้งค่า → การเร่งความเร็ว</translation>
+    </message>
+    <message>
       <source>Setup needs attention: </source>
       <translation>การตั้งค่าต้องการการดูแล: </translation>
     </message>
@@ -3771,6 +3783,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Unsupported settings format; defaults are being used.</source>
       <translation>รูปแบบการตั้งค่าที่ไม่รองรับ กำลังใช้ค่าเริ่มต้น</translation>
+    </message>
+    <message>
+      <source>Update CUDA</source>
+      <translation>อัปเดต CUDA</translation>
     </message>
     <message>
       <source>Update failed: {detail}</source>

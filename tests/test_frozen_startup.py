@@ -61,12 +61,12 @@ def test_cpu_recovery_starts_without_attempting_saved_runtime(monkeypatch, tmp_p
     monkeypatch.setattr(desktop, "state_root", lambda: tmp_path)
     monkeypatch.setattr(sys, "argv", ["DanteTL.exe", "--cpu"])
     monkeypatch.setattr(
-        runtime_setup, "selected_runtime", lambda _: pytest.fail("Recovery must bypass selection")
+        runtime_setup, "runtime_selection", lambda _: pytest.fail("Recovery must bypass selection")
     )
     started = []
-    monkeypatch.setattr(app, "main", lambda: started.append(True))
+    monkeypatch.setattr(app, "main", lambda *, cuda_update: started.append(cuda_update))
     desktop.main()
-    assert started == [True]
+    assert started == [False]
     assert sys.argv == ["DanteTL.exe"]
 
 
@@ -77,7 +77,7 @@ def test_helper_dispatch_does_not_start_ui_or_selected_runtime(monkeypatch):
         desktop.runpy, "run_module", lambda module, **kw: called.append((module, sys.argv[:]))
     )
     monkeypatch.setattr(
-        runtime_setup, "selected_runtime", lambda _: pytest.fail("Helper must not hand off")
+        runtime_setup, "runtime_selection", lambda _: pytest.fail("Helper must not hand off")
     )
     desktop.main()
     assert called == [("dantetl.runtime.probe", ["dantetl.runtime.probe", "cpu"])]

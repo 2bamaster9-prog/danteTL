@@ -22,14 +22,17 @@ def main() -> None:
         return
 
     from dantetl.runtime.restart import RuntimeRestart
-    from dantetl.runtime.setup import selected_runtime
+    from dantetl.runtime.setup import runtime_selection
 
     state = state_root()
     force_cpu = "--cpu" in sys.argv[1:]
+    cuda_update = False
     if force_cpu:
         sys.argv.remove("--cpu")
     if not force_cpu:
-        if target := selected_runtime(state):
+        selection = runtime_selection(state)
+        cuda_update = selection.cuda_update
+        if target := selection.target:
             try:
                 restart = RuntimeRestart(state, target)
                 while not restart.poll():
@@ -39,14 +42,14 @@ def main() -> None:
                 os.environ["DANTETL_STARTUP_NOTICE"] = (
                     f"The selected runtime could not start. Using CPU fallback. {error}"
                 )
-        elif (state / "data/runtime.json").is_file():
+        elif not cuda_update and (state / "data/runtime.json").is_file():
             os.environ["DANTETL_STARTUP_NOTICE"] = (
                 "The saved runtime is unavailable for this app version. Using CPU fallback. "
                 "Open Settings → Acceleration to set it up again."
             )
     from dantetl.bootstrap import main as app_main
 
-    app_main()
+    app_main(cuda_update=cuda_update)
 
 
 def run() -> None:

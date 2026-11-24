@@ -970,6 +970,53 @@ def test_download_completion_reports_missing_runtime_instead_of_false_readiness(
     manager.deleteLater()
 
 
+@pytest.mark.parametrize("update,detected", [(True, False), (True, True), (False, False)])
+def test_cuda_update_choice_starts_install_only_on_request(
+    app, tmp_path, monkeypatch, update, detected
+):
+    monkeypatch.setattr("dantetl.runtime.hardware.detect_adapters", lambda: ())
+    install = Mock(side_effect=RuntimeError("Fixture install failed"))
+    monkeypatch.setattr("dantetl.runtime.setup.install_runtime", install)
+    windows = Mock()
+    windows.list_targets.return_value = []
+    window = MainWindow(windows, Mock(), cache_path=tmp_path / "cache")
+    try:
+        window.show()
+        if detected:
+            settings(window).show_runtime()
+            panel = settings(window).runtime
+            assert panel is not None
+            settle_setup(panel.service)
+            panel.refresh_view()
+            settings(window).hide()
+            install.assert_not_called()
+        window.offer_cuda_update()
+        prompt = window.findChild(QMessageBox)
+        assert prompt and prompt.isVisible()
+        buttons = {button.text(): button for button in prompt.buttons()}
+        assert set(buttons) == {"Update CUDA", "Continue on CPU"}
+        buttons["Update CUDA" if update else "Continue on CPU"].click()
+        assert not prompt.isVisible()
+        assert settings(window).isVisible() == update
+        if update:
+            panel = settings(window).runtime
+            assert panel and panel.isVisible()
+            settle_setup(panel.service)
+            panel.refresh_view()
+            settle_setup(panel.service)
+            panel.refresh_view()
+            panel.refresh_view()
+            install.assert_called_once()
+            assert install.call_args.args[1].key == panel.choice.currentData().key == "nvidia"
+            assert panel.error_message == "Fixture install failed" and panel.install.isEnabled()
+        else:
+            assert settings(window).runtime is None
+            install.assert_not_called()
+    finally:
+        window.close()
+        window.deleteLater()
+
+
 def test_runtime_setup_detects_without_installing_and_close_waits_for_cancel(
     app, tmp_path, monkeypatch
 ):

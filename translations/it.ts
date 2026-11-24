@@ -1059,6 +1059,10 @@ I dettagli sono in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Continua in background</translation>
     </message>
     <message>
+      <source>Continue on CPU</source>
+      <translation>Continua con la CPU</translation>
+    </message>
+    <message>
       <source>Continue with ChatGPT</source>
       <translation>Continua con ChatGPT</translation>
     </message>
@@ -1181,6 +1185,10 @@ I dettagli sono in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>DanteTL is up to date.</source>
       <translation>DanteTL è aggiornato.</translation>
+    </message>
+    <message>
+      <source>DanteTL needs to update CUDA to use your NVIDIA graphics card again.</source>
+      <translation>DanteTL deve aggiornare CUDA per tornare a usare la tua scheda grafica NVIDIA.</translation>
     </message>
     <message>
       <source>DanteTL {version} is available.</source>
@@ -3077,6 +3085,10 @@ Download dei modelli: fino a {size:.2f} GB; i file esistenti vengono verificati 
       <translation>La configurazione è ancora in corso</translation>
     </message>
     <message>
+      <source>Setup keeps your downloaded models. You can also update later in Settings → Acceleration.</source>
+      <translation>I modelli scaricati verranno conservati. Puoi aggiornare anche in seguito da Impostazioni → Accelerazione.</translation>
+    </message>
+    <message>
       <source>Setup needs attention: </source>
       <translation>La configurazione richiede attenzione: </translation>
     </message>
@@ -3771,6 +3783,10 @@ Download dei modelli: fino a {size:.2f} GB; i file esistenti vengono verificati 
     <message>
       <source>Unsupported settings format; defaults are being used.</source>
       <translation>Formato impostazioni non supportato; vengono usati i valori predefiniti.</translation>
+    </message>
+    <message>
+      <source>Update CUDA</source>
+      <translation>Aggiorna CUDA</translation>
     </message>
     <message>
       <source>Update failed: {detail}</source>

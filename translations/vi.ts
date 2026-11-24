@@ -1059,6 +1059,10 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Tiếp tục ở chế độ nền</translation>
     </message>
     <message>
+      <source>Continue on CPU</source>
+      <translation>Tiếp tục dùng CPU</translation>
+    </message>
+    <message>
       <source>Continue with ChatGPT</source>
       <translation>Tiếp tục với ChatGPT</translation>
     </message>
@@ -1181,6 +1185,10 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>DanteTL is up to date.</source>
       <translation>DanteTL đang ở phiên bản mới nhất.</translation>
+    </message>
+    <message>
+      <source>DanteTL needs to update CUDA to use your NVIDIA graphics card again.</source>
+      <translation>DanteTL cần cập nhật CUDA để dùng lại card đồ họa NVIDIA của bạn.</translation>
     </message>
     <message>
       <source>DanteTL {version} is available.</source>
@@ -3077,6 +3085,10 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
       <translation>Thiết lập vẫn đang chạy</translation>
     </message>
     <message>
+      <source>Setup keeps your downloaded models. You can also update later in Settings → Acceleration.</source>
+      <translation>Các mô hình đã tải xuống sẽ được giữ lại. Bạn cũng có thể cập nhật sau trong mục Cài đặt → Tăng tốc.</translation>
+    </message>
+    <message>
       <source>Setup needs attention: </source>
       <translation>Thiết lập cần chú ý: </translation>
     </message>
@@ -3771,6 +3783,10 @@ Tải mô hình: tối đa {size:.2f} GB; các tệp hiện có sẽ được x�
     <message>
       <source>Unsupported settings format; defaults are being used.</source>
       <translation>Định dạng cài đặt không được hỗ trợ; đang dùng mặc định.</translation>
+    </message>
+    <message>
+      <source>Update CUDA</source>
+      <translation>Cập nhật CUDA</translation>
     </message>
     <message>
       <source>Update failed: {detail}</source>

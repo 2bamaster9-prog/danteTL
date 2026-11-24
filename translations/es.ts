@@ -1059,6 +1059,10 @@ Los detalles están en %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Continuar en segundo plano</translation>
     </message>
     <message>
+      <source>Continue on CPU</source>
+      <translation>Continuar con la CPU</translation>
+    </message>
+    <message>
       <source>Continue with ChatGPT</source>
       <translation>Continuar con ChatGPT</translation>
     </message>
@@ -1181,6 +1185,10 @@ Los detalles están en %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>DanteTL is up to date.</source>
       <translation>DanteTL está al día.</translation>
+    </message>
+    <message>
+      <source>DanteTL needs to update CUDA to use your NVIDIA graphics card again.</source>
+      <translation>DanteTL necesita actualizar CUDA para volver a usar tu tarjeta gráfica NVIDIA.</translation>
     </message>
     <message>
       <source>DanteTL {version} is available.</source>
@@ -3077,6 +3085,10 @@ Descargas de modelos: hasta {size:.2f} GB; los archivos existentes se verifican 
       <translation>La configuración sigue en curso</translation>
     </message>
     <message>
+      <source>Setup keeps your downloaded models. You can also update later in Settings → Acceleration.</source>
+      <translation>Se conservarán los modelos descargados. También puedes actualizar más tarde desde Ajustes → Aceleración.</translation>
+    </message>
+    <message>
       <source>Setup needs attention: </source>
       <translation>La configuración requiere atención: </translation>
     </message>
@@ -3771,6 +3783,10 @@ Descargas de modelos: hasta {size:.2f} GB; los archivos existentes se verifican 
     <message>
       <source>Unsupported settings format; defaults are being used.</source>
       <translation>Formato de configuración no compatible; se están usando los valores predeterminados.</translation>
+    </message>
+    <message>
+      <source>Update CUDA</source>
+      <translation>Actualizar CUDA</translation>
     </message>
     <message>
       <source>Update failed: {detail}</source>

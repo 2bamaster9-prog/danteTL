@@ -7,7 +7,7 @@ import re
 import shutil
 import sys
 import threading
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from uuid import uuid4
 
@@ -80,7 +80,13 @@ def ready_runtime(root: Path, key: str) -> Path | None:
     return None
 
 
-def verified_runtime(root: Path, key: str, name: str) -> Path | None:
+@dataclass(frozen=True, slots=True)
+class RuntimeSelection:
+    target: Path | None = None
+    cuda_update: bool = False
+
+
+def _inspect_runtime(root: Path, key: str, name: str) -> RuntimeSelection:
     """Validate an environment's own receipt, never a mutable profile pointer."""
     try:
         target = runtime_path(root, name)
@@ -92,24 +98,32 @@ def verified_runtime(root: Path, key: str, name: str) -> Path | None:
             and receipt.get("environment") == name
             and re.fullmatch(r"[a-f0-9]{64}", receipt.get("fingerprint", ""))
             and (target / "Scripts/pythonw.exe").is_file()
-            and (
-                dependencies_match(runtime_project(root), key, target)
-                if is_standalone()
-                else receipt == {"environment": name, "fingerprint": _fingerprint(root, key)}
-            )
         ):
-            return target
+            if is_standalone():
+                if not dependencies_match(runtime_project(root), key, target):
+                    return RuntimeSelection(cuda_update=key == "nvidia")
+            elif receipt != {"environment": name, "fingerprint": _fingerprint(root, key)}:
+                return RuntimeSelection()
+            return RuntimeSelection(target)
     except (OSError, ValueError, KeyError, TypeError):
         pass
-    return None
+    return RuntimeSelection()
+
+
+def verified_runtime(root: Path, key: str, name: str) -> Path | None:
+    return _inspect_runtime(root, key, name).target
+
+
+def runtime_selection(root: Path) -> RuntimeSelection:
+    try:
+        value = json.loads((root / "data/runtime.json").read_text("utf-8"))
+        return _inspect_runtime(root, value["profile"], value["environment"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return RuntimeSelection()
 
 
 def selected_runtime(root: Path) -> Path | None:
-    try:
-        value = json.loads((root / "data/runtime.json").read_text("utf-8"))
-        return verified_runtime(root, value["profile"], value["environment"])
-    except (OSError, ValueError, KeyError, TypeError):
-        return None
+    return runtime_selection(root).target
 
 
 def select_runtime(root: Path, target: Path) -> None:

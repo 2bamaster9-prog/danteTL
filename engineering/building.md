@@ -40,6 +40,10 @@ App-only updates automatically reuse the installed CPU/CUDA/Vulkan dependencies 
 including compatible runtimes created by earlier releases. Validation compares exact dependency
 wheel hashes and the pinned Python version, independently of application metadata or version.
 Actual dependency changes still require explicit setup into a separate environment with CPU fallback.
+When a previously selected NVIDIA runtime has outdated dependencies, startup offers **Update CUDA**
+and **Continue on CPU**. Update opens Acceleration with NVIDIA selected and starts the installation.
+Setup asks before restarting. Continuing uses CPU for
+this launch and preserves the saved selection.
 Models, preferences and selection are kept. Moving an unchanged release requires no installation.
 
 For a fresh native runtime, uv creates the environment. The installer uses the pip bundled with its

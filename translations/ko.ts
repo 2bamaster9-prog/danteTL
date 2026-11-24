@@ -1059,6 +1059,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>백그라운드에서 계속</translation>
     </message>
     <message>
+      <source>Continue on CPU</source>
+      <translation>CPU로 계속</translation>
+    </message>
+    <message>
       <source>Continue with ChatGPT</source>
       <translation>ChatGPT로 계속</translation>
     </message>
@@ -1181,6 +1185,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>DanteTL is up to date.</source>
       <translation>DanteTL이 최신 버전입니다.</translation>
+    </message>
+    <message>
+      <source>DanteTL needs to update CUDA to use your NVIDIA graphics card again.</source>
+      <translation>NVIDIA 그래픽 카드를 다시 사용하려면 DanteTL에서 CUDA를 업데이트해야 합니다.</translation>
     </message>
     <message>
       <source>DanteTL {version} is available.</source>
@@ -3077,6 +3085,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>설정이 아직 실행 중입니다</translation>
     </message>
     <message>
+      <source>Setup keeps your downloaded models. You can also update later in Settings → Acceleration.</source>
+      <translation>다운로드한 모델은 그대로 유지됩니다. 나중에 설정 → 가속에서 업데이트할 수도 있습니다.</translation>
+    </message>
+    <message>
       <source>Setup needs attention: </source>
       <translation>설정에 주의가 필요합니다: </translation>
     </message>
@@ -3771,6 +3783,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Unsupported settings format; defaults are being used.</source>
       <translation>지원되지 않는 설정 형식입니다. 기본값이 사용됩니다.</translation>
+    </message>
+    <message>
+      <source>Update CUDA</source>
+      <translation>CUDA 업데이트</translation>
     </message>
     <message>
       <source>Update failed: {detail}</source>

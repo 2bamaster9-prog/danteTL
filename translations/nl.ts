@@ -1059,6 +1059,10 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Doorgaan op de achtergrond</translation>
     </message>
     <message>
+      <source>Continue on CPU</source>
+      <translation>Doorgaan met de CPU</translation>
+    </message>
+    <message>
       <source>Continue with ChatGPT</source>
       <translation>Doorgaan met ChatGPT</translation>
     </message>
@@ -1181,6 +1185,10 @@ Details staan in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>DanteTL is up to date.</source>
       <translation>DanteTL is bijgewerkt.</translation>
+    </message>
+    <message>
+      <source>DanteTL needs to update CUDA to use your NVIDIA graphics card again.</source>
+      <translation>DanteTL moet CUDA bijwerken om je NVIDIA-videokaart weer te kunnen gebruiken.</translation>
     </message>
     <message>
       <source>DanteTL {version} is available.</source>
@@ -3077,6 +3085,10 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
       <translation>Installatie wordt nog uitgevoerd</translation>
     </message>
     <message>
+      <source>Setup keeps your downloaded models. You can also update later in Settings → Acceleration.</source>
+      <translation>Je gedownloade modellen blijven behouden. Je kunt CUDA ook later bijwerken via Instellingen → Acceleratie.</translation>
+    </message>
+    <message>
       <source>Setup needs attention: </source>
       <translation>Installatie vereist aandacht: </translation>
     </message>
@@ -3771,6 +3783,10 @@ Modeldownloads: tot {size:.2f} GB; bestaande bestanden worden geverifieerd en he
     <message>
       <source>Unsupported settings format; defaults are being used.</source>
       <translation>Niet-ondersteund instellingenformaat; standaardwaarden worden gebruikt.</translation>
+    </message>
+    <message>
+      <source>Update CUDA</source>
+      <translation>CUDA bijwerken</translation>
     </message>
     <message>
       <source>Update failed: {detail}</source>

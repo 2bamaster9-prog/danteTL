@@ -1059,6 +1059,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>المتابعة في الخلفية</translation>
     </message>
     <message>
+      <source>Continue on CPU</source>
+      <translation>المتابعة باستخدام وحدة المعالجة المركزية</translation>
+    </message>
+    <message>
       <source>Continue with ChatGPT</source>
       <translation>المتابعة باستخدام ChatGPT</translation>
     </message>
@@ -1181,6 +1185,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>DanteTL is up to date.</source>
       <translation>DanteTL مُحدّث.</translation>
+    </message>
+    <message>
+      <source>DanteTL needs to update CUDA to use your NVIDIA graphics card again.</source>
+      <translation>يحتاج DanteTL إلى تحديث CUDA ليتمكن من استخدام بطاقة الرسومات NVIDIA مجددًا.</translation>
     </message>
     <message>
       <source>DanteTL {version} is available.</source>
@@ -3077,6 +3085,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>لا يزال الإعداد قيد التشغيل</translation>
     </message>
     <message>
+      <source>Setup keeps your downloaded models. You can also update later in Settings → Acceleration.</source>
+      <translation>يحتفظ الإعداد بالنماذج التي نزّلتها. يمكنك أيضًا إجراء التحديث لاحقًا من الإعدادات → التسريع.</translation>
+    </message>
+    <message>
       <source>Setup needs attention: </source>
       <translation>يتطلب الإعداد انتباهًا: </translation>
     </message>
@@ -3771,6 +3783,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Unsupported settings format; defaults are being used.</source>
       <translation>تنسيق إعدادات غير مدعوم؛ يتم استخدام الإعدادات الافتراضية.</translation>
+    </message>
+    <message>
+      <source>Update CUDA</source>
+      <translation>تحديث CUDA</translation>
     </message>
     <message>
       <source>Update failed: {detail}</source>

@@ -1059,6 +1059,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>在后台继续</translation>
     </message>
     <message>
+      <source>Continue on CPU</source>
+      <translation>继续使用 CPU</translation>
+    </message>
+    <message>
       <source>Continue with ChatGPT</source>
       <translation>使用 ChatGPT 继续</translation>
     </message>
@@ -1181,6 +1185,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>DanteTL is up to date.</source>
       <translation>DanteTL 已是最新版本。</translation>
+    </message>
+    <message>
+      <source>DanteTL needs to update CUDA to use your NVIDIA graphics card again.</source>
+      <translation>DanteTL 需要更新 CUDA 才能再次使用你的 NVIDIA 显卡。</translation>
     </message>
     <message>
       <source>DanteTL {version} is available.</source>
@@ -3077,6 +3085,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>设置仍在运行</translation>
     </message>
     <message>
+      <source>Setup keeps your downloaded models. You can also update later in Settings → Acceleration.</source>
+      <translation>已下载的模型会保留。你也可以稍后在“设置 → 加速”中更新。</translation>
+    </message>
+    <message>
       <source>Setup needs attention: </source>
       <translation>设置需要注意： </translation>
     </message>
@@ -3771,6 +3783,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Unsupported settings format; defaults are being used.</source>
       <translation>不支持的设置格式；正在使用默认值。</translation>
+    </message>
+    <message>
+      <source>Update CUDA</source>
+      <translation>更新 CUDA</translation>
     </message>
     <message>
       <source>Update failed: {detail}</source>

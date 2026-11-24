@@ -1059,6 +1059,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>Продолжить в фоне</translation>
     </message>
     <message>
+      <source>Continue on CPU</source>
+      <translation>Продолжить на ЦП</translation>
+    </message>
+    <message>
       <source>Continue with ChatGPT</source>
       <translation>Продолжить с ChatGPT</translation>
     </message>
@@ -1181,6 +1185,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>DanteTL is up to date.</source>
       <translation>Установлена последняя версия DanteTL.</translation>
+    </message>
+    <message>
+      <source>DanteTL needs to update CUDA to use your NVIDIA graphics card again.</source>
+      <translation>Чтобы снова использовать вашу видеокарту NVIDIA, DanteTL нужно обновить CUDA.</translation>
     </message>
     <message>
       <source>DanteTL {version} is available.</source>
@@ -3077,6 +3085,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
       <translation>Настройка все еще выполняется</translation>
     </message>
     <message>
+      <source>Setup keeps your downloaded models. You can also update later in Settings → Acceleration.</source>
+      <translation>Скачанные модели сохранятся. Вы также можете обновить CUDA позже в разделе «Настройки → Ускорение».</translation>
+    </message>
+    <message>
       <source>Setup needs attention: </source>
       <translation>Настройка требует внимания: </translation>
     </message>
@@ -3771,6 +3783,10 @@ Model downloads: up to {size:.2f} GB; existing files are verified and reused.
     <message>
       <source>Unsupported settings format; defaults are being used.</source>
       <translation>Неподдерживаемый формат настроек; используются значения по умолчанию.</translation>
+    </message>
+    <message>
+      <source>Update CUDA</source>
+      <translation>Обновить CUDA</translation>
     </message>
     <message>
       <source>Update failed: {detail}</source>

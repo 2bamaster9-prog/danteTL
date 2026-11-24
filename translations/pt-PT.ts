@@ -1059,6 +1059,10 @@ Os detalhes estão em %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Continuar em segundo plano</translation>
     </message>
     <message>
+      <source>Continue on CPU</source>
+      <translation>Continuar com o CPU</translation>
+    </message>
+    <message>
       <source>Continue with ChatGPT</source>
       <translation>Continuar com o ChatGPT</translation>
     </message>
@@ -1181,6 +1185,10 @@ Os detalhes estão em %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>DanteTL is up to date.</source>
       <translation>O DanteTL está atualizado.</translation>
+    </message>
+    <message>
+      <source>DanteTL needs to update CUDA to use your NVIDIA graphics card again.</source>
+      <translation>O DanteTL precisa de atualizar o CUDA para voltar a usar a sua placa gráfica NVIDIA.</translation>
     </message>
     <message>
       <source>DanteTL {version} is available.</source>
@@ -3077,6 +3085,10 @@ Transferências de modelos: até {size:.2f} GB; os ficheiros existentes são ver
       <translation>A configuração ainda está em execução</translation>
     </message>
     <message>
+      <source>Setup keeps your downloaded models. You can also update later in Settings → Acceleration.</source>
+      <translation>Os modelos que já transferiu serão mantidos. Também pode atualizar mais tarde em Definições → Aceleração.</translation>
+    </message>
+    <message>
       <source>Setup needs attention: </source>
       <translation>A configuração requer atenção: </translation>
     </message>
@@ -3771,6 +3783,10 @@ Transferências de modelos: até {size:.2f} GB; os ficheiros existentes são ver
     <message>
       <source>Unsupported settings format; defaults are being used.</source>
       <translation>Formato de definições não suportado; estão a ser usados os predefinidos.</translation>
+    </message>
+    <message>
+      <source>Update CUDA</source>
+      <translation>Atualizar CUDA</translation>
     </message>
     <message>
       <source>Update failed: {detail}</source>

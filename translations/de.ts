@@ -1059,6 +1059,10 @@ Details finden Sie in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Im Hintergrund fortsetzen</translation>
     </message>
     <message>
+      <source>Continue on CPU</source>
+      <translation>CPU weiterverwenden</translation>
+    </message>
+    <message>
       <source>Continue with ChatGPT</source>
       <translation>Mit ChatGPT fortfahren</translation>
     </message>
@@ -1181,6 +1185,10 @@ Details finden Sie in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>DanteTL is up to date.</source>
       <translation>DanteTL ist aktuell.</translation>
+    </message>
+    <message>
+      <source>DanteTL needs to update CUDA to use your NVIDIA graphics card again.</source>
+      <translation>DanteTL benötigt ein CUDA-Update, um deine NVIDIA-Grafikkarte wieder zu verwenden.</translation>
     </message>
     <message>
       <source>DanteTL {version} is available.</source>
@@ -3077,6 +3085,10 @@ Modell-Downloads: bis zu {size:.2f} GB; vorhandene Dateien werden geprüft und w
       <translation>Einrichtung läuft noch</translation>
     </message>
     <message>
+      <source>Setup keeps your downloaded models. You can also update later in Settings → Acceleration.</source>
+      <translation>Deine heruntergeladenen Modelle bleiben erhalten. Du kannst das Update auch später unter Einstellungen → Beschleunigung durchführen.</translation>
+    </message>
+    <message>
       <source>Setup needs attention: </source>
       <translation>Einrichtung erfordert Aufmerksamkeit: </translation>
     </message>
@@ -3771,6 +3783,10 @@ Modell-Downloads: bis zu {size:.2f} GB; vorhandene Dateien werden geprüft und w
     <message>
       <source>Unsupported settings format; defaults are being used.</source>
       <translation>Nicht unterstütztes Einstellungsformat; Standardwerte werden verwendet.</translation>
+    </message>
+    <message>
+      <source>Update CUDA</source>
+      <translation>CUDA aktualisieren</translation>
     </message>
     <message>
       <source>Update failed: {detail}</source>

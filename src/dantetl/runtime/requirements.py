@@ -37,27 +37,22 @@ def dependency_fingerprint(project: Path, profile: str) -> str:
 
 
 def dependencies_match(project: Path, profile: str, target: Path) -> bool:
-    """The verified install record also permits migration from older app-bound receipts."""
-    try:
-        config = dict(
-            line.split(" = ", 1)
-            for line in (target / "pyvenv.cfg").read_text().splitlines()
-            if " = " in line
-        )
-        if (
-            config.get("version_info") != RUNTIME_PYTHON
-            or config.get("implementation") != "CPython"
-        ):
-            return False
-        requirements = target / "verified-wheels.txt"
-        if requirements.stat().st_size > 65_536:
-            return False
-        installed = []
-        for line in requirements.read_text("utf-8").splitlines():
-            match = re.fullmatch(r"(file://\S+) --hash=sha256:([a-f0-9]{64})", line)
-            if not match:
-                return False
-            installed.append((unquote(urlsplit(match[1]).path.rsplit("/", 1)[-1]), match[2]))
-        return tuple(sorted(installed)) == expected_wheels(project, profile)
-    except (OSError, ValueError, TypeError):
-        return False
+    """Compare a complete install record. Missing or malformed records raise an error."""
+    config = dict(
+        line.split(" = ", 1)
+        for line in (target / "pyvenv.cfg").read_text().splitlines()
+        if " = " in line
+    )
+    if config["implementation"] != "CPython" or not config["version_info"]:
+        raise ValueError("Invalid runtime Python configuration")
+    requirements = target / "verified-wheels.txt"
+    if not 0 < requirements.stat().st_size <= 65_536:
+        raise ValueError("Invalid runtime wheel record size")
+    installed = []
+    for line in requirements.read_text("utf-8").splitlines():
+        match = re.fullmatch(r"(file://\S+) --hash=sha256:([a-f0-9]{64})", line)
+        if not match:
+            raise ValueError("Invalid runtime wheel record")
+        installed.append((unquote(urlsplit(match[1]).path.rsplit("/", 1)[-1]), match[2]))
+    expected = expected_wheels(project, profile)
+    return config["version_info"] == RUNTIME_PYTHON and tuple(sorted(installed)) == expected
