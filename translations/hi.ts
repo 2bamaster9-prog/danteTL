@@ -1611,6 +1611,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>Gemini · API कुंजी</translation>
     </message>
     <message>
+      <source>Gemma 4 26B A4B QAT · High-memory option</source>
+      <translation>Gemma 4 26B A4B QAT · उच्च-मेमोरी विकल्प</translation>
+    </message>
+    <message>
       <source>Gemma 4 E2B · Recommended</source>
       <translation>Gemma 4 E2B · अनुशंसित</translation>
     </message>
@@ -1661,6 +1665,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Global shortcuts are unavailable in this session.</source>
       <translation>इस सत्र में वैश्विक शॉर्टकट उपलब्ध नहीं हैं।</translation>
+    </message>
+    <message>
+      <source>Google Q4_0 QAT text model; 14.44 GB download. GPU recommended; not benchmarked.</source>
+      <translation>Google का Q4_0 QAT टेक्स्ट मॉडल; डाउनलोड 14.44 GB। GPU अनुशंसित; बेंचमार्क नहीं किया गया।</translation>
     </message>
     <message>
       <source>Graphics hardware could not be checked. CPU remains available; you can choose acceleration manually.</source>

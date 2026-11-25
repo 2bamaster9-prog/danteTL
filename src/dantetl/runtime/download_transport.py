@@ -57,7 +57,7 @@ def download_file(
 
     try:
         run_setup_command(
-            command, resource_root(), environment, cancel, report, timeout=DOWNLOAD_TIMEOUT
+            command, resource_root(), environment, cancel, report, timeout=max(DOWNLOAD_TIMEOUT, size / (1024 * 1024))
         )
     except RuntimeError:
         if failure:

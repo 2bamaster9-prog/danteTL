@@ -83,6 +83,22 @@ MODELS = (
         ),
     ),
     CuratedModel(
+        "gemma-26b-qat",
+        mark("Gemma 4 26B A4B QAT · High-memory option"),
+        mark("Google Q4_0 QAT text model; 14.44 GB download. GPU recommended; not benchmarked."),
+        "gemma4",
+        "gemma4",
+        (
+            ModelAsset(
+                "google/gemma-4-26B-A4B-it-qat-q4_0-gguf",
+                "d1c082be9cf3c8a514acf63b8761f4b41935842e",
+                "gemma-4-26B_q4_0-it.gguf",
+                "3eca3b8f6d7baf218a7dd6bba5fb59a56ee25fe2d567b6f5f589b4f697eca51d",
+                14439363584,
+            ),
+        ),
+    ),
+    CuratedModel(
         "plamo-2b",
         mark("PLaMo 3 Translate 2B · Dialogue alternative"),
         mark("Fast dialogue translation. Mixed results for game stats and terminology."),

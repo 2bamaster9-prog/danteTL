@@ -1611,6 +1611,10 @@ I dettagli sono in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Gemini · Chiave API</translation>
     </message>
     <message>
+      <source>Gemma 4 26B A4B QAT · High-memory option</source>
+      <translation>Gemma 4 26B A4B QAT · Opzione per memoria elevata</translation>
+    </message>
+    <message>
       <source>Gemma 4 E2B · Recommended</source>
       <translation>Gemma 4 E2B · Consigliato</translation>
     </message>
@@ -1661,6 +1665,10 @@ I dettagli sono in %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Global shortcuts are unavailable in this session.</source>
       <translation>Le scorciatoie globali non sono disponibili in questa sessione.</translation>
+    </message>
+    <message>
+      <source>Google Q4_0 QAT text model; 14.44 GB download. GPU recommended; not benchmarked.</source>
+      <translation>Modello di testo Google QAT Q4_0; download di 14.44 GB. GPU consigliata; non sottoposto a benchmark.</translation>
     </message>
     <message>
       <source>Graphics hardware could not be checked. CPU remains available; you can choose acceleration manually.</source>

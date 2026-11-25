@@ -220,3 +220,47 @@ def test_downloaded_plamo_stays_visible_but_old_engine_needs_update(
         assert (
             "predates" in inspect_models((bundle,), include_imports=False).files[0].status
         ) is not supported
+
+
+def test_gemma_26b_qat_catalog_and_preferences():
+    from dantetl.application.preferences import decode_preferences
+    from dantetl.translation.models.curated import MODELS
+
+    key = "gemma-26b-qat"
+    model = next(m for m in MODELS if m.key == key)
+    bundle = next(b for b in model_store.model_catalog() if b.key == key)
+    assert model.profile == model.architecture == "gemma4"
+    assert bundle.size == 14439363584
+    assert bundle.assets[0].filename == "gemma-4-26B_q4_0-it.gguf"
+    assert len(bundle.assets[0].sha256) == 64
+    saved = decode_preferences({"version": 1, "model": key, "setup_model": key})
+    assert saved.model == saved.setup_model == key
+
+
+def test_gemma_26b_qat_is_offered_for_download_then_selectable(tmp_path, monkeypatch):
+    from dataclasses import replace
+
+    key = "gemma-26b-qat"
+    pinned = next(b for b in model_store.model_catalog() if b.key == key)
+    bundle = replace(
+        pinned,
+        directory=tmp_path / key,
+        assets=(ModelAsset("fixture", "pin", "weights", hashlib.sha256(b"good").hexdigest(), 4),),
+        bundled_directory=None,
+    )
+    monkeypatch.setattr(model_store, "model_catalog", lambda: (bundle,))
+    monkeypatch.setattr(llama_runtime, "installed_device", lambda: "cpu")
+    monkeypatch.setattr(llama_runtime, "supports_plamo", lambda: True)
+
+    # The Models tab and Setup guide list translation bundles that are not downloaded yet.
+    offered = inspect_models((bundle,), include_imports=False).files[0]
+    assert (offered.key, offered.category, offered.language_model) == (key, "translation", True)
+    assert not offered.present and "Not downloaded" in offered.status
+    assert not translation_backends()
+
+    bundle.directory.mkdir()
+    (bundle.directory / "weights").write_bytes(b"good")
+    (choice,) = translation_backends()
+    assert choice.preference_key == choice.selection_id == key
+    assert choice.name.startswith("Gemma 4 26B A4B QAT") and choice.classifies
+    assert choice.preparation_id and not choice.unavailable_reason

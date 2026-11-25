@@ -1611,6 +1611,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
       <translation>Gemini · API 키</translation>
     </message>
     <message>
+      <source>Gemma 4 26B A4B QAT · High-memory option</source>
+      <translation>Gemma 4 26B A4B QAT · 대용량 메모리 옵션</translation>
+    </message>
+    <message>
       <source>Gemma 4 E2B · Recommended</source>
       <translation>Gemma 4 E2B · 권장</translation>
     </message>
@@ -1661,6 +1665,10 @@ Details are in %LOCALAPPDATA%/DanteTL/logs/app.log.</source>
     <message>
       <source>Global shortcuts are unavailable in this session.</source>
       <translation>이 세션에서는 전역 단축키를 사용할 수 없습니다.</translation>
+    </message>
+    <message>
+      <source>Google Q4_0 QAT text model; 14.44 GB download. GPU recommended; not benchmarked.</source>
+      <translation>Google Q4_0 QAT 텍스트 모델, 다운로드 14.44 GB. GPU 권장, 벤치마크 미실시.</translation>
     </message>
     <message>
       <source>Graphics hardware could not be checked. CPU remains available; you can choose acceleration manually.</source>

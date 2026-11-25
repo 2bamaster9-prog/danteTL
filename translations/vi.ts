@@ -1611,6 +1611,10 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
       <translation>Gemini · Khóa API</translation>
     </message>
     <message>
+      <source>Gemma 4 26B A4B QAT · High-memory option</source>
+      <translation>Gemma 4 26B A4B QAT · Tùy chọn cho bộ nhớ lớn</translation>
+    </message>
+    <message>
       <source>Gemma 4 E2B · Recommended</source>
       <translation>Gemma 4 E2B · Được đề xuất</translation>
     </message>
@@ -1661,6 +1665,10 @@ Chi tiết có trong %LOCALAPPDATA%/DanteTL/logs/app.log.</translation>
     <message>
       <source>Global shortcuts are unavailable in this session.</source>
       <translation>Phím tắt toàn cục không khả dụng trong phiên này.</translation>
+    </message>
+    <message>
+      <source>Google Q4_0 QAT text model; 14.44 GB download. GPU recommended; not benchmarked.</source>
+      <translation>Mô hình văn bản QAT Q4_0 của Google; dung lượng tải 14.44 GB. Nên dùng GPU; chưa được đo hiệu năng.</translation>
     </message>
     <message>
       <source>Graphics hardware could not be checked. CPU remains available; you can choose acceleration manually.</source>

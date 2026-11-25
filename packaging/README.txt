@@ -5,7 +5,8 @@ DanteTL - Windows x64
 3. MeikiOCR and PaddleOCR are included. All 35 source languages work immediately on CPU.
    Follow the first-run Setup assistant to choose a translation model
    and review optional GPU support. Gemma 4 E2B is the recommended starting choice;
-   E4B is the higher-resource recommendation. Other models remain available.
+   E4B is the higher-resource recommendation. Gemma 4 26B A4B QAT (14.44 GB download) is an optional
+   high-memory choice; a GPU is recommended and it is not benchmarked. Other models remain available.
    Nothing downloads until you confirm. You can skip it and reopen
    Settings > Setup assistant, or use the Models and Acceleration tabs directly.
    Models has a Model type menu separating translation from text recognition (OCR).

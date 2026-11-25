@@ -29,6 +29,7 @@ text and, when available, a game-name hint and recent dialogue for context.
 | --- | ---: | --- |
 | **Gemma 4 E2B** | 3.35 GB | Start here for a balance of speed and accurate game terminology. |
 | Gemma 4 E4B | 5.15 GB | Good for game terminology if you have more memory available. |
+| Gemma 4 26B A4B QAT | 14.44 GB | Optional high-memory model; GPU recommended. Not benchmarked. |
 | PLaMo 3 Translate 2B | 1.81 GB | Fast for dialogue. Mixed results for stats and game terms. |
 | PLaMo 3 Translate 0.8B | 0.57 GB | Smallest download. Fast, with weaker phrasing and mixed results for game terms. |
 | Qwen3.5 4B | 2.74 GB | An alternative if you dislike Gemma’s wording. Slower in DanteTL’s tests. |
