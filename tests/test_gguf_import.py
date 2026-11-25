@@ -475,3 +475,39 @@ def test_old_engine_rejects_plamo_before_native_loading(tmp_path, fake_runtime, 
     with pytest.raises(RuntimeError, match="updated engine"):
         gguf_backend.GgufBackend(model, device="cpu")
     fake_runtime.Llama.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "key,closed", [("gemma-26b-qat", True), ("gemma-e4b", False), ("x", False)]
+)
+def test_only_the_large_gemma_prompt_closes_an_empty_thought_channel(
+    tmp_path, fake_runtime, key, closed
+):
+    model = replace(
+        registration(tmp_path, architecture="gemma4", template="{{ messages }}"),
+        key=key,
+        profile="gemma4",
+    )
+    backend = gguf_backend.GgufBackend(model, device="cpu")
+    engine = fake_runtime.Llama.return_value
+    try:
+        backend.translate_with_context("設定", ())
+        prompt = engine.tokenize.call_args.args[0].decode()
+        assert prompt.endswith(
+            "<|turn>model\n<|channel>thought\n<channel|>" if closed else "<|turn>model\n"
+        )
+        assert prompt.count("<|channel>") == int(closed)
+        assert ("empty-thought" in backend._generation_identity) is closed
+    finally:
+        backend.close()
+
+
+def test_empty_closed_thought_channel_is_dropped_but_reasoning_is_not():
+    def answer(text):
+        return gguf_backend.completed_answer({"choices": [{"text": text, "finish_reason": "stop"}]})
+
+    assert answer("<|channel>thought\n<channel|>Settings") == "Settings"
+    with pytest.raises(RequestRejected):
+        answer("<|channel>thought\nlet me think<channel|>Settings")
+    with pytest.raises(RequestRejected):
+        answer("<|channel>thought\n<channel|>")

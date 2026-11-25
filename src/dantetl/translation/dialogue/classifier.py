@@ -139,10 +139,21 @@ def parse_classification(text: str) -> Classification:
         ) from None
 
 
-def gemma_prompt(value: ClassificationInput, *, language: SourceLanguage = DEFAULT_SOURCE) -> str:
+# Larger Gemma 4 models (26B A4B, 31B) may open a thought channel even with thinking off. Their
+# official chat template ends the generation prompt with this already-closed empty channel.
+EMPTY_THOUGHT = "<|channel>thought\n<channel|>"
+
+
+def gemma_prompt(
+    value: ClassificationInput,
+    *,
+    language: SourceLanguage = DEFAULT_SOURCE,
+    empty_thought: bool = False,
+) -> str:
     data = value.payload().replace("<", "＜").replace(">", "＞")
     instruction = classification_instruction(value, language=language)
-    return f"<bos><|turn>system\n{instruction}<turn|>\n<|turn>user\n{data}<turn|>\n<|turn>model\n"
+    prompt = f"<bos><|turn>system\n{instruction}<turn|>\n<|turn>user\n{data}<turn|>\n<|turn>model\n"
+    return prompt + EMPTY_THOUGHT if empty_thought else prompt
 
 
 def local_classification(

@@ -69,6 +69,10 @@ def user_prompt(
     )
 
 
+# Built-in models whose official template closes an empty thought channel when thinking is off.
+EMPTY_THOUGHT_KEYS = frozenset({"gemma-26b-qat"})
+
+
 def completed_answer(response: Any) -> str:
     choice = response["choices"][0]
     if choice["finish_reason"] != "stop":
@@ -78,6 +82,8 @@ def completed_answer(response: Any) -> str:
     text = choice["text"].strip()
     # Qwen's non-thinking template can emit an empty block. Never publish actual reasoning.
     text = re.sub(r"^<think>\s*</think>\s*", "", text)
+    # Only an empty, closed Gemma channel is dropped; any reasoning inside it is still rejected.
+    text = re.sub(r"^<\|channel>thought\n?<channel\|>\s*", "", text)
     if (
         not text
         or len(text) > 4096
@@ -155,6 +161,7 @@ class GgufBackend:
             else Sampling(seed=42)
         )
         self._gemma = info.profile == "gemma4"
+        self._empty_thought = self._gemma and registration.key in EMPTY_THOUGHT_KEYS
         self._plamo = info.profile == "plamo3"
         batch = 128 if device == "cpu" else 1
         try:
@@ -207,7 +214,13 @@ class GgufBackend:
                 runtime.__version__,
                 device,
             )
-            self._generation_identity = (CONTEXT, OUTPUT_LIMIT, batch, template)
+            self._generation_identity = (
+                CONTEXT,
+                OUTPUT_LIMIT,
+                batch,
+                template,
+                *(("empty-thought",) if self._empty_thought else ()),
+            )
             self.set_source(language)
             self.translate((language.warmup_text,))
         except Exception:
@@ -221,7 +234,7 @@ class GgufBackend:
         prompt = (
             plamo_prompt("", (), language=language)
             if self._plamo
-            else translation_prompt("", (), language=language)
+            else translation_prompt("", (), language=language, empty_thought=self._empty_thought)
             if self._gemma
             else INSTRUCTION.format(source_language=language.name, target_language=ENGLISH.name)
         )
@@ -257,7 +270,13 @@ class GgufBackend:
         elif self._gemma:
             from dantetl.translation.backends.gemma import translation_prompt
 
-            prompt = translation_prompt(text, context, language=self._language, target=target)
+            prompt = translation_prompt(
+                text,
+                context,
+                language=self._language,
+                target=target,
+                empty_thought=self._empty_thought,
+            )
         else:
             # A single user turn works with templates that disallow system roles.
             formatted = self._formatter(
@@ -327,7 +346,7 @@ class GgufBackend:
         if self._plamo:
             raise RequestRejected(tr("This translation-only model cannot classify dialogue."))
         prompt = (
-            gemma_prompt(value, language=self._language)
+            gemma_prompt(value, language=self._language, empty_thought=self._empty_thought)
             if self._gemma
             else self._formatter(
                 messages=[

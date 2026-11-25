@@ -18,6 +18,7 @@ from dantetl.translation.backend import RequestRejected
 from dantetl.translation.backends.label_decoder import LlamaLabelDecoder
 from dantetl.translation.backends.prompt_budget import fit_prompt
 from dantetl.translation.dialogue.classifier import (
+    EMPTY_THOUGHT,
     Classification,
     ClassificationInput,
     gemma_prompt,
@@ -63,6 +64,7 @@ def translation_prompt(
     *,
     language: SourceLanguage = DEFAULT_SOURCE,
     target: TargetLanguage = ENGLISH,
+    empty_thought: bool = False,
 ) -> str:
     # Gemma 4's native turn markers differ from older Gemma templates. Escape literal
     # marker syntax in OCR data, so it cannot close the user turn. No thinking switch.
@@ -82,6 +84,7 @@ def translation_prompt(
     return (
         f"<bos><|turn>system\n{instruction}<turn|>\n"
         f"<|turn>user\n{history}{source}<turn|>\n<|turn>model\n"
+        f"{EMPTY_THOUGHT if empty_thought else ''}"
     )
 
 
